@@ -41,34 +41,36 @@ The contract direction mirrors Android-stabilized semantics:
 - explicit phase ordering and timing,
 - versioned manifest for safe evolution.
 
-## Current MVP scope (PR2)
+## Current MVP scope (PR3)
 
 Included:
-- package IO foundation under `src/lib/package/*`,
-- bundled sample package loading,
-- local JSON import and validation in Studio,
-- local JSON export for currently loaded package,
-- left/center/right Studio panels wired to real package data and validation output,
-- docs updates for local import/export workflow.
+- package IO + validation foundation from PR2,
+- canonical Studio pose canvas surface (`src/components/studio/canvas/`),
+- centralized canonical joint metadata and skeleton connections (`src/lib/pose/canonical.ts`),
+- deterministic normalized coordinate mapping utilities (`src/lib/canvas/`),
+- phase selection wiring to right-panel pose visualization and metadata,
+- non-destructive warning states for incomplete pose data,
+- source asset placeholder cards for future overlay support.
 
 Intentionally deferred:
-- pose editing,
-- MediaPipe integration,
-- auth,
-- remote database/storage,
-- package publishing/marketplace backend.
+- full drag/edit manipulation tools,
+- MediaPipe detection and detector-specific joint mapping,
+- image overlay compositing,
+- timeline animation editor,
+- auth and backend persistence.
 
 ## Local package workflow
 
 From `/studio`:
 1. Load a bundled sample package from the left panel.
 2. Import a `.json` package from the top bar.
-3. Review validation issues in workspace/inspector panels.
-4. Export the selected package back to local JSON.
+3. Select a phase in the center panel.
+4. Inspect the canonical pose canvas and phase metadata in the right panel.
+5. Export the selected package back to local JSON.
 
 Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
 
-Current UI limitation in PR2: Studio surfaces the first drill in a package for workspace/inspector rendering; multi-drill browsing/editing is deferred.
+Current UI limitation in PR3: Studio renders the first drill in each package as the active workspace drill; multi-drill browsing/editing is deferred.
 
 ## Tech stack
 
@@ -90,7 +92,7 @@ Open: <http://localhost:3000>
 ## Route map
 
 - `/` - project entry and route index
-- `/studio` - package-driven workspace with local import/export
+- `/studio` - package-driven workspace with canonical pose canvas preview
 - `/library` - source/library placeholder
 - `/packages` - package workflow placeholder
 - `/marketplace` - future sharing surface placeholder

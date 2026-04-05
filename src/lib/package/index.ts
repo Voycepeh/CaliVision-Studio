@@ -38,3 +38,10 @@ export {
   type PackageValidationIssue,
   type PackageValidationResult
 } from "@/lib/package/validation/validate-package";
+
+export {
+  mapPortablePhaseToInspectorViewModel,
+  mapPortablePoseToCanvasPoseModel,
+  type CanvasPoseModel,
+  type InspectorPhaseViewModel
+} from "@/lib/package/mapping/canvas-view-models";

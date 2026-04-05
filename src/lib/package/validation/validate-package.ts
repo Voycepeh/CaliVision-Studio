@@ -1,26 +1,7 @@
-import type { CanonicalJointName, DrillPackage, PortableAssetRef, PortablePhase } from "@/lib/schema/contracts";
+import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
+import type { DrillPackage, PortableAssetRef, PortablePhase } from "@/lib/schema/contracts";
 
 const SUPPORTED_SCHEMA_VERSION = "0.1.0";
-
-const CANONICAL_JOINT_NAMES: CanonicalJointName[] = [
-  "nose",
-  "leftEye",
-  "rightEye",
-  "leftEar",
-  "rightEar",
-  "leftShoulder",
-  "rightShoulder",
-  "leftElbow",
-  "rightElbow",
-  "leftWrist",
-  "rightWrist",
-  "leftHip",
-  "rightHip",
-  "leftKnee",
-  "rightKnee",
-  "leftAnkle",
-  "rightAnkle"
-];
 
 const CANONICAL_JOINT_SET = new Set<string>(CANONICAL_JOINT_NAMES);
 const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear", "three-quarter"]);
