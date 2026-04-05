@@ -6,11 +6,11 @@ import { useStudioState } from "@/components/studio/StudioState";
 export function WorkspacePanel() {
   const { packages, selectedPackageKey, selectedPhaseId, selectPhase } = useStudioState();
   const selectedPackage = packages.find((entry) => entry.packageKey === selectedPackageKey) ?? null;
-  const drill = selectedPackage?.primaryDrill ?? null;
+  const drillView = selectedPackage?.primaryDrill ?? null;
 
   const selectedPhase = useMemo(
-    () => drill?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? drill?.phases[0] ?? null,
-    [drill, selectedPhaseId]
+    () => drillView?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null,
+    [drillView, selectedPhaseId]
   );
 
   return (
@@ -18,11 +18,11 @@ export function WorkspacePanel() {
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.4rem" }}>Drill Workspace</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Inspect package metadata, ordered phases, and validation status before export.
+          Inspect package metadata and choose a phase to drive canonical pose canvas preview in the inspector.
         </p>
       </header>
 
-      {!selectedPackage || !drill ? (
+      {!selectedPackage || !drillView ? (
         <section className="card">
           <p className="muted" style={{ margin: 0 }}>
             No package loaded. Load a sample or import a local JSON package.
@@ -33,9 +33,9 @@ export function WorkspacePanel() {
           <section className="card">
             <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill metadata</h3>
             <div className="field-grid">
-              <Field label="Title" value={drill.title} />
-              <Field label="Difficulty" value={drill.difficulty} />
-              <Field label="Primary View" value={drill.defaultView} />
+              <Field label="Title" value={drillView.title} />
+              <Field label="Difficulty" value={drillView.difficulty} />
+              <Field label="Primary View" value={drillView.defaultView} />
               <Field label="Schema version" value={selectedPackage.package.manifest.schemaVersion} />
               <Field label="Package ID" value={selectedPackage.package.manifest.packageId} />
               <Field label="Package Version" value={selectedPackage.package.manifest.packageVersion} />
@@ -43,9 +43,25 @@ export function WorkspacePanel() {
           </section>
 
           <section className="card">
-            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Phase list</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
+              <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Phase list</h3>
+              <button
+                type="button"
+                onClick={() => selectPhase("")}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "999px",
+                  background: "var(--panel-soft)",
+                  color: "var(--muted)",
+                  padding: "0.2rem 0.55rem",
+                  cursor: "pointer"
+                }}
+              >
+                Clear selection
+              </button>
+            </div>
             <div style={{ display: "grid", gap: "0.35rem" }}>
-              {drill.phases.map((phase) => (
+              {drillView.phases.map((phase) => (
                 <button
                   key={phase.phaseId}
                   type="button"
@@ -89,7 +105,7 @@ export function WorkspacePanel() {
               </ul>
             ) : (
               <p className="muted" style={{ margin: 0 }}>
-                Select a phase to inspect details.
+                No phase selected. Choose a phase to preview pose data on the canonical canvas.
               </p>
             )}
           </section>

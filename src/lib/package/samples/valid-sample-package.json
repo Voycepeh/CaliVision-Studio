@@ -18,7 +18,11 @@
       "title": "Reactive Defense Ladder",
       "description": "Sample package used for Studio local import/export and validation.",
       "difficulty": "intermediate",
-      "tags": ["defense", "footwork", "timing"],
+      "tags": [
+        "defense",
+        "footwork",
+        "timing"
+      ],
       "defaultView": "side",
       "phases": [
         {
@@ -34,22 +38,66 @@
               "timestampMs": 0,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
-                "widthRef": 1,
-                "heightRef": 1,
+                "widthRef": 1000,
+                "heightRef": 1600,
                 "view": "side"
               },
               "joints": {
-                "nose": { "x": 0.5, "y": 0.12, "confidence": 0.98 },
-                "leftShoulder": { "x": 0.42, "y": 0.28, "confidence": 0.96 },
-                "rightShoulder": { "x": 0.58, "y": 0.29, "confidence": 0.97 },
-                "leftElbow": { "x": 0.4, "y": 0.42, "confidence": 0.91 },
-                "rightElbow": { "x": 0.61, "y": 0.43, "confidence": 0.92 },
-                "leftHip": { "x": 0.46, "y": 0.54, "confidence": 0.95 },
-                "rightHip": { "x": 0.56, "y": 0.54, "confidence": 0.94 },
-                "leftKnee": { "x": 0.45, "y": 0.73, "confidence": 0.9 },
-                "rightKnee": { "x": 0.58, "y": 0.73, "confidence": 0.9 },
-                "leftAnkle": { "x": 0.44, "y": 0.92, "confidence": 0.92 },
-                "rightAnkle": { "x": 0.59, "y": 0.91, "confidence": 0.92 }
+                "nose": {
+                  "x": 0.5,
+                  "y": 0.12,
+                  "confidence": 0.98
+                },
+                "leftShoulder": {
+                  "x": 0.42,
+                  "y": 0.28,
+                  "confidence": 0.96
+                },
+                "rightShoulder": {
+                  "x": 0.58,
+                  "y": 0.29,
+                  "confidence": 0.97
+                },
+                "leftElbow": {
+                  "x": 0.4,
+                  "y": 0.42,
+                  "confidence": 0.91
+                },
+                "rightElbow": {
+                  "x": 0.61,
+                  "y": 0.43,
+                  "confidence": 0.92
+                },
+                "leftHip": {
+                  "x": 0.46,
+                  "y": 0.54,
+                  "confidence": 0.95
+                },
+                "rightHip": {
+                  "x": 0.56,
+                  "y": 0.54,
+                  "confidence": 0.94
+                },
+                "leftKnee": {
+                  "x": 0.45,
+                  "y": 0.73,
+                  "confidence": 0.9
+                },
+                "rightKnee": {
+                  "x": 0.58,
+                  "y": 0.73,
+                  "confidence": 0.9
+                },
+                "leftAnkle": {
+                  "x": 0.44,
+                  "y": 0.92,
+                  "confidence": 0.92
+                },
+                "rightAnkle": {
+                  "x": 0.59,
+                  "y": 0.91,
+                  "confidence": 0.92
+                }
               }
             }
           ],
@@ -75,16 +123,36 @@
               "timestampMs": 8000,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
-                "widthRef": 1,
-                "heightRef": 1,
+                "widthRef": 1000,
+                "heightRef": 1600,
                 "view": "front"
               },
               "joints": {
-                "nose": { "x": 0.52, "y": 0.1, "confidence": 0.95 },
-                "leftShoulder": { "x": 0.41, "y": 0.27, "confidence": 0.91 },
-                "rightShoulder": { "x": 0.62, "y": 0.31, "confidence": 0.91 },
-                "leftHip": { "x": 0.45, "y": 0.55, "confidence": 0.9 },
-                "rightHip": { "x": 0.58, "y": 0.57, "confidence": 0.9 }
+                "nose": {
+                  "x": 0.52,
+                  "y": 0.1,
+                  "confidence": 0.95
+                },
+                "leftShoulder": {
+                  "x": 0.41,
+                  "y": 0.27,
+                  "confidence": 0.91
+                },
+                "rightShoulder": {
+                  "x": 0.62,
+                  "y": 0.31,
+                  "confidence": 0.91
+                },
+                "leftHip": {
+                  "x": 0.45,
+                  "y": 0.55,
+                  "confidence": 0.9
+                },
+                "rightHip": {
+                  "x": 0.58,
+                  "y": 0.57,
+                  "confidence": 0.9
+                }
               }
             }
           ],
@@ -103,8 +171,42 @@
           "title": "Recovery + reset",
           "durationMs": 10000,
           "startOffsetMs": 24000,
-          "poseSequence": [],
-          "assetRefs": []
+          "poseSequence": [
+            {
+              "poseId": "pose_reset_001",
+              "timestampMs": 24000,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "rear"
+              },
+              "joints": {
+                "nose": {
+                  "x": 0.49,
+                  "y": 0.12,
+                  "confidence": 0.72
+                },
+                "leftShoulder": {
+                  "x": 0.4,
+                  "y": 0.28,
+                  "confidence": 0.75
+                },
+                "rightShoulder": {
+                  "x": 0.59,
+                  "y": 0.29,
+                  "confidence": 0.74
+                },
+                "leftHip": {
+                  "x": 0.45,
+                  "y": 0.57,
+                  "confidence": 0.7
+                }
+              }
+            }
+          ],
+          "assetRefs": [],
+          "summary": "Return to guard with intentionally sparse joint data for robustness checks."
         }
       ]
     }

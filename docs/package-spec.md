@@ -1,8 +1,8 @@
-# Portable Drill Package Spec (PR2 Local IO + Validation)
+# Portable Drill Package Spec (PR3 Pose Canvas Foundation)
 
 ## Goal
 
-Define and validate a portable package shape that mirrors Android-stabilized semantics while keeping room for additive evolution.
+Define and validate a portable package shape that mirrors Android-stabilized semantics while adding a canonical Studio pose rendering foundation.
 
 ## Core types
 
@@ -17,22 +17,38 @@ Define and validate a portable package shape that mirrors Android-stabilized sem
 - `PortableViewType` — canonical camera/view context.
 - `CanonicalJointName` — stable joint name vocabulary shared across clients.
 
-## Local package IO foundation (PR2)
+## Studio canonical pose canvas assumptions (PR3)
 
-New package namespace:
+Studio now uses a canonical portrait visual surface for deterministic phase pose preview.
+
+Key assumptions:
+1. Package pose coordinates remain normalized in `[0,1]` regardless of screen size.
+2. Rendering uses a fixed canonical internal portrait reference (`1000x1600`), then scales responsively.
+3. Pose rendering is independent of source image dimensions and independent of per-pose `widthRef`/`heightRef` for Studio preview geometry.
+4. Only canonical joints from the portable contract are rendered.
+5. Missing joints are allowed and render as partial skeletons.
+
+## Local package IO + visualization foundation (PR2 + PR3)
+
+Package namespace:
 - `src/lib/package/import/`
 - `src/lib/package/export/`
 - `src/lib/package/validation/`
 - `src/lib/package/mapping/`
 - `src/lib/package/samples/`
 
+Pose/canvas namespace:
+- `src/lib/pose/`
+- `src/lib/canvas/`
+- `src/components/studio/canvas/`
+
 Capabilities:
 1. Load bundled sample package JSON.
 2. Import local `.json` package files from browser file picker.
 3. Parse and validate unknown payloads safely with structured issues.
 4. Export currently loaded package as downloadable JSON.
-
-Current PR2 UI behavior note: Studio validates full package payloads but renders the first drill as the active workspace drill; multi-drill UI navigation is deferred.
+5. Render selected phase pose on canonical Studio canvas.
+6. Surface non-destructive warnings for incomplete/partially populated pose data.
 
 ## Validation philosophy
 
@@ -46,7 +62,7 @@ Structured outputs:
 
 Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but non-blocking.
 
-### Current PR2 checks
+### Current checks
 
 - manifest presence
 - schema version presence + support check
@@ -63,8 +79,10 @@ Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but 
 
 ### Coordinates
 
-- Contract uses `normalized-2d` coordinates (`x`, `y` in a [0,1] reference frame).
+- Contract uses `normalized-2d` coordinates (`x`, `y` in a `[0,1]` reference frame).
 - Import validation rejects out-of-range coordinates.
+- Studio import validation still rejects out-of-range coordinates for package acceptance.
+- Studio canvas preview clamping is defensive and primarily intended for non-import transient editor state in future PRs.
 
 ### Joint names
 
@@ -86,6 +104,6 @@ Joint keys must come from the canonical `CanonicalJointName` set. Unknown joints
 ## Evolution notes
 
 Planned follow-up additions:
-- schema evolution strategy docs and migration helpers,
-- richer asset resolution semantics,
-- phase editing + pose canvas pipelines in later PRs.
+- lightweight phase/joint edit interactions (PR4),
+- MediaPipe detector-to-canonical mapping pipeline (PR5),
+- source image overlay alignment workflow (PR6).
