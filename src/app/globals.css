@@ -143,6 +143,15 @@ main {
   padding: 0.75rem;
 }
 
+.pose-canvas-frame {
+  --pose-canvas-max-height: 999px;
+}
+
+.pose-canvas-svg {
+  width: 100%;
+  max-height: var(--pose-canvas-max-height);
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -153,5 +162,16 @@ main {
 @media (max-width: 1180px) {
   .studio-pose-canvas-wrap {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .pose-canvas-frame {
+    --pose-canvas-max-height: min(56vh, 440px);
+  }
+
+  .pose-canvas-svg {
+    width: min(100%, calc(var(--pose-canvas-max-height) * 9 / 16));
+    margin-inline: auto;
   }
 }

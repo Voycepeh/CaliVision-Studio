@@ -28,14 +28,7 @@
 - Surface empty/incomplete pose states and non-destructive warnings.
 - Add source asset placeholder metadata summary under the inspector canvas.
 
-## Assumptions
-
-- Android remains the temporary semantics reference for portable packages.
-- Studio stays package-first and contract-aligned.
-- Canonical pose canvas is the fixed visual reference surface for upcoming edit and detection flows.
-- Static/local data is sufficient for PR3 visualization workflows.
-
-## PR4 (this change)
+## PR4 (completed)
 
 - Add Studio editor working-copy state with non-destructive local mutations and dirty tracking.
 - Add phase list editing (rename/add/delete/duplicate/reorder).
@@ -44,19 +37,33 @@
 - Add export integration for working-copy JSON.
 - Extend validation surfacing for sequencing/title quality warnings.
 
+## PR5 (this change)
+
+- Add image-first MediaPipe pose detection workflow for selected phase images.
+- Implement detection runtime via browser MediaPipe Pose (`@mediapipe/pose/pose.js`) with isolated adapter.
+- Isolate detector runtime under `src/lib/detection/mediapipe/`.
+- Add explicit detector result model (`DetectionResult`, confidence, metadata, issues).
+- Add centralized detector-to-canonical mapping into portable pose joints.
+- Add detection review UX (upload image, detect, preview mapped pose, explicit apply).
+- Preserve manual joint editing flow after apply.
+- Preserve current phase pose on failures unless user applies a successful/partial result.
+- Store phase source image refs as local placeholder `assetRefs` in working package state.
+- Strip temporary `local://phase-images/...` refs on export to preserve portable package compatibility.
+
 ## Assumptions
 
 - Android remains the temporary semantics reference for portable packages.
 - Studio stays package-first and contract-aligned.
-- Canonical pose canvas remains the fixed visual reference for edit interactions.
-- Static/local data is sufficient for PR4 local authoring workflows.
+- Canonical pose canvas remains the fixed visual reference for edit/detection interactions.
+- Source image binaries remain local-only and are not embedded in exported package payloads.
 
 ## Non-goals (still deferred)
 
 - No auth/identity.
 - No cloud persistence or object storage.
-- No MediaPipe integration.
-- No source image overlay compositing.
+- No video detection pipeline.
+- No browser live coaching.
+- No source image overlay alignment editor.
 - No timeline animation editor.
 - No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
 
@@ -80,28 +87,6 @@
 
 ## Recommended next PR sequence
 
-1. **PR5:** MediaPipe image pose detection + detector-to-canonical joint mapping.
-2. **PR6:** source image overlay support and pose/image alignment workflow.
-3. **PR7:** animation preview based on edited phase sequence and durations.
-
-## PR5 (this change)
-
-- Replace fixed three-column shell with a resizable panel layout for desktop authoring.
-- Add compact/tabs fallback for narrower widths instead of squeezing the center workspace.
-- Move the canonical pose editor and joint controls into the center inspector workspace.
-- Add focus-region filtering controls for joint inspection without mutating canonical data.
-- Convert drill/package metadata cards into controlled editable inputs wired to working copy state.
-- Separate movement metadata from package/export metadata in the right-side details flow.
-- Relocate validation summary and source asset information into right-side details.
-
-## Assumptions
-
-- Canonical pose editor canvas dimensions and pose normalization semantics remain unchanged.
-- Focus region controls are viewport/control-only filters and never persist coordinate transforms.
-- Metadata edits should immediately affect dirty state and export payload from the working copy.
-
-## Non-goals
-
-- No schema contract changes and no Android compatibility contract changes.
-- No backend persistence or collaboration features.
-- No zoom/pan persistence or authored coordinate remapping.
+1. **PR6:** source image overlay support and pose/image alignment workflow.
+2. **PR7:** animation preview based on edited phase sequence and durations.
+3. **PR8:** local package asset bundling strategy for source images and thumbnails.
