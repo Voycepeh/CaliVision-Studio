@@ -1,25 +1,31 @@
-# Android Compatibility Notes
+# Android Compatibility
 
-## Philosophy
+## Compatibility posture
 
-Android is a **consumer/execution runtime** for packages authored in Studio. Authoring logic remains in web to avoid divergence.
+Android remains the temporary behavioral reference for package semantics. Studio must mirror stabilized Android package expectations rather than inventing divergent payloads.
 
-## Contract expectations for Android
+## Mandatory contract alignment
 
-- Parse `DrillManifest` first.
-- Verify supported `schemaVersion`.
-- Resolve `PortableDrill` and iterate ordered phases.
-- Treat `PortableAssetRef.uri` as relative or absolute based on package format rules.
-- Handle missing optional fields defensively.
+- Preserve canonical joint naming parity.
+- Preserve normalized coordinate semantics.
+- Preserve explicit phase order + duration behavior.
+- Preserve manifest-driven schema compatibility checks.
+
+## Integration expectations for Android consumers
+
+1. Parse `DrillManifest` and verify schema support.
+2. Load drill phase order deterministically from `PortablePhase.order`.
+3. Resolve assets from `PortableAssetRef` values.
+4. Handle additive unknown fields without crashing.
 
 ## Guardrails
 
-- Do not push Studio-only editing state into runtime package contracts.
-- Keep runtime payload deterministic and stable.
-- Track compatibility decisions in docs before implementation.
+- Do not leak Studio-only editing state into portable runtime contracts.
+- Do not introduce alternate coordinate systems without explicit versioning.
+- Do not rename canonical joints without cross-platform migration planning.
 
-## Planned implementation sequence
+## Current baseline
 
-1. Android parser for PR1 sample payload.
-2. Validation feedback loop from Android to Studio docs.
-3. Version negotiation behavior for future schema bumps.
+- Contract baseline: `0.1.0`
+- Producer source in PR1: `web-studio`
+- Sample payloads in `samples/` are compatibility review fixtures.

@@ -10,21 +10,12 @@ export function StudioLayout({ left, center, right }: StudioLayoutProps) {
   return (
     <main>
       <TopBar />
-      <section className="studio-grid">
-        {[left, center, right].map((panel, idx) => (
-          <div
-            key={idx}
-            style={{
-              border: "1px solid var(--border)",
-              background: "var(--panel)",
-              borderRadius: "0.8rem",
-              overflow: "hidden",
-              minHeight: 0
-            }}
-          >
-            {panel}
-          </div>
-        ))}
+      <section className="studio-shell">
+        <div className="studio-grid">
+          <aside className="panel">{left}</aside>
+          <section className="panel">{center}</section>
+          <aside className="panel">{right}</aside>
+        </div>
       </section>
     </main>
   );

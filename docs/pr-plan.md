@@ -1,28 +1,31 @@
-# PR1 Plan - Studio Foundation
+# PR Plan (Foundation and Sequencing)
 
-## Scope
+## PR1 scope (this change)
 
-- Web app bootstrap (Next.js + TS + App Router)
-- Dark 3-panel Studio shell
-- Placeholder routes for upcoming workflows
-- Portable contract groundwork + docs + sample package
+- Bootstrap the web repository with Next.js + TypeScript + App Router.
+- Establish a credible desktop-first dark Studio shell.
+- Add foundational product and architecture docs.
+- Define portable package contracts aligned with Android compatibility.
+- Add lightweight runtime validation seam for unknown package JSON payloads.
+- Add mock and sample payloads for future import/export work.
 
-## Explicit non-goals
+## Assumptions
 
-- Full pose detection
-- Marketplace implementation
-- Auth, backend, or cloud persistence
+- Android remains the temporary semantics reference for portable packages.
+- No backend/auth/storage is needed for this foundation PR.
+- Local mock data is sufficient to validate information architecture.
 
-## Risks and mitigations
+## Non-goals
 
-- Risk: Contract drift between web and Android
-  - Mitigation: Keep schema docs, TS contracts, and sample payload in lockstep.
-- Risk: UI shell rework in later PRs
-  - Mitigation: Isolate layout primitives from panel content.
+- No auth/identity.
+- No cloud persistence or object storage.
+- No MediaPipe integration.
+- No live web coaching.
+- No full marketplace behavior.
 
-## Follow-up PR candidates
+## Recommended next PR sequence
 
-1. JSON schema files + runtime validation.
-2. Package import/export from Studio UI.
-3. Pose canvas and timeline edit interactions.
-4. MediaPipe-assisted drafting and review loops.
+1. **PR2:** package import/export + JSON validation + sample package loader.
+2. **PR3:** pose canvas foundation with canonical joints and normalized coordinates.
+3. **PR4:** phase editor + timing editor + animation preview.
+4. **PR5:** MediaPipe image pose detection + detector-to-canonical mapping.

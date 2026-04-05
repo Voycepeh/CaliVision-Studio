@@ -1,13 +1,16 @@
 :root {
   color-scheme: dark;
-  --bg: #0b0f14;
-  --panel: #101720;
-  --panel-elevated: #16212d;
-  --text: #e8edf2;
-  --muted: #9aa7b5;
-  --accent: #6da8ff;
-  --border: #283646;
-  --success: #4ad9a7;
+  --bg: #070b11;
+  --bg-gradient: radial-gradient(circle at 15% 5%, #122033 0%, #070b11 45%);
+  --panel: #0f1520;
+  --panel-soft: #131c2a;
+  --panel-elevated: #182435;
+  --text: #e8edf3;
+  --muted: #90a1b5;
+  --accent: #72a8ff;
+  --accent-soft: rgba(114, 168, 255, 0.15);
+  --border: #27384c;
+  --success: #52d8ad;
 }
 
 * {
@@ -19,6 +22,7 @@ body {
   margin: 0;
   min-height: 100%;
   background: var(--bg);
+  background-image: var(--bg-gradient);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
 }
@@ -35,7 +39,7 @@ main {
 .page-shell {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2.4rem 1.6rem;
 }
 
 .route-grid {
@@ -46,26 +50,73 @@ main {
 
 .route-card {
   border: 1px solid var(--border);
-  background: var(--panel);
-  border-radius: 0.75rem;
+  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
+  border-radius: 1rem;
   padding: 1rem;
+}
+
+.route-card:hover {
+  border-color: #3d5a7a;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.studio-shell {
+  padding: 0.8rem;
 }
 
 .studio-grid {
   display: grid;
-  grid-template-columns: 280px minmax(420px, 1fr) 320px;
+  grid-template-columns: 280px minmax(500px, 1fr) 340px;
   gap: 0.8rem;
-  padding: 0.8rem;
-  min-height: calc(100vh - 88px);
+  min-height: calc(100vh - 92px);
 }
 
-@media (max-width: 1200px) {
+.panel {
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel-soft), var(--panel));
+  border-radius: 1rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-content {
+  padding: 1rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  background: var(--panel-elevated);
+  padding: 0.75rem;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+@media (max-width: 1280px) {
   .studio-grid {
-    grid-template-columns: 240px minmax(380px, 1fr) 280px;
+    grid-template-columns: 250px minmax(380px, 1fr) 310px;
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1024px) {
   .studio-grid {
     grid-template-columns: 1fr;
     min-height: auto;
