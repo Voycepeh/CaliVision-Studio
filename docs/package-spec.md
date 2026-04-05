@@ -17,6 +17,11 @@ Define and validate a portable package shape that mirrors Android-stabilized sem
 - `PortableViewType` — canonical camera/view context.
 - `CanonicalJointName` — stable joint name vocabulary shared across clients.
 
+Current view enum values:
+- `front`
+- `side`
+- `rear`
+
 ## PR5 image-assisted detection workflow
 
 Detection pipeline is intentionally adapter-based and image-first:
@@ -41,6 +46,7 @@ It includes:
 ### Canonical mapping rules
 
 - Only canonical portable joints are mapped.
+- Studio standard authoring labels the canonical `nose` joint as **Head** in UI copy for parity with seeded drill authoring, while retaining `nose` as the canonical/internal key.
 - No detector-specific/unsupported joint names are added to package pose payloads.
 - Coordinates are normalized and clamped to `[0,1]`.
 - Missing landmarks remain missing and are surfaced as warnings.

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { canvasToNormalizedPoint, normalizedToCanvasPoint } from "@/lib/canvas/mapping";
 import type { CanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
+import { getAuthoringJointLabel } from "@/lib/pose/canonical";
 import {
   getPreviewJointRole,
   PREVIEW_OVERLAY_STYLE
@@ -204,7 +205,7 @@ export function PoseCanvas({
 
           {selectedJoint ? (
             <text x={selectedJoint.pixel.x + 16} y={selectedJoint.pixel.y - 14} fill="rgba(215,228,245,0.95)" style={{ fontSize: 40 }}>
-              {selectedJoint.name}
+              {getAuthoringJointLabel(selectedJoint.name)}
             </text>
           ) : null}
 

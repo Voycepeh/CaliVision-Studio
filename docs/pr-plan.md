@@ -76,8 +76,8 @@
 
 ### Assumptions
 
-- `PortableViewType` remains unchanged (`front | side | rear | three-quarter`).
-- Preview rendering maps `front/rear/three-quarter` to bilateral display and `side` to a single profile chain.
+- `PortableViewType` uses seeded authoring values only (`front | side | rear`).
+- Preview rendering maps `front/rear` to bilateral display and `side` to a single profile chain.
 - In `side` view, Studio currently defaults to **left-side chain rendering** for preview only until side metadata exists.
 
 ### Non-goals

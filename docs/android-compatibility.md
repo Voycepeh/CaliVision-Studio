@@ -11,6 +11,7 @@ Android remains the behavioral reference for package semantics. Studio must mirr
 - Preserve explicit phase order + duration behavior.
 - Preserve manifest-driven schema compatibility checks.
 - Keep Studio package IO/export payloads Android-consumable.
+- Keep Studio authoring terminology Android-compatible by mapping UI-facing **Head** to canonical `nose` in package data.
 
 ## PR5 detector interoperability posture
 
@@ -35,6 +36,7 @@ PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/
 - Do not leak Studio-only editor state into portable runtime contracts.
 - Do not introduce alternate coordinate systems without explicit versioning.
 - Do not rename canonical joints without cross-platform migration planning.
+- Do not expose alternate face-landmark authoring terminology that changes exported canonical keys.
 - Do not change phase timing semantics without Android migration notes.
 - Do not accept detector-specific joints in canonical portable pose rendering/export paths.
 

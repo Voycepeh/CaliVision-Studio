@@ -1,6 +1,6 @@
 export type SchemaVersion = "0.1.0";
 
-export type PortableViewType = "front" | "side" | "rear" | "three-quarter";
+export type PortableViewType = "front" | "side" | "rear";
 
 export type CanonicalJointName =
   | "nose"
