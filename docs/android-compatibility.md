@@ -12,7 +12,7 @@ Android remains the behavioral reference for package semantics. Studio must mirr
 - Preserve manifest-driven schema compatibility checks.
 - Keep Studio package IO/export payloads Android-consumable.
 
-## PR3 canonical pose canvas interoperability
+## PR4 authoring interoperability posture
 
 Studio now renders package poses through a canonical visual surface while preserving Android semantics:
 
@@ -20,6 +20,9 @@ Studio now renders package poses through a canonical visual surface while preser
 2. **Normalized coordinates preserved**: phase poses are mapped from `[0,1]` into a fixed portrait render surface.
 3. **Deterministic phase preview**: selecting a phase in Studio always renders the same pose structure independent of image dimensions.
 4. **Portable canvas metadata honored**: view metadata (`front`/`side`/`rear`/`three-quarter`) is surfaced in phase inspector summaries.
+5. **Working-copy editing only**: Studio edits happen in-memory against a working copy and export back to the same portable contract.
+6. **Portable timing semantics preserved**: Studio edits `durationMs` directly and keeps phase ordering explicit.
+7. **Canonical coordinate editing preserved**: joint edits remain normalized `[0,1]` values and continue using canonical joint names.
 
 ## Integration expectations for Android consumers
 

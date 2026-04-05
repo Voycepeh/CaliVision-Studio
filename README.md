@@ -41,20 +41,19 @@ The contract direction mirrors Android-stabilized semantics:
 - explicit phase ordering and timing,
 - versioned manifest for safe evolution.
 
-## Current MVP scope (PR3)
+## Current MVP scope (PR4)
 
 Included:
 - package IO + validation foundation from PR2,
 - canonical Studio pose canvas surface (`src/components/studio/canvas/`),
-- centralized canonical joint metadata and skeleton connections (`src/lib/pose/canonical.ts`),
-- deterministic normalized coordinate mapping utilities (`src/lib/canvas/`),
-- fixed canonical portrait preview surface (1000x1600 internal reference) regardless of incoming pose `widthRef`/`heightRef`,
-- phase selection wiring to right-panel pose visualization and metadata,
-- non-destructive warning states for incomplete pose data,
-- source asset placeholder cards for future overlay support.
+- explicit in-memory editor working-copy state with dirty tracking (`src/components/studio/StudioState.tsx`, `src/lib/editor/`),
+- phase list editing: select, rename, add, delete, duplicate, and reorder,
+- phase detail editing: duration, summary/notes, and view metadata updates,
+- lightweight joint editing: joint selection, drag updates, numeric/nudge controls, and per-joint revert,
+- export of edited working package JSON,
+- validation feedback for timing/order/coordinates and duplicate-title warnings.
 
 Intentionally deferred:
-- full drag/edit manipulation tools,
 - MediaPipe detection and detector-specific joint mapping,
 - image overlay compositing,
 - timeline animation editor,
@@ -65,15 +64,15 @@ Intentionally deferred:
 From `/studio`:
 1. Load a bundled sample package from the left panel.
 2. Import a `.json` package from the top bar.
-3. Select a phase in the center panel.
-4. Inspect the canonical pose canvas and phase metadata in the right panel.
-5. Export the selected package back to local JSON.
+3. Select/edit phases in the center panel.
+4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
+5. Export the edited working copy to local JSON.
 
 Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
 
 Note: import validation keeps normalized coordinate enforcement strict (`[0,1]`). Canvas clamping is a defensive preview fallback for non-import paths (e.g., future in-editor transient state), not a relaxation of package contract acceptance.
 
-Current UI limitation in PR3: Studio renders the first drill in each package as the active workspace drill; multi-drill browsing/editing is deferred.
+Current UI limitation in PR4: Studio edits the first drill in each package as the active workspace drill; multi-drill browsing/editing is deferred.
 
 ## Tech stack
 

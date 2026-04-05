@@ -1,5 +1,6 @@
 "use client";
 
+import { getSortedPhases, getPrimaryDrill } from "@/lib/editor/package-editor";
 import { SAMPLE_PACKAGE_DEFINITIONS } from "@/lib/package";
 import { useStudioState } from "@/components/studio/StudioState";
 
@@ -41,27 +42,36 @@ export function LibraryPanel() {
       <section className="card" style={{ marginBottom: "0.8rem" }}>
         <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Loaded packages</h3>
         <div style={{ display: "grid", gap: "0.35rem" }}>
-          {packages.map((entry) => (
-            <button
-              key={entry.packageKey}
-              type="button"
-              onClick={() => selectPackage(entry.packageKey)}
-              style={{
-                textAlign: "left",
-                border: selectedPackageKey === entry.packageKey ? "1px solid var(--accent)" : "1px solid var(--border)",
-                borderRadius: "0.65rem",
-                background: selectedPackageKey === entry.packageKey ? "var(--accent-soft)" : "var(--panel-soft)",
-                color: "var(--text)",
-                padding: "0.5rem",
-                cursor: "pointer"
-              }}
-            >
-              <strong style={{ display: "block" }}>{entry.listItem.packageId}</strong>
-              <small className="muted">
-                v{entry.listItem.packageVersion} • {entry.listItem.drillCount} drill(s) • {entry.listItem.phaseCount} phase(s)
-              </small>
-            </button>
-          ))}
+          {packages.map((entry) => {
+            const drillCount = entry.workingPackage.drills.length;
+            const phaseCount = getSortedPhases(entry.workingPackage).length;
+            const drill = getPrimaryDrill(entry.workingPackage);
+
+            return (
+              <button
+                key={entry.packageKey}
+                type="button"
+                onClick={() => selectPackage(entry.packageKey)}
+                style={{
+                  textAlign: "left",
+                  border: selectedPackageKey === entry.packageKey ? "1px solid var(--accent)" : "1px solid var(--border)",
+                  borderRadius: "0.65rem",
+                  background: selectedPackageKey === entry.packageKey ? "var(--accent-soft)" : "var(--panel-soft)",
+                  color: "var(--text)",
+                  padding: "0.5rem",
+                  cursor: "pointer"
+                }}
+              >
+                <strong style={{ display: "block" }}>{entry.workingPackage.manifest.packageId}</strong>
+                <small className="muted">
+                  v{entry.workingPackage.manifest.packageVersion} • {drillCount} drill(s) • {phaseCount} phase(s)
+                </small>
+                <small className="muted" style={{ display: "block" }}>
+                  {drill?.title ?? "No drill"} • {entry.isDirty ? "unsaved" : "saved"}
+                </small>
+              </button>
+            );
+          })}
         </div>
       </section>
 
