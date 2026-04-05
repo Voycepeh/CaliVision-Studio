@@ -18,6 +18,7 @@ type PoseCanvasProps = {
   selected?: boolean;
   editable?: boolean;
   selectedJointName?: CanonicalJointName | null;
+  focusJointNames?: Set<CanonicalJointName> | null;
   onJointSelect?: (joint: CanonicalJointName) => void;
   onJointMove?: (joint: CanonicalJointName, x: number, y: number) => void;
 };
@@ -29,6 +30,7 @@ export function PoseCanvas({
   selected = false,
   editable = false,
   selectedJointName = null,
+  focusJointNames = null,
   onJointSelect,
   onJointMove
 }: PoseCanvasProps) {
@@ -153,6 +155,7 @@ export function PoseCanvas({
               stroke={PREVIEW_OVERLAY_STYLE.skeletonBase}
               strokeWidth={PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth}
               strokeLinecap="round"
+              opacity={focusJointNames && (!focusJointNames.has(segment.from.name) || !focusJointNames.has(segment.to.name)) ? 0.22 : 1}
             />
           ))}
 
@@ -179,6 +182,7 @@ export function PoseCanvas({
                 fill={joint.outOfBounds ? "#f0b47d" : jointFill}
                 stroke={isSelected ? "#f7fbff" : "rgba(7,11,17,0.95)"}
                 strokeWidth={isSelected ? 4 : 3}
+                opacity={focusJointNames && !focusJointNames.has(joint.name) ? 0.28 : 1}
                 style={{ cursor: editable ? "grab" : "default" }}
                 onPointerDown={(event) => {
                   if (!editable) {

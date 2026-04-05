@@ -1,15 +1,15 @@
 "use client";
 
-import { StudioLayout } from "@/components/layout/StudioLayout";
-import { InspectorPanel } from "@/components/studio/InspectorPanel";
+import { StudioResizableLayout } from "@/components/layout/StudioResizableLayout";
 import { LibraryPanel } from "@/components/studio/LibraryPanel";
+import { StudioCenterInspector } from "@/components/studio/StudioCenterInspector";
+import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { StudioStateProvider } from "@/components/studio/StudioState";
-import { WorkspacePanel } from "@/components/studio/WorkspacePanel";
 
 export function StudioExperience() {
   return (
     <StudioStateProvider>
-      <StudioLayout left={<LibraryPanel />} center={<WorkspacePanel />} right={<InspectorPanel />} />
+      <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
     </StudioStateProvider>
   );
 }
