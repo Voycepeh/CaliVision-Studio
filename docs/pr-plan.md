@@ -83,3 +83,19 @@
 1. **PR5:** MediaPipe image pose detection + detector-to-canonical joint mapping.
 2. **PR6:** source image overlay support and pose/image alignment workflow.
 3. **PR7:** animation preview based on edited phase sequence and durations.
+
+## PR8 (current mobile responsiveness pass)
+
+- Replace pose editor canvas hardcoded full-width behavior on stacked mobile layout with responsive max-height constraints.
+- Keep canonical 9:16 canvas aspect ratio to preserve normalized coordinate rendering and hit-target mapping.
+- Preserve desktop sizing behavior by applying the reduced max-height logic only on phone breakpoints.
+
+### Assumptions
+
+- Phone layout should keep the pose editor visually prominent without dominating the inspector stack.
+- Desktop/tablet inspector behavior should remain unchanged from PR4.
+
+### Non-goals
+
+- No contract/schema changes.
+- No changes to canonical joint semantics, coordinate mapping rules, or validation rules.

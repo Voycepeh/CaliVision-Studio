@@ -120,6 +120,7 @@ export function PoseCanvas({
       </header>
 
       <div
+        className="pose-canvas-frame"
         style={{
           border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
           borderRadius: "0.65rem",
@@ -130,9 +131,9 @@ export function PoseCanvas({
       >
         <svg
           ref={svgRef}
-          width="100%"
+          className="pose-canvas-svg"
           viewBox={`0 0 ${canvas.widthRef} ${canvas.heightRef}`}
-          style={{ display: "block", aspectRatio: `${canvas.widthRef} / ${canvas.heightRef}` }}
+          style={{ display: "block", aspectRatio: `${canvas.widthRef} / ${canvas.heightRef}`, width: "100%", height: "auto" }}
           role="img"
           aria-label="Canonical pose canvas"
           onPointerMove={onCanvasPointerMove}
