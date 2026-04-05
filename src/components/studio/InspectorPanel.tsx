@@ -46,13 +46,13 @@ export function InspectorPanel() {
       {!selectedPackage ? (
         <section className="card">
           <p className="muted" style={{ margin: 0 }}>
-            No selected package.
+            No selected drill file.
           </p>
         </section>
       ) : (
         <div style={{ display: "grid", gap: "0.7rem" }}>
           <section className="card" style={{ minHeight: "92px" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Package manifest summary</h3>
+            <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill file summary</h3>
             <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
               <li>Schema: {selectedPackage.workingPackage.manifest.schemaVersion}</li>
               <li>Source: {selectedPackage.workingPackage.manifest.source}</li>

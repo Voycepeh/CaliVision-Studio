@@ -59,14 +59,14 @@ Intentionally deferred:
 - timeline animation editor,
 - auth and backend persistence.
 
-## Local package workflow
+## Local drill file workflow
 
 From `/studio`:
-1. Load a bundled sample package from the left panel.
-2. Import a `.json` package from the top bar.
+1. Load a bundled sample drill from the left panel.
+2. Import a `.json` drill file from the top bar.
 3. Select/edit phases in the center panel.
 4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
-5. Export the edited working copy to local JSON.
+5. Export the edited working copy as a drill file JSON payload.
 
 Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
 
@@ -94,9 +94,9 @@ Open: <http://localhost:3000>
 ## Route map
 
 - `/` - project entry and route index
-- `/studio` - package-driven workspace with canonical pose canvas preview
+- `/studio` - drill-file-driven workspace with canonical pose canvas preview
 - `/library` - source/library placeholder
-- `/packages` - package workflow placeholder
+- `/packages` - drill file workflow placeholder
 - `/marketplace` - future sharing surface placeholder
 
 ## Additional docs

@@ -11,11 +11,11 @@ export function LibraryPanel() {
     <div className="panel-content">
       <h2 style={{ marginTop: 0 }}>Library & Sources</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Browse bundled packages, imported JSON payloads, and validation feedback.
+        Browse bundled drills, imported drill files, and validation feedback.
       </p>
 
       <section className="card" style={{ marginBottom: "0.8rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Sample packages</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Sample drills</h3>
         <div style={{ display: "grid", gap: "0.45rem" }}>
           {SAMPLE_PACKAGE_DEFINITIONS.map((sample) => (
             <button
@@ -40,7 +40,7 @@ export function LibraryPanel() {
       </section>
 
       <section className="card" style={{ marginBottom: "0.8rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Loaded packages</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Loaded drills</h3>
         <div style={{ display: "grid", gap: "0.35rem" }}>
           {packages.map((entry) => {
             const drillCount = entry.workingPackage.drills.length;
@@ -76,10 +76,10 @@ export function LibraryPanel() {
       </section>
 
       <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Import feedback</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill file import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
-            Import a local JSON package from the top bar to validate and load it.
+            Import a local JSON drill file from the top bar to validate and load it.
           </p>
         ) : (
           <>

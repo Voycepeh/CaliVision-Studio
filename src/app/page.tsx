@@ -3,7 +3,7 @@ import Link from "next/link";
 const routes = [
   ["Studio", "/studio", "Flagship 3-panel authoring workspace"],
   ["Library", "/library", "Drill and asset source management surface"],
-  ["Packages", "/packages", "Package import/export and validation hub"],
+  ["Drill Files", "/packages", "Drill file import/export and validation hub"],
   ["Marketplace", "/marketplace", "Future publishing and discovery (placeholder)"]
 ] as const;
 
