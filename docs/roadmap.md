@@ -10,7 +10,7 @@
 ## Stage 2 — Import/export and validation (PR2)
 
 - Package import/export UI + file handling
-- Expand runtime validation into fuller JSON contract validation
+- JSON validation against contract rules
 - Sample package loader and validation summaries
 
 ## Stage 3 — Pose canvas foundation (PR3)
