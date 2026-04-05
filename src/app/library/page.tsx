@@ -1,15 +1,17 @@
 import Link from "next/link";
+import { LibraryOverview } from "@/components/library/LibraryOverview";
 
 export default function LibraryPage() {
   return (
     <main className="page-shell">
       <h1>Library</h1>
-      <p style={{ color: "var(--muted)" }}>
-        Placeholder route for the library workflow. Full functionality lands in follow-up PRs.
+      <p className="muted">
+        This route intentionally provides a structured placeholder for drills, assets, packages, and recent work.
       </p>
       <Link href="/studio" style={{ color: "var(--accent)" }}>
         Open Studio workspace
       </Link>
+      <LibraryOverview />
     </main>
   );
 }

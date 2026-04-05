@@ -1,59 +1,81 @@
 # CaliVision Studio
 
-CaliVision Studio is the web-first authoring workspace for creating, editing, validating, and packaging drills that can be consumed by Android https://github.com/Voycepeh/CaliVision and future clients.
+CaliVision Studio is a **web-first drill authoring workspace** and future package-sharing platform foundation for CaliVision.
 
-## Product vision
+This repository is the long-term home for drill authoring. It is intentionally scoped so Studio and mobile apps can evolve independently while staying aligned through a **portable drill package contract**.
 
-Build a single source of truth for drill creation with a NotebookLM-inspired dark workspace adapted for visual drill authoring. The Studio prioritizes information architecture, repeatable package generation, and compatibility-first workflow decisions.
+## Why this repo exists separately from mobile
 
-## Why this exists separately from mobile
+The Android app is currently optimized for runtime coaching and drill consumption. High-throughput authoring needs a desktop-first surface with room for multi-panel editing, validation, and packaging controls.
 
-Mobile is optimized for consumption and guided execution, not high-throughput authoring. The Studio handles:
-- multi-panel editing and review
-- structured metadata and phase sequencing
-- package validation and export controls
-- future team collaboration and marketplace publishing
+Keeping Studio separate enables:
+- faster authoring UX iteration without destabilizing runtime clients,
+- contract-first package evolution with explicit versioning,
+- cleaner long-term support for Android and later iOS consumers.
 
-## Why web is the primary authoring surface
+## Product direction
 
-Web gives creators larger canvases, stronger keyboard/mouse ergonomics, and better support for dense editing interfaces. It also enables scalable tooling for schema evolution and packaging pipelines that are difficult to maintain directly inside a mobile runtime.
+- **Studio (web)** owns full drill authoring, package assembly, and future publishing.
+- **Mobile (Android first, later iOS)** owns runtime/live coaching and drill consumption.
+- Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
-## Android/mobile package consumption model
+## Package-first interoperability
 
-The Android app consumes portable drill packages exported from Studio. PR1 establishes the TypeScript contract direction and JSON-oriented docs for:
+Studio and mobile connect through versioned portable packages.
+
+This PR establishes foundational contract types for:
+- `SchemaVersion`
 - `DrillPackage`
 - `DrillManifest`
 - `PortableDrill`
 - `PortablePhase`
 - `PortablePose`
 - `PortableAssetRef`
+- `PortableCanvasSpec`
+- `PortableViewType`
+- `CanonicalJointName`
 
-In this model, Android should parse versioned manifest data, then load drill + assets without re-implementing Studio authoring logic.
+The contract direction mirrors Android-stabilized semantics:
+- normalized 2D coordinate system,
+- canonical joint naming,
+- explicit phase ordering and timing,
+- versioned manifest for safe evolution.
 
-## Tech stack direction
+## Current MVP scope (PR1)
 
-- Next.js (App Router)
-- React + TypeScript
-- Minimal component architecture focused on layout clarity
-- Local/mock data only for PR1
+Included:
+- Next.js + TypeScript App Router foundation,
+- desktop-first dark Studio shell,
+- placeholder routes (`/`, `/studio`, `/library`, `/packages`, `/marketplace`),
+- package contract groundwork,
+- static mock/sample package payloads,
+- architecture + roadmap documentation.
+
+Intentionally not included:
+- auth,
+- remote database/storage,
+- MediaPipe integration,
+- live coaching in web,
+- full marketplace behavior.
 
 ## Human-in-the-loop workflow
 
-Studio intentionally keeps a human reviewer in control of:
-1. metadata quality
-2. phase sequencing
-3. package validation before export
-4. publish gating to library/marketplace
+Studio is designed for guided authoring where humans stay in control:
+1. define metadata and package intent,
+2. author and order phases,
+3. review pose/canvas alignment,
+4. resolve validation warnings,
+5. export or publish package revisions.
 
-Automation (pose extraction, package checks) will augment this flow in later PRs.
+Automation (schema checks, pose assist, future detection) supports this process rather than replacing it.
 
-## Future roadmap (high level)
+## Tech stack
 
-1. Package IO (import/export round-trip)
-2. Pose canvas and temporal editing tools
-3. MediaPipe-assisted pose extraction
-4. Marketplace publishing and discovery
-5. Auth, team permissions, and cloud storage
+- Next.js (App Router)
+- React
+- TypeScript
+- ESLint (Next + TypeScript rules)
+- Local static/mock data for foundation PR
 
 ## Getting started
 
@@ -62,12 +84,21 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:3000>.
+Open: <http://localhost:3000>
 
-## Initial route map
+## Route map
 
-- `/` - project landing + route index
-- `/studio` - 3-panel authoring shell
-- `/library` - placeholder library page
-- `/packages` - placeholder package workflow page
-- `/marketplace` - placeholder marketplace page
+- `/` - project entry and route index
+- `/studio` - flagship workspace shell
+- `/library` - source/library placeholder
+- `/packages` - package workflow placeholder
+- `/marketplace` - future sharing surface placeholder
+
+## Additional docs
+
+- `docs/product-direction.md`
+- `docs/architecture.md`
+- `docs/package-spec.md`
+- `docs/android-compatibility.md`
+- `docs/roadmap.md`
+- `docs/pr-plan.md`

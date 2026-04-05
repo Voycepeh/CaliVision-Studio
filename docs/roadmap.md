@@ -1,30 +1,37 @@
 # Roadmap
 
-## PR1 (this PR)
+## Stage 1 — Local authoring foundation (PR1)
 
-- Bootstrap Next.js + TypeScript App Router project
-- Implement dark 3-panel Studio shell
-- Add placeholder workflow routes
-- Define initial package contracts and docs
+- Next.js + TypeScript Studio foundation
+- Desktop-first dark workspace shell
+- Portable contract definitions and sample payloads
+- Product/architecture docs and clear scope boundaries
 
-## PR2
+## Stage 2 — Import/export and validation (PR2)
 
-- Package import/export CLI and UI wiring
-- JSON schema validation path
-- Contract migration utilities (version aware)
+- Package import/export UI + file handling
+- JSON validation against contract rules
+- Sample package loader and validation summaries
 
-## PR3
+## Stage 3 — Pose canvas foundation (PR3)
 
-- Pose canvas scaffolding and timeline controls
-- Keyframe editing model and interpolation placeholders
+- Canonical-joint pose canvas editing
+- Normalized coordinate editing controls
+- Canvas-to-phase wiring in Studio state
 
-## PR4
+## Stage 4 — Phase/timing authoring depth (PR4)
 
-- MediaPipe integration spike (authoring assist only)
-- Review gates for confidence and human correction
+- Dedicated phase editor interactions
+- Timing controls and sequence authoring
+- Animation preview timeline
 
-## PR5+
+## Stage 5 — Assisted pose extraction (PR5)
 
-- Marketplace publisher flow
-- User/auth/team scopes
-- Cloud storage + package registry
+- MediaPipe image pose detection (authoring assist)
+- Detector-to-canonical-joint mapping and human correction flow
+
+## Stage 6 — Publishing and marketplace
+
+- Package publishing pipeline
+- Sharing/discovery surface
+- Commerce + governance decisions (future)
