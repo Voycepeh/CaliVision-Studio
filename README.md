@@ -51,6 +51,14 @@ From `/studio`:
 6. Click **Apply to phase** to intentionally replace phase pose.
 7. Refine joints manually with existing canvas and numeric controls.
 8. Export updated package JSON.
+## Local drill file workflow
+
+From `/studio`:
+1. Load a bundled sample drill from the left panel.
+2. Import a `.json` drill file from the top bar.
+3. Select/edit phases in the center panel.
+4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
+5. Export the edited working copy as a drill file JSON payload.
 
 ## Source image behavior in PR5
 
@@ -76,9 +84,9 @@ Open: <http://localhost:3000>
 ## Route map
 
 - `/` - project entry and route index
-- `/studio` - package-driven workspace with canonical pose canvas + detection workflow
+- `/studio` - drill-file-driven workspace with canonical pose canvas preview
 - `/library` - source/library placeholder
-- `/packages` - package workflow placeholder
+- `/packages` - drill file workflow placeholder
 - `/marketplace` - future sharing surface placeholder
 
 ## Additional docs

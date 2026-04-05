@@ -35,7 +35,7 @@ export function WorkspacePanel() {
       {!selectedPackage || !drillView ? (
         <section className="card">
           <p className="muted" style={{ margin: 0 }}>
-            No package loaded. Load a sample or import a local JSON package.
+            No drill file loaded. Load a sample or import a local JSON drill file.
           </p>
         </section>
       ) : (
@@ -158,9 +158,9 @@ export function WorkspacePanel() {
           </section>
 
           <section className="card">
-            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Package validation summary</h3>
+            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill file validation summary</h3>
             <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-              <li>Valid package: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
+              <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
               <li>Errors: {selectedPackage.validation.errors.length}</li>
               <li>Warnings: {selectedPackage.validation.warnings.length}</li>
             </ul>

@@ -154,7 +154,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     ? selectedPackage.isDirty
       ? `Unsaved changes (${selectedPackage.sourceLabel})`
       : `Saved (${selectedPackage.sourceLabel})`
-    : "No package loaded";
+    : "No drill loaded";
 
   async function importFromFile(file: File): Promise<void> {
     const packageKey = packageKeyFromFile(file);
@@ -184,7 +184,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setSelectedJointName(null);
     setImportFeedback({
       status: "success",
-      message: `Imported ${file.name} successfully.`,
+      message: `Imported drill file ${file.name} successfully.`,
       issues: nextEntry.validation.issues
     });
   }
@@ -192,7 +192,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   function loadSampleById(sampleId: string): void {
     const sample = SAMPLE_PACKAGE_DEFINITIONS.find((entry) => entry.id === sampleId);
     if (!sample) {
-      setImportFeedback({ status: "error", message: `Sample '${sampleId}' was not found.`, issues: [] });
+      setImportFeedback({ status: "error", message: `Sample drill '${sampleId}' was not found.`, issues: [] });
       return;
     }
 
@@ -201,7 +201,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     if (!result.ok) {
       setImportFeedback({
         status: "error",
-        message: `Failed to load sample '${sample.label}'.`,
+        message: `Failed to load sample drill '${sample.label}'.`,
         issues: result.validation?.issues ?? []
       });
       return;
@@ -221,7 +221,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setSelectedJointName(null);
     setImportFeedback({
       status: "success",
-      message: `Loaded sample '${sample.label}'.`,
+      message: `Loaded sample drill '${sample.label}'.`,
       issues: nextEntry.validation.issues
     });
   }
@@ -640,7 +640,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
 
   function exportSelectedPackage(): void {
     if (!selectedPackage) {
-      setImportFeedback({ status: "error", message: "No package available to export.", issues: [] });
+      setImportFeedback({ status: "error", message: "No drill file available to export.", issues: [] });
       return;
     }
 
@@ -657,7 +657,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     downloadPackageJson(exportPackage);
     setImportFeedback({
       status: "success",
-      message: `Exported ${exportPackage.manifest.packageId}.`,
+      message: `Exported drill file ${exportPackage.manifest.packageId}.`,
       issues: validation.issues
     });
   }

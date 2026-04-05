@@ -14,14 +14,14 @@ export const SAMPLE_PACKAGE_DEFINITIONS: SamplePackageDefinition[] = [
   {
     id: "sample-valid-reactive-defense",
     label: "Reactive Defense (valid)",
-    description: "Android-compatible sample package used as a local bootstrap fixture.",
+    description: "Android-compatible sample drill file used as a local bootstrap fixture.",
     payload: validSamplePackage,
     expectedValidity: "valid"
   },
   {
     id: "sample-invalid-validation-fixture",
-    label: "Validation fixture (invalid)",
-    description: "Intentionally invalid package for testing error surfacing in Studio.",
+    label: "Invalid sample drill file",
+    description: "Intentionally invalid drill file for testing error surfacing in Studio.",
     payload: invalidSamplePackage,
     expectedValidity: "invalid"
   }

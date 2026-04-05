@@ -8,7 +8,7 @@ import { useStudioState } from "@/components/studio/StudioState";
 const navItems = [
   { href: "/studio", label: "Studio" },
   { href: "/library", label: "Library" },
-  { href: "/packages", label: "Packages" },
+  { href: "/packages", label: "Drill Files" },
   { href: "/marketplace", label: "Marketplace" }
 ];
 
@@ -44,7 +44,7 @@ export function TopBar() {
         <div>
           <strong>CaliVision Studio</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
-            Web-first authoring • package-first workflow
+            Web-first authoring • drill-first workflow
           </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -70,10 +70,10 @@ export function TopBar() {
           onClick={() => fileInputRef.current?.click()}
           style={actionButtonStyle}
         >
-          Import Package
+          Import Drill File
         </button>
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
-          Export Package
+          Export Drill File
         </button>
         {[
           "Publish",
