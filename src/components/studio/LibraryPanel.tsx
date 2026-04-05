@@ -1,33 +1,91 @@
-const sections: Array<{ title: string; items: string[] }> = [
-  { title: "Drills", items: ["Reactive Defense Ladder", "Flow Warmup Sequence", "Balance Recovery Drill"] },
-  { title: "Assets", items: ["Front stance image", "Coach voice-over clip", "Overlay reference lines"] },
-  { title: "Packages", items: ["Starter mobility pack", "Coach onboarding set"] },
-  { title: "Recent", items: ["Edited 30m ago", "Imported sample package", "Validation notes"] },
-  { title: "Marketplace", items: ["Placeholder only in PR1"] }
-];
+"use client";
+
+import { SAMPLE_PACKAGE_DEFINITIONS } from "@/lib/package";
+import { useStudioState } from "@/components/studio/StudioState";
 
 export function LibraryPanel() {
+  const { packages, selectedPackageKey, selectPackage, loadSampleById, importFeedback } = useStudioState();
+
   return (
     <div className="panel-content">
       <h2 style={{ marginTop: 0 }}>Library & Sources</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Organize source drills, package drafts, and assets used by the Studio workspace.
+        Browse bundled packages, imported JSON payloads, and validation feedback.
       </p>
 
-      <div style={{ display: "grid", gap: "0.8rem" }}>
-        {sections.map((section) => (
-          <section key={section.title} className="card">
-            <h3 style={{ marginTop: 0, marginBottom: "0.35rem", fontSize: "0.95rem" }}>{section.title}</h3>
-            <ul style={{ margin: 0, paddingLeft: "1rem", color: "var(--muted)" }}>
-              {section.items.map((item) => (
-                <li key={item} style={{ marginBottom: "0.25rem" }}>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </div>
+      <section className="card" style={{ marginBottom: "0.8rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Sample packages</h3>
+        <div style={{ display: "grid", gap: "0.45rem" }}>
+          {SAMPLE_PACKAGE_DEFINITIONS.map((sample) => (
+            <button
+              key={sample.id}
+              type="button"
+              onClick={() => loadSampleById(sample.id)}
+              style={{
+                textAlign: "left",
+                border: "1px solid var(--border)",
+                borderRadius: "0.65rem",
+                background: "var(--panel-soft)",
+                color: "var(--text)",
+                padding: "0.5rem",
+                cursor: "pointer"
+              }}
+            >
+              <strong style={{ display: "block", marginBottom: "0.2rem" }}>{sample.label}</strong>
+              <small className="muted">{sample.description}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="card" style={{ marginBottom: "0.8rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Loaded packages</h3>
+        <div style={{ display: "grid", gap: "0.35rem" }}>
+          {packages.map((entry) => (
+            <button
+              key={entry.packageKey}
+              type="button"
+              onClick={() => selectPackage(entry.packageKey)}
+              style={{
+                textAlign: "left",
+                border: selectedPackageKey === entry.packageKey ? "1px solid var(--accent)" : "1px solid var(--border)",
+                borderRadius: "0.65rem",
+                background: selectedPackageKey === entry.packageKey ? "var(--accent-soft)" : "var(--panel-soft)",
+                color: "var(--text)",
+                padding: "0.5rem",
+                cursor: "pointer"
+              }}
+            >
+              <strong style={{ display: "block" }}>{entry.listItem.packageId}</strong>
+              <small className="muted">
+                v{entry.listItem.packageVersion} • {entry.listItem.drillCount} drill(s) • {entry.listItem.phaseCount} phase(s)
+              </small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="card">
+        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Import feedback</h3>
+        {importFeedback.status === "idle" ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Import a local JSON package from the top bar to validate and load it.
+          </p>
+        ) : (
+          <>
+            <p style={{ marginTop: 0 }}>{importFeedback.message}</p>
+            {importFeedback.issues.length > 0 && (
+              <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+                {importFeedback.issues.slice(0, 5).map((issue, index) => (
+                  <li key={`${issue.path}-${index}`} className="muted">
+                    [{issue.severity}] {issue.path}: {issue.message}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 }

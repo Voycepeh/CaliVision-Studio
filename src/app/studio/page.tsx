@@ -1,14 +1,8 @@
-import { StudioLayout } from "@/components/layout/StudioLayout";
-import { InspectorPanel } from "@/components/studio/InspectorPanel";
-import { LibraryPanel } from "@/components/studio/LibraryPanel";
-import { WorkspacePanel } from "@/components/studio/WorkspacePanel";
+import { StudioExperience } from "@/components/studio/StudioExperience";
 
 /**
- * Flagship Studio route wired to the 3-panel authoring workspace.
- *
- * Keeping this as an explicit App Router page avoids regressions where
- * navigation links point to /studio without a backing route.
+ * Flagship Studio route wired to package-driven local import/export workflow.
  */
 export default function StudioPage() {
-  return <StudioLayout left={<LibraryPanel />} center={<WorkspacePanel />} right={<InspectorPanel />} />;
+  return <StudioExperience />;
 }

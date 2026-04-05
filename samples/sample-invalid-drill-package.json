@@ -1,0 +1,64 @@
+{
+  "manifest": {
+    "schemaVersion": "0.1.0",
+    "packageId": "pkg_invalid_001",
+    "packageVersion": "0.0.1",
+    "createdAtIso": "2026-04-05T00:00:00.000Z",
+    "updatedAtIso": "2026-04-05T00:00:00.000Z",
+    "source": "web-studio",
+    "compatibility": {
+      "androidMinVersion": "1.2.0",
+      "androidTargetContract": "drill-package-0.1.0"
+    }
+  },
+  "drills": [
+    {
+      "drillId": "drill_invalid_001",
+      "slug": "invalid-drill",
+      "title": "Invalid Drill",
+      "difficulty": "intermediate",
+      "tags": [],
+      "defaultView": "side",
+      "phases": [
+        {
+          "phaseId": "phase_dup_order",
+          "order": 1,
+          "title": "Bad phase A",
+          "durationMs": -300,
+          "poseSequence": [
+            {
+              "poseId": "pose_invalid_001",
+              "timestampMs": 900,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1,
+                "heightRef": 1,
+                "view": "front"
+              },
+              "joints": {
+                "leftShoulder": { "x": 1.2, "y": 0.4 },
+                "unknownJoint": { "x": 0.5, "y": 0.5 }
+              }
+            }
+          ],
+          "assetRefs": [
+            {
+              "assetId": "",
+              "type": "image",
+              "uri": ""
+            }
+          ]
+        },
+        {
+          "phaseId": "phase_dup_order_2",
+          "order": 1,
+          "title": "Bad phase B",
+          "durationMs": 500,
+          "poseSequence": [],
+          "assetRefs": []
+        }
+      ]
+    }
+  ],
+  "assets": []
+}
