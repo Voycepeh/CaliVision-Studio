@@ -1,6 +1,6 @@
 # CaliVision Studio
 
-CaliVision Studio is the web-first authoring workspace for creating, editing, validating, and packaging drills that can be consumed by Android and future clients.
+CaliVision Studio is the web-first authoring workspace for creating, editing, validating, and packaging drills that can be consumed by Android https://github.com/Voycepeh/CaliVision and future clients.
 
 ## Product vision
 
