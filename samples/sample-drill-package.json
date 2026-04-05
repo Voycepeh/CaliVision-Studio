@@ -1,0 +1,40 @@
+{
+  "manifest": {
+    "schemaVersion": "0.1.0",
+    "packageId": "pkg_reactive_defense_001",
+    "packageVersion": "0.1.0",
+    "createdAtIso": "2026-04-05T00:00:00.000Z",
+    "source": "web-studio",
+    "compatibleConsumers": ["android-app", "web-player"]
+  },
+  "drill": {
+    "id": "drill_reactive_defense_001",
+    "slug": "reactive-defense-ladder",
+    "title": "Reactive Defense Ladder",
+    "description": "Intro sample package contract",
+    "difficulty": "intermediate",
+    "tags": ["defense", "footwork"],
+    "phases": [
+      {
+        "id": "phase_setup",
+        "title": "Setup Stance",
+        "durationMs": 8000,
+        "poses": [],
+        "assetRefs": [
+          {
+            "id": "overlay_setup",
+            "type": "overlay",
+            "uri": "assets/overlay_setup.png"
+          }
+        ]
+      }
+    ]
+  },
+  "assets": [
+    {
+      "id": "overlay_setup",
+      "type": "overlay",
+      "uri": "assets/overlay_setup.png"
+    }
+  ]
+}
