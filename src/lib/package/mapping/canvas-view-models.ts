@@ -8,6 +8,7 @@ import {
   CANONICAL_JOINT_NAMES,
   CANONICAL_SKELETON_CONNECTIONS
 } from "@/lib/pose/canonical";
+import { getPreviewConnections, getPreviewJointNames } from "@/lib/pose/preview-overlay";
 import type {
   CanonicalJointName,
   PortableCanvasSpec,
@@ -60,6 +61,12 @@ export function mapPortablePoseToCanvasPoseModel(pose?: PortablePose | null): Ca
 
   const canvas = getCanonicalRenderCanvasSpec(pose.canvas.view);
   const warnings: string[] = [];
+  const previewJointNames = new Set(getPreviewJointNames(pose.canvas.view));
+  const previewConnections = getPreviewConnections(pose.canvas.view);
+
+  if (pose.canvas.view === "side") {
+    warnings.push("Side-view preview currently renders the left profile chain by default.");
+  }
 
   if (pose.canvas.widthRef !== canvas.widthRef || pose.canvas.heightRef !== canvas.heightRef) {
     warnings.push(
@@ -68,6 +75,10 @@ export function mapPortablePoseToCanvasPoseModel(pose?: PortablePose | null): Ca
   }
 
   const joints = CANONICAL_JOINT_NAMES.flatMap((jointName) => {
+    if (!previewJointNames.has(jointName)) {
+      return [];
+    }
+
     const point = pose.joints[jointName];
 
     if (!point) {
@@ -95,7 +106,12 @@ export function mapPortablePoseToCanvasPoseModel(pose?: PortablePose | null): Ca
   });
 
   const byName = new Map(joints.map((joint) => [joint.name, joint]));
-  const connections = CANONICAL_SKELETON_CONNECTIONS.flatMap((connection) => {
+  const canonicalConnectionKeys = new Set(CANONICAL_SKELETON_CONNECTIONS.map((connection) => `${connection.from}:${connection.to}`));
+  const connections = previewConnections.flatMap((connection) => {
+    if (!canonicalConnectionKeys.has(`${connection.from}:${connection.to}`)) {
+      return [];
+    }
+
     const from = byName.get(connection.from);
     const to = byName.get(connection.to);
 
@@ -116,9 +132,9 @@ export function mapPortablePoseToCanvasPoseModel(pose?: PortablePose | null): Ca
     };
   }
 
-  if (joints.length < CANONICAL_JOINT_NAMES.length / 2) {
+  if (joints.length < previewJointNames.size / 2) {
     warnings.push(
-      `Only ${joints.length} of ${CANONICAL_JOINT_NAMES.length} canonical joints are populated in this pose.`
+      `Only ${joints.length} of ${previewJointNames.size} preview joints are populated in this pose.`
     );
   }
 

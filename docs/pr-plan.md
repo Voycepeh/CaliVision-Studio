@@ -60,6 +60,24 @@
 - No timeline animation editor.
 - No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
 
+## UI terminology + preview parity follow-up (current)
+
+- Shift user-facing Studio wording from package-first labels to drill-first and drill-file-first copy.
+- Keep manifest/package naming untouched in contract and schema internals for compatibility.
+- Align canonical preview styling with Android live-coaching overlay (mint skeleton, emphasized nose/hips, cyan guide lines).
+- Align visible preview joint/connection sets with Android live-coaching semantics.
+
+### Assumptions
+
+- `PortableViewType` remains unchanged (`front | side | rear | three-quarter`).
+- Preview rendering maps `front/rear/three-quarter` to bilateral display and `side` to a single profile chain.
+- In `side` view, Studio currently defaults to **left-side chain rendering** for preview only until side metadata exists.
+
+### Non-goals
+
+- No contract/schema field rename for package/manifest identifiers.
+- No import/export compatibility changes for portable drill package JSON.
+
 ## Recommended next PR sequence
 
 1. **PR5:** MediaPipe image pose detection + detector-to-canonical joint mapping.

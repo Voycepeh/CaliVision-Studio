@@ -4,6 +4,10 @@ import { useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { canvasToNormalizedPoint, normalizedToCanvasPoint } from "@/lib/canvas/mapping";
 import type { CanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
+import {
+  getPreviewJointRole,
+  PREVIEW_OVERLAY_STYLE
+} from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 
 type PoseCanvasProps = {
@@ -144,22 +148,33 @@ export function PoseCanvas({
               y1={segment.from.pixel.y}
               x2={segment.to.pixel.x}
               y2={segment.to.pixel.y}
-              stroke="rgba(146, 173, 207, 0.82)"
-              strokeWidth={6}
+              stroke={PREVIEW_OVERLAY_STYLE.skeletonBase}
+              strokeWidth={PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth}
               strokeLinecap="round"
             />
           ))}
 
           {displayJoints.map((joint) => {
             const isSelected = joint.name === selectedJointName;
+            const role = getPreviewJointRole(joint.name);
+            const baseRadius = PREVIEW_OVERLAY_STYLE.jointRadiusBase;
+            const largeRadius = baseRadius * PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier;
+            const isLargeJoint = role === "nose" || role === "hip";
+            const jointRadius = isLargeJoint ? largeRadius : baseRadius;
+            const jointFill =
+              role === "nose"
+                ? PREVIEW_OVERLAY_STYLE.nose
+                : role === "hip"
+                  ? PREVIEW_OVERLAY_STYLE.hip
+                  : PREVIEW_OVERLAY_STYLE.skeletonBase;
 
             return (
               <circle
                 key={joint.name}
                 cx={joint.pixel.x}
                 cy={joint.pixel.y}
-                r={isSelected ? 13 : 10}
-                fill={joint.outOfBounds ? "#f0b47d" : isSelected ? "#9ad0ff" : "#86b6ff"}
+                r={isSelected ? jointRadius + 3 : jointRadius}
+                fill={joint.outOfBounds ? "#f0b47d" : jointFill}
                 stroke={isSelected ? "#f7fbff" : "rgba(7,11,17,0.95)"}
                 strokeWidth={isSelected ? 4 : 3}
                 style={{ cursor: editable ? "grab" : "default" }}
@@ -209,13 +224,41 @@ function Grid({ width, height }: { width: number; height: number }) {
       <rect x={0} y={0} width={width} height={height} fill="rgba(8, 12, 19, 0.85)" />
       {Array.from({ length: cols - 1 }).map((_, index) => {
         const x = ((index + 1) * width) / cols;
-        return <line key={`col-${x}`} x1={x} y1={0} x2={x} y2={height} stroke="rgba(119, 139, 164, 0.15)" strokeWidth={2} />;
+        return (
+          <line
+            key={`col-${x}`}
+            x1={x}
+            y1={0}
+            x2={x}
+            y2={height}
+            stroke={PREVIEW_OVERLAY_STYLE.idealLine}
+            strokeWidth={PREVIEW_OVERLAY_STYLE.idealLineStrokeWidth}
+          />
+        );
       })}
       {Array.from({ length: rows - 1 }).map((_, index) => {
         const y = ((index + 1) * height) / rows;
-        return <line key={`row-${y}`} x1={0} y1={y} x2={width} y2={y} stroke="rgba(119, 139, 164, 0.15)" strokeWidth={2} />;
+        return (
+          <line
+            key={`row-${y}`}
+            x1={0}
+            y1={y}
+            x2={width}
+            y2={y}
+            stroke={PREVIEW_OVERLAY_STYLE.idealLine}
+            strokeWidth={PREVIEW_OVERLAY_STYLE.idealLineStrokeWidth}
+          />
+        );
       })}
-      <rect x={2} y={2} width={width - 4} height={height - 4} fill="none" stroke="rgba(126, 149, 177, 0.45)" strokeWidth={2} />
+      <rect
+        x={2}
+        y={2}
+        width={width - 4}
+        height={height - 4}
+        fill="none"
+        stroke={PREVIEW_OVERLAY_STYLE.idealLine}
+        strokeWidth={PREVIEW_OVERLAY_STYLE.idealLineStrokeWidth}
+      />
     </>
   );
 }
