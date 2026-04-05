@@ -1,0 +1,35 @@
+{
+  "drillId": "drill_reactive_defense_001",
+  "slug": "reactive-defense-ladder",
+  "title": "Reactive Defense Ladder",
+  "difficulty": "intermediate",
+  "defaultView": "side",
+  "phases": [
+    {
+      "phaseId": "phase_setup",
+      "order": 1,
+      "title": "Setup stance",
+      "durationMs": 8000,
+      "poseSequence": [
+        {
+          "poseId": "pose_setup_001",
+          "timestampMs": 0,
+          "canvas": {
+            "coordinateSystem": "normalized-2d",
+            "widthRef": 1,
+            "heightRef": 1,
+            "view": "side"
+          },
+          "joints": {
+            "nose": { "x": 0.5, "y": 0.12 },
+            "leftShoulder": { "x": 0.42, "y": 0.28 },
+            "rightShoulder": { "x": 0.58, "y": 0.29 },
+            "leftHip": { "x": 0.46, "y": 0.54 },
+            "rightHip": { "x": 0.56, "y": 0.54 }
+          }
+        }
+      ],
+      "assetRefs": []
+    }
+  ]
+}

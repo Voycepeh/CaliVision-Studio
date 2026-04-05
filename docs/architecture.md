@@ -2,29 +2,38 @@
 
 ## Intent
 
-Establish a clean web foundation for drill authoring without backend coupling.
+Set up a scalable web foundation for visual drill authoring while preserving compatibility with Android package consumption.
 
-## Layers
+## Current app structure
 
-- `src/app/*`: route-level composition using Next.js App Router.
-- `src/components/layout/*`: shell primitives (top bar + 3-panel layout).
-- `src/components/studio/*`: panel-specific, domain-oriented UI slices.
-- `src/lib/schema/*`: portable package contract definitions.
-- `samples/*`: static contract examples for compatibility reviews.
+- `src/app/*` — App Router pages and route composition.
+- `src/components/layout/*` — global shell primitives (top bar and 3-panel workspace container).
+- `src/components/studio/*` — studio-specific panel content placeholders.
+- `src/components/library/*` — library route components.
+- `src/components/package/*` — package route components.
+- `src/lib/schema/contracts.ts` — canonical portable contract definitions.
+- `src/lib/contracts/*` — contract exports for app usage.
+- `src/lib/mock/*` — static package/drill mock data.
+- `samples/*` — JSON package/drill examples for compatibility reviews.
 
-## UI shell architecture
+## Studio shell architecture (`/studio`)
 
-The `/studio` route renders:
-- Left panel: Library / Assets / Packages
-- Center panel: Metadata + phases + timeline placeholder
-- Right panel: Inspector + pose canvas placeholder + preview placeholder
+- Left panel: drill/library/assets/packages/recent/marketplace placeholders.
+- Center panel: metadata card, phase list, selected phase detail, timeline placeholder, validation notes.
+- Right panel: pose canvas/source preview/animation preview/validation/errors/quick actions placeholders.
 
-This architecture is deliberately static for PR1 and optimized for future extension.
+## Package-first design principles
 
-## Non-goals for PR1
+- Schema version is explicit and required in `DrillManifest`.
+- Drill content is represented as portable payloads instead of runtime-specific UI state.
+- Joint and coordinate semantics are canonicalized for cross-platform interoperability.
+- Future backend/storage integration must preserve package portability.
 
-- No authentication
-- No remote database
-- No live pose detection
-- No package ingestion pipeline
-- No marketplace transactions
+## Future backend and storage direction (not in PR1)
+
+- package registry service for publishing/discovery,
+- object storage for media assets,
+- optional auth/team permissions,
+- contract-aware validation service.
+
+These are deliberately deferred to keep PR1 focused and incremental.
