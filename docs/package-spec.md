@@ -1,8 +1,8 @@
-# Portable Drill Package Spec (PR4 Editing Foundation)
+# Portable Drill Package Spec (PR5 Image Detection Mapping)
 
 ## Goal
 
-Define and validate a portable package shape that mirrors Android-stabilized semantics while adding a canonical Studio pose rendering foundation.
+Define and validate a portable package shape that mirrors Android-stabilized semantics while supporting Studio image-assisted pose authoring.
 
 ## Core types
 
@@ -17,42 +17,43 @@ Define and validate a portable package shape that mirrors Android-stabilized sem
 - `PortableViewType` — canonical camera/view context.
 - `CanonicalJointName` — stable joint name vocabulary shared across clients.
 
-## Studio canonical pose canvas assumptions (PR3+)
+## PR5 image-assisted detection workflow
 
-Studio now uses a canonical portrait visual surface for deterministic phase pose preview.
+Detection pipeline is intentionally adapter-based and image-first:
 
-Key assumptions:
-1. Package pose coordinates remain normalized in `[0,1]` regardless of screen size.
-2. Rendering uses a fixed canonical internal portrait reference (`1000x1600`), then scales responsively.
-3. Pose rendering is independent of source image dimensions and independent of per-pose `widthRef`/`heightRef` for Studio preview geometry.
-4. Only canonical joints from the portable contract are rendered.
-5. Missing joints are allowed and render as partial skeletons.
+`uploaded image -> MediaPipe Pose (pose.js) landmarks -> DetectionResult -> canonical PortablePose -> phase editor`
 
-## Local package IO + editing foundation (PR2 + PR4)
+Namespaces:
+- `src/lib/detection/` — detector-agnostic detection result model + canonical mapping.
+- `src/lib/detection/mediapipe/` — MediaPipe Pose runtime integration (`@mediapipe/pose/pose.js`) and landmark mapping.
+- `src/components/studio/detection/` — inspector workflow UI.
 
-Package namespace:
-- `src/lib/package/import/`
-- `src/lib/package/export/`
-- `src/lib/package/validation/`
-- `src/lib/package/mapping/`
-- `src/lib/package/samples/`
+### Detector result model (Studio-internal)
 
-Pose/canvas namespace:
-- `src/lib/pose/`
-- `src/lib/canvas/`
-- `src/components/studio/canvas/`
+`DetectionResult` is separate from raw MediaPipe output and separate from package export payloads.
 
-Capabilities:
-1. Load bundled sample package JSON.
-2. Import local `.json` package files from browser file picker.
-3. Parse and validate unknown payloads safely with structured issues.
-4. Export currently loaded package as downloadable JSON.
-5. Render selected phase pose on canonical Studio canvas.
-6. Surface non-destructive warnings for incomplete/partially populated pose data.
-7. Maintain an explicit editable working copy in-memory (without mutating imported raw package objects).
-8. Edit phase name/order/duration/summary and phase pose view metadata.
-9. Edit canonical joints through canvas drag + inspector numeric controls using normalized coordinates.
-10. Export edited working copy JSON payloads.
+It includes:
+- mapped `DetectionJoint` entries keyed by canonical joint,
+- confidence summary,
+- issue/warning list for partial/low-confidence detection,
+- detector metadata (runtime/model/image dimensions/timing).
+
+### Canonical mapping rules
+
+- Only canonical portable joints are mapped.
+- No detector-specific/unsupported joint names are added to package pose payloads.
+- Coordinates are normalized and clamped to `[0,1]`.
+- Missing landmarks remain missing and are surfaced as warnings.
+- Left/right semantics remain explicit via fixed landmark-to-canonical mapping table.
+
+## Source image association behavior (temporary)
+
+For PR5, phase source images are local-only working state in browser memory.
+
+- Studio stores file preview URL + metadata in local editor state.
+- Studio can stage selected phase `assetRefs` with a local placeholder URI pattern (`local://phase-images/...`) for reviewability while editing.
+- Export strips all local placeholder phase-image refs (`local://phase-images/...`) so downloaded JSON remains portable/Android-consumable.
+- Exported package remains portable JSON contract; no binary embedding or remote upload is introduced in PR5.
 
 ## Validation philosophy
 
@@ -79,36 +80,9 @@ Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but 
 - asset ref object + required string fields
 - non-empty required strings
 
-## Semantics
-
-### Coordinates
-
-- Contract uses `normalized-2d` coordinates (`x`, `y` in a `[0,1]` reference frame).
-- Import validation rejects out-of-range coordinates.
-- Studio import validation still rejects out-of-range coordinates for package acceptance.
-- Studio canvas preview clamping is defensive and primarily intended for non-import transient editor state in future PRs.
-
-### Joint names
-
-Joint keys must come from the canonical `CanonicalJointName` set. Unknown joints are invalid.
-
-### Phase ordering and timing
-
-- `PortablePhase.order` is required and explicit.
-- `PortablePhase.durationMs` is required and positive.
-- `PortablePhase.startOffsetMs` (if present) must be non-negative.
-- `PortablePose.timestampMs` must be non-negative.
-- Studio phase editing keeps `order` explicit and re-normalized to contiguous sequence on reorder/add/delete.
-- Studio timing editing currently focuses on `durationMs` and preserves explicit `startOffsetMs` values when present.
-
-### Manifest versioning
-
-- `manifest.schemaVersion` communicates contract shape.
-- Additive changes should remain backwards-compatible.
-- Breaking changes require schema version bump + migration notes.
-
 ## Evolution notes
 
 Planned follow-up additions:
-- MediaPipe detector-to-canonical mapping pipeline (PR5),
-- source image overlay alignment workflow (PR6).
+- PR6 source image overlay alignment workflow,
+- PR7 timeline animation preview,
+- PR8 local asset bundling strategy for source images/thumbnails.
