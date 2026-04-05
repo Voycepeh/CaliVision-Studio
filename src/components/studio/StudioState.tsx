@@ -22,7 +22,7 @@ import {
   validatePortableDrillPackage,
   type PackageValidationIssue
 } from "@/lib/package";
-import type { CanonicalJointName, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
+import type { CanonicalJointName, PortablePhase, PortableViewType, SchemaVersion } from "@/lib/schema/contracts";
 
 export type ImportFeedback = {
   status: "idle" | "success" | "error";
@@ -55,6 +55,8 @@ type StudioStateValue = {
   setJointCoordinates: (phaseId: string, joint: CanonicalJointName, x: number, y: number) => void;
   nudgeJoint: (phaseId: string, joint: CanonicalJointName, dx: number, dy: number) => void;
   revertSelectedJoint: (phaseId: string, joint: CanonicalJointName) => void;
+  updateDrillMetadata: (field: "title" | "difficulty" | "defaultView", value: string) => void;
+  updatePackageMetadata: (field: "schemaVersion" | "packageId" | "packageVersion", value: string) => void;
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -408,6 +410,48 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setJointCoordinates(phaseId, joint, sourceJoint.x, sourceJoint.y);
   }
 
+
+  function updateDrillMetadata(field: "title" | "difficulty" | "defaultView", value: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        if (field === "title") {
+          drill.title = value;
+          return;
+        }
+
+        if (field === "difficulty") {
+          drill.difficulty = value as typeof drill.difficulty;
+          return;
+        }
+
+        drill.defaultView = value as PortableViewType;
+      })
+    );
+  }
+
+  function updatePackageMetadata(field: "schemaVersion" | "packageId" | "packageVersion", value: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        if (field === "schemaVersion") {
+          draft.manifest.schemaVersion = value as SchemaVersion;
+          return;
+        }
+
+        if (field === "packageId") {
+          draft.manifest.packageId = value;
+          return;
+        }
+
+        draft.manifest.packageVersion = value;
+      })
+    );
+  }
+
   function exportSelectedPackage(): void {
     if (!selectedPackage) {
       setImportFeedback({ status: "error", message: "No drill file available to export.", issues: [] });
@@ -450,7 +494,9 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     movePhase,
     setJointCoordinates,
     nudgeJoint,
-    revertSelectedJoint
+    revertSelectedJoint,
+    updateDrillMetadata,
+    updatePackageMetadata
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;
