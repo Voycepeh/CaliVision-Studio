@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 import {
   downloadPackageJson,
   loadPackageFromUnknown,
@@ -153,21 +153,18 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     });
   }
 
-  const value = useMemo<StudioStateValue>(
-    () => ({
-      packages,
-      selectedPackageKey,
-      selectedPhaseId,
-      importFeedback,
-      saveStatusLabel,
-      selectPackage,
-      selectPhase,
-      loadSampleById,
-      importFromFile,
-      exportSelectedPackage
-    }),
-    [packages, selectedPackageKey, selectedPhaseId, importFeedback, saveStatusLabel]
-  );
+  const value: StudioStateValue = {
+    packages,
+    selectedPackageKey,
+    selectedPhaseId,
+    importFeedback,
+    saveStatusLabel,
+    selectPackage,
+    selectPhase,
+    loadSampleById,
+    importFromFile,
+    exportSelectedPackage
+  };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;
 }
