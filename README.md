@@ -15,15 +15,15 @@ Keeping Studio separate enables:
 
 ## Product direction
 
-- **Studio (web)** owns full drill authoring, package assembly, and future publishing.
-- **Mobile (Android first, later iOS)** owns runtime/live coaching and drill consumption.
+- **Studio (web)** owns drill/package authoring and local package lifecycle controls.
+- **Mobile (Android first, later iOS)** owns runtime/live coaching and package consumption.
 - Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
 ## Package-first interoperability
 
 Studio and mobile connect through versioned portable packages.
 
-This PR establishes foundational contract types for:
+Current contract baseline:
 - `SchemaVersion`
 - `DrillPackage`
 - `DrillManifest`
@@ -41,33 +41,34 @@ The contract direction mirrors Android-stabilized semantics:
 - explicit phase ordering and timing,
 - versioned manifest for safe evolution.
 
-## Current MVP scope (PR1)
+## Current MVP scope (PR2)
 
 Included:
-- Next.js + TypeScript App Router foundation,
-- desktop-first dark Studio shell,
-- placeholder routes (`/`, `/studio`, `/library`, `/packages`, `/marketplace`),
-- package contract groundwork,
-- static mock/sample package payloads,
-- architecture + roadmap documentation.
+- package IO foundation under `src/lib/package/*`,
+- bundled sample package loading,
+- local JSON import and validation in Studio,
+- local JSON export for currently loaded package,
+- left/center/right Studio panels wired to real package data and validation output,
+- docs updates for local import/export workflow.
 
-Intentionally not included:
+Intentionally deferred:
+- pose editing,
+- MediaPipe integration,
 - auth,
 - remote database/storage,
-- MediaPipe integration,
-- live coaching in web,
-- full marketplace behavior.
+- package publishing/marketplace backend.
 
-## Human-in-the-loop workflow
+## Local package workflow
 
-Studio is designed for guided authoring where humans stay in control:
-1. define metadata and package intent,
-2. author and order phases,
-3. review pose/canvas alignment,
-4. resolve validation warnings,
-5. export or publish package revisions.
+From `/studio`:
+1. Load a bundled sample package from the left panel.
+2. Import a `.json` package from the top bar.
+3. Review validation issues in workspace/inspector panels.
+4. Export the selected package back to local JSON.
 
-Automation (schema checks, pose assist, future detection) supports this process rather than replacing it.
+Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
+
+Current UI limitation in PR2: Studio surfaces the first drill in a package for workspace/inspector rendering; multi-drill browsing/editing is deferred.
 
 ## Tech stack
 
@@ -75,7 +76,7 @@ Automation (schema checks, pose assist, future detection) supports this process 
 - React
 - TypeScript
 - ESLint (Next + TypeScript rules)
-- Local static/mock data for foundation PR
+- Local static/mock data for foundation phases
 
 ## Getting started
 
@@ -89,7 +90,7 @@ Open: <http://localhost:3000>
 ## Route map
 
 - `/` - project entry and route index
-- `/studio` - flagship workspace shell
+- `/studio` - package-driven workspace with local import/export
 - `/library` - source/library placeholder
 - `/packages` - package workflow placeholder
 - `/marketplace` - future sharing surface placeholder

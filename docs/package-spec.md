@@ -1,8 +1,8 @@
-# Portable Drill Package Spec (PR1 Direction)
+# Portable Drill Package Spec (PR2 Local IO + Validation)
 
 ## Goal
 
-Define a portable package shape that mirrors Android-stabilized semantics while keeping room for additive evolution.
+Define and validate a portable package shape that mirrors Android-stabilized semantics while keeping room for additive evolution.
 
 ## Core types
 
@@ -17,46 +17,75 @@ Define a portable package shape that mirrors Android-stabilized semantics while 
 - `PortableViewType` — canonical camera/view context.
 - `CanonicalJointName` — stable joint name vocabulary shared across clients.
 
+## Local package IO foundation (PR2)
+
+New package namespace:
+- `src/lib/package/import/`
+- `src/lib/package/export/`
+- `src/lib/package/validation/`
+- `src/lib/package/mapping/`
+- `src/lib/package/samples/`
+
+Capabilities:
+1. Load bundled sample package JSON.
+2. Import local `.json` package files from browser file picker.
+3. Parse and validate unknown payloads safely with structured issues.
+4. Export currently loaded package as downloadable JSON.
+
+Current PR2 UI behavior note: Studio validates full package payloads but renders the first drill as the active workspace drill; multi-drill UI navigation is deferred.
+
+## Validation philosophy
+
+Validation is explicit runtime logic and is **not** treated as “TypeScript-only safety.”
+
+Structured outputs:
+- `PackageValidationIssue`
+- `PackageValidationResult`
+- severities: `error | warning`
+- issue `path` references for targeted UI feedback
+
+Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but non-blocking.
+
+### Current PR2 checks
+
+- manifest presence
+- schema version presence + support check
+- drill presence
+- unique phase ordering
+- required phase id/title fields
+- timing sanity (`durationMs > 0`, non-negative offsets/timestamps)
+- normalized coordinates in `[0, 1]`
+- canonical joint names only
+- asset ref object + required string fields
+- non-empty required strings
+
 ## Semantics
 
 ### Coordinates
 
-- PR1 uses `normalized-2d` coordinates (`x`, `y` in a [0,1] reference frame).
-- Consumers should clamp/validate values according to runtime policy.
+- Contract uses `normalized-2d` coordinates (`x`, `y` in a [0,1] reference frame).
+- Import validation rejects out-of-range coordinates.
 
 ### Joint names
 
-Joint keys must come from the canonical set in `CanonicalJointName`. Unknown joints are invalid for strict consumers.
+Joint keys must come from the canonical `CanonicalJointName` set. Unknown joints are invalid.
 
 ### Phase ordering and timing
 
 - `PortablePhase.order` is required and explicit.
-- `PortablePhase.durationMs` is required.
-- `PortablePhase.startOffsetMs` enables deterministic sequence reconstruction.
-- `PortablePose.timestampMs` supports pose sequence timing.
+- `PortablePhase.durationMs` is required and positive.
+- `PortablePhase.startOffsetMs` (if present) must be non-negative.
+- `PortablePose.timestampMs` must be non-negative.
 
 ### Manifest versioning
 
 - `manifest.schemaVersion` communicates contract shape.
-- Additive changes should be backwards-compatible.
-- Breaking changes require a version bump and migration notes.
+- Additive changes should remain backwards-compatible.
+- Breaking changes require schema version bump + migration notes.
 
 ## Evolution notes
 
 Planned follow-up additions:
-- JSON schema validation bundle,
-- richer asset packaging metadata,
-- optional phase-level validation constraints.
-
-## Runtime validation seam (initial)
-
-PR1 now includes a lightweight runtime validator (`src/lib/schema/validate.ts`) for unknown JSON payloads.
-
-Current checks are intentionally minimal:
-- package root/manifest presence,
-- supported `schemaVersion`,
-- at least one drill,
-- phase order uniqueness per drill,
-- positive `durationMs`.
-
-This is a scaffold seam; PR2 should expand this into full JSON validation with richer error reporting.
+- schema evolution strategy docs and migration helpers,
+- richer asset resolution semantics,
+- phase editing + pose canvas pipelines in later PRs.

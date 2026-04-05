@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useRef } from "react";
+import type { CSSProperties, ChangeEvent } from "react";
+import { useStudioState } from "@/components/studio/StudioState";
 
 const navItems = [
   { href: "/studio", label: "Studio" },
@@ -8,6 +13,19 @@ const navItems = [
 ];
 
 export function TopBar() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { importFromFile, exportSelectedPackage, saveStatusLabel } = useStudioState();
+
+  async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    await importFromFile(file);
+    event.target.value = "";
+  }
+
   return (
     <header
       style={{
@@ -38,25 +56,29 @@ export function TopBar() {
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <span style={{ color: "var(--success)", fontSize: "0.85rem" }}>Saved (local mock)</span>
+        <span style={{ color: "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: "none" }}
+          onChange={onImportFileChange}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          style={actionButtonStyle}
+        >
+          Import Package
+        </button>
+        <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
+          Export Package
+        </button>
         {[
-          "Import",
-          "Export",
           "Publish",
           "Settings/Profile"
         ].map((action) => (
-          <button
-            key={action}
-            type="button"
-            style={{
-              border: "1px solid var(--border)",
-              borderRadius: "0.6rem",
-              background: "var(--panel-elevated)",
-              color: "var(--text)",
-              padding: "0.45rem 0.75rem",
-              cursor: "pointer"
-            }}
-          >
+          <button key={action} type="button" style={actionButtonStyle}>
             {action}
           </button>
         ))}
@@ -64,3 +86,12 @@ export function TopBar() {
     </header>
   );
 }
+
+const actionButtonStyle: CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: "0.6rem",
+  background: "var(--panel-elevated)",
+  color: "var(--text)",
+  padding: "0.45rem 0.75rem",
+  cursor: "pointer"
+};

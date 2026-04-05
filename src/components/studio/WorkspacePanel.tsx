@@ -1,76 +1,109 @@
-const mockPhases = [
-  { id: "phase-1", order: 1, title: "Setup stance", durationSec: 8, status: "Ready" },
-  { id: "phase-2", order: 2, title: "Primary movement", durationSec: 16, status: "Needs pose refinement" },
-  { id: "phase-3", order: 3, title: "Recovery + reset", durationSec: 10, status: "Ready" }
-];
+"use client";
+
+import { useMemo } from "react";
+import { useStudioState } from "@/components/studio/StudioState";
 
 export function WorkspacePanel() {
+  const { packages, selectedPackageKey, selectedPhaseId, selectPhase } = useStudioState();
+  const selectedPackage = packages.find((entry) => entry.packageKey === selectedPackageKey) ?? null;
+  const drill = selectedPackage?.primaryDrill ?? null;
+
+  const selectedPhase = useMemo(
+    () => drill?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? drill?.phases[0] ?? null,
+    [drill, selectedPhaseId]
+  );
+
   return (
     <div className="panel-content" style={{ display: "grid", gap: "0.8rem", alignContent: "start" }}>
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.4rem" }}>Drill Workspace</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Author drill metadata, phase flow, and package readiness from one central timeline.
+          Inspect package metadata, ordered phases, and validation status before export.
         </p>
       </header>
 
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill metadata</h3>
-        <div className="field-grid">
-          <Field label="Title" value="Reactive Defense Ladder" />
-          <Field label="Difficulty" value="Intermediate" />
-          <Field label="Primary View" value="Side" />
-          <Field label="Schema version" value="0.1.0" />
-        </div>
-      </section>
+      {!selectedPackage || !drill ? (
+        <section className="card">
+          <p className="muted" style={{ margin: 0 }}>
+            No package loaded. Load a sample or import a local JSON package.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="card">
+            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill metadata</h3>
+            <div className="field-grid">
+              <Field label="Title" value={drill.title} />
+              <Field label="Difficulty" value={drill.difficulty} />
+              <Field label="Primary View" value={drill.defaultView} />
+              <Field label="Schema version" value={selectedPackage.package.manifest.schemaVersion} />
+              <Field label="Package ID" value={selectedPackage.package.manifest.packageId} />
+              <Field label="Package Version" value={selectedPackage.package.manifest.packageVersion} />
+            </div>
+          </section>
 
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Phase list</h3>
-        <div style={{ display: "grid", gap: "0.35rem" }}>
-          {mockPhases.map((phase) => (
-            <article
-              key={phase.id}
-              style={{
-                border: "1px solid var(--border)",
-                borderRadius: "0.65rem",
-                padding: "0.55rem",
-                background: "var(--panel-soft)"
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
-                <strong>
-                  {phase.order}. {phase.title}
-                </strong>
-                <span className="muted">{phase.durationSec}s</span>
-              </div>
-              <small className="muted">{phase.status}</small>
-            </article>
-          ))}
-        </div>
-      </section>
+          <section className="card">
+            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Phase list</h3>
+            <div style={{ display: "grid", gap: "0.35rem" }}>
+              {drill.phases.map((phase) => (
+                <button
+                  key={phase.phaseId}
+                  type="button"
+                  onClick={() => selectPhase(phase.phaseId)}
+                  style={{
+                    border:
+                      selectedPhase?.phaseId === phase.phaseId ? "1px solid var(--accent)" : "1px solid var(--border)",
+                    borderRadius: "0.65rem",
+                    padding: "0.55rem",
+                    background: selectedPhase?.phaseId === phase.phaseId ? "var(--accent-soft)" : "var(--panel-soft)",
+                    color: "var(--text)",
+                    textAlign: "left",
+                    cursor: "pointer"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
+                    <strong>
+                      {phase.order}. {phase.title}
+                    </strong>
+                    <span className="muted">{(phase.durationMs / 1000).toFixed(1)}s</span>
+                  </div>
+                  <small className="muted">
+                    {phase.poseCount} poses • {phase.assetCount} assets
+                    {phase.startOffsetMs !== undefined ? ` • starts ${phase.startOffsetMs}ms` : ""}
+                  </small>
+                </button>
+              ))}
+            </div>
+          </section>
 
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Selected phase detail</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          Phase 2 selected. Placeholder controls for timing, pose keyframes, and asset assignment.
-        </p>
-      </section>
+          <section className="card">
+            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Selected phase detail summary</h3>
+            {selectedPhase ? (
+              <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+                <li>Phase ID: {selectedPhase.phaseId}</li>
+                <li>Order: {selectedPhase.order}</li>
+                <li>Duration: {selectedPhase.durationMs}ms</li>
+                <li>Poses: {selectedPhase.poseCount}</li>
+                <li>Assets: {selectedPhase.assetCount}</li>
+                <li>{selectedPhase.summary ?? "No summary provided."}</li>
+              </ul>
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>
+                Select a phase to inspect details.
+              </p>
+            )}
+          </section>
 
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Timeline / sequence area</h3>
-        <p className="muted" style={{ margin: 0 }}>
-          Horizontal timeline placeholder. Future PR will add keyframe handles and snapping logic.
-        </p>
-      </section>
-
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Notes / validation summary</h3>
-        <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-          <li>All phases have explicit order values.</li>
-          <li>One phase has missing confidence on several joints.</li>
-          <li>No blocking schema errors in mock package.</li>
-        </ul>
-      </section>
+          <section className="card">
+            <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Package validation summary</h3>
+            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>Valid package: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
+              <li>Errors: {selectedPackage.validation.errors.length}</li>
+              <li>Warnings: {selectedPackage.validation.warnings.length}</li>
+            </ul>
+          </section>
+        </>
+      )}
     </div>
   );
 }
