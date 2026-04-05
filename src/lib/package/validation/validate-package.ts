@@ -4,7 +4,7 @@ import type { DrillPackage, PortableAssetRef, PortablePhase } from "@/lib/schema
 const SUPPORTED_SCHEMA_VERSION = "0.1.0";
 
 const CANONICAL_JOINT_SET = new Set<string>(CANONICAL_JOINT_NAMES);
-const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear", "three-quarter"]);
+const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear"]);
 
 type Severity = "error" | "warning";
 
@@ -326,7 +326,7 @@ function validateCanvas(input: Record<string, unknown>, path: string, issues: Pa
       makeIssue(
         "error",
         `${path}.view`,
-        "view must be one of: front, side, rear, three-quarter.",
+        "view must be one of: front, side, rear.",
         "type"
       )
     );

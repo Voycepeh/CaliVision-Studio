@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 import { mapPortablePhaseToInspectorViewModel, mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
-import { CANONICAL_JOINTS } from "@/lib/pose/canonical";
+import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
 import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contracts";
 import { useStudioState } from "@/components/studio/StudioState";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
@@ -95,7 +95,6 @@ export function InspectorPanel() {
                     <option value="front">front</option>
                     <option value="side">side</option>
                     <option value="rear">rear</option>
-                    <option value="three-quarter">three-quarter</option>
                   </select>
                 </label>
               </section>
@@ -110,7 +109,7 @@ export function InspectorPanel() {
                     onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}
                   >
                     <option value="">None</option>
-                    {CANONICAL_JOINTS.map((joint) => (
+                    {STANDARD_AUTHORING_JOINTS.map((joint) => (
                       <option key={joint.name} value={joint.name}>
                         {joint.label}
                       </option>

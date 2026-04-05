@@ -33,6 +33,26 @@ export const CANONICAL_JOINT_NAMES = CANONICAL_JOINTS.map((joint) => joint.name)
 
 export const CANONICAL_JOINT_NAME_SET = new Set<CanonicalJointName>(CANONICAL_JOINT_NAMES);
 
+const STANDARD_AUTHORING_HIDDEN_JOINTS = new Set<CanonicalJointName>(["leftEye", "rightEye", "leftEar", "rightEar"]);
+const AUTHORING_LABEL_OVERRIDES: Partial<Record<CanonicalJointName, string>> = {
+  nose: "Head"
+};
+
+export function getAuthoringJointLabel(jointName: CanonicalJointName): string {
+  return AUTHORING_LABEL_OVERRIDES[jointName] ?? CANONICAL_JOINTS.find((joint) => joint.name === jointName)?.label ?? jointName;
+}
+
+export function isStandardAuthoringJoint(jointName: CanonicalJointName): boolean {
+  return !STANDARD_AUTHORING_HIDDEN_JOINTS.has(jointName);
+}
+
+export const STANDARD_AUTHORING_JOINTS: CanonicalJointDefinition[] = CANONICAL_JOINTS.filter((joint) =>
+  isStandardAuthoringJoint(joint.name)
+).map((joint) => ({
+  ...joint,
+  label: getAuthoringJointLabel(joint.name)
+}));
+
 export type SkeletonConnection = {
   from: CanonicalJointName;
   to: CanonicalJointName;
