@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { canvasToNormalizedPoint } from "@/lib/canvas/mapping";
+import { canvasToNormalizedPoint, normalizedToCanvasPoint } from "@/lib/canvas/mapping";
 import type { CanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 
@@ -30,6 +30,7 @@ export function PoseCanvas({
   const { canvas, joints, connections } = pose;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dragJoint, setDragJoint] = useState<CanonicalJointName | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
 
   function pointerToNormalized(event: ReactPointerEvent<SVGSVGElement>) {
     const box = svgRef.current?.getBoundingClientRect();
@@ -43,7 +44,7 @@ export function PoseCanvas({
   }
 
   function onCanvasPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
-    if (!dragJoint || !onJointMove) {
+    if (!dragJoint) {
       return;
     }
 
@@ -52,14 +53,56 @@ export function PoseCanvas({
       return;
     }
 
-    onJointMove(dragJoint, normalized.x, normalized.y);
+    setDragPosition(normalized);
   }
 
   function onCanvasPointerUp() {
+    if (dragJoint && dragPosition && onJointMove) {
+      onJointMove(dragJoint, dragPosition.x, dragPosition.y);
+    }
+
     setDragJoint(null);
+    setDragPosition(null);
   }
 
-  const selectedJoint = useMemo(() => joints.find((joint) => joint.name === selectedJointName) ?? null, [joints, selectedJointName]);
+  const displayJoints = useMemo(() => {
+    if (!dragJoint || !dragPosition) {
+      return joints;
+    }
+
+    return joints.map((joint) => {
+      if (joint.name !== dragJoint) {
+        return joint;
+      }
+
+      return {
+        ...joint,
+        normalized: dragPosition,
+        pixel: normalizedToCanvasPoint(dragPosition, canvas, { clamp: true }),
+        outOfBounds: false
+      };
+    });
+  }, [joints, dragJoint, dragPosition, canvas]);
+
+  const selectedJoint = useMemo(
+    () => displayJoints.find((joint) => joint.name === selectedJointName) ?? null,
+    [displayJoints, selectedJointName]
+  );
+  const byName = useMemo(() => new Map(displayJoints.map((joint) => [joint.name, joint])), [displayJoints]);
+  const displayConnections = useMemo(
+    () =>
+      connections.flatMap((segment) => {
+        const from = byName.get(segment.from.name);
+        const to = byName.get(segment.to.name);
+
+        if (!from || !to) {
+          return [];
+        }
+
+        return [{ from, to }];
+      }),
+    [connections, byName]
+  );
 
   return (
     <section className="card" style={{ padding: "0.65rem" }}>
@@ -94,7 +137,7 @@ export function PoseCanvas({
         >
           <Grid width={canvas.widthRef} height={canvas.heightRef} />
 
-          {connections.map((segment) => (
+          {displayConnections.map((segment) => (
             <line
               key={`${segment.from.name}-${segment.to.name}`}
               x1={segment.from.pixel.x}
@@ -107,7 +150,7 @@ export function PoseCanvas({
             />
           ))}
 
-          {joints.map((joint) => {
+          {displayJoints.map((joint) => {
             const isSelected = joint.name === selectedJointName;
 
             return (

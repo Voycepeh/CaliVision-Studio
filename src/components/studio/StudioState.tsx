@@ -273,6 +273,9 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   }
 
   function deletePhase(phaseId: string): void {
+    const deletingSelectedPhase = selectedPhaseId === phaseId;
+    let fallbackPhaseAfterDelete: string | null = null;
+
     updateSelectedPackage(
       (entry) =>
         updateWorkingPackage(entry, (draft) => {
@@ -281,22 +284,29 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
             return;
           }
 
+          const sortedBeforeDelete = getSortedPhases(draft);
+          const deletedIndex = sortedBeforeDelete.findIndex((phase) => phase.phaseId === phaseId);
           drill.phases = drill.phases.filter((phase) => phase.phaseId !== phaseId);
           normalizePhaseOrder(draft);
+
+          if (deletingSelectedPhase) {
+            const sortedAfterDelete = getSortedPhases(draft);
+            if (sortedAfterDelete.length === 0) {
+              fallbackPhaseAfterDelete = null;
+              return;
+            }
+
+            const neighborIndex = deletedIndex >= sortedAfterDelete.length ? sortedAfterDelete.length - 1 : deletedIndex;
+            fallbackPhaseAfterDelete = sortedAfterDelete[Math.max(0, neighborIndex)]?.phaseId ?? sortedAfterDelete[0].phaseId;
+          }
         }),
-      (updated) => {
-        const phases = getSortedPhases(updated.workingPackage);
-        if (phases.length === 0) {
-          setSelectedPhaseId(null);
-          setSelectedJointName(null);
+      () => {
+        if (!deletingSelectedPhase) {
           return;
         }
 
-        const samePhaseExists = phases.some((phase) => phase.phaseId === phaseId);
-        if (!samePhaseExists) {
-          setSelectedPhaseId(phases[0]?.phaseId ?? null);
-          setSelectedJointName(null);
-        }
+        setSelectedPhaseId(fallbackPhaseAfterDelete);
+        setSelectedJointName(null);
       }
     );
   }
