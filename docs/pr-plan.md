@@ -37,7 +37,7 @@
 - Add export integration for working-copy JSON.
 - Extend validation surfacing for sequencing/title quality warnings.
 
-## PR5 (this change)
+## PR5 (completed)
 
 - Add image-first MediaPipe pose detection workflow for selected phase images.
 - Implement detection runtime via browser MediaPipe Pose (`@mediapipe/pose/pose.js`) with isolated adapter.
@@ -49,6 +49,15 @@
 - Preserve current phase pose on failures unless user applies a successful/partial result.
 - Store phase source image refs as local placeholder `assetRefs` in working package state.
 - Strip temporary `local://phase-images/...` refs on export to preserve portable package compatibility.
+
+## PR6 (this change)
+
+- Replace fixed 3-column Studio shell with a single resizable Studio layout shell.
+- Move canonical pose inspector/editor into the center authoring panel with compact control row.
+- Move metadata, phase details, validation, and source asset details into a dedicated right details panel.
+- Convert drill/display metadata from static read-only fields into editable controlled inputs wired to working package state.
+- Keep canonical desktop pose canvas behavior unchanged while tightening mobile max-height and responsive sizing.
+- Add narrow-screen tab switching for Library / Drill Editor / Details views to avoid stacked overcrowding.
 
 ## Assumptions
 
@@ -87,6 +96,6 @@
 
 ## Recommended next PR sequence
 
-1. **PR6:** source image overlay support and pose/image alignment workflow.
-2. **PR7:** animation preview based on edited phase sequence and durations.
-3. **PR8:** local package asset bundling strategy for source images and thumbnails.
+1. **PR7:** source image overlay support and pose/image alignment workflow.
+2. **PR8:** animation preview based on edited phase sequence and durations.
+3. **PR9:** local package asset bundling strategy for source images and thumbnails.

@@ -23,7 +23,7 @@ import {
   type PackageValidationIssue
 } from "@/lib/package";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
-import type { CanonicalJointName, PortableAssetRef, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
+import type { CanonicalJointName, PortableAssetRef, PortablePhase, PortableViewType, SchemaVersion } from "@/lib/schema/contracts";
 
 export type ImportFeedback = {
   status: "idle" | "success" | "error";
@@ -67,6 +67,12 @@ type StudioStateValue = {
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
   setPhaseView: (phaseId: string, view: PortableViewType) => void;
+  setDrillTitle: (title: string) => void;
+  setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
+  setDrillDefaultView: (view: PortableViewType) => void;
+  setManifestSchemaVersion: (schemaVersion: SchemaVersion) => void;
+  setManifestPackageId: (packageId: string) => void;
+  setManifestPackageVersion: (packageVersion: string) => void;
   addPhase: () => void;
   deletePhase: (phaseId: string) => void;
   duplicatePhase: (phaseId: string) => void;
@@ -306,6 +312,69 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
         }
       }));
     });
+  }
+
+  function setDrillTitle(title: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.title = title;
+      })
+    );
+  }
+
+  function setDrillDifficulty(difficulty: "beginner" | "intermediate" | "advanced"): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.difficulty = difficulty;
+      })
+    );
+  }
+
+  function setDrillDefaultView(view: PortableViewType): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.defaultView = view;
+      })
+    );
+  }
+
+  function setManifestSchemaVersion(schemaVersion: SchemaVersion): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        draft.manifest.schemaVersion = schemaVersion;
+      })
+    );
+  }
+
+  function setManifestPackageId(packageId: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        draft.manifest.packageId = packageId;
+      })
+    );
+  }
+
+  function setManifestPackageVersion(packageVersion: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        draft.manifest.packageVersion = packageVersion;
+      })
+    );
   }
 
   function addPhase(): void {
@@ -682,6 +751,12 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setPhaseDuration,
     setPhaseSummary,
     setPhaseView,
+    setDrillTitle,
+    setDrillDifficulty,
+    setDrillDefaultView,
+    setManifestSchemaVersion,
+    setManifestPackageId,
+    setManifestPackageVersion,
     addPhase,
     deletePhase,
     duplicatePhase,
