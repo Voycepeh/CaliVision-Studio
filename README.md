@@ -68,6 +68,8 @@ From `/studio`:
 
 Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
 
+Current UI limitation in PR2: Studio surfaces the first drill in a package for workspace/inspector rendering; multi-drill browsing/editing is deferred.
+
 ## Tech stack
 
 - Next.js (App Router)

@@ -23,6 +23,7 @@ const CANONICAL_JOINT_NAMES: CanonicalJointName[] = [
 ];
 
 const CANONICAL_JOINT_SET = new Set<string>(CANONICAL_JOINT_NAMES);
+const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear", "three-quarter"]);
 
 type Severity = "error" | "warning";
 
@@ -180,6 +181,8 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     drill.phases.forEach((phase, phaseIndex) => {
       validatePhase(phase, `${drillPath}.phases[${phaseIndex}]`, seenOrder, issues);
     });
+
+    validateDrillTimingConsistency(drill.phases, drillPath, issues);
   });
 }
 
@@ -242,6 +245,8 @@ function validatePose(input: unknown, path: string, issues: PackageValidationIss
 
   if (!isRecord(input.canvas)) {
     issues.push(makeIssue("error", `${path}.canvas`, "canvas object is required.", "missing"));
+  } else {
+    validateCanvas(input.canvas, `${path}.canvas`, issues);
   }
 
   if (!isRecord(input.joints)) {
@@ -265,6 +270,38 @@ function validatePose(input: unknown, path: string, issues: PackageValidationIss
     validateNormalizedCoordinate(jointValue.x, `${jointPath}.x`, issues);
     validateNormalizedCoordinate(jointValue.y, `${jointPath}.y`, issues);
   });
+}
+
+function validateCanvas(input: Record<string, unknown>, path: string, issues: PackageValidationIssue[]): void {
+  if (input.coordinateSystem !== "normalized-2d") {
+    issues.push(
+      makeIssue(
+        "error",
+        `${path}.coordinateSystem`,
+        "coordinateSystem must be 'normalized-2d' for portable compatibility.",
+        "coordinates"
+      )
+    );
+  }
+
+  if (typeof input.widthRef !== "number" || input.widthRef <= 0) {
+    issues.push(makeIssue("error", `${path}.widthRef`, "widthRef must be a positive number.", "coordinates"));
+  }
+
+  if (typeof input.heightRef !== "number" || input.heightRef <= 0) {
+    issues.push(makeIssue("error", `${path}.heightRef`, "heightRef must be a positive number.", "coordinates"));
+  }
+
+  if (typeof input.view !== "string" || !PORTABLE_VIEW_SET.has(input.view)) {
+    issues.push(
+      makeIssue(
+        "error",
+        `${path}.view`,
+        "view must be one of: front, side, rear, three-quarter.",
+        "type"
+      )
+    );
+  }
 }
 
 function validateNormalizedCoordinate(
@@ -351,6 +388,58 @@ function toResult(issues: PackageValidationIssue[]): PackageValidationResult {
 
 function isRecord(input: unknown): input is Record<string, unknown> {
   return typeof input === "object" && input !== null;
+}
+
+function validateDrillTimingConsistency(
+  phases: unknown[],
+  drillPath: string,
+  issues: PackageValidationIssue[]
+): void {
+  const timingCandidates = phases
+    .filter(isRecord)
+    .filter((phase) => typeof phase.order === "number" && typeof phase.durationMs === "number" && phase.durationMs > 0)
+    .map((phase) => ({
+      phaseId: typeof phase.phaseId === "string" ? phase.phaseId : "unknown-phase",
+      order: phase.order as number,
+      durationMs: phase.durationMs as number,
+      startOffsetMs: typeof phase.startOffsetMs === "number" ? phase.startOffsetMs : undefined
+    }))
+    .sort((a, b) => a.order - b.order);
+
+  let cumulativeMs = 0;
+
+  timingCandidates.forEach((phase, index) => {
+    issues.push(
+      ...validatePhaseTimingConsistency(
+        {
+          phaseId: phase.phaseId,
+          order: phase.order,
+          title: "",
+          durationMs: phase.durationMs,
+          poseSequence: [],
+          assetRefs: [],
+          startOffsetMs: phase.startOffsetMs
+        },
+        cumulativeMs
+      ).map((issue) => ({
+        ...issue,
+        path: `${drillPath}.phases[order=${phase.order}].startOffsetMs`
+      }))
+    );
+
+    if (phase.startOffsetMs !== undefined && phase.startOffsetMs > cumulativeMs && index > 0) {
+      issues.push(
+        makeIssue(
+          "warning",
+          `${drillPath}.phases[order=${phase.order}].startOffsetMs`,
+          "startOffsetMs is ahead of previous cumulative duration (gap detected).",
+          "timing"
+        )
+      );
+    }
+
+    cumulativeMs += phase.durationMs;
+  });
 }
 
 export function validatePhaseTimingConsistency(phase: PortablePhase, previousDurationTotal: number): PackageValidationIssue[] {

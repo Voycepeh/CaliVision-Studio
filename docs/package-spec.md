@@ -32,6 +32,8 @@ Capabilities:
 3. Parse and validate unknown payloads safely with structured issues.
 4. Export currently loaded package as downloadable JSON.
 
+Current PR2 UI behavior note: Studio validates full package payloads but renders the first drill as the active workspace drill; multi-drill UI navigation is deferred.
+
 ## Validation philosophy
 
 Validation is explicit runtime logic and is **not** treated as “TypeScript-only safety.”

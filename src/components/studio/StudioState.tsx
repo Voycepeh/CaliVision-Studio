@@ -109,7 +109,13 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       return;
     }
 
-    setPackages((current) => [result.packageViewModel, ...current]);
+    setPackages((current) => {
+      const withoutExisting = current.filter(
+        (entry) => entry.package.manifest.packageId !== result.packageViewModel.package.manifest.packageId
+      );
+
+      return [result.packageViewModel, ...withoutExisting];
+    });
     setSelectedPackageKey(result.packageViewModel.packageKey);
     setSelectedPhaseId(result.packageViewModel.primaryDrill?.phases[0]?.phaseId ?? null);
     setImportFeedback({

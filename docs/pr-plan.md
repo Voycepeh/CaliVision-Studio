@@ -31,6 +31,7 @@
 - No MediaPipe integration.
 - No pose editing canvas interactions yet.
 - No package publishing backend/marketplace flows.
+- No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
 
 ## Recommended next PR sequence
 
