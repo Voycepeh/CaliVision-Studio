@@ -3,7 +3,7 @@ import {
   validateJointPoint,
   type Point2D
 } from "@/lib/canvas/mapping";
-import { toRenderableCanvasSpec } from "@/lib/canvas/spec";
+import { getCanonicalRenderCanvasSpec, toRenderableCanvasSpec } from "@/lib/canvas/spec";
 import {
   CANONICAL_JOINT_NAMES,
   CANONICAL_SKELETON_CONNECTIONS
@@ -58,8 +58,14 @@ export function mapPortablePoseToCanvasPoseModel(pose?: PortablePose | null): Ca
     return EMPTY_CANVAS_POSE_MODEL;
   }
 
-  const canvas = toRenderableCanvasSpec(pose.canvas);
+  const canvas = getCanonicalRenderCanvasSpec(pose.canvas.view);
   const warnings: string[] = [];
+
+  if (pose.canvas.widthRef !== canvas.widthRef || pose.canvas.heightRef !== canvas.heightRef) {
+    warnings.push(
+      `Pose canvas refs (${pose.canvas.widthRef}x${pose.canvas.heightRef}) differ from Studio canonical render surface (${canvas.widthRef}x${canvas.heightRef}).`
+    );
+  }
 
   const joints = CANONICAL_JOINT_NAMES.flatMap((jointName) => {
     const point = pose.joints[jointName];

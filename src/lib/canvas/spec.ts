@@ -1,4 +1,4 @@
-import type { PortableCanvasSpec } from "@/lib/schema/contracts";
+import type { PortableCanvasSpec, PortableViewType } from "@/lib/schema/contracts";
 
 export const CANONICAL_PORTRAIT_CANVAS_SPEC: PortableCanvasSpec = {
   coordinateSystem: "normalized-2d",
@@ -6,6 +6,13 @@ export const CANONICAL_PORTRAIT_CANVAS_SPEC: PortableCanvasSpec = {
   heightRef: 1600,
   view: "front"
 };
+
+export function getCanonicalRenderCanvasSpec(view: PortableViewType = "front"): PortableCanvasSpec {
+  return {
+    ...CANONICAL_PORTRAIT_CANVAS_SPEC,
+    view
+  };
+}
 
 export function toRenderableCanvasSpec(canvas?: PortableCanvasSpec | null): PortableCanvasSpec {
   if (!canvas) {

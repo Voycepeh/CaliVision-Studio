@@ -38,8 +38,8 @@
               "timestampMs": 0,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
-                "widthRef": 1,
-                "heightRef": 1,
+                "widthRef": 1000,
+                "heightRef": 1600,
                 "view": "side"
               },
               "joints": {
@@ -123,8 +123,8 @@
               "timestampMs": 8000,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
-                "widthRef": 1,
-                "heightRef": 1,
+                "widthRef": 1000,
+                "heightRef": 1600,
                 "view": "front"
               },
               "joints": {
@@ -177,8 +177,8 @@
               "timestampMs": 24000,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
-                "widthRef": 1,
-                "heightRef": 1,
+                "widthRef": 1000,
+                "heightRef": 1600,
                 "view": "rear"
               },
               "joints": {

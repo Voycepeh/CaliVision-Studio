@@ -48,6 +48,7 @@ Included:
 - canonical Studio pose canvas surface (`src/components/studio/canvas/`),
 - centralized canonical joint metadata and skeleton connections (`src/lib/pose/canonical.ts`),
 - deterministic normalized coordinate mapping utilities (`src/lib/canvas/`),
+- fixed canonical portrait preview surface (1000x1600 internal reference) regardless of incoming pose `widthRef`/`heightRef`,
 - phase selection wiring to right-panel pose visualization and metadata,
 - non-destructive warning states for incomplete pose data,
 - source asset placeholder cards for future overlay support.
@@ -69,6 +70,8 @@ From `/studio`:
 5. Export the selected package back to local JSON.
 
 Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
+
+Note: import validation keeps normalized coordinate enforcement strict (`[0,1]`). Canvas clamping is a defensive preview fallback for non-import paths (e.g., future in-editor transient state), not a relaxation of package contract acceptance.
 
 Current UI limitation in PR3: Studio renders the first drill in each package as the active workspace drill; multi-drill browsing/editing is deferred.
 

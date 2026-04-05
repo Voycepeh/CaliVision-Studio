@@ -69,7 +69,7 @@ export function validateJointPoint(point: PortableJointPoint): string[] {
   }
 
   if (!isNormalized(point.x) || !isNormalized(point.y)) {
-    warnings.push("Joint falls outside normalized [0,1] bounds and will be clamped for preview rendering.");
+    warnings.push("Joint falls outside normalized [0,1] bounds; Studio clamps it for defensive preview rendering.");
   }
 
   return warnings;

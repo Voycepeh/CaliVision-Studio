@@ -23,8 +23,8 @@ Studio now uses a canonical portrait visual surface for deterministic phase pose
 
 Key assumptions:
 1. Package pose coordinates remain normalized in `[0,1]` regardless of screen size.
-2. Rendering uses a fixed internal coordinate reference (portrait view box), then scales responsively.
-3. Pose rendering is independent of source image dimensions.
+2. Rendering uses a fixed canonical internal portrait reference (`1000x1600`), then scales responsively.
+3. Pose rendering is independent of source image dimensions and independent of per-pose `widthRef`/`heightRef` for Studio preview geometry.
 4. Only canonical joints from the portable contract are rendered.
 5. Missing joints are allowed and render as partial skeletons.
 
@@ -81,7 +81,8 @@ Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but 
 
 - Contract uses `normalized-2d` coordinates (`x`, `y` in a `[0,1]` reference frame).
 - Import validation rejects out-of-range coordinates.
-- Studio canvas preview clamps out-of-range joint values defensively if invalid data slips through intermediate tooling.
+- Studio import validation still rejects out-of-range coordinates for package acceptance.
+- Studio canvas preview clamping is defensive and primarily intended for non-import transient editor state in future PRs.
 
 ### Joint names
 
