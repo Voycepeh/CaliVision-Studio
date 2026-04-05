@@ -3,7 +3,7 @@ import {
   validateJointPoint,
   type Point2D
 } from "@/lib/canvas/mapping";
-import { getCanonicalRenderCanvasSpec, toRenderableCanvasSpec } from "@/lib/canvas/spec";
+import { getCanonicalRenderCanvasSpec } from "@/lib/canvas/spec";
 import {
   CANONICAL_JOINT_NAMES,
   CANONICAL_SKELETON_CONNECTIONS
@@ -47,7 +47,7 @@ export type InspectorPhaseViewModel = {
 
 const EMPTY_CANVAS_POSE_MODEL: CanvasPoseModel = {
   status: "empty",
-  canvas: toRenderableCanvasSpec(null),
+  canvas: getCanonicalRenderCanvasSpec(),
   joints: [],
   connections: [],
   warnings: []

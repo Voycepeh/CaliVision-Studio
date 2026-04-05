@@ -14,15 +14,10 @@ export function getCanonicalRenderCanvasSpec(view: PortableViewType = "front"): 
   };
 }
 
+/**
+ * Studio preview rendering always uses the canonical portrait reference.
+ * Incoming package canvas metadata is treated as descriptive context only.
+ */
 export function toRenderableCanvasSpec(canvas?: PortableCanvasSpec | null): PortableCanvasSpec {
-  if (!canvas) {
-    return CANONICAL_PORTRAIT_CANVAS_SPEC;
-  }
-
-  return {
-    coordinateSystem: "normalized-2d",
-    widthRef: canvas.widthRef > 0 ? canvas.widthRef : CANONICAL_PORTRAIT_CANVAS_SPEC.widthRef,
-    heightRef: canvas.heightRef > 0 ? canvas.heightRef : CANONICAL_PORTRAIT_CANVAS_SPEC.heightRef,
-    view: canvas.view
-  };
+  return getCanonicalRenderCanvasSpec(canvas?.view ?? CANONICAL_PORTRAIT_CANVAS_SPEC.view);
 }
