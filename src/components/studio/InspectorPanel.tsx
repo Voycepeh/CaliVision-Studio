@@ -8,6 +8,7 @@ import { mapPortablePhaseToInspectorViewModel, mapPortablePoseToCanvasPoseModel 
 import { CANONICAL_JOINTS } from "@/lib/pose/canonical";
 import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contracts";
 import { useStudioState } from "@/components/studio/StudioState";
+import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 
 const NUDGE_STEP = 0.01;
 
@@ -173,8 +174,10 @@ export function InspectorPanel() {
                 )}
               </section>
 
+              <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} />
+
               <section className="card" style={{ minHeight: "92px" }}>
-                <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Source image/asset placeholder</h3>
+                <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Phase asset refs</h3>
                 {selectedPhase.assetRefs.length > 0 ? (
                   <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
                     {selectedPhase.assetRefs.map((asset) => (

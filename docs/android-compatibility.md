@@ -12,17 +12,16 @@ Android remains the behavioral reference for package semantics. Studio must mirr
 - Preserve manifest-driven schema compatibility checks.
 - Keep Studio package IO/export payloads Android-consumable.
 
-## PR4 authoring interoperability posture
+## PR5 detector interoperability posture
 
-Studio now renders package poses through a canonical visual surface while preserving Android semantics:
+PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/runtime contract.
 
-1. **Canonical joints only**: Studio pose renderer is restricted to portable `CanonicalJointName` values.
-2. **Normalized coordinates preserved**: phase poses are mapped from `[0,1]` into a fixed portrait render surface.
-3. **Deterministic phase preview**: selecting a phase in Studio always renders the same pose structure independent of image dimensions.
-4. **Portable canvas metadata honored**: view metadata (`front`/`side`/`rear`/`three-quarter`) is surfaced in phase inspector summaries.
-5. **Working-copy editing only**: Studio edits happen in-memory against a working copy and export back to the same portable contract.
-6. **Portable timing semantics preserved**: Studio edits `durationMs` directly and keeps phase ordering explicit.
-7. **Canonical coordinate editing preserved**: joint edits remain normalized `[0,1]` values and continue using canonical joint names.
+1. **Canonical contract remains source of truth**: detector outputs are mapped into canonical `PortablePose.joints` only.
+2. **No detector leakage in package payload**: raw MediaPipe landmarks/structures are not stored in exported package JSON.
+3. **Normalized coordinates preserved**: mapped joints remain `[0,1]` values.
+4. **Partial detections are explicit**: warnings are surfaced in Studio and require explicit user apply.
+5. **Non-destructive failure behavior**: failed detections do not silently overwrite phase pose data.
+6. **Phase asset refs stay compatible**: temporary local source image refs use existing `PortableAssetRef` shape.
 
 ## Integration expectations for Android consumers
 
@@ -33,14 +32,14 @@ Studio now renders package poses through a canonical visual surface while preser
 
 ## Guardrails
 
-- Do not leak Studio-only editing state into portable runtime contracts.
+- Do not leak Studio-only editor state into portable runtime contracts.
 - Do not introduce alternate coordinate systems without explicit versioning.
 - Do not rename canonical joints without cross-platform migration planning.
 - Do not change phase timing semantics without Android migration notes.
-- Do not accept detector-specific joints in canonical portable pose rendering paths.
+- Do not accept detector-specific joints in canonical portable pose rendering/export paths.
 
 ## Current baseline
 
 - Contract baseline: `0.1.0`
 - Producer source in sample fixtures: `web-studio`
-- Sample payloads in `samples/` are compatibility review fixtures.
+- Sample payloads in `samples/` remain compatibility review fixtures.

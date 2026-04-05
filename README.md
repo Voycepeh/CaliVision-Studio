@@ -19,68 +19,44 @@ Keeping Studio separate enables:
 - **Mobile (Android first, later iOS)** owns runtime/live coaching and package consumption.
 - Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
-## Package-first interoperability
-
-Studio and mobile connect through versioned portable packages.
-
-Current contract baseline:
-- `SchemaVersion`
-- `DrillPackage`
-- `DrillManifest`
-- `PortableDrill`
-- `PortablePhase`
-- `PortablePose`
-- `PortableAssetRef`
-- `PortableCanvasSpec`
-- `PortableViewType`
-- `CanonicalJointName`
-
-The contract direction mirrors Android-stabilized semantics:
-- normalized 2D coordinate system,
-- canonical joint naming,
-- explicit phase ordering and timing,
-- versioned manifest for safe evolution.
-
-## Current MVP scope (PR4)
+## Current MVP scope (PR5)
 
 Included:
-- package IO + validation foundation from PR2,
-- canonical Studio pose canvas surface (`src/components/studio/canvas/`),
-- explicit in-memory editor working-copy state with dirty tracking (`src/components/studio/StudioState.tsx`, `src/lib/editor/`),
-- phase list editing: select, rename, add, delete, duplicate, and reorder,
-- phase detail editing: duration, summary/notes, and view metadata updates,
-- lightweight joint editing: joint selection, drag updates, numeric/nudge controls, and per-joint revert,
-- export of edited working package JSON,
-- validation feedback for timing/order/coordinates and duplicate-title warnings.
+- package IO + validation foundation,
+- in-memory package working copy + dirty tracking,
+- phase list/detail editing + canonical joint editing,
+- image-first MediaPipe pose detection workflow per selected phase,
+- detector-to-canonical mapping into portable pose joints,
+- explicit detection review/apply flow (detect -> preview -> apply),
+- detection failure/partial warnings without silent pose overwrites,
+- local source image association placeholder in phase `assetRefs` for working package review,
+- export of updated canonical pose package JSON.
 
 Intentionally deferred:
-- MediaPipe detection and detector-specific joint mapping,
-- image overlay compositing,
-- timeline animation editor,
-- auth and backend persistence.
+- browser live coaching,
+- video detection pipeline,
+- cloud/background processing,
+- backend/cloud persistence,
+- full source image overlay alignment editor,
+- animation timeline editor.
 
-## Local package workflow
+## Local detection workflow
 
 From `/studio`:
-1. Load a bundled sample package from the left panel.
-2. Import a `.json` package from the top bar.
-3. Select/edit phases in the center panel.
-4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
-5. Export the edited working copy to local JSON.
+1. Load a bundled sample package or import a local package JSON.
+2. Select a phase in the center workspace panel.
+3. In inspector, upload a local image for that phase.
+4. Click **Detect pose** to run MediaPipe in-browser.
+5. Review mapped canonical preview + warnings/coverage.
+6. Click **Apply to phase** to intentionally replace phase pose.
+7. Refine joints manually with existing canvas and numeric controls.
+8. Export updated package JSON.
 
-Validation uses structured issue reporting (`error` vs `warning`) and does not rely on TypeScript types alone.
+## Source image behavior in PR5
 
-Note: import validation keeps normalized coordinate enforcement strict (`[0,1]`). Canvas clamping is a defensive preview fallback for non-import paths (e.g., future in-editor transient state), not a relaxation of package contract acceptance.
-
-Current UI limitation in PR4: Studio edits the first drill in each package as the active workspace drill; multi-drill browsing/editing is deferred.
-
-## Tech stack
-
-- Next.js (App Router)
-- React
-- TypeScript
-- ESLint (Next + TypeScript rules)
-- Local static/mock data for foundation phases
+- Source images stay local in browser memory only.
+- Studio writes a placeholder phase asset reference (`local://phase-images/...`) into working package state.
+- No binary image embedding and no remote asset storage is implemented in this PR.
 
 ## Getting started
 
@@ -94,7 +70,7 @@ Open: <http://localhost:3000>
 ## Route map
 
 - `/` - project entry and route index
-- `/studio` - package-driven workspace with canonical pose canvas preview
+- `/studio` - package-driven workspace with canonical pose canvas + detection workflow
 - `/library` - source/library placeholder
 - `/packages` - package workflow placeholder
 - `/marketplace` - future sharing surface placeholder
