@@ -6,6 +6,7 @@
 - Establish a credible desktop-first dark Studio shell.
 - Add foundational product and architecture docs.
 - Define portable package contracts aligned with Android compatibility.
+- Add lightweight runtime validation seam for unknown package JSON payloads.
 - Add mock and sample payloads for future import/export work.
 
 ## Assumptions

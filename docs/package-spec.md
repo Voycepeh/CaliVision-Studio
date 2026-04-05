@@ -47,3 +47,16 @@ Planned follow-up additions:
 - JSON schema validation bundle,
 - richer asset packaging metadata,
 - optional phase-level validation constraints.
+
+## Runtime validation seam (initial)
+
+PR1 now includes a lightweight runtime validator (`src/lib/schema/validate.ts`) for unknown JSON payloads.
+
+Current checks are intentionally minimal:
+- package root/manifest presence,
+- supported `schemaVersion`,
+- at least one drill,
+- phase order uniqueness per drill,
+- positive `durationMs`.
+
+This is a scaffold seam; PR2 should expand this into full JSON validation with richer error reporting.
