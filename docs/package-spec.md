@@ -21,11 +21,11 @@ Define and validate a portable package shape that mirrors Android-stabilized sem
 
 Detection pipeline is intentionally adapter-based and image-first:
 
-`uploaded image -> MediaPipe landmarks -> DetectionResult -> canonical PortablePose -> phase editor`
+`uploaded image -> MediaPipe Pose (pose.js) landmarks -> DetectionResult -> canonical PortablePose -> phase editor`
 
 Namespaces:
 - `src/lib/detection/` — detector-agnostic detection result model + canonical mapping.
-- `src/lib/detection/mediapipe/` — MediaPipe runtime integration and landmark mapping.
+- `src/lib/detection/mediapipe/` — MediaPipe Pose runtime integration (`@mediapipe/pose/pose.js`) and landmark mapping.
 - `src/components/studio/detection/` — inspector workflow UI.
 
 ### Detector result model (Studio-internal)
@@ -51,7 +51,8 @@ It includes:
 For PR5, phase source images are local-only working state in browser memory.
 
 - Studio stores file preview URL + metadata in local editor state.
-- Studio updates selected phase `assetRefs` with a local placeholder URI pattern (`local://phase-images/...`) for reviewability.
+- Studio can stage selected phase `assetRefs` with a local placeholder URI pattern (`local://phase-images/...`) for reviewability while editing.
+- Export strips all local placeholder phase-image refs (`local://phase-images/...`) so downloaded JSON remains portable/Android-consumable.
 - Exported package remains portable JSON contract; no binary embedding or remote upload is introduced in PR5.
 
 ## Validation philosophy

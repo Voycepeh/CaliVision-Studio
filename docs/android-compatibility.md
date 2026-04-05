@@ -21,7 +21,7 @@ PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/
 3. **Normalized coordinates preserved**: mapped joints remain `[0,1]` values.
 4. **Partial detections are explicit**: warnings are surfaced in Studio and require explicit user apply.
 5. **Non-destructive failure behavior**: failed detections do not silently overwrite phase pose data.
-6. **Phase asset refs stay compatible**: temporary local source image refs use existing `PortableAssetRef` shape.
+6. **Phase asset refs stay compatible**: temporary local source image refs are stripped at export, so unresolved `local://phase-images/...` URIs are not shipped in portable JSON.
 
 ## Integration expectations for Android consumers
 

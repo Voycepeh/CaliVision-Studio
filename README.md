@@ -55,8 +55,14 @@ From `/studio`:
 ## Source image behavior in PR5
 
 - Source images stay local in browser memory only.
-- Studio writes a placeholder phase asset reference (`local://phase-images/...`) into working package state.
+- Studio may use temporary placeholder phase asset references (`local://phase-images/...`) while editing.
+- Export strips all temporary local phase-image refs so downloaded package JSON remains portable for Android/mobile consumers.
 - No binary image embedding and no remote asset storage is implemented in this PR.
+
+## MediaPipe runtime note
+
+- Current PR5 runtime uses legacy browser MediaPipe Pose (`@mediapipe/pose/pose.js`) in IMAGE mode.
+- Detector metadata reflects this runtime as `mediapipe-pose` + `pose-js`.
 
 ## Getting started
 

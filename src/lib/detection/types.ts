@@ -32,9 +32,9 @@ export type DetectionConfidence = {
 };
 
 export type DetectionMetadata = {
-  detector: "mediapipe-pose-landmarker";
+  detector: "mediapipe-pose";
   detectorVersion: string;
-  model: "pose_landmarker_lite";
+  model: "pose-js";
   imageWidth: number;
   imageHeight: number;
   elapsedMs: number;

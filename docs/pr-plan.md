@@ -40,6 +40,7 @@
 ## PR5 (this change)
 
 - Add image-first MediaPipe pose detection workflow for selected phase images.
+- Implement detection runtime via browser MediaPipe Pose (`@mediapipe/pose/pose.js`) with isolated adapter.
 - Isolate detector runtime under `src/lib/detection/mediapipe/`.
 - Add explicit detector result model (`DetectionResult`, confidence, metadata, issues).
 - Add centralized detector-to-canonical mapping into portable pose joints.
@@ -47,6 +48,7 @@
 - Preserve manual joint editing flow after apply.
 - Preserve current phase pose on failures unless user applies a successful/partial result.
 - Store phase source image refs as local placeholder `assetRefs` in working package state.
+- Strip temporary `local://phase-images/...` refs on export to preserve portable package compatibility.
 
 ## Assumptions
 

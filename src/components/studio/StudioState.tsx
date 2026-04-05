@@ -118,6 +118,10 @@ function toPhaseAssetRef(phaseId: string, image: PhaseSourceImage): PortableAsse
   };
 }
 
+function removeTemporaryPhaseAssetRef(phase: PortablePhase): void {
+  phase.assetRefs = phase.assetRefs.filter((asset) => !asset.uri.startsWith("local://phase-images/"));
+}
+
 function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -537,7 +541,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   }
 
   function clearSelectedPhaseImage(): void {
-    if (!selectedScopeKey) {
+    if (!selectedScopeKey || !selectedPhaseId) {
       return;
     }
 
@@ -555,6 +559,10 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       ...current,
       [selectedScopeKey]: DEFAULT_DETECTION_WORKFLOW_STATE
     }));
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      removeTemporaryPhaseAssetRef(phase);
+    });
   }
 
   async function runPoseDetectionForSelectedPhase(): Promise<void> {
@@ -637,6 +645,12 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     }
 
     const exportPackage = clonePackage(selectedPackage.workingPackage);
+    const drill = getPrimaryDrill(exportPackage);
+    if (drill) {
+      drill.phases.forEach((phase) => {
+        removeTemporaryPhaseAssetRef(phase);
+      });
+    }
     exportPackage.manifest.updatedAtIso = new Date().toISOString();
     const validation = validatePortableDrillPackage(exportPackage);
 

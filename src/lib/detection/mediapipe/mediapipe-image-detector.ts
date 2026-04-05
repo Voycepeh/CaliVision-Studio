@@ -157,9 +157,9 @@ export async function detectPoseFromImage(image: HTMLImageElement): Promise<Dete
         coverage: { detectedJoints: 0, totalCanonicalJoints: CANONICAL_JOINT_NAMES.length },
         issues: [{ code: "no-pose-detected", severity: "error", message: "No pose was detected from the selected image." }],
         metadata: {
-          detector: "mediapipe-pose-landmarker",
+          detector: "mediapipe-pose",
           detectorVersion: "cdn-pose-js",
-          model: "pose_landmarker_lite",
+          model: "pose-js",
           imageWidth: image.naturalWidth,
           imageHeight: image.naturalHeight,
           elapsedMs: performance.now() - startedAt,
@@ -203,9 +203,9 @@ export async function detectPoseFromImage(image: HTMLImageElement): Promise<Dete
       coverage: { detectedJoints, totalCanonicalJoints: CANONICAL_JOINT_NAMES.length },
       issues,
       metadata: {
-        detector: "mediapipe-pose-landmarker",
+        detector: "mediapipe-pose",
         detectorVersion: "cdn-pose-js",
-        model: "pose_landmarker_lite",
+        model: "pose-js",
         imageWidth: image.naturalWidth,
         imageHeight: image.naturalHeight,
         elapsedMs: performance.now() - startedAt,
@@ -226,9 +226,9 @@ export async function detectPoseFromImage(image: HTMLImageElement): Promise<Dete
         }
       ],
       metadata: {
-        detector: "mediapipe-pose-landmarker",
+        detector: "mediapipe-pose",
         detectorVersion: "cdn-pose-js",
-        model: "pose_landmarker_lite",
+        model: "pose-js",
         imageWidth: image.naturalWidth,
         imageHeight: image.naturalHeight,
         elapsedMs: performance.now() - startedAt,
