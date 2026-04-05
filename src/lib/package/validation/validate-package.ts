@@ -163,7 +163,55 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
       validatePhase(phase, `${drillPath}.phases[${phaseIndex}]`, seenOrder, issues);
     });
 
+    validatePhaseOrderingAndTitles(drill.phases, drillPath, issues);
     validateDrillTimingConsistency(drill.phases, drillPath, issues);
+  });
+}
+
+function validatePhaseOrderingAndTitles(phases: unknown[], drillPath: string, issues: PackageValidationIssue[]): void {
+  const parsed = phases
+    .filter(isRecord)
+    .filter((phase) => typeof phase.order === "number")
+    .map((phase) => ({
+      order: phase.order as number,
+      title: typeof phase.title === "string" ? phase.title.trim() : ""
+    }))
+    .sort((a, b) => a.order - b.order);
+
+  parsed.forEach((phase, index) => {
+    const expectedOrder = index + 1;
+    if (phase.order !== expectedOrder) {
+      issues.push(
+        makeIssue(
+          "warning",
+          `${drillPath}.phases[order=${phase.order}].order`,
+          `Phase order sequence is non-contiguous. Expected ${expectedOrder}.`,
+          "phase-order"
+        )
+      );
+    }
+  });
+
+  const titleCounts = new Map<string, number>();
+  parsed.forEach((phase) => {
+    if (phase.title.length === 0) {
+      return;
+    }
+
+    titleCounts.set(phase.title.toLocaleLowerCase(), (titleCounts.get(phase.title.toLocaleLowerCase()) ?? 0) + 1);
+  });
+
+  titleCounts.forEach((count, title) => {
+    if (count > 1) {
+      issues.push(
+        makeIssue(
+          "warning",
+          `${drillPath}.phases`,
+          `Duplicate phase title detected: '${title}'.`,
+          "phase-required"
+        )
+      );
+    }
   });
 }
 

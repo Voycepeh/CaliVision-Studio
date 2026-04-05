@@ -1,14 +1,65 @@
+"use client";
+
+import { useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { canvasToNormalizedPoint } from "@/lib/canvas/mapping";
 import type { CanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
+import type { CanonicalJointName } from "@/lib/schema/contracts";
 
 type PoseCanvasProps = {
   pose: CanvasPoseModel;
   title?: string;
   subtitle?: string;
   selected?: boolean;
+  editable?: boolean;
+  selectedJointName?: CanonicalJointName | null;
+  onJointSelect?: (joint: CanonicalJointName) => void;
+  onJointMove?: (joint: CanonicalJointName, x: number, y: number) => void;
 };
 
-export function PoseCanvas({ pose, title = "Phase pose preview", subtitle, selected = false }: PoseCanvasProps) {
+export function PoseCanvas({
+  pose,
+  title = "Phase pose preview",
+  subtitle,
+  selected = false,
+  editable = false,
+  selectedJointName = null,
+  onJointSelect,
+  onJointMove
+}: PoseCanvasProps) {
   const { canvas, joints, connections } = pose;
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [dragJoint, setDragJoint] = useState<CanonicalJointName | null>(null);
+
+  function pointerToNormalized(event: ReactPointerEvent<SVGSVGElement>) {
+    const box = svgRef.current?.getBoundingClientRect();
+    if (!box) {
+      return null;
+    }
+
+    const rawX = ((event.clientX - box.left) / box.width) * canvas.widthRef;
+    const rawY = ((event.clientY - box.top) / box.height) * canvas.heightRef;
+    return canvasToNormalizedPoint({ x: rawX, y: rawY }, canvas, { clamp: true });
+  }
+
+  function onCanvasPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    if (!dragJoint || !onJointMove) {
+      return;
+    }
+
+    const normalized = pointerToNormalized(event);
+    if (!normalized) {
+      return;
+    }
+
+    onJointMove(dragJoint, normalized.x, normalized.y);
+  }
+
+  function onCanvasPointerUp() {
+    setDragJoint(null);
+  }
+
+  const selectedJoint = useMemo(() => joints.find((joint) => joint.name === selectedJointName) ?? null, [joints, selectedJointName]);
 
   return (
     <section className="card" style={{ padding: "0.65rem" }}>
@@ -31,11 +82,15 @@ export function PoseCanvas({ pose, title = "Phase pose preview", subtitle, selec
         }}
       >
         <svg
+          ref={svgRef}
           width="100%"
           viewBox={`0 0 ${canvas.widthRef} ${canvas.heightRef}`}
           style={{ display: "block", aspectRatio: `${canvas.widthRef} / ${canvas.heightRef}` }}
           role="img"
           aria-label="Canonical pose canvas"
+          onPointerMove={onCanvasPointerMove}
+          onPointerUp={onCanvasPointerUp}
+          onPointerLeave={onCanvasPointerUp}
         >
           <Grid width={canvas.widthRef} height={canvas.heightRef} />
 
@@ -52,17 +107,47 @@ export function PoseCanvas({ pose, title = "Phase pose preview", subtitle, selec
             />
           ))}
 
-          {joints.map((joint) => (
-            <circle
-              key={joint.name}
-              cx={joint.pixel.x}
-              cy={joint.pixel.y}
-              r={10}
-              fill={joint.outOfBounds ? "#f0b47d" : "#86b6ff"}
-              stroke="rgba(7,11,17,0.95)"
-              strokeWidth={3}
-            />
-          ))}
+          {joints.map((joint) => {
+            const isSelected = joint.name === selectedJointName;
+
+            return (
+              <circle
+                key={joint.name}
+                cx={joint.pixel.x}
+                cy={joint.pixel.y}
+                r={isSelected ? 13 : 10}
+                fill={joint.outOfBounds ? "#f0b47d" : isSelected ? "#9ad0ff" : "#86b6ff"}
+                stroke={isSelected ? "#f7fbff" : "rgba(7,11,17,0.95)"}
+                strokeWidth={isSelected ? 4 : 3}
+                style={{ cursor: editable ? "grab" : "default" }}
+                onPointerDown={(event) => {
+                  if (!editable) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setDragJoint(joint.name);
+                  onJointSelect?.(joint.name);
+                }}
+                onClick={(event) => {
+                  if (!editable) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onJointSelect?.(joint.name);
+                }}
+              />
+            );
+          })}
+
+          {selectedJoint ? (
+            <text x={selectedJoint.pixel.x + 16} y={selectedJoint.pixel.y - 14} fill="rgba(215,228,245,0.95)" style={{ fontSize: 40 }}>
+              {selectedJoint.name}
+            </text>
+          ) : null}
 
           {pose.status === "empty" ? <CanvasMessage text="No pose data for selected phase yet." /> : null}
           {pose.status === "invalid" ? <CanvasMessage text="Pose data is invalid or missing canonical joints." /> : null}

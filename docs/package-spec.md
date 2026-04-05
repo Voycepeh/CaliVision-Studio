@@ -1,4 +1,4 @@
-# Portable Drill Package Spec (PR3 Pose Canvas Foundation)
+# Portable Drill Package Spec (PR4 Editing Foundation)
 
 ## Goal
 
@@ -17,7 +17,7 @@ Define and validate a portable package shape that mirrors Android-stabilized sem
 - `PortableViewType` — canonical camera/view context.
 - `CanonicalJointName` — stable joint name vocabulary shared across clients.
 
-## Studio canonical pose canvas assumptions (PR3)
+## Studio canonical pose canvas assumptions (PR3+)
 
 Studio now uses a canonical portrait visual surface for deterministic phase pose preview.
 
@@ -28,7 +28,7 @@ Key assumptions:
 4. Only canonical joints from the portable contract are rendered.
 5. Missing joints are allowed and render as partial skeletons.
 
-## Local package IO + visualization foundation (PR2 + PR3)
+## Local package IO + editing foundation (PR2 + PR4)
 
 Package namespace:
 - `src/lib/package/import/`
@@ -49,6 +49,10 @@ Capabilities:
 4. Export currently loaded package as downloadable JSON.
 5. Render selected phase pose on canonical Studio canvas.
 6. Surface non-destructive warnings for incomplete/partially populated pose data.
+7. Maintain an explicit editable working copy in-memory (without mutating imported raw package objects).
+8. Edit phase name/order/duration/summary and phase pose view metadata.
+9. Edit canonical joints through canvas drag + inspector numeric controls using normalized coordinates.
+10. Export edited working copy JSON payloads.
 
 ## Validation philosophy
 
@@ -94,6 +98,8 @@ Joint keys must come from the canonical `CanonicalJointName` set. Unknown joints
 - `PortablePhase.durationMs` is required and positive.
 - `PortablePhase.startOffsetMs` (if present) must be non-negative.
 - `PortablePose.timestampMs` must be non-negative.
+- Studio phase editing keeps `order` explicit and re-normalized to contiguous sequence on reorder/add/delete.
+- Studio timing editing currently focuses on `durationMs` and preserves explicit `startOffsetMs` values when present.
 
 ### Manifest versioning
 
@@ -104,6 +110,5 @@ Joint keys must come from the canonical `CanonicalJointName` set. Unknown joints
 ## Evolution notes
 
 Planned follow-up additions:
-- lightweight phase/joint edit interactions (PR4),
 - MediaPipe detector-to-canonical mapping pipeline (PR5),
 - source image overlay alignment workflow (PR6).

@@ -18,7 +18,7 @@
 - Surface package validation status and issues directly in UI.
 - Keep workflow local-only (no backend/auth/object storage).
 
-## PR3 (this change)
+## PR3 (completed)
 
 - Add canonical pose canvas component (`src/components/studio/canvas/PoseCanvas.tsx`).
 - Add canonical joint metadata + skeleton connection definitions (`src/lib/pose/canonical.ts`).
@@ -35,11 +35,26 @@
 - Canonical pose canvas is the fixed visual reference surface for upcoming edit and detection flows.
 - Static/local data is sufficient for PR3 visualization workflows.
 
+## PR4 (this change)
+
+- Add Studio editor working-copy state with non-destructive local mutations and dirty tracking.
+- Add phase list editing (rename/add/delete/duplicate/reorder).
+- Add phase detail editing (duration, summary, view metadata).
+- Add lightweight joint editing on canonical pose canvas (select + drag + numeric/nudge).
+- Add export integration for working-copy JSON.
+- Extend validation surfacing for sequencing/title quality warnings.
+
+## Assumptions
+
+- Android remains the temporary semantics reference for portable packages.
+- Studio stays package-first and contract-aligned.
+- Canonical pose canvas remains the fixed visual reference for edit interactions.
+- Static/local data is sufficient for PR4 local authoring workflows.
+
 ## Non-goals (still deferred)
 
 - No auth/identity.
 - No cloud persistence or object storage.
-- No full drag editing or manipulation handles.
 - No MediaPipe integration.
 - No source image overlay compositing.
 - No timeline animation editor.
@@ -47,6 +62,6 @@
 
 ## Recommended next PR sequence
 
-1. **PR4:** phase editing + timing editing + lightweight joint selection and coordinate editing foundation.
-2. **PR5:** MediaPipe image pose detection + detector-to-canonical joint mapping.
-3. **PR6:** source image overlay support and pose/image alignment workflow.
+1. **PR5:** MediaPipe image pose detection + detector-to-canonical joint mapping.
+2. **PR6:** source image overlay support and pose/image alignment workflow.
+3. **PR7:** animation preview based on edited phase sequence and durations.

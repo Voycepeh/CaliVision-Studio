@@ -15,6 +15,7 @@ const navItems = [
 export function TopBar() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { importFromFile, exportSelectedPackage, saveStatusLabel } = useStudioState();
+  const isDirty = saveStatusLabel.startsWith("Unsaved");
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -56,7 +57,7 @@ export function TopBar() {
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <span style={{ color: "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
+        <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
         <input
           ref={fileInputRef}
           type="file"
