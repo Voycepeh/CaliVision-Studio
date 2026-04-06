@@ -1,7 +1,13 @@
-import { getCanonicalRenderCanvasSpec } from "@/lib/canvas/spec";
-import type { CanonicalJointName, PortablePhase, PortablePose } from "@/lib/schema/contracts";
+import type { CanonicalJointName, PortableCanvasSpec, PortablePhase, PortablePose } from "../schema/contracts.ts";
 
 const DEFAULT_PHASE_DURATION_MS = 1200;
+const CANONICAL_FALLBACK_CANVAS: PortableCanvasSpec = {
+  coordinateSystem: "normalized-2d",
+  widthRef: 1000,
+  heightRef: 1600,
+  view: "front"
+};
+
 const MIN_PHASE_DURATION_MS = 100;
 
 export type AnimationWarningSeverity = "info" | "warning";
@@ -14,7 +20,9 @@ export type AnimationWarning = {
 export type AnimationPhaseSegment = {
   phaseId: string;
   title: string;
+  sourceDurationMs: number;
   durationMs: number;
+  durationAdjusted: boolean;
   startMs: number;
   endMs: number;
   fromPose: PortablePose | null;
@@ -59,11 +67,18 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
   let cursorMs = 0;
 
   phases.forEach((phase, index) => {
-    const durationMs = sanitizeDurationMs(phase.durationMs);
+    const sanitizedDurationMs = sanitizeDurationMs(phase.durationMs);
+    const durationAdjusted = sanitizedDurationMs !== phase.durationMs;
+
     if (!Number.isFinite(phase.durationMs) || phase.durationMs <= 0) {
       warnings.push({
         severity: "warning",
-        message: `Phase ${phase.order} (${phase.title}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${durationMs}ms.`
+        message: `Phase ${phase.order} (${phase.title}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${sanitizedDurationMs}ms.`
+      });
+    } else if (phase.durationMs < MIN_PHASE_DURATION_MS) {
+      warnings.push({
+        severity: "info",
+        message: `Phase ${phase.order} (${phase.title}) duration ${phase.durationMs}ms is very short. Preview clamps to ${sanitizedDurationMs}ms for stability.`
       });
     }
 
@@ -83,14 +98,16 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
     segments.push({
       phaseId: phase.phaseId,
       title: phase.title,
-      durationMs,
+      sourceDurationMs: phase.durationMs,
+      durationMs: sanitizedDurationMs,
+      durationAdjusted,
       startMs: cursorMs,
-      endMs: cursorMs + durationMs,
+      endMs: cursorMs + sanitizedDurationMs,
       fromPose,
       toPose
     });
 
-    cursorMs += durationMs;
+    cursorMs += sanitizedDurationMs;
   });
 
   return {
@@ -113,7 +130,7 @@ export function sampleAnimationTimeline(timeline: AnimationTimeline, elapsedMs: 
   }
 
   const clampedElapsed = clamp(elapsedMs, 0, timeline.totalDurationMs);
-  const segment = timeline.segments.find((item) => clampedElapsed <= item.endMs) ?? timeline.segments[timeline.segments.length - 1];
+  const segment = resolveTimelineSegment(timeline, clampedElapsed);
   const localElapsed = clamp(clampedElapsed - segment.startMs, 0, segment.durationMs);
   const localProgress = segment.durationMs <= 0 ? 1 : clamp(localElapsed / segment.durationMs, 0, 1);
 
@@ -135,9 +152,17 @@ export function sanitizeDurationMs(durationMs: number): number {
   return Math.max(MIN_PHASE_DURATION_MS, Math.round(durationMs));
 }
 
+function resolveTimelineSegment(timeline: AnimationTimeline, elapsedMs: number): AnimationPhaseSegment {
+  if (elapsedMs >= timeline.totalDurationMs) {
+    return timeline.segments[timeline.segments.length - 1];
+  }
+
+  return timeline.segments.find((item) => elapsedMs < item.endMs) ?? timeline.segments[timeline.segments.length - 1];
+}
+
 function interpolatePoses(fromPose: PortablePose | null, toPose: PortablePose | null, t: number, poseId: string): PortablePose | null {
   const normalizedProgress = clamp(t, 0, 1);
-  const baseCanvas = fromPose?.canvas ?? toPose?.canvas ?? getCanonicalRenderCanvasSpec();
+  const baseCanvas = fromPose?.canvas ?? toPose?.canvas ?? CANONICAL_FALLBACK_CANVAS;
 
   if (!fromPose && !toPose) {
     return null;
@@ -203,7 +228,7 @@ function getMissingJointCoverageNotice(fromPose: PortablePose | null, toPose: Po
   const fromCount = Object.keys(fromPose.joints).length;
   const toCount = Object.keys(toPose.joints).length;
   if (fromCount === 0 || toCount === 0) {
-    return `Interpolation between \"${fromTitle}\" and \"${toTitle}\" uses fallback joints because one pose has no visible joints.`;
+    return `Interpolation between "${fromTitle}" and "${toTitle}" uses fallback joints because one pose has no visible joints.`;
   }
 
   return null;

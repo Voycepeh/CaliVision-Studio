@@ -383,3 +383,37 @@ main {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+
+.studio-animation-preview-card {
+  overflow: hidden;
+}
+
+.studio-animation-toggle {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.studio-animation-preview-body {
+  margin-top: 0.55rem;
+  max-height: 72vh;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.studio-animation-preview-body .pose-canvas-frame {
+  --pose-canvas-max-height: min(36vh, 260px);
+}
+
+@media (max-width: 1024px) {
+  .studio-animation-preview-body {
+    max-height: 56vh;
+  }
+
+  .studio-animation-preview-body .pose-canvas-frame {
+    --pose-canvas-max-height: min(30vh, 220px);
+  }
+}
