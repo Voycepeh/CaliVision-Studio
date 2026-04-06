@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import type { CSSProperties } from "react";
+import { StudioAnimationPreviewPanel } from "@/components/studio/animation/StudioAnimationPreviewPanel";
+import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { StudioInspectorAccordion } from "@/components/studio/StudioInspectorAccordion";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioPhaseDetailsPanel } from "@/components/studio/StudioPhaseDetailsPanel";
-import { StudioPublishPanel } from "@/components/studio/StudioPublishPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 
@@ -17,6 +18,7 @@ export function StudioRightPanel() {
     selectedPhaseId,
     selectedJointName,
     selectedPhaseSourceImage,
+    selectedPhaseDetection,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
     resetSelectedPhaseOverlayState,
@@ -43,12 +45,6 @@ export function StudioRightPanel() {
         Collapsible drill details and advanced editing controls.
       </p>
 
-      <StudioMetadataEditor />
-      <StudioPhaseDetailsPanel />
-      <StudioAnimationPreviewPanel />
-
-      {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : null}
-
       {selectedPhase ? (
         <section className="card">
           <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Source image metadata</h3>
@@ -69,12 +65,30 @@ export function StudioRightPanel() {
           )}
           <p className="muted" style={{ marginBottom: 0 }}>
             Export now emits a bundled package that includes package:// assets when binary data is available locally.
+          </p>
+        </section>
+      ) : null}
+
       <StudioInspectorAccordion title="Drill metadata" defaultOpen>
         <StudioMetadataEditor />
       </StudioInspectorAccordion>
 
       <StudioInspectorAccordion title="Phase details" defaultOpen>
         <StudioPhaseDetailsPanel />
+      </StudioInspectorAccordion>
+
+      <StudioInspectorAccordion title="Animation preview" defaultOpen>
+        <StudioAnimationPreviewPanel />
+      </StudioInspectorAccordion>
+
+      <StudioInspectorAccordion title="Detection workflow">
+        {selectedPhase ? (
+          <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} />
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Select a phase to run pose detection.
+          </p>
+        )}
       </StudioInspectorAccordion>
 
       <StudioInspectorAccordion title="Joint editor" defaultOpen>
@@ -214,10 +228,13 @@ export function StudioRightPanel() {
             <p className="muted" style={{ margin: 0 }}>
               Image transforms are editor-only alignment aids. Canonical normalized pose coordinates remain unchanged and exportable.
             </p>
-          )}
-        </section>
-      ) : null}
-
+          </div>
+        ) : (
+          <p className="muted" style={{ margin: 0 }}>
+            Select a phase to adjust image overlays.
+          </p>
+        )}
+      </StudioInspectorAccordion>
 
       {selectedPackage ? (
         <section className="card">

@@ -258,13 +258,6 @@ function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
   });
 }
 
-export function StudioStateProvider({
-  children,
-  initialPackageId
-}: {
-  children: React.ReactNode;
-  initialPackageId?: string;
-}) {
 async function toPhaseSourceImageFromBlob(
   assetId: string,
   portableUri: string,
@@ -289,7 +282,13 @@ async function toPhaseSourceImageFromBlob(
   };
 }
 
-export function StudioStateProvider({ children }: { children: React.ReactNode }) {
+export function StudioStateProvider({
+  children,
+  initialPackageId
+}: {
+  children: React.ReactNode;
+  initialPackageId?: string;
+}) {
   const [packages, setPackages] = useState<EditablePackageEntry[]>(() => createInitialPackages());
   const [selectedPackageKey, setSelectedPackageKey] = useState<string | null>(() => createInitialPackages()[0]?.packageKey ?? null);
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(() => {
