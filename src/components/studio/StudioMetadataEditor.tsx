@@ -8,17 +8,18 @@ export function StudioMetadataEditor() {
   const {
     selectedPackage,
     setDrillTitle,
+    setDrillSlug,
+    setDrillDescription,
     setDrillDifficulty,
     setDrillDefaultView,
     setManifestSchemaVersion,
-    setManifestPackageId,
     setManifestPackageVersion
   } = useStudioState();
 
   if (!selectedPackage) {
     return (
       <section>
-        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill metadata</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill info</h3>
         <p className="muted" style={{ margin: 0 }}>
           Load or import a drill file to edit metadata.
         </p>
@@ -32,14 +33,29 @@ export function StudioMetadataEditor() {
   }
 
   return (
-    <section>
-      <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill metadata</h3>
-      <div style={{ display: "grid", gap: "0.55rem" }}>
+    <section style={{ display: "grid", gap: "0.55rem" }}>
+      <div className="field-grid">
         <label style={labelStyle}>
-          <span>Title</span>
+          <span>Drill title</span>
           <input value={drill.title} onChange={(event) => setDrillTitle(event.target.value)} style={inputStyle} />
         </label>
 
+        <label style={labelStyle}>
+          <span>Drill slug (friendly identifier)</span>
+          <input value={drill.slug} onChange={(event) => setDrillSlug(event.target.value)} style={inputStyle} />
+        </label>
+      </div>
+
+      <label style={labelStyle}>
+        <span>Description</span>
+        <textarea
+          value={drill.description ?? ""}
+          onChange={(event) => setDrillDescription(event.target.value)}
+          style={{ ...inputStyle, minHeight: "74px", resize: "vertical" }}
+        />
+      </label>
+
+      <div className="field-grid">
         <label style={labelStyle}>
           <span>Difficulty</span>
           <select value={drill.difficulty} onChange={(event) => setDrillDifficulty(event.target.value as typeof drill.difficulty)} style={inputStyle}>
@@ -57,6 +73,17 @@ export function StudioMetadataEditor() {
             <option value="rear">rear</option>
           </select>
         </label>
+      </div>
+
+      <div className="field-grid">
+        <label style={labelStyle}>
+          <span>Package version</span>
+          <input
+            value={selectedPackage.workingPackage.manifest.packageVersion}
+            onChange={(event) => setManifestPackageVersion(event.target.value)}
+            style={inputStyle}
+          />
+        </label>
 
         <label style={labelStyle}>
           <span>Schema version</span>
@@ -68,23 +95,17 @@ export function StudioMetadataEditor() {
             <option value="0.1.0">0.1.0</option>
           </select>
         </label>
+      </div>
 
+      <div className="field-grid">
         <label style={labelStyle}>
-          <span>Package ID</span>
-          <input
-            value={selectedPackage.workingPackage.manifest.packageId}
-            onChange={(event) => setManifestPackageId(event.target.value)}
-            style={inputStyle}
-          />
+          <span>Internal package ID (system-generated)</span>
+          <input value={selectedPackage.workingPackage.manifest.packageId} style={inputStyle} readOnly />
         </label>
 
         <label style={labelStyle}>
-          <span>Package version</span>
-          <input
-            value={selectedPackage.workingPackage.manifest.packageVersion}
-            onChange={(event) => setManifestPackageVersion(event.target.value)}
-            style={inputStyle}
-          />
+          <span>Internal drill ID (system-generated)</span>
+          <input value={drill.drillId} style={inputStyle} readOnly />
         </label>
       </div>
     </section>

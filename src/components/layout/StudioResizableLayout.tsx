@@ -66,7 +66,7 @@ export function StudioResizableLayout({ left, center, right }: StudioResizableLa
             Source
           </button>
           <button type="button" className={mobileTab === "edit" ? "active" : ""} onClick={() => setMobileTab("edit")}>
-            Edit
+            Workflow
           </button>
           <button type="button" className={mobileTab === "inspector" ? "active" : ""} onClick={() => setMobileTab("inspector")}>
             Inspector
