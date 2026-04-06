@@ -95,6 +95,27 @@ export type DrillPackagePublishingMetadata = {
   lastPreparedAtIso?: string;
 };
 
+export type DrillPackageDraftStatus = "draft" | "publish-ready";
+
+export type DrillPackageRelationType = "fork" | "remix" | "duplicate" | "new-version" | "import";
+
+export type DrillPackageProvenance = {
+  relation: DrillPackageRelationType;
+  parentPackageId: string;
+  parentVersionId?: string;
+  parentEntryId?: string;
+  note?: string;
+};
+
+export type DrillPackageVersioningMetadata = {
+  packageSlug: string;
+  versionId: string;
+  revision: number;
+  lineageId: string;
+  draftStatus: DrillPackageDraftStatus;
+  derivedFrom?: DrillPackageProvenance;
+};
+
 export type DrillManifest = {
   schemaVersion: SchemaVersion;
   packageId: string;
@@ -106,6 +127,7 @@ export type DrillManifest = {
     androidMinVersion: string;
     androidTargetContract: string;
   };
+  versioning?: DrillPackageVersioningMetadata;
   publishing?: DrillPackagePublishingMetadata;
 };
 

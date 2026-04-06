@@ -6,6 +6,7 @@ export {
 } from "./catalog.ts";
 
 export {
+  createDerivedRegistryEntry,
   installRegistryEntryToLibrary,
   loadLocalRegistryEntries,
   saveLocalRegistryEntries,

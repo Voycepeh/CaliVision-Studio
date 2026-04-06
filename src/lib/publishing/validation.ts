@@ -12,7 +12,10 @@ export type PublishReadinessIssueCode =
   | "missing-phase-pose"
   | "missing-phase-summary"
   | "phase-missing-assets"
-  | "artifact-generation";
+  | "artifact-generation"
+  | "missing-version-id"
+  | "lineage-conflict"
+  | "draft-status";
 
 export type PublishReadinessIssue = {
   severity: "error" | "warning";
@@ -58,6 +61,41 @@ export async function validatePackagePublishReadiness(drillPackage: DrillPackage
       code: "missing-package-version",
       path: "manifest.packageVersion",
       message: "Package version is required before publishing."
+    });
+  }
+
+  const versioning = drillPackage.manifest.versioning;
+  if (!versioning?.versionId?.trim()) {
+    issues.push({
+      severity: "error",
+      code: "missing-version-id",
+      path: "manifest.versioning.versionId",
+      message: "Version identity is required before publishing."
+    });
+  } else if (versioning.versionId !== `${drillPackage.manifest.packageId}@${drillPackage.manifest.packageVersion}`) {
+    issues.push({
+      severity: "warning",
+      code: "lineage-conflict",
+      path: "manifest.versioning.versionId",
+      message: "Version identity does not match packageId@packageVersion."
+    });
+  }
+
+  if (versioning?.draftStatus === "draft") {
+    issues.push({
+      severity: "warning",
+      code: "draft-status",
+      path: "manifest.versioning.draftStatus",
+      message: "Package is still marked as draft in versioning metadata."
+    });
+  }
+
+  if (versioning?.derivedFrom?.relation === "new-version" && versioning.derivedFrom.parentPackageId !== drillPackage.manifest.packageId) {
+    issues.push({
+      severity: "warning",
+      code: "lineage-conflict",
+      path: "manifest.versioning.derivedFrom.parentPackageId",
+      message: "New-version provenance should point to the same package identity."
     });
   }
 

@@ -20,6 +20,13 @@
       ],
       "visibility": "private",
       "publishStatus": "draft"
+    },
+    "versioning": {
+      "packageSlug": "pkg-invalid-001",
+      "versionId": "pkg_invalid_001@0.0.1",
+      "revision": 1,
+      "lineageId": "pkg_invalid_001",
+      "draftStatus": "draft"
     }
   },
   "drills": [
