@@ -7,6 +7,8 @@ import {
 } from "@/lib/package/validation/validate-package";
 import type { DrillBundleFile, DrillPackage } from "@/lib/schema/contracts";
 
+const SUPPORTED_BUNDLE_VERSION = "1";
+
 export type ImportedBundleAsset = {
   assetId: string;
   path: string;
@@ -85,6 +87,14 @@ export function packageKeyFromSample(packagePayload: DrillPackage): string {
 }
 
 function loadPackageFromBundle(bundle: DrillBundleFile, packageKey: string, sourceLabel: string): LoadPackageResult {
+  const bundleVersion = String((bundle.manifest as { bundleVersion?: unknown }).bundleVersion ?? "");
+  if (bundleVersion !== SUPPORTED_BUNDLE_VERSION) {
+    return {
+      ok: false,
+      error: `Unsupported bundle manifest version '${bundleVersion}'. Expected '${SUPPORTED_BUNDLE_VERSION}'.`
+    };
+  }
+
   const loaded = loadPackageFromUnknown(bundle.drill, packageKey, sourceLabel);
 
   if (!loaded.ok) {
@@ -123,7 +133,7 @@ function loadPackageFromBundle(bundle: DrillBundleFile, packageKey: string, sour
   return {
     ...loaded,
     importedBundle: {
-      bundleManifestVersion: bundle.manifest.bundleVersion,
+      bundleManifestVersion: bundleVersion,
       assetsById
     }
   };

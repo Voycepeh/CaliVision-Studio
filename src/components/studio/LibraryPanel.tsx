@@ -95,7 +95,19 @@ export function LibraryPanel() {
           </p>
         ) : (
           <>
-            <p style={{ marginTop: 0 }}>{importFeedback.message}</p>
+            <p
+              style={{
+                marginTop: 0,
+                color:
+                  importFeedback.status === "error"
+                    ? "#fecaca"
+                    : importFeedback.status === "warning"
+                      ? "#fde68a"
+                      : "#bbf7d0"
+              }}
+            >
+              [{importFeedback.status}] {importFeedback.message}
+            </p>
             {importFeedback.issues.length > 0 && (
               <ul style={{ margin: 0, paddingLeft: "1rem" }}>
                 {importFeedback.issues.slice(0, 5).map((issue, index) => (

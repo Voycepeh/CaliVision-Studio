@@ -27,7 +27,7 @@ import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionRe
 import type { CanonicalJointName, PortableAssetRef, PortablePhase, PortableViewType, SchemaVersion } from "@/lib/schema/contracts";
 
 export type ImportFeedback = {
-  status: "idle" | "success" | "error";
+  status: "idle" | "success" | "warning" | "error";
   message: string;
   issues: PackageValidationIssue[];
 };
@@ -949,12 +949,20 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
 
     exportPackage.manifest.updatedAtIso = new Date().toISOString();
     const validation = validatePortableDrillPackage(exportPackage);
+    if (validation.errors.length > 0) {
+      setImportFeedback({
+        status: "error",
+        message: `Export blocked: package '${exportPackage.manifest.packageId}' has ${validation.errors.length} validation error(s).`,
+        issues: validation.issues
+      });
+      return;
+    }
 
     void buildBundleForExport(exportPackage, packageAssetBlobs[selectedPackage.packageKey] ?? {}).then((result) => {
       downloadPackageBundle(result.bundle, exportPackage);
       const warningMessage = result.warnings.length > 0 ? ` (${result.warnings.length} asset warning(s))` : "";
       setImportFeedback({
-        status: result.warnings.length > 0 ? "error" : "success",
+        status: result.warnings.length > 0 ? "warning" : "success",
         message: `Exported bundled drill package ${exportPackage.manifest.packageId}${warningMessage}.`,
         issues: validation.issues
       });
