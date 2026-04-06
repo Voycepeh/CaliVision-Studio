@@ -25,6 +25,17 @@ PR6 keeps MediaPipe image detection and source-image overlay as **authoring assi
 6. **Phase asset refs stay compatible**: temporary local source image refs are stripped at export, so unresolved `local://phase-images/...` URIs are not shipped in portable JSON.
 7. **Overlay transforms are editor-only**: source image fit/opacity/offset visibility controls do not alter exported canonical joint coordinates.
 
+
+## PR7 animation preview compatibility posture
+
+PR7 sequence playback is a Studio validation feature layered on top of canonical package fields.
+
+1. **No animation-only contract model**: preview uses existing phase `durationMs`, ordering, and canonical pose joints.
+2. **No payload mutation requirement**: preview reads unsaved editor working state but exports unchanged contract structure.
+3. **Fallback behavior remains deterministic**: invalid durations and missing joints are handled in preview logic only and surfaced as warnings.
+4. **Coordinate parity preserved**: interpolation stays in normalized canonical coordinates (no alternate coordinate system).
+5. **Android consumption unchanged**: Android clients continue consuming ordered phases + canonical joints exactly as before.
+
 ## Integration expectations for Android consumers
 
 1. Parse `DrillManifest` and verify schema support.
