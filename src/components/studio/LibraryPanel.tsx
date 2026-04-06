@@ -22,6 +22,7 @@ export function LibraryPanel() {
               key={sample.id}
               type="button"
               onClick={() => loadSampleById(sample.id)}
+              className="studio-library-item-button"
               style={{
                 textAlign: "left",
                 border: "1px solid var(--border)",
@@ -32,8 +33,10 @@ export function LibraryPanel() {
                 cursor: "pointer"
               }}
             >
-              <strong style={{ display: "block", marginBottom: "0.2rem" }}>{sample.label}</strong>
-              <small className="muted">{sample.description}</small>
+              <strong className="studio-library-item-title" style={{ display: "block", marginBottom: "0.2rem" }}>
+                {sample.label}
+              </strong>
+              <small className="muted studio-library-item-subline">{sample.description}</small>
             </button>
           ))}
         </div>
@@ -52,6 +55,7 @@ export function LibraryPanel() {
                 key={entry.packageKey}
                 type="button"
                 onClick={() => selectPackage(entry.packageKey)}
+                className="studio-library-item-button"
                 style={{
                   textAlign: "left",
                   border: selectedPackageKey === entry.packageKey ? "1px solid var(--accent)" : "1px solid var(--border)",
@@ -62,11 +66,13 @@ export function LibraryPanel() {
                   cursor: "pointer"
                 }}
               >
-                <strong style={{ display: "block" }}>{entry.workingPackage.manifest.packageId}</strong>
-                <small className="muted">
+                <strong className="studio-library-item-title" style={{ display: "block" }}>
+                  {entry.workingPackage.manifest.packageId}
+                </strong>
+                <small className="muted studio-library-item-subline">
                   v{entry.workingPackage.manifest.packageVersion} • {drillCount} drill(s) • {phaseCount} phase(s)
                 </small>
-                <small className="muted" style={{ display: "block" }}>
+                <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {drill?.title ?? "No drill"} • {entry.isDirty ? "unsaved" : "saved"}
                 </small>
               </button>

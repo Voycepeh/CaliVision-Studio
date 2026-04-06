@@ -59,6 +59,7 @@ export function StudioCenterInspector() {
   } = useStudioState();
 
   const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
+  const [isPoseCanvasExpanded, setIsPoseCanvasExpanded] = useState(false);
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
@@ -70,7 +71,7 @@ export function StudioCenterInspector() {
   const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
 
   return (
-    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.75rem", alignContent: "start" }}>
+    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Workspace</h2>
         <p className="muted" style={{ margin: 0 }}>
@@ -102,13 +103,15 @@ export function StudioCenterInspector() {
               {phases.map((phase, index) => (
                 <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>
                   <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem" }}>
-                      <strong>
+                    <div className="studio-phase-list-heading">
+                      <strong className="studio-phase-list-title">
                         {phase.order}. {phase.title}
                       </strong>
-                      <span className="muted">{(phase.durationMs / 1000).toFixed(1)}s • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
+                      <span className="muted studio-phase-list-meta">
+                        {(phase.durationMs / 1000).toFixed(1)}s • {phase.assetRefs.length > 0 ? "image attached" : "no image"}
+                      </span>
                     </div>
-                    <small className="muted">
+                    <small className="muted studio-phase-list-subline">
                       {phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}
                     </small>
                   </button>
@@ -179,6 +182,18 @@ export function StudioCenterInspector() {
                     <option value="rear">rear</option>
                   </select>
                 </label>
+
+                <label style={labelStyle}>
+                  <span>Canvas size</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPoseCanvasExpanded((current) => !current)}
+                    style={smallButtonStyle}
+                    aria-pressed={isPoseCanvasExpanded}
+                  >
+                    {isPoseCanvasExpanded ? "Use balanced canvas" : "Expand canvas"}
+                  </button>
+                </label>
               </section>
 
               <PoseCanvas
@@ -192,6 +207,7 @@ export function StudioCenterInspector() {
                 onJointMove={(joint, x, y) => setJointCoordinates(selectedPhase.phaseId, joint, x, y)}
                 focusJointNames={focusJointSet}
                 showPoseLayer={selectedPhaseOverlayState.showPose}
+                sizeMode={isPoseCanvasExpanded ? "focus" : "balanced"}
                 imageLayer={
                   selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
                     ? {

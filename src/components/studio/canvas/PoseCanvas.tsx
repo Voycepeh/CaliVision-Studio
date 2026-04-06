@@ -32,6 +32,7 @@ type PoseCanvasProps = {
   } | null;
   showPoseLayer?: boolean;
   imageErrorMessage?: string | null;
+  sizeMode?: "default" | "balanced" | "focus";
 };
 
 export function PoseCanvas({
@@ -46,7 +47,8 @@ export function PoseCanvas({
   onJointMove,
   imageLayer = null,
   showPoseLayer = true,
-  imageErrorMessage = null
+  imageErrorMessage = null,
+  sizeMode = "default"
 }: PoseCanvasProps) {
   const { canvas, joints, connections } = pose;
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -145,17 +147,19 @@ export function PoseCanvas({
 
   return (
     <section className="card" style={{ padding: "0.65rem" }}>
-      <header style={{ marginBottom: "0.5rem" }}>
-        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>{title}</h3>
+      <header className="pose-canvas-header" style={{ marginBottom: "0.5rem" }}>
+        <h3 className="pose-canvas-title" style={{ margin: 0, fontSize: "0.95rem" }}>
+          {title}
+        </h3>
         {subtitle ? (
-          <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+          <p className="muted pose-canvas-subtitle" style={{ margin: "0.2rem 0 0" }}>
             {subtitle}
           </p>
         ) : null}
       </header>
 
       <div
-        className="pose-canvas-frame"
+        className={`pose-canvas-frame pose-canvas-frame-${sizeMode}`}
         style={{
           border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
           borderRadius: "0.65rem",
