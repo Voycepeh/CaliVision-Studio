@@ -19,7 +19,7 @@ Keeping Studio separate enables:
 - **Mobile (Android first, later iOS)** owns runtime/live coaching and package consumption.
 - Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
-## Current MVP scope (PR6)
+## Current MVP scope (PR7)
 
 Included:
 - package IO + validation foundation,
@@ -34,6 +34,11 @@ Included:
 - phase-specific source image metadata/status in the Studio working state and inspectors,
 - local source image association placeholder in phase `assetRefs` for working-package review only,
 - export of updated canonical pose package JSON.
+- right-panel animation preview panel with deterministic phase-sequence playback,
+- linear interpolation between consecutive canonical phase poses for flow validation,
+- playback controls (play, pause, restart, loop toggle, speed multiplier),
+- preview warnings for invalid durations / sparse pose coverage / low phase count,
+- live preview updates from unsaved edits to phase order, joints, and durations,
 
 Intentionally deferred:
 - browser live coaching,
@@ -41,7 +46,7 @@ Intentionally deferred:
 - cloud/background processing,
 - backend/cloud persistence,
 - full source image asset bundling/storage architecture,
-- animation timeline editor.
+- full timeline/motion-curve editor.
 
 ## Local detection workflow
 
@@ -75,6 +80,15 @@ From `/studio`:
 
 - Current PR5 runtime uses legacy browser MediaPipe Pose (`@mediapipe/pose/pose.js`) in IMAGE mode.
 - Detector metadata reflects this runtime as `mediapipe-pose` + `pose-js`.
+
+## Animation preview behavior in PR7
+
+- Preview reads only from current editor working state and uses the same canonical `phase.poseSequence[0]` + `durationMs` values that export to package JSON.
+- Timing assumption for PR7: each phase `durationMs` is treated as the transition segment length to the next ordered phase.
+- Interpolation uses simple linear x/y blending for shared joints; joints missing in one pose fall back to the available endpoint value.
+- Single-phase drills are supported (static hold for that phase duration).
+- Invalid durations (`<= 0` or non-finite) are replaced with a safe fallback during preview only, and surfaced as warnings.
+- This panel is validation-first and intentionally does not introduce motion authoring curves, backend persistence, or runtime live-coaching features.
 
 ## Getting started
 

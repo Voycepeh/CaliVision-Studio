@@ -1,4 +1,4 @@
-# Portable Drill Package Spec (PR6 Overlay Alignment Workflow)
+# Portable Drill Package Spec (PR7 Animation Preview Validation Workflow)
 
 ## Goal
 
@@ -63,6 +63,31 @@ For PR6, phase source images and overlay alignment controls are local-only worki
 - Export strips all local placeholder phase-image refs (`local://phase-images/...`) so downloaded JSON remains portable/Android-consumable.
 - Exported package remains portable JSON contract; no binary embedding or remote upload is introduced in PR6.
 
+
+## PR7 animation preview semantics
+
+PR7 adds a Studio-only animation preview layer that reuses exported canonical package fields without adding new contract objects.
+
+Preview source fields:
+- ordered `PortablePhase` list (`order`)
+- phase timing (`durationMs`)
+- canonical pose endpoint (`poseSequence[0]`)
+
+Preview assumptions:
+- each phase `durationMs` is interpreted as the interpolation segment length from phase _n_ pose to phase _n+1_ pose,
+- sequencing loops by default in Studio preview controls,
+- single-phase drills are rendered as a timed hold.
+
+Interpolation behavior:
+- linear interpolation on normalized `x/y` coordinates,
+- shared joints interpolate,
+- missing joints in one endpoint fall back to the available endpoint value,
+- if both endpoints are missing, that joint is omitted from the preview frame.
+
+Compatibility note:
+- preview output is derived/transient and is not serialized into package JSON,
+- no new schema fields are required for PR7, preserving Android compatibility.
+
 ## Validation philosophy
 
 Validation is explicit runtime logic and is **not** treated as “TypeScript-only safety.”
@@ -91,6 +116,6 @@ Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but 
 ## Evolution notes
 
 Planned follow-up additions:
-- PR7 animation preview based on edited phase sequence and durations,
 - PR8 local package asset bundling strategy for source images/thumbnails,
-- PR9 package publishing groundwork and future storage abstraction.
+- PR9 package publishing groundwork and future storage abstraction,
+- PR10 marketplace/library groundwork with local-first package registry concepts.
