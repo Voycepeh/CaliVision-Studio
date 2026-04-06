@@ -115,15 +115,25 @@ export function installRegistryEntryToLibrary(entryId: string): PackageInstallRe
     };
   }
 
+  const installedSourceLabel = `installed-from:${match.entryId}`;
   const installed = createRegistryEntryFromPackage({
     packageJson: match.details.packageJson,
     sourceType: "installed-local",
-    sourceLabel: `installed-from:${match.entryId}`,
+    sourceLabel: installedSourceLabel,
     parentEntryId: match.entryId,
     publishedAtIso: match.summary.publishedAtIso
   });
 
-  const filtered = current.filter((entry) => entry.entryId !== installed.entryId);
+  const filtered = current.filter(
+    (entry) =>
+      !isSameLogicalRegistryEntry(entry, {
+        packageId: installed.summary.packageId,
+        packageVersion: installed.summary.packageVersion,
+        sourceType: "installed-local",
+        sourceLabel: installedSourceLabel,
+        parentEntryId: match.entryId
+      })
+  );
   saveLocalRegistryEntries([installed, ...filtered]);
 
   return {

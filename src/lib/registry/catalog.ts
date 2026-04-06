@@ -8,7 +8,8 @@ import type {
   PackageRegistryEntry,
   PackageSourceType,
   PackageSummary
-} from "@/lib/registry/types";
+} from "./types.ts";
+import { createArtifactId, createEntryId } from "./identity.ts";
 
 export const DEFAULT_PACKAGE_LISTING_QUERY: PackageListingQuery = {
   searchText: "",
@@ -87,7 +88,8 @@ export function createRegistryEntryFromPackage(input: {
   };
 
   return {
-    entryId: summary.entryId,
+    entryId,
+    artifactId,
     summary,
     details
   };
@@ -163,10 +165,6 @@ export function collectCatalogTags(entries: PackageRegistryEntry[]): string[] {
   });
 
   return Array.from(set).sort((a, b) => a.localeCompare(b));
-}
-
-function createEntryId(packageId: string, packageVersion: string): string {
-  return `${packageId}@${packageVersion}`;
 }
 
 function mapSourceTypeToCreatedBy(sourceType: PackageSourceType): PackageOrigin["createdBy"] {

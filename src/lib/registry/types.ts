@@ -11,6 +11,7 @@ export type PackageOrigin = {
 
 export type PackageSummary = {
   entryId: string;
+  artifactId: string;
   packageId: string;
   packageSlug?: string;
   versionId?: string;
@@ -54,6 +55,7 @@ export type PackageDetails = {
 
 export type PackageRegistryEntry = {
   entryId: string;
+  artifactId: string;
   summary: PackageSummary;
   details: PackageDetails;
 };
