@@ -9,6 +9,17 @@
     "compatibility": {
       "androidMinVersion": "1.2.0",
       "androidTargetContract": "drill-package-0.1.0"
+    },
+    "publishing": {
+      "title": "Invalid Drill",
+      "summary": "",
+      "authorDisplayName": "Studio Author",
+      "tags": [],
+      "categories": [
+        "technique"
+      ],
+      "visibility": "private",
+      "publishStatus": "draft"
     }
   },
   "drills": [
@@ -36,8 +47,14 @@
                 "view": "front"
               },
               "joints": {
-                "leftShoulder": { "x": 1.2, "y": 0.4 },
-                "unknownJoint": { "x": 0.5, "y": 0.5 }
+                "leftShoulder": {
+                  "x": 1.2,
+                  "y": 0.4
+                },
+                "unknownJoint": {
+                  "x": 0.5,
+                  "y": 0.5
+                }
               }
             }
           ],
