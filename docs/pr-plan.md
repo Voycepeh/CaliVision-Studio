@@ -58,7 +58,7 @@
 - Tighten selected-phase workflow status visibility across center and right inspectors.
 - Preserve safe export behavior by stripping temporary local phase image refs and excluding editor-only overlay metadata from package payload.
 
-## PR7 (this change)
+## PR7 (completed)
 
 - Add a Studio animation preview panel in the right inspector for sequence validation.
 - Build deterministic phase-sequence playback from ordered phases + canonical pose endpoints + phase `durationMs`.
@@ -66,6 +66,15 @@
 - Add playback controls (play, pause, restart, loop toggle, speed multiplier) and current-phase/timing summaries.
 - Surface concise preview warnings for low phase count, invalid duration values, and sparse/missing pose data.
 - Keep preview read-only and export-compatible (no animation-only schema additions).
+
+## PR8 (this change)
+
+- Refactor Studio shell into a calmer Source / Edit / Review authoring flow while remaining one-page.
+- Keep the left rail compact for sample drills, loaded drills, and import feedback.
+- Keep phase list and selected-phase basics near the top of the center workspace.
+- Move preview, validation, and source-image workflows into center review tabs.
+- Convert right-side inspector content into collapsible accordion groups with sensible defaults.
+- Keep drill editing/export semantics unchanged (layout and organization only).
 
 ## Assumptions
 
@@ -75,6 +84,7 @@
 - Source image binaries remain local-only and are not embedded in exported package payloads.
 - Overlay alignment metadata remains editor-only working state until future package asset strategy is implemented.
 - PR7 preview treats each phase `durationMs` as transition time to the next phase pose for validation playback.
+- PR8 keeps all tools on one page while reducing default visual density via collapsed inspector groups and tabbed review surfaces.
 
 ## Non-goals (still deferred)
 
@@ -85,6 +95,7 @@
 - No full image editor/tool suite beyond lightweight alignment controls.
 - No full timeline motion-curve/easing authoring editor.
 - No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
+- No behavioral change to pose schema, export payload shape, or hit-testing logic as part of the workflow layout refactor.
 
 ## UI terminology + preview parity follow-up (current)
 
@@ -106,6 +117,6 @@
 
 ## Recommended next PR sequence
 
-1. **PR8:** local package asset bundling strategy for source images and thumbnails.
-2. **PR9:** package publishing groundwork and future storage abstraction.
-3. **PR10:** marketplace/library groundwork with local-first package registry concepts.
+1. **PR9:** local package asset bundling strategy for source images and thumbnails.
+2. **PR10:** package publishing groundwork and future storage abstraction.
+3. **PR11:** marketplace/library groundwork with local-first package registry concepts.
