@@ -58,6 +58,42 @@
 - Tighten selected-phase workflow status visibility across center and right inspectors.
 - Preserve safe export behavior by stripping temporary local phase image refs and excluding editor-only overlay metadata from package payload.
 
+## PR7 (this change)
+
+- Rebalance center-workspace authoring flow by reducing default canonical pose editor footprint.
+- Add responsive pose editor sizing rules across desktop, narrow desktop/tablet, and mobile.
+- Add explicit canvas expand/focus toggle so large-canvas editing is intentional instead of always-on.
+- Preserve phase/joint editing semantics, overlay controls, and normalized coordinate behavior.
+- Keep dark visual language while increasing visible control density around the editor.
+
+### Assumptions
+
+- Default authoring should prioritize seeing phase list, phase controls, canvas, and joint editor in one pass.
+- Portrait canonical rendering remains unchanged; resizing only changes viewport scale.
+- Users still need an explicit large-canvas mode for precision adjustments.
+
+### Non-goals
+
+- No changes to package contract, exported pose schema, or canonical joint semantics.
+- No changes to detection mapping, import/export behavior, or dirty-state semantics.
+- No rewrite of panel architecture beyond center-workspace density and canvas sizing behavior.
+
+## PR8 (this change)
+
+- Fix long-text overflow in left-panel sample/loaded drill cards so package IDs stay inside selected card boundaries.
+- Add defensive long-text wrapping behavior for card child content and library card title/subline text blocks.
+- Preserve existing dark theme card styling, selection state visuals, and panel layout behavior.
+
+### Assumptions
+
+- Drill/package identifiers can be long and should remain readable without horizontal overflow.
+- Loaded drill cards should prioritize containment and readability over single-line preservation.
+
+### Non-goals
+
+- No change to panel widths, resizable layout semantics, or card selection interaction model.
+- No change to drill/package contracts or import/export behavior.
+
 ## Assumptions
 
 - Android remains the temporary semantics reference for portable packages.

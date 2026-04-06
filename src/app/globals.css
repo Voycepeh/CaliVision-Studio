@@ -185,7 +185,7 @@ main {
 .studio-inspector-controls-row {
   display: grid;
   gap: 0.45rem;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .panel-content {
@@ -210,6 +210,28 @@ main {
   word-break: break-word;
 }
 
+.card > * {
+  min-width: 0;
+}
+
+.studio-library-item-button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.studio-library-item-title,
+.studio-library-item-subline {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.studio-phase-list-item {
+  min-width: 0;
+}
+
 .pose-canvas-header {
   min-width: 0;
   overflow: hidden;
@@ -225,11 +247,24 @@ main {
 
 .pose-canvas-frame {
   --pose-canvas-max-height: none;
+  --pose-canvas-max-width: 100%;
 }
 
 .pose-canvas-svg {
-  width: 100%;
+  width: min(100%, var(--pose-canvas-max-width, 100%));
+  height: auto;
   max-height: var(--pose-canvas-max-height, none);
+  margin-inline: auto;
+}
+
+.pose-canvas-frame-balanced {
+  --pose-canvas-max-height: clamp(380px, 50vh, 560px);
+  --pose-canvas-max-width: min(100%, 310px);
+}
+
+.pose-canvas-frame-focus {
+  --pose-canvas-max-height: clamp(520px, 72vh, 920px);
+  --pose-canvas-max-width: min(100%, 520px);
 }
 
 .field-grid {
@@ -241,6 +276,16 @@ main {
 @media (max-width: 1280px) {
   .studio-resizable-grid {
     grid-template-columns: minmax(220px, var(--studio-left, 280px)) 10px minmax(420px, 1fr) 10px minmax(250px, var(--studio-right, 320px));
+  }
+
+  .pose-canvas-frame-balanced {
+    --pose-canvas-max-height: clamp(340px, 44vh, 500px);
+    --pose-canvas-max-width: min(100%, 280px);
+  }
+
+  .pose-canvas-frame-focus {
+    --pose-canvas-max-height: clamp(460px, 64vh, 780px);
+    --pose-canvas-max-width: min(100%, 430px);
   }
 }
 
@@ -272,17 +317,36 @@ main {
   }
 
   .studio-inspector-controls-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pose-canvas-frame-balanced {
+    --pose-canvas-max-height: clamp(300px, 40vh, 420px);
+    --pose-canvas-max-width: min(100%, 240px);
+  }
+
+  .pose-canvas-frame-focus {
+    --pose-canvas-max-height: clamp(380px, 56vh, 620px);
+    --pose-canvas-max-width: min(100%, 330px);
   }
 }
 
 @media (max-width: 640px) {
-  .pose-canvas-frame {
-    --pose-canvas-max-height: min(50vh, 340px);
+  .studio-inspector-controls-row {
+    grid-template-columns: 1fr;
+  }
+
+  .pose-canvas-frame-balanced {
+    --pose-canvas-max-height: min(34vh, 270px);
+    --pose-canvas-max-width: min(100%, 190px);
+  }
+
+  .pose-canvas-frame-focus {
+    --pose-canvas-max-height: min(52vh, 410px);
+    --pose-canvas-max-width: min(100%, 280px);
   }
 
   .pose-canvas-svg {
-    width: 100%;
     margin-inline: auto;
   }
 }

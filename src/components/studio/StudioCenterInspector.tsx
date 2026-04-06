@@ -59,6 +59,7 @@ export function StudioCenterInspector() {
   } = useStudioState();
 
   const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
+  const [isPoseCanvasExpanded, setIsPoseCanvasExpanded] = useState(false);
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
@@ -70,7 +71,7 @@ export function StudioCenterInspector() {
   const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
 
   return (
-    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.75rem", alignContent: "start" }}>
+    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Workspace</h2>
         <p className="muted" style={{ margin: 0 }}>
@@ -181,6 +182,18 @@ export function StudioCenterInspector() {
                     <option value="rear">rear</option>
                   </select>
                 </label>
+
+                <label style={labelStyle}>
+                  <span>Canvas size</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsPoseCanvasExpanded((current) => !current)}
+                    style={smallButtonStyle}
+                    aria-pressed={isPoseCanvasExpanded}
+                  >
+                    {isPoseCanvasExpanded ? "Use balanced canvas" : "Expand canvas"}
+                  </button>
+                </label>
               </section>
 
               <PoseCanvas
@@ -194,6 +207,7 @@ export function StudioCenterInspector() {
                 onJointMove={(joint, x, y) => setJointCoordinates(selectedPhase.phaseId, joint, x, y)}
                 focusJointNames={focusJointSet}
                 showPoseLayer={selectedPhaseOverlayState.showPose}
+                sizeMode={isPoseCanvasExpanded ? "focus" : "balanced"}
                 imageLayer={
                   selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
                     ? {
