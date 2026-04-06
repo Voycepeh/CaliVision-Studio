@@ -286,3 +286,36 @@ main {
     margin-inline: auto;
   }
 }
+
+.studio-animation-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: end;
+  margin-top: 0.55rem;
+}
+
+.studio-animation-controls button,
+.studio-animation-controls select {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 0.35rem 0.55rem;
+}
+
+.studio-animation-segment {
+  border: 1px solid var(--border);
+  background: var(--panel-soft);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.studio-animation-segment[data-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
