@@ -1,37 +1,47 @@
 # Roadmap
 
-## Stage 1 — Local authoring foundation (PR1)
+## Direction summary
 
-- Next.js + TypeScript Studio foundation
-- Desktop-first dark workspace shell
-- Portable contract definitions and sample payloads
-- Product/architecture docs and clear scope boundaries
+CaliVision-Studio roadmap is organized around:
 
-## Stage 2 — Import/export and validation (PR2)
+1. high-confidence web authoring workflows,
+2. browser Upload Video analysis and drafting,
+3. hosted package ownership/exchange,
+4. stable downstream mobile runtime compatibility.
 
-- Package import/export UI + file handling
-- JSON validation against contract rules
-- Sample package loader and validation summaries
+Android runtime client: <https://github.com/Voycepeh/CaliVision>.
 
-## Stage 3 — Pose canvas foundation (PR3)
+## Phase A — Current authoring target (active)
 
-- Canonical-joint pose canvas editing
-- Normalized coordinate editing controls
-- Canvas-to-phase wiring in Studio state
+- Drill Studio authoring and phase editing,
+- image-based pose detection and refinement,
+- animation preview,
+- portable drill package export.
 
-## Stage 4 — Phase/timing authoring depth (PR4)
+## Phase B — Upload Video (next)
 
-- Dedicated phase editor interactions
-- Timing controls and sequence authoring
-- Animation preview timeline
+- browser media upload workflows,
+- analysis-to-draft assistance,
+- reference generation for drill authoring,
+- optional browser-side/cloud-assisted processing evolution.
 
-## Stage 5 — Assisted pose extraction (PR5)
+## Phase C — Drill Exchange platform
 
-- MediaPipe image pose detection (authoring assist)
-- Detector-to-canonical-joint mapping and human correction flow
+- login and account ownership,
+- hosted package storage,
+- publish and discover package versions,
+- fork/remix/version/update flows,
+- import flows from exchange into Studio and mobile.
 
-## Stage 6 — Publishing and marketplace
+## Phase D — Collaboration and ecosystem maturity
 
-- Package publishing pipeline
-- Sharing/discovery surface
-- Commerce + governance decisions (future)
+- simplified collaboration/store/discovery patterns,
+- clearer lineage/version UX,
+- stronger cross-device continuity between Studio and mobile runtime.
+
+## Guardrails across all phases
+
+- keep portable package contract stable,
+- preserve Android/mobile compatibility,
+- clearly separate current shipped capability from planned direction,
+- keep Studio as source of truth for authoring/publishing.

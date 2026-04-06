@@ -1,35 +1,39 @@
-# PR Plan (Foundation and Sequencing)
+# PR Plan — Documentation Rewrite for Product Story Alignment
 
-## PR1–PR9 (completed)
+## Summary
 
-- Delivered Studio foundation, package IO/validation, visual authoring workflows, detection/preview, and local/mock publishing abstractions.
+This PR rewrites repository documentation so CaliVision-Studio is presented as:
 
-## PR11 (this change) — user-facing versioning and fork/remix foundations
+- the web-first home for Drill Studio,
+- the future browser Upload Video surface,
+- the long-term source of truth for drill/package publishing,
+- the future Drill Exchange platform for shared/versioned package workflows.
 
-### Summary
+## Assumptions
 
-- Added explicit `manifest.versioning` metadata for package identity vs version identity.
-- Added local-first derived workflows: Duplicate, Fork/Remix, and New Version.
-- Added lineage/provenance summaries to Library, Studio, Packages, and Marketplace surfaces.
-- Added publish-readiness checks for version identity sanity and lineage conflicts.
-- Extended local registry behavior for multi-version lineages and derived copies.
+- current implementation remains local-first for many persistence/sharing concerns,
+- hosted auth/storage/exchange are planned, not fully shipped,
+- Android/mobile runtime client remains a downstream consumer,
+- portable drill package compatibility is mandatory.
 
-### Assumptions
+Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
-- Studio remains the authoring source of truth.
-- Portable package contract remains stable and Android-compatible.
-- Registry/listing remains local-first with no backend dependencies.
-- Versioning metadata is additive and backward-compatible.
+## Non-goals
 
-### Non-goals (intentionally deferred)
+- no core product feature rewrites,
+- no contract or runtime semantic changes,
+- no backend/auth implementation claims beyond planned direction.
 
-- Real auth and identity.
-- Real hosted registry/storage/search.
-- Social, moderation, and user-to-user sharing features.
-- Hosted lineage graph service and collaborative merge workflows.
+## Documentation architecture changes
 
-## Recommended next PRs
+- rewritten root `README.md` with current-vs-planned split,
+- strengthened `AGENTS.md` engineering and documentation guardrails,
+- added/rewritten product/system/flow/lifecycle/boundary docs,
+- added Mermaid diagrams for ecosystem, current flow, future flow, boundary, and lifecycle.
 
-1. **PR12:** real backend/auth/storage integration plan and first hosted environment setup.
-2. **PR13:** hosted package publishing implementation behind existing publishing abstractions.
-3. **PR14:** hosted registry/library retrieval and sync using the existing local-first marketplace model.
+## Validation criteria
+
+- docs consistently use core terminology,
+- docs link Android repo when mobile runtime is discussed,
+- docs clearly separate available-now behavior vs planned features,
+- docs align with source-of-truth boundary (web authoring vs mobile runtime).

@@ -1,32 +1,77 @@
 # Agent Guidance for CaliVision Studio
 
-## Core philosophy
+## Repository purpose
 
-1. Treat the **web Studio** as the primary authoring source of truth.
-2. Preserve **portable package compatibility** for Android/mobile consumers.
-3. Keep Studio visual-first and package-first.
-4. Avoid duplicating heavy runtime/live-coaching concerns into Studio.
+CaliVision Studio is the **web-first home** for:
 
-## Required engineering behavior
+- Drill Studio authoring,
+- browser Upload Video analysis direction,
+- portable drill package creation and publishing,
+- future Drill Exchange/community workflows.
 
-- Preserve Android compatibility when modifying contracts, semantics, or package examples.
-- Treat the portable drill package contract as sacred.
-- Do not invent incompatible joint names, coordinate systems, or phase semantics.
-- Keep PRs incremental and backwards-compatible whenever possible.
-- Prefer explicit schema versioning and manifest evolution notes.
-- Use static/mock data unless a PR explicitly introduces backend integration.
-- Prefer additive changes over speculative rewrites.
+Studio is the long-term **source of truth** for drill definitions and package publishing.
 
-## Contract/doc synchronization (mandatory)
+The Android app is a downstream runtime/live-coaching client: <https://github.com/Voycepeh/CaliVision>.
 
-If you modify drill/package contracts, update all of:
+## Ecosystem boundary
+
+- **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, package export/publish, exchange workflows.
+- **Android/mobile runtime client:** import packages, run drill playback/live coaching, consume Studio-authored content.
+
+Do not move runtime/live coaching concerns into Studio unless explicitly requested.
+
+## Core engineering principles
+
+1. Preserve portable package contract stability.
+2. Maintain Android/mobile compatibility when contracts or semantics change.
+3. Keep PRs incremental, architecture-aware, and backward-compatible when possible.
+4. Prefer additive schema evolution and explicit manifest/versioning notes.
+5. Keep docs and user workflows clear and synchronized with implementation.
+
+## Contract and documentation synchronization (mandatory)
+
+If you modify drill/package contracts, semantics, or payload examples, update all relevant files in the same PR:
+
 - `src/lib/schema/contracts.ts`
 - `docs/package-spec.md`
 - `docs/android-compatibility.md`
-- `samples/` payloads impacted by the change
+- impacted payloads in `samples/`
+- any impacted workflow docs in `docs/` (for example, current/future flows, lifecycle, boundary)
 
-## Workflow discipline
+## Documentation discipline (mandatory)
 
-- Keep UI, schema, and documentation changes aligned in the same PR.
-- Document assumptions and non-goals in `docs/pr-plan.md`.
-- Update docs whenever contract/workflow expectations change.
+Update documentation whenever workflows, architecture boundaries, or roadmap assumptions change.
+
+At minimum, validate and adjust as needed:
+
+- `README.md`
+- `docs/product-overview.md`
+- `docs/current-user-flows.md`
+- `docs/future-user-flows.md`
+- `docs/system-overview.md`
+- `docs/studio-mobile-boundary.md`
+- `docs/package-lifecycle.md`
+- `docs/drill-exchange-vision.md`
+- `docs/roadmap.md`
+- `docs/pr-plan.md`
+
+Document assumptions/non-goals explicitly in `docs/pr-plan.md`.
+
+## Cross-repo linking requirement
+
+Wherever Android/mobile runtime responsibilities are documented, include a direct link to:
+
+- <https://github.com/Voycepeh/CaliVision>
+
+Wherever Studio is discussed as ecosystem counterpart, keep that boundary explicit and consistent.
+
+## Data/backend posture
+
+Use static/mock/local-first data unless a PR explicitly introduces backend integration.
+Do not overclaim hosted auth/storage/exchange features before implementation exists.
+
+## Workflow clarity expectations
+
+- Use consistent terminology: **Drill Studio**, **Upload Video**, **portable drill package**, **Drill Exchange**, **mobile runtime client**, **source of truth**.
+- Keep current capabilities clearly separated from planned/future features.
+- Call out limitations honestly (for example local-first persistence vs hosted services).
