@@ -116,7 +116,7 @@ export function StudioCenterInspector() {
     if (!selectedPhase) return WORKFLOW_SECTION_IDS.phases;
     if (!selectedPhaseSourceImage) return WORKFLOW_SECTION_IDS.sourceImage;
     if (!selectedPose) return WORKFLOW_SECTION_IDS.poseAuthoring;
-    if (selectedPackage.validation.isValid && !selectedPackage.isDirty) {
+    if (selectedPackage.validation.isValid) {
       return WORKFLOW_SECTION_IDS.export;
     }
 
