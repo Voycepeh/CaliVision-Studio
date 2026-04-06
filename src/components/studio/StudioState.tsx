@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   clonePackage,
   createEditablePackageEntry,
@@ -35,6 +35,7 @@ import {
 } from "@/lib/publishing";
 import { loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
+import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import type {
   CanonicalJointName,
   DrillPackagePublishingMetadata,
@@ -306,6 +307,8 @@ export function StudioStateProvider({
   const [publishService] = useState(
     () => new PackagePublishService(new MockStorageProvider(), new MockPackageRegistryAdapter())
   );
+  const initializedDeepLinkPackageIdRef = useRef<string | null>(null);
+  const previousPhaseIndexesRef = useRef<PreviousPhaseIndexMap>({});
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
 
@@ -316,6 +319,11 @@ export function StudioStateProvider({
 
   useEffect(() => {
     if (!initialPackageId) {
+      initializedDeepLinkPackageIdRef.current = null;
+      return;
+    }
+
+    if (initializedDeepLinkPackageIdRef.current === initialPackageId) {
       return;
     }
 
@@ -324,10 +332,66 @@ export function StudioStateProvider({
       return;
     }
 
+    // Important: deep-link selection is route initialization, not package-content synchronization.
+    // If this runs on every packages mutation, normal edits will snap back to phase 1 and clear joint selection.
+    initializedDeepLinkPackageIdRef.current = initialPackageId;
     setSelectedPackageKey(match.packageKey);
     setSelectedPhaseId(getSortedPhases(match.workingPackage)[0]?.phaseId ?? null);
     setSelectedJointName(null);
   }, [initialPackageId, packages]);
+
+  useEffect(() => {
+    const previousIndexes = previousPhaseIndexesRef.current;
+
+    if (packages.length === 0) {
+      if (selectedPackageKey !== null) {
+        setSelectedPackageKey(null);
+      }
+      if (selectedPhaseId !== null) {
+        setSelectedPhaseId(null);
+      }
+      if (selectedJointName !== null) {
+        setSelectedJointName(null);
+      }
+      previousPhaseIndexesRef.current = {};
+      return;
+    }
+
+    const selectedPackageEntry = selectedPackageKey ? packages.find((entry) => entry.packageKey === selectedPackageKey) : null;
+
+    if (!selectedPackageEntry) {
+      const fallbackPackage = packages[0] ?? null;
+      const fallbackPhaseId = fallbackPackage ? getSortedPhases(fallbackPackage.workingPackage)[0]?.phaseId ?? null : null;
+
+      if (fallbackPackage && fallbackPackage.packageKey !== selectedPackageKey) {
+        setSelectedPackageKey(fallbackPackage.packageKey);
+      }
+      if (fallbackPhaseId !== selectedPhaseId) {
+        setSelectedPhaseId(fallbackPhaseId);
+      }
+      if (selectedJointName !== null) {
+        setSelectedJointName(null);
+      }
+      previousPhaseIndexesRef.current = buildPhaseIndexMap(packages);
+      return;
+    }
+
+    const sortedPhases = getSortedPhases(selectedPackageEntry.workingPackage);
+    const fallbackPhaseId = chooseFallbackPhaseId({
+      selectedPhaseId,
+      availablePhaseIds: sortedPhases.map((phase) => phase.phaseId),
+      previousPhaseIndexes: previousIndexes[selectedPackageEntry.packageKey] ?? {}
+    });
+
+    if (fallbackPhaseId !== selectedPhaseId) {
+      setSelectedPhaseId(fallbackPhaseId);
+      if (selectedJointName !== null) {
+        setSelectedJointName(null);
+      }
+    }
+
+    previousPhaseIndexesRef.current = buildPhaseIndexMap(packages);
+  }, [packages, selectedJointName, selectedPackageKey, selectedPhaseId]);
 
   const saveStatusLabel = selectedPackage
     ? selectedPackage.isDirty
