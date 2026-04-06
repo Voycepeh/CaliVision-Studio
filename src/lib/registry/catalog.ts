@@ -1,5 +1,5 @@
-import { validatePortableDrillPackage } from "../package/index.ts";
-import type { DrillPackage } from "../schema/contracts.ts";
+import { ensureVersioningMetadata, summarizeProvenance, validatePortableDrillPackage } from "@/lib/package";
+import type { DrillPackage } from "@/lib/schema/contracts";
 import type {
   PackageCatalog,
   PackageDetails,
@@ -25,43 +25,43 @@ export function createRegistryEntryFromPackage(input: {
   publishedAtIso?: string;
   parentEntryId?: string;
 }): PackageRegistryEntry {
-  const drill = input.packageJson.drills[0];
-  const publishing = input.packageJson.manifest.publishing;
-  const validation = validatePortableDrillPackage(input.packageJson);
+  const normalizedPackage = ensureVersioningMetadata(input.packageJson);
+  const drill = normalizedPackage.drills[0];
+  const publishing = normalizedPackage.manifest.publishing;
+  const validation = validatePortableDrillPackage(normalizedPackage);
 
   const title = publishing?.title ?? drill?.title ?? input.packageJson.manifest.packageId;
   const tags = publishing?.tags ?? drill?.tags ?? [];
   const categories = publishing?.categories ?? [];
-  const updatedAtIso = input.packageJson.manifest.updatedAtIso || new Date().toISOString();
-  const phaseCount = input.packageJson.drills.reduce((count, item) => count + item.phases.length, 0);
+  const updatedAtIso = normalizedPackage.manifest.updatedAtIso || new Date().toISOString();
+  const phaseCount = normalizedPackage.drills.reduce((count, item) => count + item.phases.length, 0);
   const warnings = validation.issues.filter((issue) => issue.severity !== "error").map((issue) => issue.message);
-  const artifactId = createArtifactId(input.packageJson.manifest.packageId, input.packageJson.manifest.packageVersion);
-  const entryId = createEntryId({
-    packageId: input.packageJson.manifest.packageId,
-    packageVersion: input.packageJson.manifest.packageVersion,
-    sourceType: input.sourceType,
-    sourceLabel: input.sourceLabel,
-    parentEntryId: input.parentEntryId
-  });
+  const versioning = normalizedPackage.manifest.versioning;
+  const provenanceSummary = summarizeProvenance(normalizedPackage);
 
   const summary: PackageSummary = {
-    entryId,
-    artifactId,
-    packageId: input.packageJson.manifest.packageId,
-    packageVersion: input.packageJson.manifest.packageVersion,
+    entryId: createEntryId(normalizedPackage.manifest.packageId, normalizedPackage.manifest.packageVersion),
+    packageId: normalizedPackage.manifest.packageId,
+    packageSlug: versioning?.packageSlug,
+    versionId: versioning?.versionId,
+    lineageId: versioning?.lineageId,
+    revision: versioning?.revision,
+    packageVersion: normalizedPackage.manifest.packageVersion,
     title,
     authorDisplayName: publishing?.authorDisplayName || "Local Studio Author",
     tags,
     categories,
     phaseCount,
-    assetCount: input.packageJson.assets.length,
-    hasAssets: input.packageJson.assets.length > 0,
-    compatibilitySummary: `${input.packageJson.manifest.compatibility.androidTargetContract} • Android ${input.packageJson.manifest.compatibility.androidMinVersion}+`,
-    schemaVersion: input.packageJson.manifest.schemaVersion,
+    assetCount: normalizedPackage.assets.length,
+    hasAssets: normalizedPackage.assets.length > 0,
+    compatibilitySummary: `${normalizedPackage.manifest.compatibility.androidTargetContract} • Android ${normalizedPackage.manifest.compatibility.androidMinVersion}+`,
+    schemaVersion: normalizedPackage.manifest.schemaVersion,
     updatedAtIso,
     publishedAtIso: input.publishedAtIso,
     publishStatus: input.sourceType === "mock-published" ? "published" : publishing?.publishStatus ?? "draft",
-    sourceType: input.sourceType
+    sourceType: input.sourceType,
+    provenanceSummary,
+    statusBadge: resolveStatusBadge(input.sourceType, versioning?.derivedFrom?.relation)
   };
 
   const origin: PackageOrigin = {
@@ -73,14 +73,15 @@ export function createRegistryEntryFromPackage(input: {
 
   const details: PackageDetails = {
     summary,
-    packageJson: input.packageJson,
+    packageJson: normalizedPackage,
     description: publishing?.description ?? publishing?.summary ?? drill?.description ?? "No package description provided yet.",
     phaseTitles: drill?.phases.map((phase) => phase.title) ?? [],
     origin,
+    lineageEntryIds: [],
     compatibility: {
-      schemaVersion: input.packageJson.manifest.schemaVersion,
-      androidMinVersion: input.packageJson.manifest.compatibility.androidMinVersion,
-      androidTargetContract: input.packageJson.manifest.compatibility.androidTargetContract,
+      schemaVersion: normalizedPackage.manifest.schemaVersion,
+      androidMinVersion: normalizedPackage.manifest.compatibility.androidMinVersion,
+      androidTargetContract: normalizedPackage.manifest.compatibility.androidTargetContract,
       validationSummary: validation.isValid ? "valid" : "warning",
       warnings: warnings.slice(0, 5)
     }
@@ -94,43 +95,26 @@ export function createRegistryEntryFromPackage(input: {
   };
 }
 
-export function isSameLogicalRegistryEntry(
-  entry: PackageRegistryEntry,
-  input: {
-    packageId: string;
-    packageVersion: string;
-    sourceType: PackageSourceType;
-    sourceLabel: string;
-    parentEntryId?: string;
+function resolveStatusBadge(
+  sourceType: PackageSourceType,
+  relation?: "fork" | "remix" | "duplicate" | "new-version" | "import"
+): PackageSummary["statusBadge"] {
+  if (sourceType === "mock-published") {
+    return "published";
   }
-): boolean {
-  const expectedEntryId = createEntryId(input);
-  if (entry.entryId === expectedEntryId) {
-    return true;
+  if (sourceType === "imported-local" || relation === "import") {
+    return "imported";
   }
-
-  if (
-    entry.summary.packageId !== input.packageId ||
-    entry.summary.packageVersion !== input.packageVersion ||
-    entry.summary.sourceType !== input.sourceType
-  ) {
-    return false;
+  if (relation === "fork") {
+    return "forked";
   }
-
-  const sourceLabel = entry.details.origin.sourceLabel?.trim().toLocaleLowerCase();
-  const inputSourceLabel = input.sourceLabel.trim().toLocaleLowerCase();
-  const entryParentId = entry.details.origin.parentEntryId?.trim().toLocaleLowerCase();
-  const inputParentId = input.parentEntryId?.trim().toLocaleLowerCase();
-
-  if (inputParentId || entryParentId) {
-    return inputParentId === entryParentId;
+  if (relation === "remix") {
+    return "remixed";
   }
-
-  if (sourceLabel && inputSourceLabel) {
-    return sourceLabel === inputSourceLabel;
+  if (relation === "new-version") {
+    return "versioned";
   }
-
-  return true;
+  return "local";
 }
 
 export function queryPackageCatalog(entries: PackageRegistryEntry[], query: PackageListingQuery): PackageCatalog {

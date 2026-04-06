@@ -13,6 +13,10 @@ export type PackageSummary = {
   entryId: string;
   artifactId: string;
   packageId: string;
+  packageSlug?: string;
+  versionId?: string;
+  lineageId?: string;
+  revision?: number;
   packageVersion: string;
   title: string;
   authorDisplayName: string;
@@ -27,6 +31,8 @@ export type PackageSummary = {
   publishedAtIso?: string;
   publishStatus: "draft" | "published";
   sourceType: PackageSourceType;
+  provenanceSummary: string;
+  statusBadge: "local" | "imported" | "forked" | "remixed" | "versioned" | "published";
 };
 
 export type PackageCompatibilityInfo = {
@@ -43,6 +49,7 @@ export type PackageDetails = {
   description: string;
   phaseTitles: string[];
   origin: PackageOrigin;
+  lineageEntryIds: string[];
   compatibility: PackageCompatibilityInfo;
 };
 

@@ -31,7 +31,7 @@ export function PackageOverview() {
             <div key={entry.entryId} style={{ border: "1px solid var(--border)", borderRadius: "0.55rem", padding: "0.45rem" }}>
               <strong>{entry.summary.packageId}</strong>
               <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                v{entry.summary.packageVersion} • {entry.summary.sourceType} • schema {entry.summary.schemaVersion}
+                v{entry.summary.packageVersion} • {entry.summary.sourceType} • {entry.summary.provenanceSummary} • schema {entry.summary.schemaVersion}
               </p>
             </div>
           ))}

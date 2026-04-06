@@ -24,7 +24,9 @@ export type PackageValidationIssue = {
     | "coordinates"
     | "joint"
     | "asset"
-    | "empty";
+    | "empty"
+    | "provenance"
+    | "versioning";
 };
 
 export type PackageValidationResult = {
@@ -121,6 +123,10 @@ function validateManifest(input: unknown, issues: PackageValidationIssue[]): voi
     validatePublishingMetadata(input.publishing, "manifest.publishing", issues);
   }
 
+  if (input.versioning !== undefined) {
+    validateVersioningMetadata(input.versioning, input.packageId, input.packageVersion, "manifest.versioning", issues);
+  }
+
   if (!isRecord(input.compatibility)) {
     issues.push(makeIssue("error", "manifest.compatibility", "Compatibility object is required.", "missing"));
     return;
@@ -132,6 +138,68 @@ function validateManifest(input: unknown, issues: PackageValidationIssue[]): voi
     "manifest.compatibility.androidTargetContract",
     issues
   );
+}
+
+function validateVersioningMetadata(
+  input: unknown,
+  packageId: unknown,
+  packageVersion: unknown,
+  path: string,
+  issues: PackageValidationIssue[]
+): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "Versioning metadata must be an object when present.", "versioning"));
+    return;
+  }
+
+  validateNonEmptyString(input.packageSlug, `${path}.packageSlug`, issues);
+  validateNonEmptyString(input.versionId, `${path}.versionId`, issues);
+
+  if (typeof input.revision !== "number" || input.revision < 1) {
+    issues.push(makeIssue("error", `${path}.revision`, "revision must be a positive integer.", "versioning"));
+  }
+
+  validateNonEmptyString(input.lineageId, `${path}.lineageId`, issues);
+
+  if (input.draftStatus !== undefined && !["draft", "publish-ready"].includes(String(input.draftStatus))) {
+    issues.push(makeIssue("error", `${path}.draftStatus`, "draftStatus must be draft or publish-ready.", "versioning"));
+  }
+
+  if (
+    typeof input.versionId === "string" &&
+    typeof packageId === "string" &&
+    typeof packageVersion === "string" &&
+    input.versionId !== `${packageId}@${packageVersion}`
+  ) {
+    issues.push(
+      makeIssue(
+        "warning",
+        `${path}.versionId`,
+        "versionId should match manifest.packageId@manifest.packageVersion.",
+        "versioning"
+      )
+    );
+  }
+
+  if (input.derivedFrom !== undefined) {
+    validateProvenanceMetadata(input.derivedFrom, `${path}.derivedFrom`, issues);
+  }
+}
+
+function validateProvenanceMetadata(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "derivedFrom must be an object.", "provenance"));
+    return;
+  }
+
+  if (!["fork", "remix", "duplicate", "new-version", "import"].includes(String(input.relation))) {
+    issues.push(makeIssue("error", `${path}.relation`, "relation must be fork, remix, duplicate, new-version, or import.", "provenance"));
+  }
+
+  validateNonEmptyString(input.parentPackageId, `${path}.parentPackageId`, issues);
+  validateOptionalNonEmptyString(input.parentVersionId, `${path}.parentVersionId`, issues);
+  validateOptionalNonEmptyString(input.parentEntryId, `${path}.parentEntryId`, issues);
+  validateOptionalNonEmptyString(input.note, `${path}.note`, issues);
 }
 
 

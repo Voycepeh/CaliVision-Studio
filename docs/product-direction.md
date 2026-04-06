@@ -15,17 +15,20 @@ Studio is the source of truth for:
 
 Mobile clients remain runtime/live-coaching consumers of portable package payloads.
 
-## PR10 direction: local-first ecosystem semantics
+## PR11 direction: versioned and shareable local-first assets
 
-PR10 introduces product semantics that make the ecosystem understandable before backend rollout:
+PR11 extends PR10 with user-facing version/provenance semantics:
 
 - **Library** = what is locally available to this Studio context.
 - **Packages** = portable artifact transport/compatibility workflows.
 - **Marketplace** = discovery mental model, currently powered by local/mock listings.
+- **Fork/Remix** = derived package with explicit lineage to source package/version.
+- **New Version** = same package lineage with incremented version/revision.
+- **Duplicate** = local convenience copy, tracked with lightweight provenance.
 
 ## Provenance-first package understanding
 
-Entries now surface explicit local provenance:
+Entries now surface explicit local provenance and lineage summaries:
 - authored-local,
 - imported-local,
 - mock-published,

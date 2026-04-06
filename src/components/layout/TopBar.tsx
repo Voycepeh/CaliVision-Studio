@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
+import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
   { href: "/studio", label: "Studio" },
@@ -14,8 +15,21 @@ const navItems = [
 
 export function TopBar() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { importFromFile, exportSelectedPackage, saveStatusLabel, openPublishPanel } = useStudioState();
+  const {
+    importFromFile,
+    exportSelectedPackage,
+    saveStatusLabel,
+    openPublishPanel,
+    selectedPackage,
+    duplicateSelectedPackage,
+    forkSelectedPackage,
+    createSelectedPackageNewVersion
+  } = useStudioState();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
+  const packageHeader = selectedPackage
+    ? `${selectedPackage.workingPackage.manifest.packageId} • v${selectedPackage.workingPackage.manifest.packageVersion}`
+    : "No package selected";
+  const provenance = selectedPackage ? summarizeProvenance(selectedPackage.workingPackage) : "Load a package to begin.";
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -45,6 +59,9 @@ export function TopBar() {
           <strong>CaliVision Studio</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
             Web-first authoring • drill-first workflow
+          </p>
+          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
+            {packageHeader} • {provenance}
           </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -77,6 +94,15 @@ export function TopBar() {
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
           Publish
+        </button>
+        <button type="button" onClick={duplicateSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
+          Duplicate
+        </button>
+        <button type="button" onClick={forkSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
+          Fork / Remix
+        </button>
+        <button type="button" onClick={createSelectedPackageNewVersion} style={actionButtonStyle} disabled={!selectedPackage}>
+          New Version
         </button>
         <button type="button" style={actionButtonStyle}>
           Settings/Profile

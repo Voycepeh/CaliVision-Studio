@@ -1,8 +1,8 @@
-import { sampleDrillPackage } from "../mock/sample-package.ts";
-import { createRegistryEntryFromPackage, isSameLogicalRegistryEntry } from "./catalog.ts";
-import { createArtifactId, upgradeLegacyEntryId } from "./identity.ts";
-import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "./types.ts";
-import type { DrillPackage } from "../schema/contracts.ts";
+import { sampleDrillPackage } from "@/lib/mock/sample-package";
+import { createDerivedPackage, ensureVersioningMetadata } from "@/lib/package";
+import { createRegistryEntryFromPackage } from "@/lib/registry/catalog";
+import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "@/lib/registry/types";
+import type { DrillPackage, DrillPackageRelationType } from "@/lib/schema/contracts";
 
 const REGISTRY_STORAGE_KEY = "calivision.registry.v1";
 
@@ -37,14 +37,7 @@ export function loadLocalRegistryEntries(): PackageRegistryEntry[] {
 
   try {
     const parsed = JSON.parse(raw) as PersistedRegistry;
-    const normalized = normalizePersistedEntries(parsed.entries ?? []);
-    const changed = JSON.stringify(normalized) !== JSON.stringify(parsed.entries ?? []);
-
-    if (changed) {
-      saveLocalRegistryEntries(normalized);
-    }
-
-    return normalized;
+    return normalizePersistedEntries(parsed.entries ?? []);
   } catch {
     return [];
   }
@@ -66,21 +59,46 @@ export function upsertRegistryEntryFromPackage(input: {
   publishedAtIso?: string;
   parentEntryId?: string;
 }): PackageRegistryEntry {
-  const next = createRegistryEntryFromPackage(input);
+  const normalizedPackage = ensureVersioningMetadata(input.packageJson);
+  const next = createRegistryEntryFromPackage({ ...input, packageJson: normalizedPackage });
   const current = loadLocalRegistryEntries();
-  const filtered = current.filter(
+  const duplicateVersion = current.find(
     (entry) =>
-      !isSameLogicalRegistryEntry(entry, {
-        packageId: next.summary.packageId,
-        packageVersion: next.summary.packageVersion,
-        sourceType: next.summary.sourceType,
-        sourceLabel: input.sourceLabel,
-        parentEntryId: input.parentEntryId
-      })
+      entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion && entry.entryId !== next.entryId
   );
-  const merged = [next, ...filtered].sort((a, b) => b.summary.updatedAtIso.localeCompare(a.summary.updatedAtIso));
+  if (duplicateVersion) {
+    throw new Error(`Duplicate version conflict for ${next.summary.packageId}@${next.summary.packageVersion}.`);
+  }
+  const merged = attachLineageEntryIds([next, ...current.filter((entry) => entry.entryId !== next.entryId)]);
   saveLocalRegistryEntries(merged);
   return next;
+}
+
+export function createDerivedRegistryEntry(input: {
+  entryId: string;
+  relation: Extract<DrillPackageRelationType, "duplicate" | "fork" | "remix" | "new-version">;
+}): PackageRegistryEntry {
+  const current = loadLocalRegistryEntries();
+  const source = current.find((entry) => entry.entryId === input.entryId);
+  if (!source) {
+    throw new Error("Source package was not found.");
+  }
+
+  const nextPackage = createDerivedPackage({
+    source: source.details.packageJson,
+    relation: input.relation
+  });
+
+  if (nextPackage.manifest.versioning?.derivedFrom) {
+    nextPackage.manifest.versioning.derivedFrom.parentEntryId = source.entryId;
+  }
+
+  return upsertRegistryEntryFromPackage({
+    packageJson: nextPackage,
+    sourceType: "authored-local",
+    sourceLabel: `${input.relation}:${source.entryId}`,
+    parentEntryId: source.entryId
+  });
 }
 
 export function installRegistryEntryToLibrary(entryId: string): PackageInstallResult {
@@ -128,66 +146,33 @@ export function installRegistryEntryToLibrary(entryId: string): PackageInstallRe
 }
 
 function normalizePersistedEntries(entries: PackageRegistryEntry[]): PackageRegistryEntry[] {
-  return entries.map((entry) => normalizePersistedEntry(entry));
+  const normalized = entries.map((entry) => {
+    if (entry.summary?.provenanceSummary && entry.summary?.statusBadge && Array.isArray(entry.details?.lineageEntryIds)) {
+      return entry;
+    }
+
+    return createRegistryEntryFromPackage({
+      packageJson: ensureVersioningMetadata(entry.details.packageJson),
+      sourceType: entry.summary.sourceType,
+      sourceLabel: entry.details.origin.sourceLabel,
+      parentEntryId: entry.details.origin.parentEntryId,
+      publishedAtIso: entry.summary.publishedAtIso
+    });
+  });
+
+  return attachLineageEntryIds(normalized);
 }
 
-function normalizePersistedEntry(entry: PackageRegistryEntry): PackageRegistryEntry {
-  const packageId = entry.summary?.packageId ?? entry.details?.packageJson?.manifest?.packageId ?? "unknown.package";
-  const packageVersion = entry.summary?.packageVersion ?? entry.details?.packageJson?.manifest?.packageVersion ?? "0.0.0";
-  const sourceType = entry.summary?.sourceType ?? entry.details?.origin?.sourceType ?? "authored-local";
-  const sourceLabel = entry.details?.origin?.sourceLabel ?? `legacy:${entry.entryId}`;
-  const parentEntryId = entry.details?.origin?.parentEntryId;
-  const canonical = createRegistryEntryFromPackage({
-    packageJson: entry.details?.packageJson ?? sampleDrillPackage,
-    sourceType,
-    sourceLabel,
-    parentEntryId,
-    publishedAtIso: entry.summary?.publishedAtIso
-  });
-
-  const artifactId = entry.artifactId ?? entry.summary?.artifactId ?? createArtifactId(packageId, packageVersion);
-
-  const nextEntryId = upgradeLegacyEntryId({
-    entryId: entry.entryId,
-    packageId,
-    packageVersion,
-    sourceType,
-    sourceLabel,
-    parentEntryId
-  });
-
-  return {
-    ...entry,
-    entryId: nextEntryId,
-    artifactId,
-    summary: {
-      ...canonical.summary,
-      ...entry.summary,
-      entryId: nextEntryId,
-      artifactId,
-      packageId,
-      packageVersion,
-      sourceType
-    },
-    details: {
-      ...canonical.details,
-      ...entry.details,
-      summary: {
-        ...canonical.summary,
-        ...entry.details?.summary,
-        entryId: nextEntryId,
-        artifactId,
-        packageId,
-        packageVersion,
-        sourceType
-      },
-      origin: {
-        ...canonical.details.origin,
-        ...entry.details?.origin,
-        sourceType,
-        sourceLabel,
-        parentEntryId
+function attachLineageEntryIds(entries: PackageRegistryEntry[]): PackageRegistryEntry[] {
+  return entries
+    .map((entry) => ({
+      ...entry,
+      details: {
+        ...entry.details,
+        lineageEntryIds: entries
+          .filter((candidate) => candidate.summary.lineageId && candidate.summary.lineageId === entry.summary.lineageId)
+          .map((candidate) => candidate.entryId)
       }
-    }
-  };
+    }))
+    .sort((a, b) => b.summary.updatedAtIso.localeCompare(a.summary.updatedAtIso));
 }

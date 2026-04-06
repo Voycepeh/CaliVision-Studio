@@ -8,6 +8,7 @@ import type {
   StorageProvider,
   StorageWriteInput
 } from "@/lib/publishing/types";
+import { ensureVersioningMetadata, summarizeProvenance } from "@/lib/package";
 
 function buildMockKey(artifact: PublishArtifact): string {
   return `${artifact.packageId}/${artifact.packageVersion}/${artifact.checksumSha256.slice(0, 12)}`;
@@ -52,16 +53,22 @@ export class MockPackageRegistryAdapter implements PackageRegistryAdapter {
 }
 
 export function createMockPublishRequestMetadata(artifact: PublishArtifact): PublishRequest["metadata"] {
-  const manifestPublishing = artifact.package.manifest.publishing;
-  const drill = artifact.package.drills[0];
+  const normalizedPackage = ensureVersioningMetadata(artifact.package);
+  const manifestPublishing = normalizedPackage.manifest.publishing;
+  const drill = normalizedPackage.drills[0];
+  const versioning = normalizedPackage.manifest.versioning;
 
   return {
-    title: manifestPublishing?.title ?? drill?.title ?? artifact.packageId,
+    title: manifestPublishing?.title ?? drill?.title ?? normalizedPackage.manifest.packageId,
     summary: manifestPublishing?.summary ?? drill?.description ?? "",
     description: manifestPublishing?.description ?? drill?.description,
     authorDisplayName: manifestPublishing?.authorDisplayName,
     tags: manifestPublishing?.tags ?? drill?.tags ?? [],
     categories: manifestPublishing?.categories ?? [],
-    visibility: manifestPublishing?.visibility ?? "private"
+    visibility: manifestPublishing?.visibility ?? "private",
+    packageSlug: versioning?.packageSlug,
+    versionId: versioning?.versionId,
+    lineageId: versioning?.lineageId,
+    provenanceSummary: summarizeProvenance(normalizedPackage)
   };
 }
