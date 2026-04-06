@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { StudioInspectorAccordion } from "@/components/studio/StudioInspectorAccordion";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioPhaseDetailsPanel } from "@/components/studio/StudioPhaseDetailsPanel";
+import { StudioPublishPanel } from "@/components/studio/StudioPublishPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 

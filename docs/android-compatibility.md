@@ -2,59 +2,38 @@
 
 ## Compatibility posture
 
-Android remains the behavioral reference for package semantics. Studio must mirror stabilized Android package expectations rather than inventing divergent payloads.
+Android remains the behavioral reference for package semantics. Studio must preserve portable package compatibility while adding publish groundwork.
 
 ## Mandatory contract alignment
 
-- Preserve canonical joint naming parity.
-- Preserve normalized coordinate semantics.
-- Preserve explicit phase order + duration behavior.
+- Preserve canonical joint naming and normalized coordinates.
+- Preserve explicit phase order and timing behavior.
 - Preserve manifest-driven schema compatibility checks.
-- Keep Studio package IO/export payloads Android-consumable.
-- Keep Studio authoring terminology Android-compatible by mapping UI-facing **Head** to canonical `nose` in package data.
+- Keep Studio export payloads Android-consumable.
+- Treat `manifest.publishing` as additive metadata that Android can ignore safely.
 
-## PR6 detector + overlay interoperability posture
+## PR9 publishing compatibility posture
 
-PR6 keeps MediaPipe image detection and source-image overlay as **authoring assists**, not as package/runtime contract data.
+1. **Portable contract remains canonical**: publish workflow reads/writes package metadata but does not replace drill semantics.
+2. **Additive metadata only**: `manifest.publishing` fields are optional and backward-compatible.
+3. **Export compatibility preserved**: temporary local source-image refs are still stripped on export/artifact generation.
+4. **Locator abstraction is host-ready, not runtime-coupled**: mock locators (`mock://...`) are for Studio simulation only.
+5. **No backend dependencies introduced**: publish architecture is local/mock and deterministic.
 
-1. **Canonical contract remains source of truth**: detector outputs are mapped into canonical `PortablePose.joints` only.
-2. **No detector leakage in package payload**: raw MediaPipe landmarks/structures are not stored in exported package JSON.
-3. **Normalized coordinates preserved**: mapped joints remain `[0,1]` values.
-4. **Partial detections are explicit**: warnings are surfaced in Studio and require explicit user apply.
-5. **Non-destructive failure behavior**: failed detections do not silently overwrite phase pose data.
-6. **Phase asset refs stay compatible**: temporary local source image refs are stripped at export, so unresolved `local://phase-images/...` URIs are not shipped in portable JSON.
-7. **Overlay transforms are editor-only**: source image fit/opacity/offset visibility controls do not alter exported canonical joint coordinates.
+## Canonical vs hosted metadata guidance
 
+- Canonical portable fields stay in core manifest + drill/phase/pose structures.
+- Hosted-platform concerns are represented as optional publishing metadata placeholders:
+  - display copy (`title`, `summary`, `description`),
+  - attribution (`authorDisplayName`),
+  - discovery hints (`tags`, `categories`),
+  - sharing intent (`visibility`, `publishStatus`),
+  - artifact traceability (`latestArtifactChecksumSha256`, `lastPreparedAtIso`).
 
-## PR7 animation preview compatibility posture
-
-PR7 sequence playback is a Studio validation feature layered on top of canonical package fields.
-
-1. **No animation-only contract model**: preview uses existing phase `durationMs`, ordering, and canonical pose joints.
-2. **No payload mutation requirement**: preview reads unsaved editor working state but exports unchanged contract structure.
-3. **Fallback behavior remains deterministic**: invalid durations and missing joints are handled in preview logic only and surfaced as warnings.
-4. **Coordinate parity preserved**: interpolation stays in normalized canonical coordinates (no alternate coordinate system).
-5. **Android consumption unchanged**: Android clients continue consuming ordered phases + canonical joints exactly as before.
-
-## Integration expectations for Android consumers
-
-1. Parse `DrillManifest` and verify schema support.
-2. Load drill phase order deterministically from `PortablePhase.order`.
-3. Resolve assets from `PortableAssetRef` values.
-4. Handle additive unknown fields without crashing.
-
-## Guardrails
-
-- Do not leak Studio-only editor state into portable runtime contracts.
-- Do not treat source image dimensions, fit mode, or overlay offsets as canonical pose coordinate inputs.
-- Do not introduce alternate coordinate systems without explicit versioning.
-- Do not rename canonical joints without cross-platform migration planning.
-- Do not expose alternate face-landmark authoring terminology that changes exported canonical keys.
-- Do not change phase timing semantics without Android migration notes.
-- Do not accept detector-specific joints in canonical portable pose rendering/export paths.
+Android consumers should continue ignoring unknown optional fields per forward-compatible parsing behavior.
 
 ## Current baseline
 
 - Contract baseline: `0.1.0`
 - Producer source in sample fixtures: `web-studio`
-- Sample payloads in `samples/` remain compatibility review fixtures.
+- Sample payloads in `samples/` include additive publishing metadata placeholders for review.

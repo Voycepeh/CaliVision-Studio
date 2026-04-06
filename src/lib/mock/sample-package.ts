@@ -78,6 +78,15 @@ export const sampleDrillPackage: DrillPackage = {
     compatibility: {
       androidMinVersion: "1.2.0",
       androidTargetContract: "drill-package-0.1.0"
+    },
+    publishing: {
+      title: "Reactive Defense Ladder",
+      summary: "Sample drill aligned to Android-compatible package semantics.",
+      authorDisplayName: "Studio Author",
+      tags: ["defense", "footwork", "timing"],
+      categories: ["technique"],
+      visibility: "private",
+      publishStatus: "draft"
     }
   },
   drills: [sampleDrill],

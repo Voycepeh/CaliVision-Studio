@@ -1,39 +1,48 @@
-# Architecture (PR1 Foundation)
+# Architecture (PR9 Publishing Groundwork)
 
 ## Intent
 
-Set up a scalable web foundation for visual drill authoring while preserving compatibility with Android package consumption.
+Preserve Studio as the visual authoring source of truth while adding clear seams for future hosted package sharing.
 
 ## Current app structure
 
-- `src/app/*` — App Router pages and route composition.
-- `src/components/layout/*` — global shell primitives (top bar and 3-panel workspace container).
-- `src/components/studio/*` — studio-specific panel content placeholders.
-- `src/components/library/*` — library route components.
-- `src/components/package/*` — package route components.
-- `src/lib/schema/contracts.ts` — canonical portable contract definitions.
-- `src/lib/contracts/*` — contract exports for app usage.
-- `src/lib/mock/*` — static package/drill mock data.
-- `samples/*` — JSON package/drill examples for compatibility reviews.
+- `src/app/*` — App Router pages.
+- `src/components/layout/*` — shell and top bar.
+- `src/components/studio/*` — authoring workspace + publish prep UI.
+- `src/lib/schema/contracts.ts` — portable package contract.
+- `src/lib/package/*` — package import/export/validation utilities.
+- `src/lib/publishing/*` — publish abstraction, artifact generation, readiness validation, and mock providers.
+- `samples/*` — compatibility fixtures.
 
-## Studio shell architecture (`/studio`)
+## PR9 publishing seam
 
-- Left panel: drill/library/assets/packages/recent/marketplace placeholders.
-- Center panel: metadata card, phase list, selected phase detail, timeline placeholder, validation notes.
-- Right panel: pose canvas/source preview/animation preview/validation/errors/quick actions placeholders.
+PR9 introduces a three-part publish architecture:
 
-## Package-first design principles
+1. **Artifact generation**
+   - `createPublishArtifact` produces a publish-ready package artifact from editor state.
+   - Artifact generation remains local and reuses portable JSON export semantics.
+2. **Storage provider abstraction**
+   - `StorageProvider` receives artifact payloads and returns a `PackageLocator`.
+   - PR9 implementation: `MockStorageProvider` (`mock://` locators).
+3. **Registry adapter abstraction**
+   - `PackageRegistryAdapter` records metadata/listing state for published artifacts.
+   - PR9 implementation: `MockPackageRegistryAdapter` (in-memory recent list).
 
-- Schema version is explicit and required in `DrillManifest`.
-- Drill content is represented as portable payloads instead of runtime-specific UI state.
-- Joint and coordinate semantics are canonicalized for cross-platform interoperability.
-- Future backend/storage integration must preserve package portability.
+`PackagePublishService` composes storage + registry so future hosted implementations can be added without rewriting editor UI/state.
 
-## Future backend and storage direction (not in PR1)
+## UI integration
 
-- package registry service for publishing/discovery,
-- object storage for media assets,
-- optional auth/team permissions,
-- contract-aware validation service.
+- Top bar **Publish** action now opens a right-panel publish prep workspace.
+- Publish panel supports:
+  - metadata preparation,
+  - readiness validation (error vs warning),
+  - local/mock publish execution,
+  - recent local/mock publish result visibility.
+- Export/download remains a separate top-bar action.
 
-These are deliberately deferred to keep PR1 focused and incremental.
+## Deferred by design
+
+- No auth or identity.
+- No Supabase/Vercel/cloud backend integration.
+- No hosted registry browsing/marketplace search.
+- No social/moderation features.
