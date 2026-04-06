@@ -117,10 +117,11 @@ type StudioStateValue = {
   setPhaseSummary: (phaseId: string, summary: string) => void;
   setPhaseView: (phaseId: string, view: PortableViewType) => void;
   setDrillTitle: (title: string) => void;
+  setDrillSlug: (slug: string) => void;
+  setDrillDescription: (description: string) => void;
   setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
   setDrillDefaultView: (view: PortableViewType) => void;
   setManifestSchemaVersion: (schemaVersion: SchemaVersion) => void;
-  setManifestPackageId: (packageId: string) => void;
   setManifestPackageVersion: (packageVersion: string) => void;
   addPhase: () => void;
   deletePhase: (phaseId: string) => void;
@@ -651,6 +652,33 @@ export function StudioStateProvider({
     );
   }
 
+
+  function setDrillSlug(slug: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.slug = slug;
+      })
+    );
+  }
+
+  function setDrillDescription(description: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.description = description;
+      })
+    );
+  }
+
   function setDrillDifficulty(difficulty: "beginner" | "intermediate" | "advanced"): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -685,13 +713,6 @@ export function StudioStateProvider({
     );
   }
 
-  function setManifestPackageId(packageId: string): void {
-    updateSelectedPackage((entry) =>
-      updateWorkingPackage(entry, (draft) => {
-        draft.manifest.packageId = packageId;
-      })
-    );
-  }
 
   function setManifestPackageVersion(packageVersion: string): void {
     updateSelectedPackage((entry) =>
@@ -1339,10 +1360,11 @@ export function StudioStateProvider({
     setPhaseSummary,
     setPhaseView,
     setDrillTitle,
+    setDrillSlug,
+    setDrillDescription,
     setDrillDifficulty,
     setDrillDefaultView,
     setManifestSchemaVersion,
-    setManifestPackageId,
     setManifestPackageVersion,
     addPhase,
     deletePhase,

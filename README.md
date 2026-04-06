@@ -50,28 +50,28 @@ flowchart LR
 
 Today, the current user story in Studio is:
 
-1. Create a drill package.
-2. Edit drill metadata.
-3. Create, edit, and reorder phases.
-4. Upload an image for a phase.
-5. Detect pose from the image and map to canonical drill pose format.
-6. Manually refine the phase pose.
-7. Preview drill animation.
-8. Export as a portable drill package for Android/mobile import.
+1. Fill in drill info in the main flow (title/slug/version and other primary metadata).
+2. Create, edit, and reorder phases.
+3. Upload a source image for the selected phase.
+4. Detect pose from the image and map to canonical drill pose format.
+5. Manually refine the phase pose with in-context joint controls next to the canvas.
+6. Review animation and validation.
+7. Export as a portable drill package for Android/mobile import.
 
 ```mermaid
 flowchart LR
-    A[Create drill package] --> B[Edit metadata]
-    B --> C[Create / edit / reorder phases]
-    C --> D[Upload phase image]
-    D --> E[Detect pose]
-    E --> F[Map to canonical pose]
-    F --> G[Refine pose]
-    G --> H[Preview animation]
-    H --> I[Export portable drill package]
+    A[Drill info] --> B[Phases]
+    B --> C[Upload source image]
+    C --> D[Detect pose]
+    D --> E[Map to canonical pose]
+    E --> F[Pose authoring + nudge]
+    F --> G[Review]
+    G --> H[Export portable drill package]
 ```
 
 Current operational reality is local-first: hosted account storage, cross-user sharing, and backend exchange services are planned but not fully implemented.
+
+Inspector remains available for secondary technical/debug information (internal IDs, asset manifest, validation internals, detection state, and dirty state), while the primary authoring flow no longer depends on Inspector.
 
 ---
 
