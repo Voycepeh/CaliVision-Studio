@@ -598,6 +598,10 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
           [selectedScopeKey]: sourceImage
         };
       });
+      setPhaseOverlayState((current) => ({
+        ...current,
+        [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
+      }));
 
       setPhaseDetectionState((current) => ({
         ...current,
@@ -652,6 +656,10 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setPhaseDetectionState((current) => ({
       ...current,
       [selectedScopeKey]: DEFAULT_DETECTION_WORKFLOW_STATE
+    }));
+    setPhaseOverlayState((current) => ({
+      ...current,
+      [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
     }));
 
     withPhaseUpdate(selectedPhaseId, (phase) => {
