@@ -1,36 +1,40 @@
 # CaliVision Studio
 
-CaliVision Studio is a **web-first drill authoring workspace** with package import/export today and publish/storage groundwork for future hosted sharing.
+CaliVision Studio is a **web-first, package-first drill authoring workspace** with a local-first library/registry model that prepares the app for a future hosted marketplace.
 
-## Current scope (PR9)
+## Current scope (PR10)
 
 Included:
-- package IO + validation foundation,
-- working-copy authoring workflow with phase and pose editing,
-- source-image-assisted pose detection and animation preview,
-- local export/download of portable package JSON,
-- publishing abstraction layer (`src/lib/publishing/*`),
-- publish-ready metadata placeholders on manifest (`manifest.publishing`),
-- publish readiness checks (blocking errors vs advisory warnings),
-- local/mock publish flow with mock locator + recent publish list,
-- explicit separation between export/download and publish simulation.
+- package authoring, import/export, validation, image-assisted pose editing, and animation preview,
+- publish prep + local/mock publish abstractions,
+- local-first package registry/catalog models (`src/lib/registry/*`),
+- purposeful Library / Packages / Marketplace route semantics,
+- local browse/search/filter/sort for package listings,
+- package detail groundwork with provenance/status and compatibility surfacing,
+- local install-style workflow concept for registry entries.
 
 Intentionally deferred:
-- auth,
-- real cloud storage/registry backend,
-- marketplace browsing/search,
-- social/moderation features,
-- live coaching/browser webcam workflows.
+- auth and user identity,
+- real remote storage/registry/search backend,
+- social interactions (likes/comments/ratings),
+- moderation/admin tooling,
+- cross-user package sharing.
 
-## Local workflow
+## Route map
 
-From `/studio`:
-1. Load a bundled sample package or import a local package JSON.
-2. Edit drill metadata, phases, poses, and timing.
-3. Export/download package JSON for portable sharing.
-4. Click **Publish** to open publish prep in the right panel.
-5. Run readiness checks and resolve blocking issues.
-6. Publish to the local/mock provider and review the returned mock locator.
+- `/` - project entry and route index
+- `/studio` - flagship authoring workspace (open package by `?packageId=`)
+- `/library` - local package inventory management (authored/imported/installed)
+- `/packages` - package artifact transport + compatibility surface
+- `/marketplace` - local/mock discovery groundwork for future hosted marketplace
+
+## Local-first workflow
+
+1. Open Studio and import or edit a package.
+2. Run publish readiness checks and local/mock publish (optional).
+3. Browse/manage local entries in **Library**.
+4. Use **Marketplace** route to preview discovery semantics on mock-published listings.
+5. Open any listed package back into Studio for editing.
 
 ## Getting started
 
@@ -40,14 +44,6 @@ npm run dev
 ```
 
 Open: <http://localhost:3000>
-
-## Route map
-
-- `/` - project entry and route index
-- `/studio` - primary authoring + publish prep workspace
-- `/library` - library placeholder
-- `/packages` - drill file workflow placeholder
-- `/marketplace` - future sharing surface placeholder
 
 ## Additional docs
 

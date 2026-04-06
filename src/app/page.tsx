@@ -3,8 +3,8 @@ import Link from "next/link";
 const routes = [
   ["Studio", "/studio", "Flagship 3-panel authoring workspace"],
   ["Library", "/library", "Drill and asset source management surface"],
-  ["Drill Files", "/packages", "Drill file import/export and validation hub"],
-  ["Marketplace", "/marketplace", "Future publishing and discovery (placeholder)"]
+  ["Packages", "/packages", "Portable package artifact import/export compatibility view"],
+  ["Marketplace", "/marketplace", "Local-first marketplace discovery groundwork"]
 ] as const;
 
 export default function HomePage() {

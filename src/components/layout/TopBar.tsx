@@ -8,7 +8,7 @@ import { useStudioState } from "@/components/studio/StudioState";
 const navItems = [
   { href: "/studio", label: "Studio" },
   { href: "/library", label: "Library" },
-  { href: "/packages", label: "Drill Files" },
+  { href: "/packages", label: "Packages" },
   { href: "/marketplace", label: "Marketplace" }
 ];
 

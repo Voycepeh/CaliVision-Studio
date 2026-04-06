@@ -6,7 +6,8 @@ export default function LibraryPage() {
     <main className="page-shell">
       <h1>Library</h1>
       <p className="muted">
-        This route intentionally provides a structured placeholder for drills, assets, drill files, and recent work.
+        Main local package management surface for authored/imported/installed drill packages with local-first
+        registry-style browsing.
       </p>
       <Link href="/studio" style={{ color: "var(--accent)" }}>
         Open Studio workspace
