@@ -39,20 +39,15 @@ export async function createPublishArtifact(sourcePackage: DrillPackage): Promis
   const packageJson = serializePackageForExport(nextPackage);
   const checksumSha256 = await computeSha256Hex(packageJson);
   const byteSize = new TextEncoder().encode(packageJson).byteLength;
-
-  nextPackage.manifest.publishing = {
-    ...nextPackage.manifest.publishing,
-    latestArtifactChecksumSha256: checksumSha256,
-    lastPreparedAtIso: nowIso
-  };
+  const serializedPackage = JSON.parse(packageJson) as DrillPackage;
 
   return {
-    packageId: nextPackage.manifest.packageId,
-    packageVersion: nextPackage.manifest.packageVersion,
+    packageId: serializedPackage.manifest.packageId,
+    packageVersion: serializedPackage.manifest.packageVersion,
     checksumSha256,
     generatedAtIso: nowIso,
     byteSize,
     packageJson,
-    package: nextPackage
+    package: serializedPackage
   };
 }

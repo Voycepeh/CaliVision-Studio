@@ -903,44 +903,33 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       status: "publishing",
       message: "Generating publish artifact and publishing to local/mock registry..."
     }));
+    try {
+      const artifact = await createPublishArtifact(selectedPackage.workingPackage);
+      const metadata = createMockPublishRequestMetadata(artifact);
+      const result = await publishService.publish({
+        target: "local-mock",
+        artifact,
+        metadata
+      });
+      const recentPublishes = await publishService.listRecentPublishes();
 
-    const artifact = await createPublishArtifact(selectedPackage.workingPackage);
-    const metadata = createMockPublishRequestMetadata(artifact);
-    const result = await publishService.publish({
-      target: "local-mock",
-      artifact,
-      metadata
-    });
-    const recentPublishes = await publishService.listRecentPublishes();
-
-    updateSelectedPackage((entry) =>
-      updateWorkingPackage(entry, (draft) => {
-        draft.manifest.publishing = {
-          ...(draft.manifest.publishing ?? {}),
-          latestArtifactChecksumSha256: artifact.checksumSha256,
-          lastPreparedAtIso: artifact.generatedAtIso,
-          publishStatus: "published",
-          title: metadata.title,
-          summary: metadata.summary,
-          description: metadata.description,
-          authorDisplayName: metadata.authorDisplayName,
-          tags: metadata.tags,
-          categories: metadata.categories,
-          visibility: metadata.visibility
-        };
-      })
-    );
-
-    setPublishWorkflow((current) => ({
-      ...current,
-      readiness,
-      status: "published",
-      lastArtifactChecksumSha256: artifact.checksumSha256,
-      lastResult: result,
-      recentPublishes,
-      panelOpen: true,
-      message: `Mock published as ${result.recordId} (${result.locator.uri}).`
-    }));
+      setPublishWorkflow((current) => ({
+        ...current,
+        readiness,
+        status: "published",
+        lastArtifactChecksumSha256: artifact.checksumSha256,
+        lastResult: result,
+        recentPublishes,
+        panelOpen: true,
+        message: `Mock published as ${result.recordId} (${result.locator.uri}).`
+      }));
+    } catch (error) {
+      setPublishWorkflow((current) => ({
+        ...current,
+        status: "blocked",
+        message: error instanceof Error ? error.message : "Mock publish failed unexpectedly."
+      }));
+    }
   }
 
   const value: StudioStateValue = {
