@@ -15,6 +15,15 @@ import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contract
 const WORKFLOW_STEPS = ["Drill info", "Phases", "Source image", "Pose authoring", "Review", "Export"] as const;
 const NUDGE_STEP = 0.01;
 
+const WORKFLOW_SECTION_IDS = {
+  drillInfo: 0,
+  phases: 1,
+  sourceImage: 2,
+  poseAuthoring: 3,
+  review: 4,
+  export: 5
+} as const;
+
 type FocusRegion = "full" | "upper" | "lower" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg";
 
 const FOCUS_OPTIONS: Array<{ value: FocusRegion; label: string }> = [
@@ -37,9 +46,23 @@ const REGION_JOINTS: Record<FocusRegion, CanonicalJointName[]> = {
   rightLeg: ["rightHip", "rightKnee", "rightAnkle"]
 };
 
-function WorkflowSection({ title, stepIndex, currentStepIndex, children }: { title: string; stepIndex: number; currentStepIndex: number; children: ReactNode }) {
+function WorkflowSection({
+  title,
+  stepIndex,
+  currentStepIndex,
+  open,
+  onToggle,
+  children
+}: {
+  title: string;
+  stepIndex: number;
+  currentStepIndex: number;
+  open: boolean;
+  onToggle: (isOpen: boolean, stepIndex: number) => void;
+  children: ReactNode;
+}) {
   return (
-    <details className="card studio-workflow-section" data-current={stepIndex === currentStepIndex} open={stepIndex <= currentStepIndex + 1}>
+    <details className="card studio-workflow-section" data-current={stepIndex === currentStepIndex} open={open} onToggle={(event) => onToggle((event.currentTarget as HTMLDetailsElement).open, stepIndex)}>
       <summary className="studio-workflow-section-summary">
         <span>
           {stepIndex + 1}. {title}
@@ -78,6 +101,8 @@ export function StudioCenterInspector() {
 
   const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
   const [isPoseCanvasExpanded, setIsPoseCanvasExpanded] = useState(false);
+  const [activeStepOverride, setActiveStepOverride] = useState<number | null>(null);
+  const [sectionOpenState, setSectionOpenState] = useState<Record<number, boolean>>({});
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
@@ -86,13 +111,41 @@ export function StudioCenterInspector() {
   const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
   const selectedJoint = selectedJointName ? selectedPose?.joints[selectedJointName] : null;
 
-  const currentStepIndex = useMemo(() => {
-    if (!selectedPackage) return 0;
-    if (!selectedPhase) return 1;
-    if (!selectedPhaseSourceImage) return 2;
-    if (!selectedPose) return 3;
-    return 4;
+  const inferredStepIndex = useMemo(() => {
+    if (!selectedPackage) return WORKFLOW_SECTION_IDS.drillInfo;
+    if (!selectedPhase) return WORKFLOW_SECTION_IDS.phases;
+    if (!selectedPhaseSourceImage) return WORKFLOW_SECTION_IDS.sourceImage;
+    if (!selectedPose) return WORKFLOW_SECTION_IDS.poseAuthoring;
+    if (selectedPackage.validation.isValid && !selectedPackage.isDirty) {
+      return WORKFLOW_SECTION_IDS.export;
+    }
+
+    return WORKFLOW_SECTION_IDS.review;
   }, [selectedPackage, selectedPhase, selectedPhaseSourceImage, selectedPose]);
+
+  const currentStepIndex = activeStepOverride ?? inferredStepIndex;
+
+  function isSectionOpen(stepIndex: number): boolean {
+    if (sectionOpenState[stepIndex] !== undefined) {
+      return sectionOpenState[stepIndex];
+    }
+
+    const nextStep = Math.min(currentStepIndex + 1, WORKFLOW_STEPS.length - 1);
+    return stepIndex === currentStepIndex || stepIndex === nextStep;
+  }
+
+  function handleSectionToggle(isOpen: boolean, stepIndex: number): void {
+    setSectionOpenState((current) => ({
+      ...current,
+      [stepIndex]: isOpen
+    }));
+
+    if (isOpen) {
+      setActiveStepOverride(stepIndex);
+    } else if (activeStepOverride === stepIndex) {
+      setActiveStepOverride(null);
+    }
+  }
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
@@ -114,16 +167,16 @@ export function StudioCenterInspector() {
 
       <div className="studio-authoring-workspace-grid">
         <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-          <WorkflowSection title="Drill info" stepIndex={0} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Drill info" stepIndex={WORKFLOW_SECTION_IDS.drillInfo} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillInfo)} onToggle={handleSectionToggle}>
             <StudioMetadataEditor />
           </WorkflowSection>
 
-          <WorkflowSection title="Phases" stepIndex={1} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Phases" stepIndex={WORKFLOW_SECTION_IDS.phases} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phases)} onToggle={handleSectionToggle}>
             {!selectedPackage ? (
               <p className="muted" style={{ margin: 0 }}>Load or import a drill package to manage phases.</p>
             ) : (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
                   <p className="muted" style={{ margin: 0 }}>Select a phase, then reorder, duplicate, or delete as needed.</p>
                   <div style={{ display: "flex", gap: "0.35rem" }}>
                     <button type="button" onClick={() => addPhase()} style={smallButtonStyle}>Add phase</button>
@@ -152,7 +205,7 @@ export function StudioCenterInspector() {
                 </div>
 
                 {selectedPhase ? (
-                  <div className="card" style={{ marginTop: "0.5rem", display: "grid", gap: "0.55rem" }}>
+                  <div className="card studio-selected-phase-basics">
                     <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase basics</h4>
                     <div className="field-grid">
                       <label style={labelStyle}>
@@ -176,16 +229,16 @@ export function StudioCenterInspector() {
             )}
           </WorkflowSection>
 
-          <WorkflowSection title="Source image" stepIndex={2} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Source image" stepIndex={WORKFLOW_SECTION_IDS.sourceImage} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.sourceImage)} onToggle={handleSectionToggle}>
             {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : <p className="muted" style={{ margin: 0 }}>Select a phase before uploading a source image.</p>}
           </WorkflowSection>
         </div>
 
         <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-          <WorkflowSection title="Pose authoring" stepIndex={3} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Pose authoring" stepIndex={WORKFLOW_SECTION_IDS.poseAuthoring} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.poseAuthoring)} onToggle={handleSectionToggle}>
             {selectedPhase ? (
               <>
-                <section className="studio-inspector-controls-row" style={{ marginBottom: "0.6rem" }}>
+                <section className="studio-inspector-controls-row" style={{ marginBottom: "0.5rem" }}>
                   <label style={labelStyle}>
                     <span>Selected joint</span>
                     <select value={selectedJointName ?? ""} style={inputStyle} onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}>
@@ -245,7 +298,7 @@ export function StudioCenterInspector() {
                   }
                 />
 
-                <section className="card" style={{ marginTop: "0.6rem", display: "grid", gap: "0.5rem" }}>
+                <section className="card studio-selected-joint-controls">
                   <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint controls</h4>
                   {selectedJointName ? (
                     <>
@@ -271,7 +324,7 @@ export function StudioCenterInspector() {
                   ) : <p className="muted" style={{ margin: 0 }}>Select a joint from the canvas or dropdown to nudge and refine it.</p>}
                 </section>
 
-                <section className="card" style={{ marginTop: "0.6rem", display: "grid", gap: "0.5rem" }}>
+                <section className="card studio-overlay-controls">
                   <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Overlay alignment</h4>
                   <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
                     <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} style={smallButtonStyle}>
@@ -287,11 +340,11 @@ export function StudioCenterInspector() {
             ) : <p className="muted" style={{ margin: 0 }}>Select a phase to begin pose authoring.</p>}
           </WorkflowSection>
 
-          <WorkflowSection title="Review" stepIndex={4} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs />
           </WorkflowSection>
 
-          <WorkflowSection title="Export" stepIndex={5} currentStepIndex={currentStepIndex}>
+          <WorkflowSection title="Export" stepIndex={WORKFLOW_SECTION_IDS.export} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.export)} onToggle={handleSectionToggle}>
             <p className="muted" style={{ marginTop: 0 }}>
               Export generates a bundled drill package with package:// assets when local files are available.
             </p>

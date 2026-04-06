@@ -25,7 +25,7 @@ export function StudioRightPanel() {
         Secondary technical details only: IDs, manifests, validation internals, and detection state.
       </p>
 
-      <StudioInspectorAccordion title="Internal IDs + dirty state" defaultOpen>
+      <StudioInspectorAccordion title="Internal IDs + dirty state" >
         {selectedPackage && drill ? (
           <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
             <li>Package ID: {selectedPackage.workingPackage.manifest.packageId}</li>
@@ -39,7 +39,7 @@ export function StudioRightPanel() {
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Detection workflow state" defaultOpen>
+      <StudioInspectorAccordion title="Detection workflow state" >
         {selectedPhase ? (
           <div style={{ display: "grid", gap: "0.35rem" }}>
             <p className="muted" style={{ margin: 0 }}>Status: {selectedPhaseDetection.status}</p>
@@ -59,7 +59,7 @@ export function StudioRightPanel() {
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Package asset manifest" defaultOpen>
+      <StudioInspectorAccordion title="Package asset manifest" >
         {selectedPackage ? (
           <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
             <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
@@ -73,7 +73,7 @@ export function StudioRightPanel() {
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Validation internals" defaultOpen>
+      <StudioInspectorAccordion title="Validation internals" >
         {selectedPackage ? (
           <>
             <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
