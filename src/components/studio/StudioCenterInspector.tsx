@@ -50,7 +50,12 @@ export function StudioCenterInspector() {
     movePhase,
     setJointCoordinates,
     nudgeJoint,
-    revertSelectedJoint
+    revertSelectedJoint,
+    selectedPhaseSourceImage,
+    selectedPhaseDetection,
+    selectedPhaseOverlayState,
+    setSelectedPhaseOverlayState,
+    resetSelectedPhaseOverlayState
   } = useStudioState();
 
   const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
@@ -60,6 +65,7 @@ export function StudioCenterInspector() {
   const selectedPose = selectedPhase?.poseSequence[0] ?? null;
   const poseModel = mapPortablePoseToCanvasPoseModel(selectedPose);
   const selectedJoint = selectedJointName ? selectedPose?.joints[selectedJointName] : null;
+  const hasPoseJoints = poseModel.joints.length > 0;
 
   const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
 
@@ -100,9 +106,11 @@ export function StudioCenterInspector() {
                       <strong>
                         {phase.order}. {phase.title}
                       </strong>
-                      <span className="muted">{(phase.durationMs / 1000).toFixed(1)}s</span>
+                      <span className="muted">{(phase.durationMs / 1000).toFixed(1)}s • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
                     </div>
-                    <small className="muted">{phase.phaseId}</small>
+                    <small className="muted">
+                      {phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}
+                    </small>
                   </button>
 
                   <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
@@ -183,7 +191,113 @@ export function StudioCenterInspector() {
                 onJointSelect={selectJoint}
                 onJointMove={(joint, x, y) => setJointCoordinates(selectedPhase.phaseId, joint, x, y)}
                 focusJointNames={focusJointSet}
+                showPoseLayer={selectedPhaseOverlayState.showPose}
+                imageLayer={
+                  selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                    ? {
+                        src: selectedPhaseSourceImage.objectUrl,
+                        naturalWidth: selectedPhaseSourceImage.width,
+                        naturalHeight: selectedPhaseSourceImage.height,
+                        opacity: selectedPhaseOverlayState.imageOpacity,
+                        fitMode: selectedPhaseOverlayState.fitMode,
+                        offsetX: selectedPhaseOverlayState.offsetX,
+                        offsetY: selectedPhaseOverlayState.offsetY
+                      }
+                    : null
+                }
               />
+
+              <section className="card">
+                <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.95rem" }}>Overlay controls</h3>
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })}
+                      style={smallButtonStyle}
+                    >
+                      {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })}
+                      style={smallButtonStyle}
+                    >
+                      {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
+                    </button>
+                    <button type="button" onClick={() => resetSelectedPhaseOverlayState()} style={smallButtonStyle}>
+                      Reset overlay
+                    </button>
+                  </div>
+
+                  <label style={labelStyle}>
+                    <span>Image opacity ({Math.round(selectedPhaseOverlayState.imageOpacity * 100)}%)</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(selectedPhaseOverlayState.imageOpacity * 100)}
+                      onChange={(event) => setSelectedPhaseOverlayState({ imageOpacity: Number(event.target.value) / 100 })}
+                      disabled={!selectedPhaseSourceImage}
+                    />
+                  </label>
+
+                  <label style={labelStyle}>
+                    <span>Image fit</span>
+                    <select
+                      value={selectedPhaseOverlayState.fitMode}
+                      style={inputStyle}
+                      onChange={(event) => setSelectedPhaseOverlayState({ fitMode: event.target.value as "contain" | "cover" })}
+                      disabled={!selectedPhaseSourceImage}
+                    >
+                      <option value="contain">contain</option>
+                      <option value="cover">cover</option>
+                    </select>
+                  </label>
+
+                  <div className="field-grid">
+                    <label style={labelStyle}>
+                      <span>Image X offset ({selectedPhaseOverlayState.offsetX.toFixed(2)})</span>
+                      <input
+                        type="range"
+                        min={-0.5}
+                        max={0.5}
+                        step={0.01}
+                        value={selectedPhaseOverlayState.offsetX}
+                        onChange={(event) => setSelectedPhaseOverlayState({ offsetX: Number(event.target.value) })}
+                        disabled={!selectedPhaseSourceImage}
+                      />
+                    </label>
+                    <label style={labelStyle}>
+                      <span>Image Y offset ({selectedPhaseOverlayState.offsetY.toFixed(2)})</span>
+                      <input
+                        type="range"
+                        min={-0.5}
+                        max={0.5}
+                        step={0.01}
+                        value={selectedPhaseOverlayState.offsetY}
+                        onChange={(event) => setSelectedPhaseOverlayState({ offsetY: Number(event.target.value) })}
+                        disabled={!selectedPhaseSourceImage}
+                      />
+                    </label>
+                  </div>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Image transforms are editor-only alignment aids. Canonical normalized pose coordinates remain unchanged and exportable.
+                  </p>
+                </div>
+              </section>
+
+              <section className="card">
+                <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.95rem" }}>Authoring workflow status</h3>
+                <ol className="muted" style={{ margin: 0, paddingLeft: "1rem", display: "grid", gap: "0.2rem" }}>
+                  <li>Selected phase: {selectedPhase.title}</li>
+                  <li>Source image: {selectedPhaseSourceImage ? selectedPhaseSourceImage.fileName : "missing"}</li>
+                  <li>Detection state: {selectedPhaseDetection.status}</li>
+                  <li>Canonical pose: {hasPoseJoints ? `${poseModel.joints.length} joints visible` : "not populated"}</li>
+                  <li>Manual adjustments: {selectedJointName ? `editing ${selectedJointName}` : "ready"}</li>
+                </ol>
+              </section>
 
               <section className="card">
                 <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.95rem" }}>Joint editor</h3>

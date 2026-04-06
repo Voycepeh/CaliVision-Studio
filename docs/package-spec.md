@@ -1,4 +1,4 @@
-# Portable Drill Package Spec (PR5 Image Detection Mapping)
+# Portable Drill Package Spec (PR6 Overlay Alignment Workflow)
 
 ## Goal
 
@@ -22,7 +22,7 @@ Current view enum values:
 - `side`
 - `rear`
 
-## PR5 image-assisted detection workflow
+## PR6 image-assisted detection workflow
 
 Detection pipeline is intentionally adapter-based and image-first:
 
@@ -52,14 +52,16 @@ It includes:
 - Missing landmarks remain missing and are surfaced as warnings.
 - Left/right semantics remain explicit via fixed landmark-to-canonical mapping table.
 
-## Source image association behavior (temporary)
+## Source image overlay + association behavior (temporary)
 
-For PR5, phase source images are local-only working state in browser memory.
+For PR6, phase source images and overlay alignment controls are local-only working state in browser memory.
 
 - Studio stores file preview URL + metadata in local editor state.
+- Studio stores overlay display metadata (layer visibility, opacity, fit mode, offsets) in editor state per selected phase.
 - Studio can stage selected phase `assetRefs` with a local placeholder URI pattern (`local://phase-images/...`) for reviewability while editing.
+- Overlay display metadata does **not** redefine `PortablePose` coordinates and is not exported as canonical package pose data.
 - Export strips all local placeholder phase-image refs (`local://phase-images/...`) so downloaded JSON remains portable/Android-consumable.
-- Exported package remains portable JSON contract; no binary embedding or remote upload is introduced in PR5.
+- Exported package remains portable JSON contract; no binary embedding or remote upload is introduced in PR6.
 
 ## Validation philosophy
 
@@ -89,6 +91,6 @@ Fatal validation (`error`) blocks package acceptance. Warnings are surfaced but 
 ## Evolution notes
 
 Planned follow-up additions:
-- PR6 source image overlay alignment workflow,
-- PR7 timeline animation preview,
-- PR8 local asset bundling strategy for source images/thumbnails.
+- PR7 animation preview based on edited phase sequence and durations,
+- PR8 local package asset bundling strategy for source images/thumbnails,
+- PR9 package publishing groundwork and future storage abstraction.

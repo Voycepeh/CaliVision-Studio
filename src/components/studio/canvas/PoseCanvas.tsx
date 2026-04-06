@@ -21,6 +21,17 @@ type PoseCanvasProps = {
   focusJointNames?: Set<CanonicalJointName> | null;
   onJointSelect?: (joint: CanonicalJointName) => void;
   onJointMove?: (joint: CanonicalJointName, x: number, y: number) => void;
+  imageLayer?: {
+    src: string;
+    naturalWidth: number;
+    naturalHeight: number;
+    opacity: number;
+    fitMode: "contain" | "cover";
+    offsetX: number;
+    offsetY: number;
+  } | null;
+  showPoseLayer?: boolean;
+  imageErrorMessage?: string | null;
 };
 
 export function PoseCanvas({
@@ -32,7 +43,10 @@ export function PoseCanvas({
   selectedJointName = null,
   focusJointNames = null,
   onJointSelect,
-  onJointMove
+  onJointMove,
+  imageLayer = null,
+  showPoseLayer = true,
+  imageErrorMessage = null
 }: PoseCanvasProps) {
   const { canvas, joints, connections } = pose;
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -110,6 +124,24 @@ export function PoseCanvas({
       }),
     [connections, byName]
   );
+  const imagePlacement = useMemo(() => {
+    if (!imageLayer || imageLayer.naturalWidth <= 0 || imageLayer.naturalHeight <= 0) {
+      return null;
+    }
+
+    const widthScale = canvas.widthRef / imageLayer.naturalWidth;
+    const heightScale = canvas.heightRef / imageLayer.naturalHeight;
+    const scale = imageLayer.fitMode === "cover" ? Math.max(widthScale, heightScale) : Math.min(widthScale, heightScale);
+    const imageWidth = imageLayer.naturalWidth * scale;
+    const imageHeight = imageLayer.naturalHeight * scale;
+
+    return {
+      x: (canvas.widthRef - imageWidth) / 2 + imageLayer.offsetX * canvas.widthRef,
+      y: (canvas.heightRef - imageHeight) / 2 + imageLayer.offsetY * canvas.heightRef,
+      width: imageWidth,
+      height: imageHeight
+    };
+  }, [imageLayer, canvas.heightRef, canvas.widthRef]);
 
   return (
     <section className="card" style={{ padding: "0.65rem" }}>
@@ -145,21 +177,35 @@ export function PoseCanvas({
         >
           <Grid width={canvas.widthRef} height={canvas.heightRef} />
 
-          {displayConnections.map((segment) => (
-            <line
-              key={`${segment.from.name}-${segment.to.name}`}
-              x1={segment.from.pixel.x}
-              y1={segment.from.pixel.y}
-              x2={segment.to.pixel.x}
-              y2={segment.to.pixel.y}
-              stroke={PREVIEW_OVERLAY_STYLE.skeletonBase}
-              strokeWidth={PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth}
-              strokeLinecap="round"
-              opacity={focusJointNames && (!focusJointNames.has(segment.from.name) || !focusJointNames.has(segment.to.name)) ? 0.22 : 1}
+          {imageLayer && imagePlacement ? (
+            <image
+              href={imageLayer.src}
+              x={imagePlacement.x}
+              y={imagePlacement.y}
+              width={imagePlacement.width}
+              height={imagePlacement.height}
+              opacity={imageLayer.opacity}
             />
-          ))}
+          ) : null}
 
-          {displayJoints.map((joint) => {
+          {showPoseLayer
+            ? displayConnections.map((segment) => (
+                <line
+                  key={`${segment.from.name}-${segment.to.name}`}
+                  x1={segment.from.pixel.x}
+                  y1={segment.from.pixel.y}
+                  x2={segment.to.pixel.x}
+                  y2={segment.to.pixel.y}
+                  stroke={PREVIEW_OVERLAY_STYLE.skeletonBase}
+                  strokeWidth={PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth}
+                  strokeLinecap="round"
+                  opacity={focusJointNames && (!focusJointNames.has(segment.from.name) || !focusJointNames.has(segment.to.name)) ? 0.22 : 1}
+                />
+              ))
+            : null}
+
+          {showPoseLayer
+            ? displayJoints.map((joint) => {
             const isSelected = joint.name === selectedJointName;
             const role = getPreviewJointRole(joint.name);
             const baseRadius = PREVIEW_OVERLAY_STYLE.jointRadiusBase;
@@ -173,48 +219,51 @@ export function PoseCanvas({
                   ? PREVIEW_OVERLAY_STYLE.hip
                   : PREVIEW_OVERLAY_STYLE.skeletonBase;
 
-            return (
-              <circle
-                key={joint.name}
-                cx={joint.pixel.x}
-                cy={joint.pixel.y}
-                r={isSelected ? jointRadius + 3 : jointRadius}
-                fill={joint.outOfBounds ? "#f0b47d" : jointFill}
-                stroke={isSelected ? "#f7fbff" : "rgba(7,11,17,0.95)"}
-                strokeWidth={isSelected ? 4 : 3}
-                opacity={focusJointNames && !focusJointNames.has(joint.name) ? 0.28 : 1}
-                style={{ cursor: editable ? "grab" : "default" }}
-                onPointerDown={(event) => {
-                  if (!editable) {
-                    return;
-                  }
+                return (
+                  <circle
+                    key={joint.name}
+                    cx={joint.pixel.x}
+                    cy={joint.pixel.y}
+                    r={isSelected ? jointRadius + 3 : jointRadius}
+                    fill={joint.outOfBounds ? "#f0b47d" : jointFill}
+                    stroke={isSelected ? "#f7fbff" : "rgba(7,11,17,0.95)"}
+                    strokeWidth={isSelected ? 4 : 3}
+                    opacity={focusJointNames && !focusJointNames.has(joint.name) ? 0.28 : 1}
+                    style={{ cursor: editable ? "grab" : "default" }}
+                    onPointerDown={(event) => {
+                      if (!editable) {
+                        return;
+                      }
 
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setDragJoint(joint.name);
-                  onJointSelect?.(joint.name);
-                }}
-                onClick={(event) => {
-                  if (!editable) {
-                    return;
-                  }
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDragJoint(joint.name);
+                      onJointSelect?.(joint.name);
+                    }}
+                    onClick={(event) => {
+                      if (!editable) {
+                        return;
+                      }
 
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onJointSelect?.(joint.name);
-                }}
-              />
-            );
-          })}
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onJointSelect?.(joint.name);
+                    }}
+                  />
+                );
+              })
+            : null}
 
-          {selectedJoint ? (
+          {selectedJoint && showPoseLayer ? (
             <text x={selectedJoint.pixel.x + 16} y={selectedJoint.pixel.y - 14} fill="rgba(215,228,245,0.95)" style={{ fontSize: 40 }}>
               {getAuthoringJointLabel(selectedJoint.name)}
             </text>
           ) : null}
 
-          {pose.status === "empty" ? <CanvasMessage text="No pose data for selected phase yet." /> : null}
-          {pose.status === "invalid" ? <CanvasMessage text="Pose data is invalid or missing canonical joints." /> : null}
+          {imageErrorMessage ? <CanvasMessage text={imageErrorMessage} /> : null}
+          {pose.status === "empty" && showPoseLayer ? <CanvasMessage text="No pose data for selected phase yet." /> : null}
+          {pose.status === "invalid" && showPoseLayer ? <CanvasMessage text="Pose data is invalid or missing canonical joints." /> : null}
+          {!showPoseLayer && !imageLayer ? <CanvasMessage text="Enable image or pose layer to begin visual authoring." /> : null}
         </svg>
       </div>
     </section>

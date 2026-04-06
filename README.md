@@ -19,7 +19,7 @@ Keeping Studio separate enables:
 - **Mobile (Android first, later iOS)** owns runtime/live coaching and package consumption.
 - Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
-## Current MVP scope (PR5)
+## Current MVP scope (PR6)
 
 Included:
 - package IO + validation foundation,
@@ -29,7 +29,10 @@ Included:
 - detector-to-canonical mapping into portable pose joints,
 - explicit detection review/apply flow (detect -> preview -> apply),
 - detection failure/partial warnings without silent pose overwrites,
-- local source image association placeholder in phase `assetRefs` for working package review,
+- source-image + canonical-pose overlay authoring surface on fixed portrait canvas,
+- editor-only image alignment controls (show/hide, opacity, fit, reset, offset) separated from canonical pose coordinates,
+- phase-specific source image metadata/status in the Studio working state and inspectors,
+- local source image association placeholder in phase `assetRefs` for working-package review only,
 - export of updated canonical pose package JSON.
 
 Intentionally deferred:
@@ -37,7 +40,7 @@ Intentionally deferred:
 - video detection pipeline,
 - cloud/background processing,
 - backend/cloud persistence,
-- full source image overlay alignment editor,
+- full source image asset bundling/storage architecture,
 - animation timeline editor.
 
 ## Local detection workflow
@@ -60,11 +63,12 @@ From `/studio`:
 4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
 5. Export the edited working copy as a drill file JSON payload.
 
-## Source image behavior in PR5
+## Source image behavior in PR6
 
 - Source images stay local in browser memory only.
-- Studio may use temporary placeholder phase asset references (`local://phase-images/...`) while editing.
-- Export strips all temporary local phase-image refs so downloaded package JSON remains portable for Android/mobile consumers.
+- Studio keeps image overlay display/alignment state in editor working state only (fit mode, opacity, offsets, layer visibility).
+- Studio may stage temporary placeholder phase asset references (`local://phase-images/...`) while editing for provenance.
+- Export strips all temporary local phase-image refs and does not export editor-only overlay transforms, keeping JSON portable for Android/mobile consumers.
 - No binary image embedding and no remote asset storage is implemented in this PR.
 
 ## MediaPipe runtime note

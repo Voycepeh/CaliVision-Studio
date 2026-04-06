@@ -5,7 +5,7 @@ import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 
 export function StudioPhaseDetailsPanel() {
-  const { selectedPackage, selectedPhaseId } = useStudioState();
+  const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -25,6 +25,8 @@ export function StudioPhaseDetailsPanel() {
           <li>Duration: {selectedPhase.durationMs}ms</li>
           <li>Pose frames: {selectedPhase.poseSequence.length}</li>
           <li>Assets: {selectedPhase.assetRefs.length}</li>
+          <li>Local source image: {selectedPhaseSourceImage ? "attached" : "none"}</li>
+          <li>Detection workflow: {selectedPhaseDetection.status}</li>
         </ul>
       ) : (
         <p className="muted" style={{ margin: 0 }}>
