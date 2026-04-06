@@ -28,7 +28,9 @@ export function createRegistryEntryFromPackage(input: {
   const normalizedPackage = ensureVersioningMetadata(input.packageJson);
   const drill = normalizedPackage.drills[0];
   const publishing = normalizedPackage.manifest.publishing;
+  const versioning = normalizedPackage.manifest.versioning;
   const validation = validatePortableDrillPackage(normalizedPackage);
+  const provenanceSummary = summarizeProvenance(normalizedPackage);
 
   const title = publishing?.title ?? drill?.title ?? input.packageJson.manifest.packageId;
   const tags = publishing?.tags ?? drill?.tags ?? [];
@@ -46,7 +48,8 @@ export function createRegistryEntryFromPackage(input: {
   });
 
   const summary: PackageSummary = {
-    entryId: createEntryId(normalizedPackage.manifest.packageId, normalizedPackage.manifest.packageVersion),
+    entryId,
+    artifactId,
     packageId: normalizedPackage.manifest.packageId,
     packageSlug: versioning?.packageSlug,
     versionId: versioning?.versionId,
