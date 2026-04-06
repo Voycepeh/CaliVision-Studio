@@ -32,6 +32,7 @@ type PoseCanvasProps = {
   } | null;
   showPoseLayer?: boolean;
   imageErrorMessage?: string | null;
+  sizeMode?: "default" | "balanced" | "focus";
 };
 
 export function PoseCanvas({
@@ -46,7 +47,8 @@ export function PoseCanvas({
   onJointMove,
   imageLayer = null,
   showPoseLayer = true,
-  imageErrorMessage = null
+  imageErrorMessage = null,
+  sizeMode = "default"
 }: PoseCanvasProps) {
   const { canvas, joints, connections } = pose;
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -157,7 +159,7 @@ export function PoseCanvas({
       </header>
 
       <div
-        className="pose-canvas-frame"
+        className={`pose-canvas-frame pose-canvas-frame-${sizeMode}`}
         style={{
           border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
           borderRadius: "0.65rem",
