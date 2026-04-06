@@ -13,9 +13,9 @@ Android remains the behavioral reference for package semantics. Studio must mirr
 - Keep Studio package IO/export payloads Android-consumable.
 - Keep Studio authoring terminology Android-compatible by mapping UI-facing **Head** to canonical `nose` in package data.
 
-## PR5 detector interoperability posture
+## PR6 detector + overlay interoperability posture
 
-PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/runtime contract.
+PR6 keeps MediaPipe image detection and source-image overlay as **authoring assists**, not as package/runtime contract data.
 
 1. **Canonical contract remains source of truth**: detector outputs are mapped into canonical `PortablePose.joints` only.
 2. **No detector leakage in package payload**: raw MediaPipe landmarks/structures are not stored in exported package JSON.
@@ -23,6 +23,7 @@ PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/
 4. **Partial detections are explicit**: warnings are surfaced in Studio and require explicit user apply.
 5. **Non-destructive failure behavior**: failed detections do not silently overwrite phase pose data.
 6. **Phase asset refs stay compatible**: temporary local source image refs are stripped at export, so unresolved `local://phase-images/...` URIs are not shipped in portable JSON.
+7. **Overlay transforms are editor-only**: source image fit/opacity/offset visibility controls do not alter exported canonical joint coordinates.
 
 ## Integration expectations for Android consumers
 
@@ -34,6 +35,7 @@ PR5 adds MediaPipe image detection as an **authoring assist**, not as a package/
 ## Guardrails
 
 - Do not leak Studio-only editor state into portable runtime contracts.
+- Do not treat source image dimensions, fit mode, or overlay offsets as canonical pose coordinate inputs.
 - Do not introduce alternate coordinate systems without explicit versioning.
 - Do not rename canonical joints without cross-platform migration planning.
 - Do not expose alternate face-landmark authoring terminology that changes exported canonical keys.

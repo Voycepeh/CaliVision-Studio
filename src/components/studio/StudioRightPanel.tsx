@@ -8,7 +8,7 @@ import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 
 export function StudioRightPanel() {
-  const { selectedPackage, selectedPhaseId } = useStudioState();
+  const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -29,6 +29,28 @@ export function StudioRightPanel() {
       <StudioPhaseDetailsPanel />
 
       {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : null}
+
+      {selectedPhase ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Source image metadata</h3>
+          {selectedPhaseSourceImage ? (
+            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>File: {selectedPhaseSourceImage.fileName}</li>
+              <li>Type: {selectedPhaseSourceImage.mimeType}</li>
+              <li>Dimensions: {selectedPhaseSourceImage.width}×{selectedPhaseSourceImage.height}</li>
+              <li>Size: {Math.round(selectedPhaseSourceImage.byteSize / 1024)}KB</li>
+              <li>Updated: {new Date(selectedPhaseSourceImage.updatedAtIso).toLocaleString()}</li>
+            </ul>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              No local source image in editor state for this phase.
+            </p>
+          )}
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Local image files are editor-only aids and are not bundled into exported package JSON yet.
+          </p>
+        </section>
+      ) : null}
 
       {selectedPhase ? (
         <section className="card">
@@ -71,6 +93,26 @@ export function StudioRightPanel() {
               ))}
             </ul>
           )}
+        </section>
+      ) : null}
+
+      {selectedPhase ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Authoring warnings</h3>
+          <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+            {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
+              <li className="muted">Source image exists but no canonical pose is applied yet.</li>
+            ) : null}
+            {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
+              <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
+            ) : null}
+            {selectedPhaseDetection.status === "failed" ? (
+              <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li>
+            ) : null}
+            {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
+              <li className="muted">No source image and no pose data available yet for this phase.</li>
+            ) : null}
+          </ul>
         </section>
       ) : null}
     </div>

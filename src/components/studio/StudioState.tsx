@@ -47,6 +47,17 @@ export type DetectionWorkflowState = {
   message: string;
 };
 
+export type OverlayFitMode = "contain" | "cover";
+
+export type PhaseOverlayState = {
+  showImage: boolean;
+  showPose: boolean;
+  imageOpacity: number;
+  fitMode: OverlayFitMode;
+  offsetX: number;
+  offsetY: number;
+};
+
 type StudioStateValue = {
   packages: EditablePackageEntry[];
   selectedPackageKey: string | null;
@@ -57,6 +68,7 @@ type StudioStateValue = {
   selectedPackage: EditablePackageEntry | null;
   selectedPhaseSourceImage: PhaseSourceImage | null;
   selectedPhaseDetection: DetectionWorkflowState;
+  selectedPhaseOverlayState: PhaseOverlayState;
   selectPackage: (packageKey: string) => void;
   selectPhase: (phaseId: string | null) => void;
   selectJoint: (jointName: CanonicalJointName | null) => void;
@@ -84,6 +96,8 @@ type StudioStateValue = {
   clearSelectedPhaseImage: () => void;
   runPoseDetectionForSelectedPhase: () => Promise<void>;
   applyDetectionToSelectedPhase: () => void;
+  setSelectedPhaseOverlayState: (partial: Partial<PhaseOverlayState>) => void;
+  resetSelectedPhaseOverlayState: () => void;
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -92,6 +106,15 @@ const DEFAULT_DETECTION_WORKFLOW_STATE: DetectionWorkflowState = {
   status: "idle",
   result: null,
   message: "Upload a phase image to begin detection."
+};
+
+const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
+  showImage: true,
+  showPose: true,
+  imageOpacity: 0.66,
+  fitMode: "contain",
+  offsetX: 0,
+  offsetY: 0
 };
 
 function createInitialPackages(): EditablePackageEntry[] {
@@ -149,12 +172,14 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   const [importFeedback, setImportFeedback] = useState<ImportFeedback>({ status: "idle", message: "", issues: [] });
   const [phaseSourceImages, setPhaseSourceImages] = useState<Record<string, PhaseSourceImage>>({});
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
+  const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
 
   const selectedScopeKey = getPhaseScopeKey(selectedPackageKey, selectedPhaseId);
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
+  const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
 
   const saveStatusLabel = selectedPackage
     ? selectedPackage.isDirty
@@ -634,6 +659,31 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     });
   }
 
+  function setSelectedPhaseOverlayState(partial: Partial<PhaseOverlayState>): void {
+    if (!selectedScopeKey) {
+      return;
+    }
+
+    setPhaseOverlayState((current) => ({
+      ...current,
+      [selectedScopeKey]: {
+        ...(current[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE),
+        ...partial
+      }
+    }));
+  }
+
+  function resetSelectedPhaseOverlayState(): void {
+    if (!selectedScopeKey) {
+      return;
+    }
+
+    setPhaseOverlayState((current) => ({
+      ...current,
+      [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
+    }));
+  }
+
   async function runPoseDetectionForSelectedPhase(): Promise<void> {
     if (!selectedScopeKey || !selectedPhaseSourceImage) {
       return;
@@ -741,6 +791,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     selectedPackage,
     selectedPhaseSourceImage,
     selectedPhaseDetection,
+    selectedPhaseOverlayState,
     selectPackage,
     selectPhase,
     selectJoint,
@@ -767,7 +818,9 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     setSelectedPhaseImage,
     clearSelectedPhaseImage,
     runPoseDetectionForSelectedPhase,
-    applyDetectionToSelectedPhase
+    applyDetectionToSelectedPhase,
+    setSelectedPhaseOverlayState,
+    resetSelectedPhaseOverlayState
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;
