@@ -105,8 +105,11 @@
             {
               "assetId": "asset_overlay_setup",
               "type": "overlay",
-              "uri": "assets/overlay_setup.png",
-              "mimeType": "image/png"
+              "uri": "package://assets/phase-images/phase_setup-overlay_setup.png",
+              "mimeType": "image/png",
+              "role": "phase-source-image",
+              "ownerDrillId": "drill_reactive_defense_001",
+              "ownerPhaseId": "phase_setup"
             }
           ]
         },
@@ -160,8 +163,11 @@
             {
               "assetId": "asset_reference_front",
               "type": "image",
-              "uri": "assets/motion_front.png",
-              "mimeType": "image/png"
+              "uri": "package://assets/phase-images/phase_motion-motion_front.png",
+              "mimeType": "image/png",
+              "role": "phase-source-image",
+              "ownerDrillId": "drill_reactive_defense_001",
+              "ownerPhaseId": "phase_motion"
             }
           ]
         },
@@ -208,20 +214,35 @@
           "assetRefs": [],
           "summary": "Return to guard with intentionally sparse joint data for robustness checks."
         }
-      ]
+      ],
+      "thumbnailAssetId": "asset_drill_thumb_001"
     }
   ],
   "assets": [
     {
       "assetId": "asset_overlay_setup",
-      "type": "overlay",
-      "uri": "assets/overlay_setup.png",
+      "type": "image",
+      "role": "phase-source-image",
+      "ownerDrillId": "drill_reactive_defense_001",
+      "ownerPhaseId": "phase_setup",
+      "uri": "package://assets/phase-images/phase_setup-overlay_setup.png",
       "mimeType": "image/png"
     },
     {
       "assetId": "asset_reference_front",
       "type": "image",
-      "uri": "assets/motion_front.png",
+      "role": "phase-source-image",
+      "ownerDrillId": "drill_reactive_defense_001",
+      "ownerPhaseId": "phase_motion",
+      "uri": "package://assets/phase-images/phase_motion-motion_front.png",
+      "mimeType": "image/png"
+    },
+    {
+      "assetId": "asset_drill_thumb_001",
+      "type": "image",
+      "role": "drill-thumbnail",
+      "ownerDrillId": "drill_reactive_defense_001",
+      "uri": "package://assets/thumbnails/drill_reactive_defense_001-thumb.png",
       "mimeType": "image/png"
     }
   ]

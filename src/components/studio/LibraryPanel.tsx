@@ -49,6 +49,9 @@ export function LibraryPanel() {
             const drillCount = entry.workingPackage.drills.length;
             const phaseCount = getSortedPhases(entry.workingPackage).length;
             const drill = getPrimaryDrill(entry.workingPackage);
+            const bundledAssets = entry.workingPackage.assets.filter((asset) => asset.uri.startsWith("package://"));
+            const phaseImages = bundledAssets.filter((asset) => asset.role === "phase-source-image").length;
+            const thumbnails = bundledAssets.filter((asset) => asset.role === "drill-thumbnail").length;
 
             return (
               <button
@@ -75,6 +78,9 @@ export function LibraryPanel() {
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {drill?.title ?? "No drill"} • {entry.isDirty ? "unsaved" : "saved"}
                 </small>
+                <small className="muted studio-library-item-subline" style={{ display: "block" }}>
+                  Bundled assets: {bundledAssets.length} total • {phaseImages} phase images • {thumbnails} thumbnails
+                </small>
               </button>
             );
           })}
@@ -85,7 +91,7 @@ export function LibraryPanel() {
         <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill file import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
-            Import a local JSON drill file from the top bar to validate and load it.
+            Import a JSON drill package or bundled .cvpkg.json file from the top bar to validate and load it.
           </p>
         ) : (
           <>

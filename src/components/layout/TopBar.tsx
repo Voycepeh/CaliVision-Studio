@@ -61,7 +61,7 @@ export function TopBar() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.cvpkg.json"
           style={{ display: "none" }}
           onChange={onImportFileChange}
         />
@@ -70,10 +70,10 @@ export function TopBar() {
           onClick={() => fileInputRef.current?.click()}
           style={actionButtonStyle}
         >
-          Import Drill File
+          Import Drill Bundle
         </button>
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
-          Export Drill File
+          Export Drill Bundle
         </button>
         {[
           "Publish",

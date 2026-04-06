@@ -19,7 +19,7 @@ Keeping Studio separate enables:
 - **Mobile (Android first, later iOS)** owns runtime/live coaching and package consumption.
 - Mobile may later support lightweight metadata edits, but full authoring remains in Studio.
 
-## Current MVP scope (PR7)
+## Current MVP scope (PR8)
 
 Included:
 - package IO + validation foundation,
@@ -33,7 +33,8 @@ Included:
 - editor-only image alignment controls (show/hide, opacity, fit, reset, offset) separated from canonical pose coordinates,
 - phase-specific source image metadata/status in the Studio working state and inspectors,
 - local source image association placeholder in phase `assetRefs` for working-package review only,
-- export of updated canonical pose package JSON.
+- bundled export/import for local-first package assets (phase images + thumbnails metadata).
+- export of updated canonical pose package + bundled asset payload.
 - right-panel animation preview panel with deterministic phase-sequence playback,
 - linear interpolation between consecutive canonical phase poses for flow validation,
 - playback controls (play, pause, restart, loop toggle, speed multiplier),
@@ -45,7 +46,7 @@ Intentionally deferred:
 - video detection pipeline,
 - cloud/background processing,
 - backend/cloud persistence,
-- full source image asset bundling/storage architecture,
+- remote source image asset storage/publishing architecture,
 - full timeline/motion-curve editor.
 
 ## Local detection workflow
@@ -63,10 +64,10 @@ From `/studio`:
 
 From `/studio`:
 1. Load a bundled sample drill from the left panel.
-2. Import a `.json` drill file from the top bar.
+2. Import a `.json` drill file or `.cvpkg.json` bundled drill package from the top bar.
 3. Select/edit phases in the center panel.
 4. Edit joint coordinates in the right inspector (canvas drag or numeric controls).
-5. Export the edited working copy as a drill file JSON payload.
+5. Export the edited working copy as a bundled drill package (`.cvpkg.json`) with package assets.
 
 ## Source image behavior in PR6
 
@@ -115,3 +116,11 @@ Open: <http://localhost:3000>
 - `docs/android-compatibility.md`
 - `docs/roadmap.md`
 - `docs/pr-plan.md`
+
+## Local bundled asset strategy (PR8)
+
+- Source images and drill thumbnails are represented as portable asset refs with deterministic `package://assets/...` URIs.
+- Studio export writes a logical bundle payload containing bundle metadata, drill JSON, and embedded asset binaries.
+- Studio import hydrates bundled phase images back into overlay authoring state when present.
+- JSON-only package import remains supported for backward compatibility.
+- Cloud storage, publishing, and marketplace flows are intentionally deferred.

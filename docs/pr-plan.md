@@ -1,111 +1,36 @@
 # PR Plan (Foundation and Sequencing)
 
-## PR1 (completed)
+## PR1-PR7 (completed)
 
-- Bootstrap the web repository with Next.js + TypeScript + App Router.
-- Establish desktop-first dark Studio shell.
-- Add foundational product and architecture docs.
-- Define portable package contracts aligned with Android compatibility.
-- Add lightweight runtime validation seam for unknown package JSON payloads.
+- Core Studio shell, contract, validation, phase editing, image detection, overlay controls, and animation preview are complete.
 
-## PR2 (completed)
+## PR8 (this change)
 
-- Add package IO foundation (`src/lib/package/*`).
-- Add local import and export controls in Studio top bar.
-- Add structured package validation (`error` vs `warning`, field paths).
-- Add bundled sample package loading (valid + intentionally invalid fixture).
-- Wire left/center/right Studio panels to loaded package content.
-- Surface package validation status and issues directly in UI.
-- Keep workflow local-only (no backend/auth/object storage).
-
-## PR3 (completed)
-
-- Add canonical pose canvas component (`src/components/studio/canvas/PoseCanvas.tsx`).
-- Add canonical joint metadata + skeleton connection definitions (`src/lib/pose/canonical.ts`).
-- Add normalized coordinate mapping utilities (`src/lib/canvas/*`).
-- Add package-to-canvas mapping view models for selected phase rendering.
-- Wire phase selection to right-panel visual pose canvas + inspector summary.
-- Surface empty/incomplete pose states and non-destructive warnings.
-- Add source asset placeholder metadata summary under the inspector canvas.
-
-## PR4 (completed)
-
-- Add Studio editor working-copy state with non-destructive local mutations and dirty tracking.
-- Add phase list editing (rename/add/delete/duplicate/reorder).
-- Add phase detail editing (duration, summary, view metadata).
-- Add lightweight joint editing on canonical pose canvas (select + drag + numeric/nudge).
-- Add export integration for working-copy JSON.
-- Extend validation surfacing for sequencing/title quality warnings.
-
-## PR5 (completed)
-
-- Add image-first MediaPipe pose detection workflow for selected phase images.
-- Implement detection runtime via browser MediaPipe Pose (`@mediapipe/pose/pose.js`) with isolated adapter.
-- Isolate detector runtime under `src/lib/detection/mediapipe/`.
-- Add explicit detector result model (`DetectionResult`, confidence, metadata, issues).
-- Add centralized detector-to-canonical mapping into portable pose joints.
-- Add detection review UX (upload image, detect, preview mapped pose, explicit apply).
-- Preserve manual joint editing flow after apply.
-- Preserve current phase pose on failures unless user applies a successful/partial result.
-- Store phase source image refs as local placeholder `assetRefs` in working package state.
-- Strip temporary `local://phase-images/...` refs on export to preserve portable package compatibility.
-
-## PR6 (completed)
-
-- Add an overlay-capable authoring surface that renders source image and canonical pose together on a fixed portrait canvas.
-- Add per-phase editor-only image alignment state (show/hide image, show/hide pose, opacity, fit mode, offsets, reset).
-- Keep canonical normalized Studio pose coordinates as the source of truth while making overlay transforms explicit and separate.
-- Tighten selected-phase workflow status visibility across center and right inspectors.
-- Preserve safe export behavior by stripping temporary local phase image refs and excluding editor-only overlay metadata from package payload.
-
-## PR7 (this change)
-
-- Add a Studio animation preview panel in the right inspector for sequence validation.
-- Build deterministic phase-sequence playback from ordered phases + canonical pose endpoints + phase `durationMs`.
-- Implement linear interpolation for canonical joints with safe fallback handling when joints/poses are missing.
-- Add playback controls (play, pause, restart, loop toggle, speed multiplier) and current-phase/timing summaries.
-- Surface concise preview warnings for low phase count, invalid duration values, and sparse/missing pose data.
-- Keep preview read-only and export-compatible (no animation-only schema additions).
+- Add a **local-first bundled package** strategy for source images and thumbnails.
+- Keep legacy JSON-only import working for backward compatibility.
+- Introduce explicit portable asset roles (`phase-source-image`, `drill-thumbnail`, `drill-preview`).
+- Add bundled import/export support via a structured `.cvpkg.json` payload with:
+  - `manifest.json` equivalent data (`bundle.manifest`),
+  - `drill.json` equivalent data (`bundle.drill`),
+  - logical `assets/*` file entries (`bundle.files`).
+- Wire imported bundled phase images into Studio overlay authoring state.
+- Surface bundled/local asset state in left panel, phase details, and inspector summaries.
+- Extend validation with asset type/role checks and duplicate asset id/path detection.
 
 ## Assumptions
 
-- Android remains the temporary semantics reference for portable packages.
-- Studio stays package-first and contract-aligned.
-- Canonical pose canvas remains the fixed visual reference for edit/detection interactions.
-- Source image binaries remain local-only and are not embedded in exported package payloads.
-- Overlay alignment metadata remains editor-only working state until future package asset strategy is implemented.
-- PR7 preview treats each phase `durationMs` as transition time to the next phase pose for validation playback.
+- Android/mobile consumers can resolve `package://assets/...` references deterministically.
+- Asset binaries are local authoring payloads in PR8; no remote storage or publishing is introduced.
+- Thumbnail behavior is minimal: explicit `thumbnailAssetId` support with fallback to first phase source image at export.
 
-## Non-goals (still deferred)
+## Non-goals (intentionally deferred)
 
-- No auth/identity.
-- No cloud persistence or object storage.
-- No video detection pipeline.
-- No browser live coaching.
-- No full image editor/tool suite beyond lightweight alignment controls.
-- No full timeline motion-curve/easing authoring editor.
-- No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
-
-## UI terminology + preview parity follow-up (current)
-
-- Shift user-facing Studio wording from package-first labels to drill-first and drill-file-first copy.
-- Keep manifest/package naming untouched in contract and schema internals for compatibility.
-- Align canonical preview styling with Android live-coaching overlay (mint skeleton, emphasized nose/hips, cyan guide lines).
-- Align visible preview joint/connection sets with Android live-coaching semantics.
-
-### Assumptions
-
-- `PortableViewType` uses seeded authoring values only (`front | side | rear`).
-- Preview rendering maps `front/rear` to bilateral display and `side` to a single profile chain.
-- In `side` view, Studio currently defaults to **left-side chain rendering** for preview only until side metadata exists.
-
-### Non-goals
-
-- No contract/schema field rename for package/manifest identifiers.
-- No import/export compatibility changes for portable drill package JSON.
+- No auth, cloud persistence, or package publishing.
+- No marketplace listing flow.
+- No video packaging pipeline beyond placeholder `drill-preview` asset role.
 
 ## Recommended next PR sequence
 
-1. **PR8:** local package asset bundling strategy for source images and thumbnails.
-2. **PR9:** package publishing groundwork and future storage abstraction.
-3. **PR10:** marketplace/library groundwork with local-first package registry concepts.
+1. **PR9:** package publishing groundwork and future storage abstraction.
+2. **PR10:** marketplace/library groundwork with local-first package registry concepts.
+3. **PR11:** user-facing package versioning and fork/remix workflow foundations.

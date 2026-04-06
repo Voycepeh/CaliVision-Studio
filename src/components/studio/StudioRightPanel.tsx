@@ -42,14 +42,16 @@ export function StudioRightPanel() {
               <li>Dimensions: {selectedPhaseSourceImage.width}×{selectedPhaseSourceImage.height}</li>
               <li>Size: {Math.round(selectedPhaseSourceImage.byteSize / 1024)}KB</li>
               <li>Updated: {new Date(selectedPhaseSourceImage.updatedAtIso).toLocaleString()}</li>
+              <li>Origin: {selectedPhaseSourceImage.origin}</li>
+              <li>Portable URI: {selectedPhaseSourceImage.portableUri}</li>
             </ul>
           ) : (
             <p className="muted" style={{ margin: 0 }}>
-              No local source image in editor state for this phase.
+              No source image currently loaded into editor state for this phase.
             </p>
           )}
           <p className="muted" style={{ marginBottom: 0 }}>
-            Local image files are editor-only aids and are not bundled into exported package JSON yet.
+            Export now emits a bundled package that includes package:// assets when binary data is available locally.
           </p>
         </section>
       ) : null}
@@ -70,6 +72,20 @@ export function StudioRightPanel() {
               No source assets on this phase.
             </p>
           )}
+        </section>
+      ) : null}
+
+
+      {selectedPackage ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Package asset manifest</h3>
+          <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
+            <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
+            <li>Packaged assets: {selectedPackage.workingPackage.assets.filter((asset) => asset.uri.startsWith("package://")).length}</li>
+            <li>Phase images: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "phase-source-image").length}</li>
+            <li>Thumbnails: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-thumbnail").length}</li>
+            <li>Previews: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-preview").length}</li>
+          </ul>
         </section>
       ) : null}
 
