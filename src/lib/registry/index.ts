@@ -3,14 +3,14 @@ export {
   createRegistryEntryFromPackage,
   DEFAULT_PACKAGE_LISTING_QUERY,
   queryPackageCatalog
-} from "@/lib/registry/catalog";
+} from "./catalog.ts";
 
 export {
   installRegistryEntryToLibrary,
   loadLocalRegistryEntries,
   saveLocalRegistryEntries,
   upsertRegistryEntryFromPackage
-} from "@/lib/registry/local-store";
+} from "./local-store.ts";
 
 export type {
   PackageCatalog,
@@ -22,4 +22,6 @@ export type {
   PackageRegistryEntry,
   PackageSourceType,
   PackageSummary
-} from "@/lib/registry/types";
+} from "./types.ts";
+
+export { createArtifactId, createEntryId } from "./identity.ts";

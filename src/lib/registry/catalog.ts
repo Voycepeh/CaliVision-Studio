@@ -1,5 +1,5 @@
-import { validatePortableDrillPackage } from "@/lib/package";
-import type { DrillPackage } from "@/lib/schema/contracts";
+import { validatePortableDrillPackage } from "../package/index.ts";
+import type { DrillPackage } from "../schema/contracts.ts";
 import type {
   PackageCatalog,
   PackageDetails,
@@ -8,7 +8,8 @@ import type {
   PackageRegistryEntry,
   PackageSourceType,
   PackageSummary
-} from "@/lib/registry/types";
+} from "./types.ts";
+import { createArtifactId, createEntryId } from "./identity.ts";
 
 export const DEFAULT_PACKAGE_LISTING_QUERY: PackageListingQuery = {
   searchText: "",
@@ -34,9 +35,18 @@ export function createRegistryEntryFromPackage(input: {
   const updatedAtIso = input.packageJson.manifest.updatedAtIso || new Date().toISOString();
   const phaseCount = input.packageJson.drills.reduce((count, item) => count + item.phases.length, 0);
   const warnings = validation.issues.filter((issue) => issue.severity !== "error").map((issue) => issue.message);
+  const artifactId = createArtifactId(input.packageJson.manifest.packageId, input.packageJson.manifest.packageVersion);
+  const entryId = createEntryId({
+    packageId: input.packageJson.manifest.packageId,
+    packageVersion: input.packageJson.manifest.packageVersion,
+    sourceType: input.sourceType,
+    sourceLabel: input.sourceLabel,
+    parentEntryId: input.parentEntryId
+  });
 
   const summary: PackageSummary = {
-    entryId: createEntryId(input.packageJson.manifest.packageId, input.packageJson.manifest.packageVersion),
+    entryId,
+    artifactId,
     packageId: input.packageJson.manifest.packageId,
     packageVersion: input.packageJson.manifest.packageVersion,
     title,
@@ -77,10 +87,50 @@ export function createRegistryEntryFromPackage(input: {
   };
 
   return {
-    entryId: summary.entryId,
+    entryId,
+    artifactId,
     summary,
     details
   };
+}
+
+export function isSameLogicalRegistryEntry(
+  entry: PackageRegistryEntry,
+  input: {
+    packageId: string;
+    packageVersion: string;
+    sourceType: PackageSourceType;
+    sourceLabel: string;
+    parentEntryId?: string;
+  }
+): boolean {
+  const expectedEntryId = createEntryId(input);
+  if (entry.entryId === expectedEntryId) {
+    return true;
+  }
+
+  if (
+    entry.summary.packageId !== input.packageId ||
+    entry.summary.packageVersion !== input.packageVersion ||
+    entry.summary.sourceType !== input.sourceType
+  ) {
+    return false;
+  }
+
+  const sourceLabel = entry.details.origin.sourceLabel?.trim().toLocaleLowerCase();
+  const inputSourceLabel = input.sourceLabel.trim().toLocaleLowerCase();
+  const entryParentId = entry.details.origin.parentEntryId?.trim().toLocaleLowerCase();
+  const inputParentId = input.parentEntryId?.trim().toLocaleLowerCase();
+
+  if (inputParentId || entryParentId) {
+    return inputParentId === entryParentId;
+  }
+
+  if (sourceLabel && inputSourceLabel) {
+    return sourceLabel === inputSourceLabel;
+  }
+
+  return true;
 }
 
 export function queryPackageCatalog(entries: PackageRegistryEntry[], query: PackageListingQuery): PackageCatalog {
@@ -131,10 +181,6 @@ export function collectCatalogTags(entries: PackageRegistryEntry[]): string[] {
   });
 
   return Array.from(set).sort((a, b) => a.localeCompare(b));
-}
-
-function createEntryId(packageId: string, packageVersion: string): string {
-  return `${packageId}@${packageVersion}`;
 }
 
 function mapSourceTypeToCreatedBy(sourceType: PackageSourceType): PackageOrigin["createdBy"] {
