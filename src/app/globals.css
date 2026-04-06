@@ -114,7 +114,14 @@ main {
   background: linear-gradient(180deg, var(--panel-soft), var(--panel));
   border-radius: 1rem;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+}
+
+.studio-pane-left,
+.studio-pane-center,
+.studio-pane-right {
+  min-width: 0;
 }
 
 .studio-scrollable-panel {
@@ -154,6 +161,27 @@ main {
   background: var(--accent-soft);
 }
 
+.studio-phase-list-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.studio-phase-list-title,
+.studio-phase-list-meta,
+.studio-phase-list-subline {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.studio-phase-list-meta {
+  text-align: right;
+}
+
 .studio-inspector-controls-row {
   display: grid;
   gap: 0.45rem;
@@ -169,6 +197,30 @@ main {
   border-radius: 0.8rem;
   background: var(--panel-elevated);
   padding: 0.75rem;
+  min-width: 0;
+}
+
+.card h1,
+.card h2,
+.card h3,
+.card p,
+.card li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.pose-canvas-header {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pose-canvas-title,
+.pose-canvas-subtitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .pose-canvas-frame {

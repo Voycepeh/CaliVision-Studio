@@ -145,10 +145,12 @@ export function PoseCanvas({
 
   return (
     <section className="card" style={{ padding: "0.65rem" }}>
-      <header style={{ marginBottom: "0.5rem" }}>
-        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>{title}</h3>
+      <header className="pose-canvas-header" style={{ marginBottom: "0.5rem" }}>
+        <h3 className="pose-canvas-title" style={{ margin: 0, fontSize: "0.95rem" }}>
+          {title}
+        </h3>
         {subtitle ? (
-          <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+          <p className="muted pose-canvas-subtitle" style={{ margin: "0.2rem 0 0" }}>
             {subtitle}
           </p>
         ) : null}
