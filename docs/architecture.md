@@ -1,48 +1,57 @@
-# Architecture (PR9 Publishing Groundwork)
+# Architecture (PR10 Local-First Library/Registry Groundwork)
 
 ## Intent
 
-Preserve Studio as the visual authoring source of truth while adding clear seams for future hosted package sharing.
+Keep Studio as the authoring source of truth while introducing a local-first registry/catalog layer that can later be backed by hosted services.
 
-## Current app structure
+## Layering overview
 
-- `src/app/*` — App Router pages.
-- `src/components/layout/*` — shell and top bar.
-- `src/components/studio/*` — authoring workspace + publish prep UI.
-- `src/lib/schema/contracts.ts` — portable package contract.
-- `src/lib/package/*` — package import/export/validation utilities.
-- `src/lib/publishing/*` — publish abstraction, artifact generation, readiness validation, and mock providers.
-- `samples/*` — compatibility fixtures.
+- `src/lib/package/*`
+  - package artifact IO, parsing, validation, import/export mechanics.
+- `src/lib/publishing/*`
+  - publish orchestration seam (artifact generation, storage provider, registry publish adapter).
+- `src/lib/registry/*`
+  - listing/catalog/domain layer for local library + marketplace discovery UX.
 
-## PR9 publishing seam
+This separation keeps artifact payload concerns distinct from listing/query concerns.
 
-PR9 introduces a three-part publish architecture:
+## Registry/catalog model additions
 
-1. **Artifact generation**
-   - `createPublishArtifact` produces a publish-ready package artifact from editor state.
-   - Artifact generation remains local and reuses portable JSON export semantics.
-2. **Storage provider abstraction**
-   - `StorageProvider` receives artifact payloads and returns a `PackageLocator`.
-   - PR9 implementation: `MockStorageProvider` (`mock://` locators).
-3. **Registry adapter abstraction**
-   - `PackageRegistryAdapter` records metadata/listing state for published artifacts.
-   - PR9 implementation: `MockPackageRegistryAdapter` (in-memory recent list).
+`src/lib/registry/types.ts` defines:
+- `PackageRegistryEntry`
+- `PackageCatalog`
+- `PackageSummary`
+- `PackageDetails`
+- `PackageInstallResult`
+- `PackageOrigin`
+- `PackageSourceType` (`authored-local`, `imported-local`, `mock-published`, `installed-local`, `future-remote`)
+- `PackageListingQuery` / sort model
 
-`PackagePublishService` composes storage + registry so future hosted implementations can be added without rewriting editor UI/state.
+`src/lib/registry/catalog.ts` provides:
+- package-to-registry mapping,
+- local search/filter/sort query engine,
+- shared tag collection helpers.
 
-## UI integration
+`src/lib/registry/local-store.ts` provides:
+- localStorage persistence for registry entries,
+- sample seeding for first run,
+- upsert/install operations for local workflows.
 
-- Top bar **Publish** action now opens a right-panel publish prep workspace.
-- Publish panel supports:
-  - metadata preparation,
-  - readiness validation (error vs warning),
-  - local/mock publish execution,
-  - recent local/mock publish result visibility.
-- Export/download remains a separate top-bar action.
+## IA integration
+
+- **Library** (`/library`): local package inventory management (authored/imported/installed) + detail view/actions.
+- **Packages** (`/packages`): artifact transport/compatibility context and workflow guidance.
+- **Marketplace** (`/marketplace`): local/mock discovery surface that previews future hosted registry UX.
+- **Studio** (`/studio`): continues full authoring; accepts `?packageId=` for predictable open-from-library behavior.
+
+## State flow
+
+- Imports and sample loads in Studio now upsert local registry entries.
+- Mock publish flow now also upserts a `mock-published` entry with provenance.
+- Library and Marketplace read local registry entries and apply local query/filter/sort.
 
 ## Deferred by design
 
-- No auth or identity.
-- No Supabase/Vercel/cloud backend integration.
-- No hosted registry browsing/marketplace search.
-- No social/moderation features.
+- No hosted auth/storage/search integration yet.
+- No real multi-user registry.
+- No social ranking or moderation.

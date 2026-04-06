@@ -4,39 +4,46 @@
 
 ### Studio (web) responsibilities
 
-Studio is the long-term system of record for:
-- full drill authoring,
-- phase sequencing and timing,
-- pose/canvas editing,
+Studio is the source of truth for:
+- package authoring,
+- phase sequencing/timing and pose editing,
 - package validation,
-- package export,
-- publish preparation and publish target orchestration.
+- package import/export,
+- local/mock publish preparation.
 
 ### Mobile responsibilities (Android first, later iOS)
 
-Mobile clients are runtime/live-coaching and drill consumption environments:
-- load package payloads,
-- execute drills during training,
-- provide runtime cues and playback.
+Mobile clients remain runtime/live-coaching consumers of portable package payloads.
 
-## PR9 direction: publish-first seams before hosted backend
+## PR10 direction: local-first ecosystem semantics
 
-PR9 intentionally ships:
-- local/mock publish target implementation,
-- publish-ready metadata placeholders,
-- publish readiness checks,
-- package locator abstraction for future hosted storage.
+PR10 introduces product semantics that make the ecosystem understandable before backend rollout:
 
-PR9 intentionally does **not** ship:
-- auth,
-- cloud storage,
-- marketplace browsing,
-- social interactions.
+- **Library** = what is locally available to this Studio context.
+- **Packages** = portable artifact transport/compatibility workflows.
+- **Marketplace** = discovery mental model, currently powered by local/mock listings.
 
-## Practical implication for PR sequencing
+## Provenance-first package understanding
 
-1. Lock and preserve portable package contracts.
-2. Keep Studio authoring and export robust.
-3. Add publish/storage abstraction seams.
-4. Add local-first registry and marketplace UI groundwork.
-5. Add hosted backend/auth/storage integration only after seams are stable.
+Entries now surface explicit local provenance:
+- authored-local,
+- imported-local,
+- mock-published,
+- installed-local,
+- future-remote (reserved).
+
+This keeps local workflows clear while mapping naturally to future hosted registry sources.
+
+## What is intentionally deferred
+
+- user auth/identity,
+- remote registry/search infrastructure,
+- social/engagement features,
+- moderation/governance tooling.
+
+## Sequencing posture
+
+1. Preserve portable contracts and Android compatibility.
+2. Strengthen local-first authoring + package workflows.
+3. Grow registry/listing/query semantics locally.
+4. Add hosted backend/auth integrations behind existing abstractions.

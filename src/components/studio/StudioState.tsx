@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   clonePackage,
   createEditablePackageEntry,
@@ -33,6 +33,7 @@ import {
   type PublishReadinessResult,
   type PublishResult
 } from "@/lib/publishing";
+import { loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import type {
   CanonicalJointName,
@@ -167,6 +168,26 @@ const DEFAULT_PUBLISH_WORKFLOW_STATE: PublishWorkflowState = {
 };
 
 function createInitialPackages(): EditablePackageEntry[] {
+  const registryEntries = loadLocalRegistryEntries();
+
+  if (registryEntries.length > 0) {
+    return registryEntries.flatMap((entry) => {
+      const result = loadPackageFromUnknown(entry.details.packageJson, `registry-${entry.entryId}`, entry.details.origin.sourceLabel);
+
+      if (!result.ok) {
+        return [];
+      }
+
+      return [
+        createEditablePackageEntry(
+          result.packageViewModel.packageKey,
+          entry.details.origin.sourceLabel,
+          result.packageViewModel.package
+        )
+      ];
+    });
+  }
+
   return SAMPLE_PACKAGE_DEFINITIONS.flatMap((sample) => {
     const result = loadPackageFromUnknown(sample.payload, `sample-${sample.id}`, `sample:${sample.id}`);
 
@@ -237,6 +258,13 @@ function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
   });
 }
 
+export function StudioStateProvider({
+  children,
+  initialPackageId
+}: {
+  children: React.ReactNode;
+  initialPackageId?: string;
+}) {
 async function toPhaseSourceImageFromBlob(
   assetId: string,
   portableUri: string,
@@ -286,6 +314,21 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
+
+  useEffect(() => {
+    if (!initialPackageId) {
+      return;
+    }
+
+    const match = packages.find((entry) => entry.workingPackage.manifest.packageId === initialPackageId);
+    if (!match) {
+      return;
+    }
+
+    setSelectedPackageKey(match.packageKey);
+    setSelectedPhaseId(getSortedPhases(match.workingPackage)[0]?.phaseId ?? null);
+    setSelectedJointName(null);
+  }, [initialPackageId, packages]);
 
   const saveStatusLabel = selectedPackage
     ? selectedPackage.isDirty
@@ -374,6 +417,11 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
         : `Imported drill file ${file.name} successfully.`,
       issues: nextEntry.validation.issues
     });
+    upsertRegistryEntryFromPackage({
+      packageJson: nextEntry.workingPackage,
+      sourceType: "imported-local",
+      sourceLabel: `local-file:${file.name}`
+    });
   }
 
   function loadSampleById(sampleId: string): void {
@@ -410,6 +458,11 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       status: "success",
       message: `Loaded sample drill '${sample.label}'.`,
       issues: nextEntry.validation.issues
+    });
+    upsertRegistryEntryFromPackage({
+      packageJson: nextEntry.workingPackage,
+      sourceType: "authored-local",
+      sourceLabel: `sample:${sample.id}`
     });
   }
 
@@ -1092,6 +1145,12 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
         metadata
       });
       const recentPublishes = await publishService.listRecentPublishes();
+      upsertRegistryEntryFromPackage({
+        packageJson: selectedPackage.workingPackage,
+        sourceType: "mock-published",
+        sourceLabel: `mock-registry:${result.recordId}`,
+        publishedAtIso: result.publishedAtIso
+      });
 
       setPublishWorkflow((current) => ({
         ...current,

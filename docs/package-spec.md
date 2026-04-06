@@ -1,69 +1,48 @@
-# Portable Drill Package Spec (PR9 Publishing Groundwork)
+# Portable Drill Package Spec (PR10 Library/Registry Groundwork)
 
 ## Contract baseline
 
-Define a portable package shape that stays Android-compatible while preparing Studio for future hosted package sharing.
+Preserve Android-compatible portable package payloads while introducing local-first registry/catalog semantics around (not inside) the package artifact.
 
-## Portable asset model updates
+## Core portable contract types
 
 - `SchemaVersion` — contract baseline (`0.1.0`).
 - `DrillPackage` — top-level payload with `manifest`, `drills`, `assets`.
 - `DrillManifest` — package identity/version/compatibility metadata.
-- `DrillPackagePublishingMetadata` — optional publish-oriented metadata placeholders.
-- `PortableDrill` — drill metadata + ordered phases.
-- `PortablePhase` — explicit phase order with timing and pose/asset refs.
-- `PortablePose` — timestamped canonical joint map in normalized 2D.
-- `PortableAssetRef` — media reference metadata.
+- `DrillPackagePublishingMetadata` — optional publish/discovery metadata placeholders.
+- `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`.
 
-## Manifest publishing metadata (additive, optional)
+## PR10: registry model is separate from artifact model
 
-`manifest.publishing` is optional and intended for Studio publish-prep and future hosted listing.
+PR10 adds a local registry/catalog layer (`src/lib/registry/*`) with types such as:
+- `PackageRegistryEntry`
+- `PackageSummary`
+- `PackageDetails`
+- `PackageOrigin`
+- `PackageSourceType`
+- `PackageListingQuery`
 
-Fields:
-- `title?`
-- `summary?`
-- `description?`
+These are Studio listing/discovery concepts and are intentionally **not** embedded into the portable package contract.
+
+## Manifest publishing metadata (still additive)
+
+`manifest.publishing` remains optional and forward-compatible:
+- `title?`, `summary?`, `description?`
 - `authorDisplayName?`
-- `tags?`
-- `categories?`
+- `tags?`, `categories?`
 - `visibility?` (`private | unlisted | public`)
 - `publishStatus?` (`draft | published`)
-- `latestArtifactChecksumSha256?`
-- `lastPreparedAtIso?`
+- `latestArtifactChecksumSha256?`, `lastPreparedAtIso?`
 
-### Canonical portability guidance
+Consumers that ignore this block remain compatible.
 
-- Core runtime portability stays in existing manifest/drill/phase/pose fields.
-- `manifest.publishing` is additive metadata and should be treated as ignorable by consumers that do not support hosted sharing features.
+## Validation posture
 
-## Publish architecture vocabulary (Studio internal)
+- `validatePortableDrillPackage` continues protecting contract safety.
+- Registry/listing compatibility status in Library/Marketplace is a surfaced summary built from existing validation outcomes.
 
-- `PublishArtifact` — generated publish-ready package payload + checksum/size metadata.
-- `PackageLocator` — stable locator abstraction (`mock://...` now, hosted URI/key later).
-- `StorageProvider` — artifact payload persistence seam.
-- `PackageRegistryAdapter` — metadata/listing seam.
-- `PackagePublishService` — orchestrates storage + registry calls.
+## PR10 intentional deferrals
 
-## Validation model
-
-### Base package validation
-
-`validatePortableDrillPackage` continues checking contract safety for import/export.
-
-### Publish readiness validation
-
-`validatePackagePublishReadiness` adds publish-focused checks:
-- required package id/version,
-- publish title + summary completeness,
-- phase presence,
-- advisory warnings for missing phase summaries/assets/pose sequences,
-- artifact-generation viability.
-
-Errors block publishing; warnings are advisory.
-
-## PR9 intentional deferrals
-
-- No real backend publish API.
-- No auth.
-- No marketplace browsing/search.
-- No social/moderation features.
+- No hosted registry schema/API contract yet.
+- No auth identity in package metadata.
+- No social metadata in package payload.

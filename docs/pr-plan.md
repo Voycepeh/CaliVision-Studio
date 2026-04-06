@@ -1,50 +1,33 @@
 # PR Plan (Foundation and Sequencing)
 
-## PR1–PR8 (completed)
+## PR1–PR9 (completed)
 
-- Established Studio web foundation, package IO, validation, authoring, image-assisted detection, and animation preview workflows.
-- Preserved portable package compatibility and Android-aligned contract semantics.
+- Delivered Studio foundation, package IO/validation, visual authoring workflows, detection/preview, and local/mock publishing abstractions.
 
-## PR9 (this change) — publishing groundwork + storage abstraction
+## PR10 (this change) — local-first library/registry groundwork
 
-- Add `src/lib/publishing/*` abstraction layer for:
-  - publish artifact generation,
-  - publish transport interfaces,
-  - storage provider seam,
-  - metadata registry seam.
-- Add local/mock publish flow in Studio:
-  - run publish readiness checks,
-  - generate artifact,
-  - publish to in-memory mock storage + registry,
-  - show locator/result/recent history in UI.
-- Add publish metadata placeholders on manifest (`manifest.publishing`) without requiring backend.
-- Keep export/download separate from publish flow.
+### Summary
 
-## PR8 (this change)
+- Added explicit local registry/catalog models and query layer under `src/lib/registry/*`.
+- Made Library, Packages, and Marketplace routes purposeful and non-overlapping.
+- Added local browse/search/filter/sort and package detail groundwork.
+- Added provenance/status visibility and local install-style workflow concept.
+- Wired Studio import/sample/mock-publish flows to keep local registry listings current.
 
-- Refactor Studio shell into a calmer Source / Edit / Review authoring flow while remaining one-page.
-- Keep the left rail compact for sample drills, loaded drills, and import feedback.
-- Keep phase list and selected-phase basics near the top of the center workspace.
-- Move preview, validation, and source-image workflows into center review tabs.
-- Convert right-side inspector content into collapsible accordion groups with sensible defaults.
-- Keep drill editing/export semantics unchanged (layout and organization only).
-
-## Assumptions
+### Assumptions
 
 - Studio remains the authoring source of truth.
-- Portable package contract remains Android-compatible and additive.
-- Publishing in PR9 is local-only simulation to prove architecture seams.
+- Portable package contract remains stable and Android-compatible.
+- Registry/listing remains local-first with no backend dependencies.
 
-## Non-goals (intentionally deferred)
+### Non-goals (intentionally deferred)
 
-- Real auth/identity.
-- Real cloud storage/registry backend.
-- Marketplace browsing/search UX.
-- Social/moderation workflows.
-- Runtime live-coaching concerns in Studio.
+- Real auth and identity.
+- Real hosted registry/storage/search.
+- Social, moderation, and user-to-user sharing features.
 
-## Recommended next PR sequence
+## Recommended next PRs
 
-1. **PR10:** marketplace/library groundwork with local-first package registry concepts.
-2. **PR11:** user-facing package versioning and fork/remix workflow foundations.
-3. **PR12:** real backend/auth/storage integration plan and first hosted environment setup.
+1. **PR11:** user-facing package versioning and fork/remix workflow foundations.
+2. **PR12:** real backend/auth/storage integration plan and first hosted environment setup.
+3. **PR13:** hosted package publishing implementation behind existing publishing abstractions.
