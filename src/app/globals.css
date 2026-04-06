@@ -104,7 +104,7 @@ main {
 
 .studio-resizable-grid {
   display: grid;
-  grid-template-columns: minmax(220px, var(--studio-left, 300px)) 10px minmax(520px, 1fr) 10px minmax(260px, var(--studio-right, 360px));
+  grid-template-columns: minmax(210px, var(--studio-left, 270px)) 10px minmax(560px, 1fr) 10px minmax(250px, var(--studio-right, 340px));
   gap: 0.55rem;
   min-height: calc(100vh - 92px);
 }
@@ -189,7 +189,7 @@ main {
 }
 
 .panel-content {
-  padding: 1rem;
+  padding: 0.85rem;
 }
 
 .card {
@@ -198,6 +198,75 @@ main {
   background: var(--panel-elevated);
   padding: 0.75rem;
   min-width: 0;
+}
+
+.studio-workflow-cue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  background: linear-gradient(180deg, rgba(114, 168, 255, 0.12), rgba(24, 36, 53, 0.7));
+}
+
+.studio-workflow-cue span {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(7, 11, 17, 0.35);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.79rem;
+}
+
+.studio-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studio-tab-row button {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+}
+
+.studio-tab-row button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.studio-accordion {
+  padding: 0.6rem;
+}
+
+.studio-accordion-summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio-accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.studio-accordion-summary::after {
+  content: "▸";
+  color: var(--muted);
+  font-size: 0.82rem;
+  transform: rotate(0deg);
+  transition: transform 150ms ease;
+}
+
+.studio-accordion[open] .studio-accordion-summary::after {
+  transform: rotate(90deg);
+}
+
+.studio-accordion-body {
+  margin-top: 0.55rem;
 }
 
 .card h1,
@@ -275,7 +344,7 @@ main {
 
 @media (max-width: 1280px) {
   .studio-resizable-grid {
-    grid-template-columns: minmax(220px, var(--studio-left, 280px)) 10px minmax(420px, 1fr) 10px minmax(250px, var(--studio-right, 320px));
+    grid-template-columns: minmax(210px, var(--studio-left, 260px)) 10px minmax(390px, 1fr) 10px minmax(240px, var(--studio-right, 300px));
   }
 
   .pose-canvas-frame-balanced {
