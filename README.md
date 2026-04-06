@@ -2,6 +2,8 @@
 
 CaliVision Studio is the **web-first authoring and upload-analysis home** of the CaliVision ecosystem.
 
+https://cali-vision-studio.vercel.app/studio
+
 It is where drill content is created, edited, refined, previewed, and exported as a **portable drill package** that downstream mobile runtime clients can import and use.
 
 - **Studio repo (this repo):** web authoring, Upload Video direction, package lifecycle, and future Drill Exchange workflows.
