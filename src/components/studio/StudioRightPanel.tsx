@@ -16,7 +16,6 @@ export function StudioRightPanel() {
     selectedPhaseId,
     selectedJointName,
     selectedPhaseSourceImage,
-    selectedPhaseDetection,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
     resetSelectedPhaseOverlayState,
@@ -196,61 +195,14 @@ export function StudioRightPanel() {
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Source image metadata">
-        {selectedPhase ? (
-          selectedPhaseSourceImage ? (
-            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-              <li>File: {selectedPhaseSourceImage.fileName}</li>
-              <li>Type: {selectedPhaseSourceImage.mimeType}</li>
-              <li>Dimensions: {selectedPhaseSourceImage.width}×{selectedPhaseSourceImage.height}</li>
-              <li>Size: {Math.round(selectedPhaseSourceImage.byteSize / 1024)}KB</li>
-              <li>Updated: {new Date(selectedPhaseSourceImage.updatedAtIso).toLocaleString()}</li>
-            </ul>
-          ) : (
-            <p className="muted" style={{ margin: 0 }}>
-              No local source image in editor state for this phase.
-            </p>
-          )
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>
-            Select a phase to inspect source image metadata.
-          </p>
-        )}
-      </StudioInspectorAccordion>
-
-      <StudioInspectorAccordion title="Validation">
+      <StudioInspectorAccordion title="Review handoff">
         {selectedPackage ? (
-          <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-            <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
-            <li>Errors: {selectedPackage.validation.errors.length}</li>
-            <li>Warnings: {selectedPackage.validation.warnings.length}</li>
-          </ul>
-        ) : (
           <p className="muted" style={{ margin: 0 }}>
-            Load a drill file to inspect validation state.
+            Use center Review tabs for animation preview, full validation results, warnings, and source-image detection/apply flow.
           </p>
-        )}
-      </StudioInspectorAccordion>
-
-      <StudioInspectorAccordion title="Warnings">
-        {selectedPhase ? (
-          <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-            {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
-              <li className="muted">Source image exists but no canonical pose is applied yet.</li>
-            ) : null}
-            {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
-              <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
-            ) : null}
-            {selectedPhaseDetection.status === "failed" ? (
-              <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li>
-            ) : null}
-            {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
-              <li className="muted">No source image and no pose data available yet for this phase.</li>
-            ) : null}
-          </ul>
         ) : (
           <p className="muted" style={{ margin: 0 }}>
-            Select a phase to inspect authoring warnings.
+            Load a drill file to access review tabs and validation.
           </p>
         )}
       </StudioInspectorAccordion>
