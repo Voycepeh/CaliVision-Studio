@@ -14,7 +14,7 @@ const navItems = [
 
 export function TopBar() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const { importFromFile, exportSelectedPackage, saveStatusLabel } = useStudioState();
+  const { importFromFile, exportSelectedPackage, saveStatusLabel, openPublishPanel } = useStudioState();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -75,14 +75,12 @@ export function TopBar() {
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
           Export Drill File
         </button>
-        {[
-          "Publish",
-          "Settings/Profile"
-        ].map((action) => (
-          <button key={action} type="button" style={actionButtonStyle}>
-            {action}
-          </button>
-        ))}
+        <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
+          Publish
+        </button>
+        <button type="button" style={actionButtonStyle}>
+          Settings/Profile
+        </button>
       </div>
     </header>
   );

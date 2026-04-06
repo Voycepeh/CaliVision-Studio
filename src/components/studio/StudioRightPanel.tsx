@@ -5,11 +5,12 @@ import { StudioAnimationPreviewPanel } from "@/components/studio/animation/Studi
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioPhaseDetailsPanel } from "@/components/studio/StudioPhaseDetailsPanel";
+import { StudioPublishPanel } from "@/components/studio/StudioPublishPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 
 export function StudioRightPanel() {
-  const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
+  const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection, publishWorkflow } = useStudioState();
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -27,8 +28,21 @@ export function StudioRightPanel() {
       </p>
 
       <StudioMetadataEditor />
+      <StudioPublishPanel />
       <StudioPhaseDetailsPanel />
       <StudioAnimationPreviewPanel />
+
+      {publishWorkflow.lastResult ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Mock published in this session</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            {publishWorkflow.lastResult.recordId} • {publishWorkflow.lastResult.locator.uri}
+          </p>
+          <p className="muted" style={{ marginBottom: 0 }}>
+            This is a local publish simulation only. No backend registry, auth, or marketplace listing is live yet.
+          </p>
+        </section>
+      ) : null}
 
       {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : null}
 
