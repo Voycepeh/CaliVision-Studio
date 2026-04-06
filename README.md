@@ -57,3 +57,11 @@ Open: <http://localhost:3000>
 - `docs/android-compatibility.md`
 - `docs/roadmap.md`
 - `docs/pr-plan.md`
+
+## Local bundled asset strategy (PR8)
+
+- Source images and drill thumbnails are represented as portable asset refs with deterministic `package://assets/...` URIs.
+- Studio export writes a logical bundle payload containing bundle metadata, drill JSON, and embedded asset binaries.
+- Studio import hydrates bundled phase images back into overlay authoring state when present.
+- JSON-only package import remains supported for backward compatibility.
+- Cloud storage, publishing, and marketplace flows are intentionally deferred.

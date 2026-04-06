@@ -43,6 +43,32 @@ export function StudioRightPanel() {
         Collapsible drill details and advanced editing controls.
       </p>
 
+      <StudioMetadataEditor />
+      <StudioPhaseDetailsPanel />
+      <StudioAnimationPreviewPanel />
+
+      {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : null}
+
+      {selectedPhase ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Source image metadata</h3>
+          {selectedPhaseSourceImage ? (
+            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>File: {selectedPhaseSourceImage.fileName}</li>
+              <li>Type: {selectedPhaseSourceImage.mimeType}</li>
+              <li>Dimensions: {selectedPhaseSourceImage.width}×{selectedPhaseSourceImage.height}</li>
+              <li>Size: {Math.round(selectedPhaseSourceImage.byteSize / 1024)}KB</li>
+              <li>Updated: {new Date(selectedPhaseSourceImage.updatedAtIso).toLocaleString()}</li>
+              <li>Origin: {selectedPhaseSourceImage.origin}</li>
+              <li>Portable URI: {selectedPhaseSourceImage.portableUri}</li>
+            </ul>
+          ) : (
+            <p className="muted" style={{ margin: 0 }}>
+              No source image currently loaded into editor state for this phase.
+            </p>
+          )}
+          <p className="muted" style={{ marginBottom: 0 }}>
+            Export now emits a bundled package that includes package:// assets when binary data is available locally.
       <StudioInspectorAccordion title="Drill metadata" defaultOpen>
         <StudioMetadataEditor />
       </StudioInspectorAccordion>
@@ -188,25 +214,68 @@ export function StudioRightPanel() {
             <p className="muted" style={{ margin: 0 }}>
               Image transforms are editor-only alignment aids. Canonical normalized pose coordinates remain unchanged and exportable.
             </p>
-          </div>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>
-            Select a phase to tune overlay controls.
-          </p>
-        )}
-      </StudioInspectorAccordion>
+          )}
+        </section>
+      ) : null}
 
-      <StudioInspectorAccordion title="Review handoff">
-        {selectedPackage ? (
-          <p className="muted" style={{ margin: 0 }}>
-            Use center Review tabs for animation preview, full validation results, warnings, and source-image detection/apply flow.
-          </p>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>
-            Load a drill file to access review tabs and validation.
-          </p>
-        )}
-      </StudioInspectorAccordion>
+
+      {selectedPackage ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Package asset manifest</h3>
+          <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
+            <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
+            <li>Packaged assets: {selectedPackage.workingPackage.assets.filter((asset) => asset.uri.startsWith("package://")).length}</li>
+            <li>Phase images: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "phase-source-image").length}</li>
+            <li>Thumbnails: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-thumbnail").length}</li>
+            <li>Previews: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-preview").length}</li>
+          </ul>
+        </section>
+      ) : null}
+
+      {selectedPackage ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Validation summary</h3>
+          <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
+            <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
+            <li>Errors: {selectedPackage.validation.errors.length}</li>
+            <li>Warnings: {selectedPackage.validation.warnings.length}</li>
+            <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
+          </ul>
+          {selectedPackage.validation.issues.length === 0 ? (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              No validation issues.
+            </p>
+          ) : (
+            <ul style={{ marginBottom: 0, paddingLeft: "1rem" }}>
+              {selectedPackage.validation.issues.map((issue, index) => (
+                <li key={`${issue.path}-${index}`} className="muted">
+                  [{issue.severity}] {issue.path}: {issue.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {selectedPhase ? (
+        <section className="card">
+          <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Authoring warnings</h3>
+          <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+            {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
+              <li className="muted">Source image exists but no canonical pose is applied yet.</li>
+            ) : null}
+            {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
+              <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
+            ) : null}
+            {selectedPhaseDetection.status === "failed" ? (
+              <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li>
+            ) : null}
+            {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? (
+              <li className="muted">No source image and no pose data available yet for this phase.</li>
+            ) : null}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

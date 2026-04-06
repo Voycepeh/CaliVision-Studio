@@ -4,7 +4,7 @@
 
 Android remains the behavioral reference for package semantics. Studio must preserve portable package compatibility while adding publish groundwork.
 
-## Mandatory contract alignment
+## PR8 compatibility commitments
 
 - Preserve canonical joint naming and normalized coordinates.
 - Preserve explicit phase order and timing behavior.

@@ -1,10 +1,10 @@
 # Portable Drill Package Spec (PR9 Publishing Groundwork)
 
-## Goal
+## Contract baseline
 
 Define a portable package shape that stays Android-compatible while preparing Studio for future hosted package sharing.
 
-## Core types
+## Portable asset model updates
 
 - `SchemaVersion` — contract baseline (`0.1.0`).
 - `DrillPackage` — top-level payload with `manifest`, `drills`, `assets`.

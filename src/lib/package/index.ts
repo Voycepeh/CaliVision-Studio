@@ -6,13 +6,23 @@ export {
   readPackageFile,
   validateImportedPackage
 } from "@/lib/package/import/load-package";
-export type { LoadPackageFailure, LoadPackageResult, LoadPackageSuccess } from "@/lib/package/import/load-package";
+export type {
+  ImportedBundle,
+  ImportedBundleAsset,
+  LoadPackageFailure,
+  LoadPackageResult,
+  LoadPackageSuccess
+} from "@/lib/package/import/load-package";
 
 export {
+  buildBundleForExport,
   createPackageExportFileName,
+  downloadPackageBundle,
   downloadPackageJson,
+  serializeBundleForExport,
   serializePackageForExport
 } from "@/lib/package/export/export-package";
+export type { ExportBundleResult, ExportWarning } from "@/lib/package/export/export-package";
 
 export {
   getPrimarySamplePackage,

@@ -14,7 +14,8 @@ import {
   type EditablePackageEntry
 } from "@/lib/editor/package-editor";
 import {
-  downloadPackageJson,
+  buildBundleForExport,
+  downloadPackageBundle,
   loadPackageFromUnknown,
   packageKeyFromFile,
   readPackageFile,
@@ -43,12 +44,15 @@ import type {
 } from "@/lib/schema/contracts";
 
 export type ImportFeedback = {
-  status: "idle" | "success" | "error";
+  status: "idle" | "success" | "warning" | "error";
   message: string;
   issues: PackageValidationIssue[];
 };
 
+export type PhaseSourceImageOrigin = "local-editor" | "bundled-package";
+
 export type PhaseSourceImage = {
+  assetId: string;
   objectUrl: string;
   fileName: string;
   mimeType: string;
@@ -56,6 +60,8 @@ export type PhaseSourceImage = {
   width: number;
   height: number;
   updatedAtIso: string;
+  origin: PhaseSourceImageOrigin;
+  portableUri: string;
 };
 
 export type DetectionWorkflowState = {
@@ -180,18 +186,46 @@ function getPhaseScopeKey(packageKey: string | null, phaseId: string | null): st
   return `${packageKey}:${phaseId}`;
 }
 
+function normalizeFileStem(raw: string): string {
+  return raw
+    .toLocaleLowerCase()
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "asset";
+}
+
+function extensionFromMimeType(mimeType: string): string {
+  if (mimeType === "image/png") return "png";
+  if (mimeType === "image/webp") return "webp";
+  if (mimeType === "image/gif") return "gif";
+  return "jpg";
+}
+
 function toPhaseAssetRef(phaseId: string, image: PhaseSourceImage): PortableAssetRef {
   return {
-    assetId: `${phaseId}_source_image`,
+    assetId: image.assetId,
     type: "image",
-    uri: `local://phase-images/${encodeURIComponent(image.fileName)}`,
+    role: "phase-source-image",
+    ownerPhaseId: phaseId,
+    uri: image.portableUri,
     mimeType: image.mimeType,
     byteSize: image.byteSize
   };
 }
 
+function toPhaseAssetIdentity(phaseId: string, imageName: string, mimeType: string): { assetId: string; portableUri: string } {
+  const stem = normalizeFileStem(imageName);
+  const extension = extensionFromMimeType(mimeType);
+  const assetId = `phase-image-${phaseId}`;
+  const fileName = `${phaseId}-${stem}.${extension}`;
+  return {
+    assetId,
+    portableUri: `package://assets/phase-images/${fileName}`
+  };
+}
+
 function removeTemporaryPhaseAssetRef(phase: PortablePhase): void {
-  phase.assetRefs = phase.assetRefs.filter((asset) => !asset.uri.startsWith("local://phase-images/"));
+  phase.assetRefs = phase.assetRefs.filter((asset) => !(asset.role === "phase-source-image" || asset.uri.startsWith("local://phase-images/")));
 }
 
 function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
@@ -201,6 +235,30 @@ function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
     image.onerror = () => reject(new Error("Failed to load image for pose detection."));
     image.src = objectUrl;
   });
+}
+
+async function toPhaseSourceImageFromBlob(
+  assetId: string,
+  portableUri: string,
+  fileName: string,
+  blob: Blob,
+  origin: PhaseSourceImageOrigin
+): Promise<PhaseSourceImage> {
+  const objectUrl = URL.createObjectURL(blob);
+  const image = await loadImageFromObjectUrl(objectUrl);
+
+  return {
+    assetId,
+    portableUri,
+    objectUrl,
+    fileName,
+    mimeType: blob.type || "application/octet-stream",
+    byteSize: blob.size,
+    width: image.naturalWidth,
+    height: image.naturalHeight,
+    updatedAtIso: new Date().toISOString(),
+    origin
+  };
 }
 
 export function StudioStateProvider({ children }: { children: React.ReactNode }) {
@@ -214,6 +272,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   const [selectedJointName, setSelectedJointName] = useState<CanonicalJointName | null>(null);
   const [importFeedback, setImportFeedback] = useState<ImportFeedback>({ status: "idle", message: "", issues: [] });
   const [phaseSourceImages, setPhaseSourceImages] = useState<Record<string, PhaseSourceImage>>({});
+  const [packageAssetBlobs, setPackageAssetBlobs] = useState<Record<string, Record<string, Blob>>>({});
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
@@ -257,12 +316,62 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       return [nextEntry, ...withoutExisting];
     });
 
+    if (result.importedBundle) {
+      const importedBundle = result.importedBundle;
+      setPackageAssetBlobs((current) => ({
+        ...current,
+        [nextEntry.packageKey]: Object.fromEntries(Object.entries(importedBundle.assetsById).map(([assetId, payload]) => [assetId, payload.blob]))
+      }));
+
+      const phaseEntries = nextEntry.workingPackage.drills.flatMap((drill) =>
+        drill.phases.flatMap((phase) =>
+          phase.assetRefs
+            .filter((asset) => asset.role === "phase-source-image")
+            .map((asset) => ({ phaseId: phase.phaseId, asset }))
+        )
+      );
+
+      const importedPhaseImages = await Promise.all(
+        phaseEntries.map(async ({ phaseId, asset }) => {
+          const binary = importedBundle.assetsById[asset.assetId];
+          if (!binary) {
+            return null;
+          }
+
+          const sourceImage = await toPhaseSourceImageFromBlob(
+            asset.assetId,
+            asset.uri,
+            binary.path.split("/").pop() ?? `${asset.assetId}.bin`,
+            binary.blob,
+            "bundled-package"
+          );
+
+          return {
+            scopeKey: `${nextEntry.packageKey}:${phaseId}`,
+            sourceImage
+          };
+        })
+      );
+
+      setPhaseSourceImages((current) => {
+        const next = { ...current };
+        importedPhaseImages.forEach((entry) => {
+          if (entry) {
+            next[entry.scopeKey] = entry.sourceImage;
+          }
+        });
+        return next;
+      });
+    }
+
     setSelectedPackageKey(nextEntry.packageKey);
     setSelectedPhaseId(getSortedPhases(nextEntry.workingPackage)[0]?.phaseId ?? null);
     setSelectedJointName(null);
     setImportFeedback({
       status: "success",
-      message: `Imported drill file ${file.name} successfully.`,
+      message: result.importedBundle
+        ? `Imported bundled drill package ${file.name} successfully.`
+        : `Imported drill file ${file.name} successfully.`,
       issues: nextEntry.validation.issues
     });
   }
@@ -616,23 +725,36 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   }
 
   async function setSelectedPhaseImage(file: File): Promise<void> {
-    if (!selectedScopeKey || !selectedPhaseId) {
+    if (!selectedScopeKey || !selectedPhaseId || !selectedPackage) {
       return;
     }
 
+    const mimeType = file.type || "application/octet-stream";
+    const identity = toPhaseAssetIdentity(selectedPhaseId, file.name, mimeType);
     const objectUrl = URL.createObjectURL(file);
 
     try {
       const image = await loadImageFromObjectUrl(objectUrl);
       const sourceImage: PhaseSourceImage = {
+        assetId: identity.assetId,
+        portableUri: identity.portableUri,
         objectUrl,
         fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
+        mimeType,
         byteSize: file.size,
         width: image.naturalWidth,
         height: image.naturalHeight,
-        updatedAtIso: new Date().toISOString()
+        updatedAtIso: new Date().toISOString(),
+        origin: "local-editor"
       };
+
+      setPackageAssetBlobs((current) => ({
+        ...current,
+        [selectedPackage.packageKey]: {
+          ...(current[selectedPackage.packageKey] ?? {}),
+          [identity.assetId]: file
+        }
+      }));
 
       setPhaseSourceImages((current) => {
         const existing = current[selectedScopeKey];
@@ -672,6 +794,29 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
           phase.assetRefs = [...phase.assetRefs, nextAsset];
         }
       });
+
+      updateSelectedPackage((entry) =>
+        updateWorkingPackage(entry, (draft) => {
+          const drill = getPrimaryDrill(draft);
+          const rootIndex = draft.assets.findIndex((asset) => asset.assetId === identity.assetId);
+          const rootRef: PortableAssetRef = {
+            assetId: identity.assetId,
+            type: "image",
+            role: "phase-source-image",
+            ownerDrillId: drill?.drillId,
+            ownerPhaseId: selectedPhaseId,
+            uri: identity.portableUri,
+            mimeType,
+            byteSize: file.size
+          };
+
+          if (rootIndex >= 0) {
+            draft.assets[rootIndex] = rootRef;
+          } else {
+            draft.assets = [...draft.assets, rootRef];
+          }
+        })
+      );
     } catch {
       URL.revokeObjectURL(objectUrl);
       setPhaseDetectionState((current) => ({
@@ -686,7 +831,7 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   }
 
   function clearSelectedPhaseImage(): void {
-    if (!selectedScopeKey || !selectedPhaseId) {
+    if (!selectedScopeKey || !selectedPhaseId || !selectedPackage) {
       return;
     }
 
@@ -709,9 +854,29 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
       [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
     }));
 
+    if (existing) {
+      setPackageAssetBlobs((current) => {
+        const packageBlobs = { ...(current[selectedPackage.packageKey] ?? {}) };
+        delete packageBlobs[existing.assetId];
+
+        return {
+          ...current,
+          [selectedPackage.packageKey]: packageBlobs
+        };
+      });
+    }
+
     withPhaseUpdate(selectedPhaseId, (phase) => {
       removeTemporaryPhaseAssetRef(phase);
     });
+
+    if (existing) {
+      updateSelectedPackage((entry) =>
+        updateWorkingPackage(entry, (draft) => {
+          draft.assets = draft.assets.filter((asset) => asset.assetId !== existing.assetId);
+        })
+      );
+    }
   }
 
   function setSelectedPhaseOverlayState(partial: Partial<PhaseOverlayState>): void {
@@ -838,20 +1003,35 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     }
 
     const exportPackage = clonePackage(selectedPackage.workingPackage);
-    const drill = getPrimaryDrill(exportPackage);
-    if (drill) {
-      drill.phases.forEach((phase) => {
-        removeTemporaryPhaseAssetRef(phase);
-      });
+    const primaryDrill = getPrimaryDrill(exportPackage);
+    if (primaryDrill && !primaryDrill.thumbnailAssetId) {
+      const fallback = primaryDrill.phases
+        .flatMap((phase) => phase.assetRefs)
+        .find((asset) => asset.role === "phase-source-image");
+      if (fallback) {
+        primaryDrill.thumbnailAssetId = fallback.assetId;
+      }
     }
+
     exportPackage.manifest.updatedAtIso = new Date().toISOString();
     const validation = validatePortableDrillPackage(exportPackage);
+    if (validation.errors.length > 0) {
+      setImportFeedback({
+        status: "error",
+        message: `Export blocked: package '${exportPackage.manifest.packageId}' has ${validation.errors.length} validation error(s).`,
+        issues: validation.issues
+      });
+      return;
+    }
 
-    downloadPackageJson(exportPackage);
-    setImportFeedback({
-      status: "success",
-      message: `Exported drill file ${exportPackage.manifest.packageId}.`,
-      issues: validation.issues
+    void buildBundleForExport(exportPackage, packageAssetBlobs[selectedPackage.packageKey] ?? {}).then((result) => {
+      downloadPackageBundle(result.bundle, exportPackage);
+      const warningMessage = result.warnings.length > 0 ? ` (${result.warnings.length} asset warning(s))` : "";
+      setImportFeedback({
+        status: result.warnings.length > 0 ? "warning" : "success",
+        message: `Exported bundled drill package ${exportPackage.manifest.packageId}${warningMessage}.`,
+        issues: validation.issues
+      });
     });
   }
 
