@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { StudioAnimationPreviewPanel } from "@/components/studio/animation/StudioAnimationPreviewPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioPhaseDetailsPanel } from "@/components/studio/StudioPhaseDetailsPanel";
@@ -27,6 +28,7 @@ export function StudioRightPanel() {
 
       <StudioMetadataEditor />
       <StudioPhaseDetailsPanel />
+      <StudioAnimationPreviewPanel />
 
       {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : null}
 

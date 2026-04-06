@@ -50,7 +50,7 @@
 - Store phase source image refs as local placeholder `assetRefs` in working package state.
 - Strip temporary `local://phase-images/...` refs on export to preserve portable package compatibility.
 
-## PR6 (this change)
+## PR6 (completed)
 
 - Add an overlay-capable authoring surface that renders source image and canonical pose together on a fixed portrait canvas.
 - Add per-phase editor-only image alignment state (show/hide image, show/hide pose, opacity, fit mode, offsets, reset).
@@ -60,39 +60,12 @@
 
 ## PR7 (this change)
 
-- Rebalance center-workspace authoring flow by reducing default canonical pose editor footprint.
-- Add responsive pose editor sizing rules across desktop, narrow desktop/tablet, and mobile.
-- Add explicit canvas expand/focus toggle so large-canvas editing is intentional instead of always-on.
-- Preserve phase/joint editing semantics, overlay controls, and normalized coordinate behavior.
-- Keep dark visual language while increasing visible control density around the editor.
-
-### Assumptions
-
-- Default authoring should prioritize seeing phase list, phase controls, canvas, and joint editor in one pass.
-- Portrait canonical rendering remains unchanged; resizing only changes viewport scale.
-- Users still need an explicit large-canvas mode for precision adjustments.
-
-### Non-goals
-
-- No changes to package contract, exported pose schema, or canonical joint semantics.
-- No changes to detection mapping, import/export behavior, or dirty-state semantics.
-- No rewrite of panel architecture beyond center-workspace density and canvas sizing behavior.
-
-## PR8 (this change)
-
-- Fix long-text overflow in left-panel sample/loaded drill cards so package IDs stay inside selected card boundaries.
-- Add defensive long-text wrapping behavior for card child content and library card title/subline text blocks.
-- Preserve existing dark theme card styling, selection state visuals, and panel layout behavior.
-
-### Assumptions
-
-- Drill/package identifiers can be long and should remain readable without horizontal overflow.
-- Loaded drill cards should prioritize containment and readability over single-line preservation.
-
-### Non-goals
-
-- No change to panel widths, resizable layout semantics, or card selection interaction model.
-- No change to drill/package contracts or import/export behavior.
+- Add a Studio animation preview panel in the right inspector for sequence validation.
+- Build deterministic phase-sequence playback from ordered phases + canonical pose endpoints + phase `durationMs`.
+- Implement linear interpolation for canonical joints with safe fallback handling when joints/poses are missing.
+- Add playback controls (play, pause, restart, loop toggle, speed multiplier) and current-phase/timing summaries.
+- Surface concise preview warnings for low phase count, invalid duration values, and sparse/missing pose data.
+- Keep preview read-only and export-compatible (no animation-only schema additions).
 
 ## Assumptions
 
@@ -101,6 +74,7 @@
 - Canonical pose canvas remains the fixed visual reference for edit/detection interactions.
 - Source image binaries remain local-only and are not embedded in exported package payloads.
 - Overlay alignment metadata remains editor-only working state until future package asset strategy is implemented.
+- PR7 preview treats each phase `durationMs` as transition time to the next phase pose for validation playback.
 
 ## Non-goals (still deferred)
 
@@ -109,7 +83,7 @@
 - No video detection pipeline.
 - No browser live coaching.
 - No full image editor/tool suite beyond lightweight alignment controls.
-- No timeline animation editor.
+- No full timeline motion-curve/easing authoring editor.
 - No dedicated multi-drill package navigation UI yet (first drill shown in workspace).
 
 ## UI terminology + preview parity follow-up (current)
@@ -132,6 +106,6 @@
 
 ## Recommended next PR sequence
 
-1. **PR7:** animation preview based on edited phase sequence and durations.
-2. **PR8:** local package asset bundling strategy for source images and thumbnails.
-3. **PR9:** package publishing groundwork and future storage abstraction.
+1. **PR8:** local package asset bundling strategy for source images and thumbnails.
+2. **PR9:** package publishing groundwork and future storage abstraction.
+3. **PR10:** marketplace/library groundwork with local-first package registry concepts.
