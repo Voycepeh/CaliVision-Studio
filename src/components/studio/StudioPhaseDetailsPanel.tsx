@@ -16,7 +16,7 @@ export function StudioPhaseDetailsPanel() {
   }, [selectedPackage, selectedPhaseId]);
 
   return (
-    <section className="card">
+    <section>
       <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Phase details</h3>
       {selectedPhase ? (
         <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>

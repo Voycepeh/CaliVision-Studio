@@ -9,7 +9,7 @@ type StudioResizableLayoutProps = {
   right: React.ReactNode;
 };
 
-type MobileTab = "library" | "workspace" | "details";
+type MobileTab = "source" | "edit" | "inspector";
 
 const LEFT_MIN = 220;
 const LEFT_MAX = 420;
@@ -17,9 +17,9 @@ const RIGHT_MIN = 260;
 const RIGHT_MAX = 520;
 
 export function StudioResizableLayout({ left, center, right }: StudioResizableLayoutProps) {
-  const [leftWidth, setLeftWidth] = useState(300);
-  const [rightWidth, setRightWidth] = useState(360);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("workspace");
+  const [leftWidth, setLeftWidth] = useState(270);
+  const [rightWidth, setRightWidth] = useState(340);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("edit");
 
   const gridStyle = useMemo(
     () =>
@@ -62,27 +62,27 @@ export function StudioResizableLayout({ left, center, right }: StudioResizableLa
       <TopBar />
       <section className="studio-shell studio-shell-resizable">
         <nav className="studio-mobile-tabs" aria-label="Studio sections">
-          <button type="button" className={mobileTab === "library" ? "active" : ""} onClick={() => setMobileTab("library")}>
-            Library
+          <button type="button" className={mobileTab === "source" ? "active" : ""} onClick={() => setMobileTab("source")}>
+            Source
           </button>
-          <button type="button" className={mobileTab === "workspace" ? "active" : ""} onClick={() => setMobileTab("workspace")}>
-            Drill Editor
+          <button type="button" className={mobileTab === "edit" ? "active" : ""} onClick={() => setMobileTab("edit")}>
+            Edit
           </button>
-          <button type="button" className={mobileTab === "details" ? "active" : ""} onClick={() => setMobileTab("details")}>
-            Details
+          <button type="button" className={mobileTab === "inspector" ? "active" : ""} onClick={() => setMobileTab("inspector")}>
+            Inspector
           </button>
         </nav>
 
         <div className="studio-resizable-grid" style={gridStyle}>
-          <aside className={`panel studio-pane-left ${mobileTab === "library" ? "mobile-visible" : ""}`}>{left}</aside>
+          <aside className={`panel studio-pane-left ${mobileTab === "source" ? "mobile-visible" : ""}`}>{left}</aside>
           <button type="button" className="studio-resize-handle studio-resize-handle-left" onPointerDown={(event) => beginResize("left", event)}>
             Resize left panel
           </button>
-          <section className={`panel studio-pane-center ${mobileTab === "workspace" ? "mobile-visible" : ""}`}>{center}</section>
+          <section className={`panel studio-pane-center ${mobileTab === "edit" ? "mobile-visible" : ""}`}>{center}</section>
           <button type="button" className="studio-resize-handle studio-resize-handle-right" onPointerDown={(event) => beginResize("right", event)}>
             Resize right panel
           </button>
-          <aside className={`panel studio-pane-right ${mobileTab === "details" ? "mobile-visible" : ""}`}>{right}</aside>
+          <aside className={`panel studio-pane-right ${mobileTab === "inspector" ? "mobile-visible" : ""}`}>{right}</aside>
         </div>
       </section>
     </main>

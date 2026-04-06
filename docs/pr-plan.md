@@ -20,6 +20,15 @@
 - Add publish metadata placeholders on manifest (`manifest.publishing`) without requiring backend.
 - Keep export/download separate from publish flow.
 
+## PR8 (this change)
+
+- Refactor Studio shell into a calmer Source / Edit / Review authoring flow while remaining one-page.
+- Keep the left rail compact for sample drills, loaded drills, and import feedback.
+- Keep phase list and selected-phase basics near the top of the center workspace.
+- Move preview, validation, and source-image workflows into center review tabs.
+- Convert right-side inspector content into collapsible accordion groups with sensible defaults.
+- Keep drill editing/export semantics unchanged (layout and organization only).
+
 ## Assumptions
 
 - Studio remains the authoring source of truth.
