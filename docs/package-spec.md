@@ -1,6 +1,6 @@
 # Portable Drill Package Spec (PR10 Library/Registry Groundwork)
 
-## Goal
+## Contract baseline
 
 Preserve Android-compatible portable package payloads while introducing local-first registry/catalog semantics around (not inside) the package artifact.
 

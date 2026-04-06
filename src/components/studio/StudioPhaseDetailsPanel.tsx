@@ -25,7 +25,12 @@ export function StudioPhaseDetailsPanel() {
           <li>Duration: {selectedPhase.durationMs}ms</li>
           <li>Pose frames: {selectedPhase.poseSequence.length}</li>
           <li>Assets: {selectedPhase.assetRefs.length}</li>
-          <li>Local source image: {selectedPhaseSourceImage ? "attached" : "none"}</li>
+          <li>
+            Packaged source image: {selectedPhase.assetRefs.some((asset) => asset.role === "phase-source-image") ? "yes" : "no"}
+          </li>
+          <li>
+            Editor source image: {selectedPhaseSourceImage ? `${selectedPhaseSourceImage.origin} (${selectedPhaseSourceImage.fileName})` : "none"}
+          </li>
           <li>Detection workflow: {selectedPhaseDetection.status}</li>
         </ul>
       ) : (

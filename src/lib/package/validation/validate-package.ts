@@ -5,6 +5,8 @@ const SUPPORTED_SCHEMA_VERSION = "0.1.0";
 
 const CANONICAL_JOINT_SET = new Set<string>(CANONICAL_JOINT_NAMES);
 const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear"]);
+const ASSET_TYPE_SET = new Set<string>(["image", "video", "audio", "overlay"]);
+const ASSET_ROLE_SET = new Set<string>(["phase-source-image", "drill-thumbnail", "drill-preview"]);
 
 type Severity = "error" | "warning";
 
@@ -181,6 +183,14 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validateNonEmptyString(drill.drillId, `${drillPath}.drillId`, issues);
     validateNonEmptyString(drill.slug, `${drillPath}.slug`, issues);
     validateNonEmptyString(drill.title, `${drillPath}.title`, issues);
+
+    if (drill.thumbnailAssetId !== undefined) {
+      validateNonEmptyString(drill.thumbnailAssetId, `${drillPath}.thumbnailAssetId`, issues);
+    }
+
+    if (drill.previewAssetId !== undefined) {
+      validateNonEmptyString(drill.previewAssetId, `${drillPath}.previewAssetId`, issues);
+    }
 
     if (!Array.isArray(drill.tags)) {
       issues.push(makeIssue("error", `${drillPath}.tags`, "Drill tags must be an array.", "type"));
@@ -394,7 +404,26 @@ function validateRootAssets(input: unknown, issues: PackageValidationIssue[]): v
     return;
   }
 
-  input.forEach((asset, index) => validateAssetRef(asset, `assets[${index}]`, issues, false));
+  const seenAssetIds = new Set<string>();
+  const seenAssetUris = new Set<string>();
+
+  input.forEach((asset, index) => {
+    const path = `assets[${index}]`;
+
+    if (!validateAssetRef(asset, path, issues, false)) {
+      return;
+    }
+
+    if (seenAssetIds.has(asset.assetId)) {
+      issues.push(makeIssue("error", `${path}.assetId`, `Duplicate assetId '${asset.assetId}' found in root assets.`, "asset"));
+    }
+    seenAssetIds.add(asset.assetId);
+
+    if (seenAssetUris.has(asset.uri)) {
+      issues.push(makeIssue("error", `${path}.uri`, `Duplicate asset uri '${asset.uri}' found in root assets.`, "asset"));
+    }
+    seenAssetUris.add(asset.uri);
+  });
 }
 
 function validateAssetRef(
@@ -411,6 +440,27 @@ function validateAssetRef(
   validateNonEmptyString(input.assetId, `${path}.assetId`, issues, enforceNonEmpty);
   validateNonEmptyString(input.type, `${path}.type`, issues, enforceNonEmpty);
   validateNonEmptyString(input.uri, `${path}.uri`, issues, enforceNonEmpty);
+
+  if (typeof input.type === "string" && !ASSET_TYPE_SET.has(input.type)) {
+    issues.push(makeIssue("error", `${path}.type`, `Unsupported asset type '${input.type}'.`, "asset"));
+  }
+
+  if (input.role !== undefined) {
+    validateNonEmptyString(input.role, `${path}.role`, issues, enforceNonEmpty);
+
+    if (typeof input.role === "string" && !ASSET_ROLE_SET.has(input.role)) {
+      issues.push(makeIssue("error", `${path}.role`, `Unsupported asset role '${input.role}'.`, "asset"));
+    }
+  }
+
+  if (input.ownerDrillId !== undefined) {
+    validateNonEmptyString(input.ownerDrillId, `${path}.ownerDrillId`, issues, enforceNonEmpty);
+  }
+
+  if (input.ownerPhaseId !== undefined) {
+    validateNonEmptyString(input.ownerPhaseId, `${path}.ownerPhaseId`, issues, enforceNonEmpty);
+  }
+
   return true;
 }
 

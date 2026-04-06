@@ -41,13 +41,20 @@ export type PortablePose = {
   canvas: PortableCanvasSpec;
 };
 
+export type PortableAssetType = "image" | "video" | "audio" | "overlay";
+
+export type PortableAssetRole = "phase-source-image" | "drill-thumbnail" | "drill-preview";
+
 export type PortableAssetRef = {
   assetId: string;
-  type: "image" | "video" | "audio" | "overlay";
+  type: PortableAssetType;
+  role?: PortableAssetRole;
   uri: string;
   checksumSha256?: string;
   mimeType?: string;
   byteSize?: number;
+  ownerDrillId?: string;
+  ownerPhaseId?: string;
 };
 
 export type PortablePhase = {
@@ -69,6 +76,8 @@ export type PortableDrill = {
   difficulty: "beginner" | "intermediate" | "advanced";
   tags: string[];
   defaultView: PortableViewType;
+  thumbnailAssetId?: string;
+  previewAssetId?: string;
   phases: PortablePhase[];
 };
 
@@ -104,4 +113,37 @@ export type DrillPackage = {
   manifest: DrillManifest;
   drills: PortableDrill[];
   assets: PortableAssetRef[];
+};
+
+export type DrillBundleManifestAsset = {
+  assetId: string;
+  role: PortableAssetRole;
+  type: PortableAssetType;
+  ownerDrillId?: string;
+  ownerPhaseId?: string;
+  path: string;
+  mimeType: string;
+  byteSize: number;
+};
+
+export type DrillBundleManifest = {
+  bundleVersion: "1";
+  packageId: string;
+  packageVersion: string;
+  createdAtIso: string;
+  drillPath: "drill.json";
+  assets: DrillBundleManifestAsset[];
+};
+
+export type DrillBundleAssetFile = {
+  path: string;
+  mimeType: string;
+  byteSize: number;
+  base64Data: string;
+};
+
+export type DrillBundleFile = {
+  manifest: DrillBundleManifest;
+  drill: DrillPackage;
+  files: DrillBundleAssetFile[];
 };

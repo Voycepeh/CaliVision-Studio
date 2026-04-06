@@ -4,7 +4,7 @@
 
 Android remains the behavioral reference for package semantics. PR10 adds local-first registry/listing UX without altering canonical drill contract semantics.
 
-## Mandatory contract alignment
+## PR8 compatibility commitments
 
 - Preserve canonical joint naming and normalized coordinate semantics.
 - Preserve explicit phase order/timing behavior.
