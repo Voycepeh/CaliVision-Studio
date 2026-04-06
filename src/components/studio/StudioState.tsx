@@ -15,6 +15,8 @@ import {
 } from "@/lib/editor/package-editor";
 import {
   buildBundleForExport,
+  createDerivedPackage,
+  ensureVersioningMetadata,
   downloadPackageBundle,
   loadPackageFromUnknown,
   packageKeyFromFile,
@@ -33,7 +35,7 @@ import {
   type PublishReadinessResult,
   type PublishResult
 } from "@/lib/publishing";
-import { loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
+import { createDerivedRegistryEntry, loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import type {
   CanonicalJointName,
@@ -138,6 +140,9 @@ type StudioStateValue = {
   runMockPublish: () => Promise<void>;
   publishWorkflow: PublishWorkflowState;
   updatePublishingMetadata: (partial: Partial<DrillPackagePublishingMetadata>) => void;
+  duplicateSelectedPackage: () => void;
+  forkSelectedPackage: () => void;
+  createSelectedPackageNewVersion: () => void;
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -348,7 +353,25 @@ export function StudioStateProvider({
       return;
     }
 
-    const nextEntry = createEditablePackageEntry(result.packageViewModel.packageKey, `local-file:${file.name}`, result.packageViewModel.package);
+    const normalized = ensureVersioningMetadata(result.packageViewModel.package);
+    if (!normalized.manifest.versioning?.derivedFrom) {
+      const versioning = normalized.manifest.versioning;
+      normalized.manifest.versioning = {
+        packageSlug: versioning?.packageSlug ?? normalized.manifest.packageId,
+        versionId: versioning?.versionId ?? `${normalized.manifest.packageId}@${normalized.manifest.packageVersion}`,
+        revision: versioning?.revision ?? 1,
+        lineageId: versioning?.lineageId ?? normalized.manifest.packageId,
+        draftStatus: versioning?.draftStatus ?? "draft",
+        derivedFrom: {
+          relation: "import",
+          parentPackageId: normalized.manifest.packageId,
+          parentVersionId: `${normalized.manifest.packageId}@${normalized.manifest.packageVersion}`,
+          note: "Imported from local file"
+        }
+      };
+    }
+
+    const nextEntry = createEditablePackageEntry(result.packageViewModel.packageKey, `local-file:${file.name}`, normalized);
 
     setPackages((current) => {
       const withoutExisting = current.filter(
@@ -441,7 +464,11 @@ export function StudioStateProvider({
       return;
     }
 
-    const nextEntry = createEditablePackageEntry(result.packageViewModel.packageKey, `sample:${sample.id}`, result.packageViewModel.package);
+    const nextEntry = createEditablePackageEntry(
+      result.packageViewModel.packageKey,
+      `sample:${sample.id}`,
+      ensureVersioningMetadata(result.packageViewModel.package)
+    );
     setPackages((current) => {
       const withoutExisting = current.filter(
         (entry) => entry.workingPackage.manifest.packageId !== result.packageViewModel.package.manifest.packageId
@@ -960,6 +987,62 @@ export function StudioStateProvider({
     setPublishWorkflow((current) => ({ ...current, panelOpen: true }));
   }
 
+  function selectedPackageEntryId(): string | null {
+    if (!selectedPackage) {
+      return null;
+    }
+
+    return `${selectedPackage.workingPackage.manifest.packageId}@${selectedPackage.workingPackage.manifest.packageVersion}`;
+  }
+
+  function addDerivedPackageToStudio(relation: "duplicate" | "fork" | "new-version"): void {
+    const source = selectedPackage;
+    if (!source) {
+      return;
+    }
+
+    const derivedPackage = createDerivedPackage({
+      source: source.workingPackage,
+      relation: relation === "fork" ? "fork" : relation === "duplicate" ? "duplicate" : "new-version"
+    });
+
+    const packageKey = `${relation}-${Date.now()}`;
+    const nextEntry = createEditablePackageEntry(packageKey, `${relation}:${source.packageKey}`, derivedPackage);
+    setPackages((current) => [nextEntry, ...current.filter((entry) => entry.packageKey !== packageKey)]);
+    setSelectedPackageKey(packageKey);
+    setSelectedPhaseId(getSortedPhases(nextEntry.workingPackage)[0]?.phaseId ?? null);
+    setSelectedJointName(null);
+
+    const sourceEntryId = selectedPackageEntryId();
+    if (sourceEntryId) {
+      try {
+        createDerivedRegistryEntry({
+          entryId: sourceEntryId,
+          relation: relation === "fork" ? "fork" : relation === "duplicate" ? "duplicate" : "new-version"
+        });
+      } catch {
+        upsertRegistryEntryFromPackage({
+          packageJson: nextEntry.workingPackage,
+          sourceType: "authored-local",
+          sourceLabel: `${relation}:${sourceEntryId}`,
+          parentEntryId: sourceEntryId
+        });
+      }
+    }
+  }
+
+  function duplicateSelectedPackage(): void {
+    addDerivedPackageToStudio("duplicate");
+  }
+
+  function forkSelectedPackage(): void {
+    addDerivedPackageToStudio("fork");
+  }
+
+  function createSelectedPackageNewVersion(): void {
+    addDerivedPackageToStudio("new-version");
+  }
+
   function closePublishPanel(): void {
     setPublishWorkflow((current) => ({ ...current, panelOpen: false }));
   }
@@ -1215,7 +1298,10 @@ export function StudioStateProvider({
     runPublishReadinessCheck,
     runMockPublish,
     publishWorkflow,
-    updatePublishingMetadata
+    updatePublishingMetadata,
+    duplicateSelectedPackage,
+    forkSelectedPackage,
+    createSelectedPackageNewVersion
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   collectCatalogTags,
+  createDerivedRegistryEntry,
   DEFAULT_PACKAGE_LISTING_QUERY,
   installRegistryEntryToLibrary,
   loadLocalRegistryEntries,
@@ -67,6 +68,18 @@ export function LibraryOverview() {
     setSelectedEntryId(result.entryId);
   }
 
+  function onCreateDerived(entryId: string, relation: "duplicate" | "fork" | "remix" | "new-version"): void {
+    try {
+      const next = createDerivedRegistryEntry({ entryId, relation });
+      const reloaded = loadLocalRegistryEntries();
+      setEntries(reloaded);
+      setSelectedEntryId(next.entryId);
+      setInstallMessage(`Created ${relation} package ${next.summary.entryId}.`);
+    } catch (error) {
+      setInstallMessage(error instanceof Error ? error.message : "Unable to create derived package.");
+    }
+  }
+
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
       <h2 style={{ margin: 0 }}>Local Library Registry</h2>
@@ -128,8 +141,9 @@ export function LibraryOverview() {
                   {entry.summary.packageVersion} • {entry.summary.phaseCount} phases • {entry.summary.hasAssets ? "assets" : "no assets"}
                 </span>
                 <span className="muted">
-                  {entry.summary.authorDisplayName} • {entry.summary.sourceType} • {entry.summary.publishStatus}
+                  {entry.summary.authorDisplayName} • {entry.summary.sourceType} • {entry.summary.publishStatus} • {entry.summary.statusBadge}
                 </span>
+                <span className="muted">{entry.summary.provenanceSummary}</span>
               </button>
             ))}
           </div>
@@ -155,6 +169,9 @@ export function LibraryOverview() {
                 <li>Author: {selected.summary.authorDisplayName}</li>
                 <li>Schema: {selected.summary.schemaVersion}</li>
                 <li>Compatibility: {selected.summary.compatibilitySummary}</li>
+                <li>Version identity: {selected.summary.versionId ?? "—"}</li>
+                <li>Lineage: {selected.summary.lineageId ?? "—"} (rev {selected.summary.revision ?? 1})</li>
+                <li>Provenance: {selected.summary.provenanceSummary}</li>
                 <li>Updated: {new Date(selected.summary.updatedAtIso).toLocaleString()}</li>
                 <li>Published: {selected.summary.publishedAtIso ? new Date(selected.summary.publishedAtIso).toLocaleString() : "—"}</li>
               </ul>
@@ -172,8 +189,14 @@ export function LibraryOverview() {
                 <button type="button" style={chipStyle(false)} onClick={() => onInstall(selected.entryId)}>
                   Install to Library
                 </button>
-                <button type="button" style={chipStyle(false)}>
-                  Duplicate / Fork (local)
+                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "duplicate")}>
+                  Duplicate
+                </button>
+                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "fork")}>
+                  Fork / Remix
+                </button>
+                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "new-version")}>
+                  New Version
                 </button>
               </div>
               {installMessage ? (

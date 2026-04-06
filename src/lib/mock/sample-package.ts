@@ -79,6 +79,13 @@ export const sampleDrillPackage: DrillPackage = {
       androidMinVersion: "1.2.0",
       androidTargetContract: "drill-package-0.1.0"
     },
+    versioning: {
+      packageSlug: "pkg-reactive-defense-001",
+      versionId: "pkg_reactive_defense_001@0.1.0",
+      revision: 1,
+      lineageId: "pkg_reactive_defense_001",
+      draftStatus: "draft"
+    },
     publishing: {
       title: "Reactive Defense Ladder",
       summary: "Sample drill aligned to Android-compatible package semantics.",

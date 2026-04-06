@@ -50,6 +50,12 @@ export {
 } from "@/lib/package/validation/validate-package";
 
 export {
+  createDerivedPackage,
+  ensureVersioningMetadata,
+  summarizeProvenance
+} from "@/lib/package/versioning";
+
+export {
   mapPortablePhaseToInspectorViewModel,
   mapPortablePoseToCanvasPoseModel,
   type CanvasPoseModel,

@@ -29,6 +29,10 @@ export type PublishRequest = {
     tags: string[];
     categories: string[];
     visibility: "private" | "unlisted" | "public";
+    packageSlug?: string;
+    versionId?: string;
+    lineageId?: string;
+    provenanceSummary?: string;
   };
 };
 
