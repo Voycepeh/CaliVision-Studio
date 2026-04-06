@@ -9,7 +9,8 @@ Studio is the long-term system of record for:
 - phase sequencing and timing,
 - pose/canvas editing,
 - package validation,
-- package export and future publishing.
+- package export,
+- publish preparation and publish target orchestration.
 
 ### Mobile responsibilities (Android first, later iOS)
 
@@ -18,18 +19,24 @@ Mobile clients are runtime/live-coaching and drill consumption environments:
 - execute drills during training,
 - provide runtime cues and playback.
 
-Mobile may support lightweight edits later (for example notes or labels), but full authoring remains web-first.
+## PR9 direction: publish-first seams before hosted backend
 
-## Strategic constraints for this repo
+PR9 intentionally ships:
+- local/mock publish target implementation,
+- publish-ready metadata placeholders,
+- publish readiness checks,
+- package locator abstraction for future hosted storage.
 
-- Do not build full marketplace behavior yet.
-- Do not build live web coaching yet.
-- Do not build full cloud upload/video processing yet.
-- Keep contracts portable and Android-compatible first.
+PR9 intentionally does **not** ship:
+- auth,
+- cloud storage,
+- marketplace browsing,
+- social interactions.
 
 ## Practical implication for PR sequencing
 
-1. Lock a portable, versioned package contract.
-2. Build reliable import/export + validation.
-3. Add pose canvas and visual authoring depth.
-4. Add package publishing/distribution flows.
+1. Lock and preserve portable package contracts.
+2. Keep Studio authoring and export robust.
+3. Add publish/storage abstraction seams.
+4. Add local-first registry and marketplace UI groundwork.
+5. Add hosted backend/auth/storage integration only after seams are stable.

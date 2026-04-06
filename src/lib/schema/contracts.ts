@@ -81,6 +81,20 @@ export type PortableDrill = {
   phases: PortablePhase[];
 };
 
+
+export type DrillPackagePublishingMetadata = {
+  title?: string;
+  summary?: string;
+  description?: string;
+  authorDisplayName?: string;
+  tags?: string[];
+  categories?: string[];
+  visibility?: "private" | "unlisted" | "public";
+  publishStatus?: "draft" | "published";
+  latestArtifactChecksumSha256?: string;
+  lastPreparedAtIso?: string;
+};
+
 export type DrillManifest = {
   schemaVersion: SchemaVersion;
   packageId: string;
@@ -92,6 +106,7 @@ export type DrillManifest = {
     androidMinVersion: string;
     androidTargetContract: string;
   };
+  publishing?: DrillPackagePublishingMetadata;
 };
 
 export type DrillPackage = {

@@ -17,7 +17,7 @@ export function StudioMetadataEditor() {
 
   if (!selectedPackage) {
     return (
-      <section className="card">
+      <section>
         <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill metadata</h3>
         <p className="muted" style={{ margin: 0 }}>
           Load or import a drill file to edit metadata.
@@ -32,7 +32,7 @@ export function StudioMetadataEditor() {
   }
 
   return (
-    <section className="card">
+    <section>
       <h3 style={{ marginTop: 0, marginBottom: "0.5rem" }}>Drill metadata</h3>
       <div style={{ display: "grid", gap: "0.55rem" }}>
         <label style={labelStyle}>

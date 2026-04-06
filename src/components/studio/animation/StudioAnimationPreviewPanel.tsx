@@ -11,7 +11,7 @@ const PLAYBACK_SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export function StudioAnimationPreviewPanel() {
   const { selectedPackage } = useStudioState();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loopEnabled, setLoopEnabled] = useState(true);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
@@ -83,7 +83,7 @@ export function StudioAnimationPreviewPanel() {
   const totalSeconds = timeline.totalDurationMs > 0 ? (timeline.totalDurationMs / 1000).toFixed(2) : "0.00";
 
   return (
-    <section className="card studio-animation-preview-card">
+    <section className="studio-animation-preview-card">
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center" }}>
         <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Animation preview</h3>
         <button type="button" className="studio-animation-toggle" onClick={() => setIsExpanded((current) => !current)}>

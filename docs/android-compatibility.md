@@ -2,38 +2,38 @@
 
 ## Compatibility posture
 
-Android remains the behavioral reference for portable package semantics. PR8 adds local-first bundled assets while preserving JSON contract compatibility.
+Android remains the behavioral reference for package semantics. Studio must preserve portable package compatibility while adding publish groundwork.
 
 ## PR8 compatibility commitments
 
-1. **Schema stability**: `schemaVersion` remains `0.1.0`; additive fields are optional.
-2. **Portable URI predictability**: packaged assets use deterministic `package://assets/...` paths.
-3. **Portable roles**: source images/thumbnails/previews are tagged via additive `role` values.
-4. **Ownership metadata**: additive `ownerDrillId` / `ownerPhaseId` supports future cross-client mapping.
-5. **JSON backward compatibility**: existing JSON-only payloads remain importable in Studio.
-6. **No browser-only assumptions in contract**: object URLs and overlay transforms remain Studio implementation details.
+- Preserve canonical joint naming and normalized coordinates.
+- Preserve explicit phase order and timing behavior.
+- Preserve manifest-driven schema compatibility checks.
+- Keep Studio export payloads Android-consumable.
+- Treat `manifest.publishing` as additive metadata that Android can ignore safely.
 
-## Portable vs Studio-only model
+## PR9 publishing compatibility posture
 
-Portable contract data:
-- `PortableAssetRef` with `assetId`, `uri`, `type`, optional `role`, `owner*`, MIME/size metadata.
-- `PortableDrill.thumbnailAssetId` / `previewAssetId` references.
+1. **Portable contract remains canonical**: publish workflow reads/writes package metadata but does not replace drill semantics.
+2. **Additive metadata only**: `manifest.publishing` fields are optional and backward-compatible.
+3. **Export compatibility preserved**: temporary local source-image refs are still stripped on export/artifact generation.
+4. **Locator abstraction is host-ready, not runtime-coupled**: mock locators (`mock://...`) are for Studio simulation only.
+5. **No backend dependencies introduced**: publish architecture is local/mock and deterministic.
 
-Studio-only implementation detail:
-- in-memory object URLs,
-- per-phase overlay controls,
-- bundled file transport encoding (`base64Data`) used only for local import/export packaging.
+## Canonical vs hosted metadata guidance
 
-## Android consumer guidance
+- Canonical portable fields stay in core manifest + drill/phase/pose structures.
+- Hosted-platform concerns are represented as optional publishing metadata placeholders:
+  - display copy (`title`, `summary`, `description`),
+  - attribution (`authorDisplayName`),
+  - discovery hints (`tags`, `categories`),
+  - sharing intent (`visibility`, `publishStatus`),
+  - artifact traceability (`latestArtifactChecksumSha256`, `lastPreparedAtIso`).
 
-- Resolve `package://assets/...` references against local package container/storage.
-- Prefer `thumbnailAssetId` when present for drill cards/list previews.
-- Treat unknown additive fields as non-fatal.
-- Continue canonical pose/joint parsing unchanged.
+Android consumers should continue ignoring unknown optional fields per forward-compatible parsing behavior.
 
-## Deferred intentionally
+## Current baseline
 
-- remote object storage/publishing
-- auth and package ownership
-- marketplace distribution
-- video derivation/transcoding pipelines
+- Contract baseline: `0.1.0`
+- Producer source in sample fixtures: `web-studio`
+- Sample payloads in `samples/` include additive publishing metadata placeholders for review.

@@ -117,6 +117,10 @@ function validateManifest(input: unknown, issues: PackageValidationIssue[]): voi
   validateNonEmptyString(input.updatedAtIso, "manifest.updatedAtIso", issues);
   validateNonEmptyString(input.source, "manifest.source", issues);
 
+  if (input.publishing !== undefined) {
+    validatePublishingMetadata(input.publishing, "manifest.publishing", issues);
+  }
+
   if (!isRecord(input.compatibility)) {
     issues.push(makeIssue("error", "manifest.compatibility", "Compatibility object is required.", "missing"));
     return;
@@ -128,6 +132,38 @@ function validateManifest(input: unknown, issues: PackageValidationIssue[]): voi
     "manifest.compatibility.androidTargetContract",
     issues
   );
+}
+
+
+function validatePublishingMetadata(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "Publishing metadata must be an object when present.", "type"));
+    return;
+  }
+
+  validateOptionalNonEmptyString(input.title, `${path}.title`, issues);
+  validateOptionalNonEmptyString(input.summary, `${path}.summary`, issues);
+  validateOptionalNonEmptyString(input.description, `${path}.description`, issues);
+  validateOptionalNonEmptyString(input.authorDisplayName, `${path}.authorDisplayName`, issues);
+
+  if (input.tags !== undefined && !Array.isArray(input.tags)) {
+    issues.push(makeIssue("error", `${path}.tags`, "Publishing tags must be an array.", "type"));
+  }
+
+  if (input.categories !== undefined && !Array.isArray(input.categories)) {
+    issues.push(makeIssue("error", `${path}.categories`, "Publishing categories must be an array.", "type"));
+  }
+
+  if (input.visibility !== undefined && !["private", "unlisted", "public"].includes(String(input.visibility))) {
+    issues.push(makeIssue("error", `${path}.visibility`, "visibility must be private, unlisted, or public.", "type"));
+  }
+
+  if (input.publishStatus !== undefined && !["draft", "published"].includes(String(input.publishStatus))) {
+    issues.push(makeIssue("error", `${path}.publishStatus`, "publishStatus must be draft or published.", "type"));
+  }
+
+  validateOptionalNonEmptyString(input.latestArtifactChecksumSha256, `${path}.latestArtifactChecksumSha256`, issues);
+  validateOptionalNonEmptyString(input.lastPreparedAtIso, `${path}.lastPreparedAtIso`, issues);
 }
 
 function validateDrills(input: unknown, issues: PackageValidationIssue[]): void {
@@ -426,6 +462,14 @@ function validateAssetRef(
   }
 
   return true;
+}
+
+function validateOptionalNonEmptyString(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (input === undefined) {
+    return;
+  }
+
+  validateNonEmptyString(input, path, issues);
 }
 
 function validateNonEmptyString(

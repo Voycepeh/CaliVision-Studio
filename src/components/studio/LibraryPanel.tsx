@@ -8,15 +8,15 @@ export function LibraryPanel() {
   const { packages, selectedPackageKey, selectPackage, loadSampleById, importFeedback } = useStudioState();
 
   return (
-    <div className="panel-content">
-      <h2 style={{ marginTop: 0 }}>Library & Sources</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Browse bundled drills, imported drill files, and validation feedback.
+    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.55rem", alignContent: "start" }}>
+      <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Source</h2>
+      <p className="muted" style={{ marginTop: 0, marginBottom: "0.2rem" }}>
+        Samples, loaded drills, and import feedback.
       </p>
 
-      <section className="card" style={{ marginBottom: "0.8rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Sample drills</h3>
-        <div style={{ display: "grid", gap: "0.45rem" }}>
+      <section className="card" style={{ padding: "0.6rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Sample drills</h3>
+        <div style={{ display: "grid", gap: "0.4rem" }}>
           {SAMPLE_PACKAGE_DEFINITIONS.map((sample) => (
             <button
               key={sample.id}
@@ -26,14 +26,14 @@ export function LibraryPanel() {
               style={{
                 textAlign: "left",
                 border: "1px solid var(--border)",
-                borderRadius: "0.65rem",
+                borderRadius: "0.6rem",
                 background: "var(--panel-soft)",
                 color: "var(--text)",
-                padding: "0.5rem",
+                padding: "0.45rem",
                 cursor: "pointer"
               }}
             >
-              <strong className="studio-library-item-title" style={{ display: "block", marginBottom: "0.2rem" }}>
+              <strong className="studio-library-item-title" style={{ display: "block", marginBottom: "0.15rem" }}>
                 {sample.label}
               </strong>
               <small className="muted studio-library-item-subline">{sample.description}</small>
@@ -42,9 +42,9 @@ export function LibraryPanel() {
         </div>
       </section>
 
-      <section className="card" style={{ marginBottom: "0.8rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", fontSize: "0.95rem" }}>Loaded drills</h3>
-        <div style={{ display: "grid", gap: "0.35rem" }}>
+      <section className="card" style={{ padding: "0.6rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Loaded drills</h3>
+        <div style={{ display: "grid", gap: "0.3rem" }}>
           {packages.map((entry) => {
             const drillCount = entry.workingPackage.drills.length;
             const phaseCount = getSortedPhases(entry.workingPackage).length;
@@ -62,10 +62,10 @@ export function LibraryPanel() {
                 style={{
                   textAlign: "left",
                   border: selectedPackageKey === entry.packageKey ? "1px solid var(--accent)" : "1px solid var(--border)",
-                  borderRadius: "0.65rem",
+                  borderRadius: "0.6rem",
                   background: selectedPackageKey === entry.packageKey ? "var(--accent-soft)" : "var(--panel-soft)",
                   color: "var(--text)",
-                  padding: "0.5rem",
+                  padding: "0.45rem",
                   cursor: "pointer"
                 }}
               >
@@ -87,8 +87,8 @@ export function LibraryPanel() {
         </div>
       </section>
 
-      <section className="card">
-        <h3 style={{ marginTop: 0, marginBottom: "0.4rem", fontSize: "0.95rem" }}>Drill file import feedback</h3>
+      <section className="card" style={{ padding: "0.6rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.35rem", fontSize: "0.92rem" }}>Import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
             Import a JSON drill package or bundled .cvpkg.json file from the top bar to validate and load it.

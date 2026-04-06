@@ -1,36 +1,50 @@
 # PR Plan (Foundation and Sequencing)
 
-## PR1-PR7 (completed)
+## PR1–PR8 (completed)
 
-- Core Studio shell, contract, validation, phase editing, image detection, overlay controls, and animation preview are complete.
+- Established Studio web foundation, package IO, validation, authoring, image-assisted detection, and animation preview workflows.
+- Preserved portable package compatibility and Android-aligned contract semantics.
+
+## PR9 (this change) — publishing groundwork + storage abstraction
+
+- Add `src/lib/publishing/*` abstraction layer for:
+  - publish artifact generation,
+  - publish transport interfaces,
+  - storage provider seam,
+  - metadata registry seam.
+- Add local/mock publish flow in Studio:
+  - run publish readiness checks,
+  - generate artifact,
+  - publish to in-memory mock storage + registry,
+  - show locator/result/recent history in UI.
+- Add publish metadata placeholders on manifest (`manifest.publishing`) without requiring backend.
+- Keep export/download separate from publish flow.
 
 ## PR8 (this change)
 
-- Add a **local-first bundled package** strategy for source images and thumbnails.
-- Keep legacy JSON-only import working for backward compatibility.
-- Introduce explicit portable asset roles (`phase-source-image`, `drill-thumbnail`, `drill-preview`).
-- Add bundled import/export support via a structured `.cvpkg.json` payload with:
-  - `manifest.json` equivalent data (`bundle.manifest`),
-  - `drill.json` equivalent data (`bundle.drill`),
-  - logical `assets/*` file entries (`bundle.files`).
-- Wire imported bundled phase images into Studio overlay authoring state.
-- Surface bundled/local asset state in left panel, phase details, and inspector summaries.
-- Extend validation with asset type/role checks and duplicate asset id/path detection.
+- Refactor Studio shell into a calmer Source / Edit / Review authoring flow while remaining one-page.
+- Keep the left rail compact for sample drills, loaded drills, and import feedback.
+- Keep phase list and selected-phase basics near the top of the center workspace.
+- Move preview, validation, and source-image workflows into center review tabs.
+- Convert right-side inspector content into collapsible accordion groups with sensible defaults.
+- Keep drill editing/export semantics unchanged (layout and organization only).
 
 ## Assumptions
 
-- Android/mobile consumers can resolve `package://assets/...` references deterministically.
-- Asset binaries are local authoring payloads in PR8; no remote storage or publishing is introduced.
-- Thumbnail behavior is minimal: explicit `thumbnailAssetId` support with fallback to first phase source image at export.
+- Studio remains the authoring source of truth.
+- Portable package contract remains Android-compatible and additive.
+- Publishing in PR9 is local-only simulation to prove architecture seams.
 
 ## Non-goals (intentionally deferred)
 
-- No auth, cloud persistence, or package publishing.
-- No marketplace listing flow.
-- No video packaging pipeline beyond placeholder `drill-preview` asset role.
+- Real auth/identity.
+- Real cloud storage/registry backend.
+- Marketplace browsing/search UX.
+- Social/moderation workflows.
+- Runtime live-coaching concerns in Studio.
 
 ## Recommended next PR sequence
 
-1. **PR9:** package publishing groundwork and future storage abstraction.
-2. **PR10:** marketplace/library groundwork with local-first package registry concepts.
-3. **PR11:** user-facing package versioning and fork/remix workflow foundations.
+1. **PR10:** marketplace/library groundwork with local-first package registry concepts.
+2. **PR11:** user-facing package versioning and fork/remix workflow foundations.
+3. **PR12:** real backend/auth/storage integration plan and first hosted environment setup.

@@ -23,8 +23,25 @@ import {
   validatePortableDrillPackage,
   type PackageValidationIssue
 } from "@/lib/package";
+import {
+  createMockPublishRequestMetadata,
+  createPublishArtifact,
+  MockPackageRegistryAdapter,
+  MockStorageProvider,
+  PackagePublishService,
+  validatePackagePublishReadiness,
+  type PublishReadinessResult,
+  type PublishResult
+} from "@/lib/publishing";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
-import type { CanonicalJointName, PortableAssetRef, PortablePhase, PortableViewType, SchemaVersion } from "@/lib/schema/contracts";
+import type {
+  CanonicalJointName,
+  DrillPackagePublishingMetadata,
+  PortableAssetRef,
+  PortablePhase,
+  PortableViewType,
+  SchemaVersion
+} from "@/lib/schema/contracts";
 
 export type ImportFeedback = {
   status: "idle" | "success" | "warning" | "error";
@@ -62,6 +79,16 @@ export type PhaseOverlayState = {
   fitMode: OverlayFitMode;
   offsetX: number;
   offsetY: number;
+};
+
+export type PublishWorkflowState = {
+  panelOpen: boolean;
+  status: "idle" | "validating" | "ready" | "publishing" | "published" | "blocked";
+  readiness: PublishReadinessResult | null;
+  lastArtifactChecksumSha256: string | null;
+  lastResult: PublishResult | null;
+  recentPublishes: PublishResult[];
+  message: string;
 };
 
 type StudioStateValue = {
@@ -104,6 +131,12 @@ type StudioStateValue = {
   applyDetectionToSelectedPhase: () => void;
   setSelectedPhaseOverlayState: (partial: Partial<PhaseOverlayState>) => void;
   resetSelectedPhaseOverlayState: () => void;
+  openPublishPanel: () => void;
+  closePublishPanel: () => void;
+  runPublishReadinessCheck: () => Promise<void>;
+  runMockPublish: () => Promise<void>;
+  publishWorkflow: PublishWorkflowState;
+  updatePublishingMetadata: (partial: Partial<DrillPackagePublishingMetadata>) => void;
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -121,6 +154,16 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   fitMode: "contain",
   offsetX: 0,
   offsetY: 0
+};
+
+const DEFAULT_PUBLISH_WORKFLOW_STATE: PublishWorkflowState = {
+  panelOpen: false,
+  status: "idle",
+  readiness: null,
+  lastArtifactChecksumSha256: null,
+  lastResult: null,
+  recentPublishes: [],
+  message: "Run publish readiness checks to prepare a mock publish."
 };
 
 function createInitialPackages(): EditablePackageEntry[] {
@@ -232,6 +275,10 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
   const [packageAssetBlobs, setPackageAssetBlobs] = useState<Record<string, Record<string, Blob>>>({});
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
+  const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
+  const [publishService] = useState(
+    () => new PackagePublishService(new MockStorageProvider(), new MockPackageRegistryAdapter())
+  );
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
 
@@ -857,6 +904,25 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     }));
   }
 
+  function openPublishPanel(): void {
+    setPublishWorkflow((current) => ({ ...current, panelOpen: true }));
+  }
+
+  function closePublishPanel(): void {
+    setPublishWorkflow((current) => ({ ...current, panelOpen: false }));
+  }
+
+  function updatePublishingMetadata(partial: Partial<DrillPackagePublishingMetadata>): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        draft.manifest.publishing = {
+          ...(draft.manifest.publishing ?? {}),
+          ...partial
+        };
+      })
+    );
+  }
+
   async function runPoseDetectionForSelectedPhase(): Promise<void> {
     if (!selectedScopeKey || !selectedPhaseSourceImage) {
       return;
@@ -969,6 +1035,83 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     });
   }
 
+  async function runPublishReadinessCheck(): Promise<void> {
+    if (!selectedPackage) {
+      setPublishWorkflow((current) => ({
+        ...current,
+        status: "blocked",
+        message: "Load a package before running publish readiness."
+      }));
+      return;
+    }
+
+    setPublishWorkflow((current) => ({
+      ...current,
+      status: "validating",
+      message: "Validating package for publish readiness..."
+    }));
+
+    const readiness = await validatePackagePublishReadiness(selectedPackage.workingPackage);
+    setPublishWorkflow((current) => ({
+      ...current,
+      readiness,
+      status: readiness.isReady ? "ready" : "blocked",
+      message: readiness.isReady
+        ? "Package is publish-ready for local/mock publishing."
+        : "Resolve blocking readiness errors before publishing."
+    }));
+  }
+
+  async function runMockPublish(): Promise<void> {
+    if (!selectedPackage) {
+      return;
+    }
+
+    const readiness = await validatePackagePublishReadiness(selectedPackage.workingPackage);
+    if (!readiness.isReady) {
+      setPublishWorkflow((current) => ({
+        ...current,
+        readiness,
+        status: "blocked",
+        message: "Publish blocked until readiness errors are fixed."
+      }));
+      return;
+    }
+
+    setPublishWorkflow((current) => ({
+      ...current,
+      status: "publishing",
+      message: "Generating publish artifact and publishing to local/mock registry..."
+    }));
+    try {
+      const artifact = await createPublishArtifact(selectedPackage.workingPackage);
+      const metadata = createMockPublishRequestMetadata(artifact);
+      const result = await publishService.publish({
+        target: "local-mock",
+        artifact,
+        metadata
+      });
+      const recentPublishes = await publishService.listRecentPublishes();
+
+      setPublishWorkflow((current) => ({
+        ...current,
+        readiness,
+        status: "published",
+        lastArtifactChecksumSha256: artifact.checksumSha256,
+        lastResult: result,
+        recentPublishes,
+        panelOpen: true,
+        message: `Mock published as ${result.recordId} (${result.locator.uri}).`
+      }));
+    } catch (error) {
+      setPublishWorkflow((current) => ({
+        ...current,
+        status: "blocked",
+        message: error instanceof Error ? error.message : "Mock publish failed unexpectedly."
+      }));
+    }
+  }
+
   const value: StudioStateValue = {
     packages,
     selectedPackageKey,
@@ -1008,7 +1151,13 @@ export function StudioStateProvider({ children }: { children: React.ReactNode })
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase,
     setSelectedPhaseOverlayState,
-    resetSelectedPhaseOverlayState
+    resetSelectedPhaseOverlayState,
+    openPublishPanel,
+    closePublishPanel,
+    runPublishReadinessCheck,
+    runMockPublish,
+    publishWorkflow,
+    updatePublishingMetadata
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;
