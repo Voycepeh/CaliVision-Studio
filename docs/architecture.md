@@ -1,4 +1,4 @@
-# Architecture (PR10 Local-First Library/Registry Groundwork)
+# Architecture (PR11 Versioning + Fork/Remix Foundations)
 
 ## Intent
 
@@ -31,11 +31,24 @@ This separation keeps artifact payload concerns distinct from listing/query conc
 - package-to-registry mapping,
 - local search/filter/sort query engine,
 - shared tag collection helpers.
+- provenance summaries and status badges.
 
 `src/lib/registry/local-store.ts` provides:
 - localStorage persistence for registry entries,
 - sample seeding for first run,
 - upsert/install operations for local workflows.
+- local derived copy operations (`duplicate`, `fork/remix`, `new-version`).
+
+## PR11 model additions
+
+- `manifest.versioning` introduces explicit package/version identity:
+  - `packageSlug`
+  - `versionId`
+  - `lineageId`
+  - `revision`
+  - `draftStatus`
+  - optional `derivedFrom` provenance
+- local registry entries now carry lineage/provenance summaries for UI.
 
 ## IA integration
 

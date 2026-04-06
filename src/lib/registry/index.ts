@@ -6,6 +6,7 @@ export {
 } from "@/lib/registry/catalog";
 
 export {
+  createDerivedRegistryEntry,
   installRegistryEntryToLibrary,
   loadLocalRegistryEntries,
   saveLocalRegistryEntries,

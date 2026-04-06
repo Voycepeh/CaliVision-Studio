@@ -2,7 +2,7 @@
 
 CaliVision Studio is a **web-first, package-first drill authoring workspace** with a local-first library/registry model that prepares the app for a future hosted marketplace.
 
-## Current scope (PR10)
+## Current scope (PR11)
 
 Included:
 - package authoring, import/export, validation, image-assisted pose editing, and animation preview,
@@ -12,6 +12,9 @@ Included:
 - local browse/search/filter/sort for package listings,
 - package detail groundwork with provenance/status and compatibility surfacing,
 - local install-style workflow concept for registry entries.
+- explicit package identity/version identity metadata (`manifest.versioning`),
+- local-first fork/remix/new-version workflows with provenance,
+- lineage-aware Library/Studio surfacing.
 
 Intentionally deferred:
 - auth and user identity,
@@ -19,6 +22,7 @@ Intentionally deferred:
 - social interactions (likes/comments/ratings),
 - moderation/admin tooling,
 - cross-user package sharing.
+- hosted version graph sync/resolution.
 
 ## Route map
 

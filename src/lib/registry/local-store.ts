@@ -1,7 +1,8 @@
 import { sampleDrillPackage } from "@/lib/mock/sample-package";
+import { createDerivedPackage, ensureVersioningMetadata } from "@/lib/package";
 import { createRegistryEntryFromPackage } from "@/lib/registry/catalog";
 import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "@/lib/registry/types";
-import type { DrillPackage } from "@/lib/schema/contracts";
+import type { DrillPackage, DrillPackageRelationType } from "@/lib/schema/contracts";
 
 const REGISTRY_STORAGE_KEY = "calivision.registry.v1";
 
@@ -36,7 +37,7 @@ export function loadLocalRegistryEntries(): PackageRegistryEntry[] {
 
   try {
     const parsed = JSON.parse(raw) as PersistedRegistry;
-    return parsed.entries ?? [];
+    return normalizePersistedEntries(parsed.entries ?? []);
   } catch {
     return [];
   }
@@ -58,12 +59,46 @@ export function upsertRegistryEntryFromPackage(input: {
   publishedAtIso?: string;
   parentEntryId?: string;
 }): PackageRegistryEntry {
-  const next = createRegistryEntryFromPackage(input);
+  const normalizedPackage = ensureVersioningMetadata(input.packageJson);
+  const next = createRegistryEntryFromPackage({ ...input, packageJson: normalizedPackage });
   const current = loadLocalRegistryEntries();
-  const filtered = current.filter((entry) => entry.entryId !== next.entryId);
-  const merged = [next, ...filtered].sort((a, b) => b.summary.updatedAtIso.localeCompare(a.summary.updatedAtIso));
+  const duplicateVersion = current.find(
+    (entry) =>
+      entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion && entry.entryId !== next.entryId
+  );
+  if (duplicateVersion) {
+    throw new Error(`Duplicate version conflict for ${next.summary.packageId}@${next.summary.packageVersion}.`);
+  }
+  const merged = attachLineageEntryIds([next, ...current.filter((entry) => entry.entryId !== next.entryId)]);
   saveLocalRegistryEntries(merged);
   return next;
+}
+
+export function createDerivedRegistryEntry(input: {
+  entryId: string;
+  relation: Extract<DrillPackageRelationType, "duplicate" | "fork" | "remix" | "new-version">;
+}): PackageRegistryEntry {
+  const current = loadLocalRegistryEntries();
+  const source = current.find((entry) => entry.entryId === input.entryId);
+  if (!source) {
+    throw new Error("Source package was not found.");
+  }
+
+  const nextPackage = createDerivedPackage({
+    source: source.details.packageJson,
+    relation: input.relation
+  });
+
+  if (nextPackage.manifest.versioning?.derivedFrom) {
+    nextPackage.manifest.versioning.derivedFrom.parentEntryId = source.entryId;
+  }
+
+  return upsertRegistryEntryFromPackage({
+    packageJson: nextPackage,
+    sourceType: "authored-local",
+    sourceLabel: `${input.relation}:${source.entryId}`,
+    parentEntryId: source.entryId
+  });
 }
 
 export function installRegistryEntryToLibrary(entryId: string): PackageInstallResult {
@@ -98,4 +133,36 @@ export function installRegistryEntryToLibrary(entryId: string): PackageInstallRe
     nextSourceType: "installed-local",
     message: `Installed ${installed.summary.title} into your local library.`
   };
+}
+
+function normalizePersistedEntries(entries: PackageRegistryEntry[]): PackageRegistryEntry[] {
+  const normalized = entries.map((entry) => {
+    if (entry.summary?.provenanceSummary && entry.summary?.statusBadge && Array.isArray(entry.details?.lineageEntryIds)) {
+      return entry;
+    }
+
+    return createRegistryEntryFromPackage({
+      packageJson: ensureVersioningMetadata(entry.details.packageJson),
+      sourceType: entry.summary.sourceType,
+      sourceLabel: entry.details.origin.sourceLabel,
+      parentEntryId: entry.details.origin.parentEntryId,
+      publishedAtIso: entry.summary.publishedAtIso
+    });
+  });
+
+  return attachLineageEntryIds(normalized);
+}
+
+function attachLineageEntryIds(entries: PackageRegistryEntry[]): PackageRegistryEntry[] {
+  return entries
+    .map((entry) => ({
+      ...entry,
+      details: {
+        ...entry.details,
+        lineageEntryIds: entries
+          .filter((candidate) => candidate.summary.lineageId && candidate.summary.lineageId === entry.summary.lineageId)
+          .map((candidate) => candidate.entryId)
+      }
+    }))
+    .sort((a, b) => b.summary.updatedAtIso.localeCompare(a.summary.updatedAtIso));
 }

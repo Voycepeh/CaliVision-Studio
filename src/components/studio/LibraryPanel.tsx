@@ -1,6 +1,7 @@
 "use client";
 
 import { getSortedPhases, getPrimaryDrill } from "@/lib/editor/package-editor";
+import { summarizeProvenance } from "@/lib/package";
 import { SAMPLE_PACKAGE_DEFINITIONS } from "@/lib/package";
 import { useStudioState } from "@/components/studio/StudioState";
 
@@ -77,6 +78,9 @@ export function LibraryPanel() {
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {drill?.title ?? "No drill"} • {entry.isDirty ? "unsaved" : "saved"}
+                </small>
+                <small className="muted studio-library-item-subline" style={{ display: "block" }}>
+                  {summarizeProvenance(entry.workingPackage)}
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   Bundled assets: {bundledAssets.length} total • {phaseImages} phase images • {thumbnails} thumbnails
