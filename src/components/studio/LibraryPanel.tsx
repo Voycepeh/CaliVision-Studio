@@ -12,7 +12,7 @@ export function LibraryPanel() {
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.55rem", alignContent: "start" }}>
       <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Drill source</h2>
       <p className="muted" style={{ marginTop: 0, marginBottom: "0.2rem" }}>
-        Choose the drill you are editing, load starter samples, and review package import feedback.
+        Choose the drill draft you are editing, load starter samples, and review drill-file import feedback.
       </p>
 
       <section className="card" style={{ padding: "0.6rem" }}>
@@ -74,7 +74,7 @@ export function LibraryPanel() {
                   {drill?.title ?? entry.workingPackage.manifest.packageId}
                 </strong>
                 <small className="muted studio-library-item-subline">
-                  v{entry.workingPackage.manifest.packageVersion} • {drillCount} drill(s) • {phaseCount} phase(s)
+                  {drillCount} drill(s) • {phaseCount} phase(s) • revision {entry.workingPackage.manifest.packageVersion}
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {entry.workingPackage.manifest.packageId} • {entry.isDirty ? "unsaved" : "saved"}
@@ -95,7 +95,7 @@ export function LibraryPanel() {
         <h3 style={{ marginTop: 0, marginBottom: "0.35rem", fontSize: "0.92rem" }}>Import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
-            Import a drill package JSON from the top bar. Studio validates it before adding it to your local library.
+            Open a drill file from the top bar. Studio validates it before adding it to your local library.
           </p>
         ) : (
           <>

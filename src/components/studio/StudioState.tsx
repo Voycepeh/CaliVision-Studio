@@ -1423,7 +1423,7 @@ export function StudioStateProvider({
       setPublishWorkflow((current) => ({
         ...current,
         status: "blocked",
-        message: "Load a package before running publish readiness."
+        message: "Load a drill before running publish readiness."
       }));
       return;
     }

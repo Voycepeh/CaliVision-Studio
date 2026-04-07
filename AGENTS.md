@@ -6,30 +6,32 @@ CaliVision Studio is the **web-first home** for:
 
 - Drill Studio authoring,
 - browser Upload Video analysis direction,
-- portable drill package creation and publishing,
-- future Drill Exchange/community workflows.
+- Drill Exchange/community workflows,
+- portable drill file/package compatibility import/export.
 
-Studio is the long-term **source of truth** for drill definitions and package publishing.
+Studio is the long-term **source of truth** for drill definitions and publishing.
 
 The Android app is a downstream runtime/live-coaching client: <https://github.com/Voycepeh/CaliVision>.
 
 ## Product UX direction (current)
 
 - `/library` is the default home/landing route and should feel like the user’s primary workspace start.
-- `/studio` is the focused editing workspace.
+- `/studio` is the focused editing workspace for a drill draft.
 - `/upload` is the first-class Upload Video route shell.
 - `/marketplace` is user-facing **Drill Exchange** discovery language.
-- `/packages` is technical portability tooling and should be de-emphasized in primary product messaging.
+- `/packages` is compatibility-only; do not present it as primary navigation.
 
 Prefer user-facing wording:
 - **Drill** for most UI language,
-- **Package** for import/export/portability contexts,
+- **Draft** for in-progress local editable state,
+- **Drill file** for import/export boundaries,
+- **Package** for internal contracts/technical portability only,
 - **Drill Exchange** for discovery/sharing semantics.
 
 ## Ecosystem boundary
 
-- **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, package export/publish, exchange workflows.
-- **Android/mobile runtime client:** import packages, run drill playback/live coaching, consume Studio-authored content.
+- **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, drill-file export/publish, exchange workflows.
+- **Android/mobile runtime client:** import drill files/packages, run drill playback/live coaching, consume Studio-authored content.
 
 Do not move runtime/live coaching concerns into Studio unless explicitly requested.
 
@@ -97,12 +99,12 @@ Do not overclaim hosted auth/storage/exchange features before implementation exi
 
 ## Workflow clarity expectations
 
-- Use consistent terminology: **Drill Studio**, **Upload Video**, **portable drill package**, **Drill Exchange**, **mobile runtime client**, **source of truth**.
+- Use consistent terminology: **Drill Studio**, **Upload Video**, **portable drill file/package**, **Drill Exchange**, **mobile runtime client**, **source of truth**.
 - Keep current capabilities clearly separated from planned/future features.
 - Call out limitations honestly (for example local-first persistence vs hosted services).
 
 ## Local persistence direction (current)
 
 - Use browser-local IndexedDB for durable draft and asset persistence while hosted storage is deferred.
-- Keep local draft persistence models separate from portable package export contracts.
+- Keep local draft persistence models separate from portable drill file export contracts.
 - Keep local draft messaging explicit: local to this browser/device, not cloud sync.
