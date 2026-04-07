@@ -11,6 +11,7 @@
 - User signs in with Google through Supabase.
 - Hosted drafts/library become available under that user account.
 - RLS policies ensure each user can only access their own hosted rows.
+- Local draft import on sign-in uses move semantics (hosted save first, then local delete per successful draft).
 
 ## Failure safety
 
