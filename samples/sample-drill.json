@@ -1,18 +1,47 @@
 {
-  "drillId": "drill_reactive_defense_001",
-  "slug": "reactive-defense-ladder",
-  "title": "Reactive Defense Ladder",
-  "difficulty": "intermediate",
+  "drillId": "drill_push_up_001",
+  "slug": "push-up-rep-baseline",
+  "title": "Push-Up Baseline",
+  "difficulty": "beginner",
   "defaultView": "side",
+  "drillType": "rep",
+  "tags": [
+    "push",
+    "strength",
+    "reps"
+  ],
+  "analysis": {
+    "measurementType": "rep",
+    "orderedPhaseSequence": [
+      "phase_top",
+      "phase_bottom",
+      "phase_top"
+    ],
+    "criticalPhaseIds": [
+      "phase_bottom"
+    ],
+    "allowedPhaseSkips": [],
+    "minimumConfirmationFrames": 2,
+    "exitGraceFrames": 2,
+    "minimumRepDurationMs": 450,
+    "maximumRepDurationMs": 5000,
+    "cooldownMs": 200,
+    "entryConfirmationFrames": 2,
+    "minimumHoldDurationMs": 500
+  },
   "phases": [
     {
-      "phaseId": "phase_setup",
+      "phaseId": "phase_top",
       "order": 1,
-      "title": "Setup stance",
-      "durationMs": 8000,
+      "title": "Top plank",
+      "durationMs": 1200,
+      "analysis": {
+        "semanticRole": "top",
+        "isCritical": true
+      },
       "poseSequence": [
         {
-          "poseId": "pose_setup_001",
+          "poseId": "pose_pushup_top_001",
           "timestampMs": 0,
           "canvas": {
             "coordinateSystem": "normalized-2d",
@@ -21,31 +50,63 @@
             "view": "side"
           },
           "joints": {
-            "nose": {
-              "x": 0.5,
-              "y": 0.12
-            },
             "leftShoulder": {
-              "x": 0.42,
-              "y": 0.28
+              "x": 0.46,
+              "y": 0.33
             },
             "rightShoulder": {
-              "x": 0.58,
-              "y": 0.29
+              "x": 0.52,
+              "y": 0.33
             },
             "leftHip": {
-              "x": 0.46,
-              "y": 0.54
+              "x": 0.48,
+              "y": 0.56
             },
             "rightHip": {
-              "x": 0.56,
-              "y": 0.54
+              "x": 0.54,
+              "y": 0.56
+            }
+          }
+        }
+      ],
+      "assetRefs": []
+    },
+    {
+      "phaseId": "phase_bottom",
+      "order": 2,
+      "title": "Bottom",
+      "durationMs": 900,
+      "poseSequence": [
+        {
+          "poseId": "pose_pushup_bottom_001",
+          "timestampMs": 1200,
+          "canvas": {
+            "coordinateSystem": "normalized-2d",
+            "widthRef": 1,
+            "heightRef": 1,
+            "view": "side"
+          },
+          "joints": {
+            "leftShoulder": {
+              "x": 0.45,
+              "y": 0.42
+            },
+            "rightShoulder": {
+              "x": 0.53,
+              "y": 0.42
+            },
+            "leftElbow": {
+              "x": 0.44,
+              "y": 0.48
+            },
+            "rightElbow": {
+              "x": 0.54,
+              "y": 0.48
             }
           }
         }
       ],
       "assetRefs": []
     }
-  ],
-  "drillType": "hold"
+  ]
 }

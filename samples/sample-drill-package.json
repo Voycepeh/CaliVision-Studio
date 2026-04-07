@@ -1,23 +1,22 @@
 {
   "manifest": {
     "schemaVersion": "0.1.0",
-    "packageId": "pkg_reactive_defense_001",
-    "packageVersion": "0.2.0",
-    "createdAtIso": "2026-04-05T00:00:00.000Z",
-    "updatedAtIso": "2026-04-05T00:00:00.000Z",
+    "packageId": "pkg_analysis_ready_001",
+    "packageVersion": "0.3.0",
+    "createdAtIso": "2026-04-07T00:00:00.000Z",
+    "updatedAtIso": "2026-04-07T00:00:00.000Z",
     "source": "web-studio",
     "compatibility": {
       "androidMinVersion": "1.2.0",
       "androidTargetContract": "drill-package-0.1.0"
     },
     "publishing": {
-      "title": "Reactive Defense Ladder",
-      "summary": "Sample package used for Studio local import/export and validation.",
+      "title": "Analysis Ready Sample Drills",
+      "summary": "Sample package used for analysis schema v1 validation and import/export round-trips.",
       "authorDisplayName": "Studio Author",
       "tags": [
-        "defense",
-        "footwork",
-        "timing"
+        "analysis",
+        "sample"
       ],
       "categories": [
         "technique"
@@ -26,37 +25,74 @@
       "publishStatus": "draft"
     },
     "versioning": {
-      "packageSlug": "pkg-reactive-defense-001",
-      "versionId": "pkg_reactive_defense_001@0.2.0",
+      "packageSlug": "pkg-analysis-ready-001",
+      "versionId": "pkg_analysis_ready_001@0.3.0",
       "revision": 1,
-      "lineageId": "pkg_reactive_defense_001",
+      "lineageId": "pkg_analysis_ready_001",
       "draftStatus": "draft"
     }
   },
   "drills": [
     {
-      "drillId": "drill_reactive_defense_001",
-      "slug": "reactive-defense-ladder",
-      "title": "Reactive Defense Ladder",
-      "description": "Sample package used for Studio local import/export and validation.",
-      "difficulty": "intermediate",
+      "drillId": "drill_push_up_001",
+      "slug": "push-up-rep-baseline",
+      "title": "Push-Up Baseline",
+      "description": "Rep drill using ordered phase progression independent of animation timing.",
+      "difficulty": "beginner",
+      "drillType": "rep",
       "tags": [
-        "defense",
-        "footwork",
-        "timing"
+        "push",
+        "strength",
+        "reps"
       ],
       "defaultView": "side",
+      "analysis": {
+        "measurementType": "rep",
+        "orderedPhaseSequence": [
+          "phase_top",
+          "phase_bottom",
+          "phase_top"
+        ],
+        "criticalPhaseIds": [
+          "phase_bottom"
+        ],
+        "allowedPhaseSkips": [],
+        "minimumConfirmationFrames": 2,
+        "exitGraceFrames": 2,
+        "minimumRepDurationMs": 450,
+        "maximumRepDurationMs": 5000,
+        "cooldownMs": 200,
+        "entryConfirmationFrames": 2,
+        "minimumHoldDurationMs": 500
+      },
       "phases": [
         {
-          "phaseId": "phase_setup",
+          "phaseId": "phase_top",
           "order": 1,
-          "title": "Setup stance",
-          "summary": "Find stance balance before movement starts.",
-          "durationMs": 8000,
+          "title": "Top plank",
+          "durationMs": 1200,
           "startOffsetMs": 0,
+          "analysis": {
+            "semanticRole": "top",
+            "isCritical": true,
+            "matchHints": {
+              "requiredJoints": [
+                "leftShoulder",
+                "rightShoulder",
+                "leftHip",
+                "rightHip"
+              ],
+              "optionalJoints": [
+                "leftAnkle",
+                "rightAnkle"
+              ],
+              "toleranceProfile": "balanced",
+              "viewHint": "side"
+            }
+          },
           "poseSequence": [
             {
-              "poseId": "pose_setup_001",
+              "poseId": "pose_pushup_top_001",
               "timestampMs": 0,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
@@ -65,87 +101,254 @@
                 "view": "side"
               },
               "joints": {
-                "nose": {
-                  "x": 0.5,
-                  "y": 0.12,
-                  "confidence": 0.98
-                },
                 "leftShoulder": {
-                  "x": 0.42,
-                  "y": 0.28,
-                  "confidence": 0.96
+                  "x": 0.46,
+                  "y": 0.33
                 },
                 "rightShoulder": {
-                  "x": 0.58,
-                  "y": 0.29,
-                  "confidence": 0.97
-                },
-                "leftElbow": {
-                  "x": 0.4,
-                  "y": 0.42,
-                  "confidence": 0.91
-                },
-                "rightElbow": {
-                  "x": 0.61,
-                  "y": 0.43,
-                  "confidence": 0.92
+                  "x": 0.52,
+                  "y": 0.33
                 },
                 "leftHip": {
-                  "x": 0.46,
-                  "y": 0.54,
-                  "confidence": 0.95
+                  "x": 0.48,
+                  "y": 0.56
                 },
                 "rightHip": {
-                  "x": 0.56,
-                  "y": 0.54,
-                  "confidence": 0.94
-                },
-                "leftKnee": {
-                  "x": 0.45,
-                  "y": 0.73,
-                  "confidence": 0.9
-                },
-                "rightKnee": {
-                  "x": 0.58,
-                  "y": 0.73,
-                  "confidence": 0.9
-                },
-                "leftAnkle": {
-                  "x": 0.44,
-                  "y": 0.92,
-                  "confidence": 0.92
-                },
-                "rightAnkle": {
-                  "x": 0.59,
-                  "y": 0.91,
-                  "confidence": 0.92
+                  "x": 0.54,
+                  "y": 0.56
                 }
               }
             }
           ],
-          "assetRefs": [
-            {
-              "assetId": "asset_overlay_setup",
-              "type": "overlay",
-              "uri": "package://assets/phase-images/phase_setup-overlay_setup.png",
-              "mimeType": "image/png",
-              "role": "phase-source-image",
-              "ownerDrillId": "drill_reactive_defense_001",
-              "ownerPhaseId": "phase_setup"
-            }
-          ]
+          "assetRefs": []
         },
         {
-          "phaseId": "phase_motion",
+          "phaseId": "phase_bottom",
           "order": 2,
-          "title": "Primary movement",
-          "summary": "Shift weight and rotate through center line.",
-          "durationMs": 16000,
-          "startOffsetMs": 8000,
+          "title": "Bottom",
+          "durationMs": 900,
+          "startOffsetMs": 1200,
+          "analysis": {
+            "semanticRole": "bottom",
+            "isCritical": true,
+            "matchHints": {
+              "requiredJoints": [
+                "leftElbow",
+                "rightElbow",
+                "leftShoulder",
+                "rightShoulder"
+              ],
+              "toleranceProfile": "balanced",
+              "viewHint": "side"
+            }
+          },
           "poseSequence": [
             {
-              "poseId": "pose_motion_001",
-              "timestampMs": 8000,
+              "poseId": "pose_pushup_bottom_001",
+              "timestampMs": 1200,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "side"
+              },
+              "joints": {
+                "leftShoulder": {
+                  "x": 0.45,
+                  "y": 0.42
+                },
+                "rightShoulder": {
+                  "x": 0.53,
+                  "y": 0.42
+                },
+                "leftElbow": {
+                  "x": 0.44,
+                  "y": 0.48
+                },
+                "rightElbow": {
+                  "x": 0.54,
+                  "y": 0.48
+                }
+              }
+            }
+          ],
+          "assetRefs": []
+        }
+      ]
+    },
+    {
+      "drillId": "drill_front_plank_001",
+      "slug": "front-plank-hold",
+      "title": "Front Plank Hold",
+      "description": "Hold drill with stable entry and grace exit semantics.",
+      "difficulty": "intermediate",
+      "drillType": "hold",
+      "tags": [
+        "core",
+        "hold"
+      ],
+      "defaultView": "side",
+      "analysis": {
+        "measurementType": "hold",
+        "orderedPhaseSequence": [
+          "phase_entry",
+          "phase_hold"
+        ],
+        "criticalPhaseIds": [
+          "phase_hold"
+        ],
+        "allowedPhaseSkips": [],
+        "minimumConfirmationFrames": 2,
+        "exitGraceFrames": 6,
+        "minimumRepDurationMs": 500,
+        "cooldownMs": 150,
+        "targetHoldPhaseId": "phase_hold",
+        "entryConfirmationFrames": 4,
+        "minimumHoldDurationMs": 8000
+      },
+      "phases": [
+        {
+          "phaseId": "phase_entry",
+          "order": 1,
+          "title": "Entry",
+          "durationMs": 1500,
+          "startOffsetMs": 0,
+          "analysis": {
+            "semanticRole": "start"
+          },
+          "poseSequence": [
+            {
+              "poseId": "pose_plank_entry_001",
+              "timestampMs": 0,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "side"
+              },
+              "joints": {
+                "leftShoulder": {
+                  "x": 0.44,
+                  "y": 0.38
+                },
+                "leftHip": {
+                  "x": 0.48,
+                  "y": 0.56
+                },
+                "leftAnkle": {
+                  "x": 0.52,
+                  "y": 0.75
+                }
+              }
+            }
+          ],
+          "assetRefs": []
+        },
+        {
+          "phaseId": "phase_hold",
+          "order": 2,
+          "title": "Hold line",
+          "durationMs": 12000,
+          "startOffsetMs": 1500,
+          "analysis": {
+            "semanticRole": "hold",
+            "isCritical": true,
+            "matchHints": {
+              "requiredJoints": [
+                "leftShoulder",
+                "leftHip",
+                "leftAnkle"
+              ],
+              "toleranceProfile": "strict",
+              "viewHint": "side"
+            }
+          },
+          "poseSequence": [
+            {
+              "poseId": "pose_plank_hold_001",
+              "timestampMs": 1500,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "side"
+              },
+              "joints": {
+                "leftShoulder": {
+                  "x": 0.45,
+                  "y": 0.36
+                },
+                "leftHip": {
+                  "x": 0.49,
+                  "y": 0.54
+                },
+                "leftAnkle": {
+                  "x": 0.54,
+                  "y": 0.72
+                }
+              }
+            }
+          ],
+          "assetRefs": []
+        }
+      ]
+    },
+    {
+      "drillId": "drill_burpee_combo_001",
+      "slug": "burpee-hybrid-baseline",
+      "title": "Burpee Hybrid Baseline",
+      "description": "Hybrid drill example combining rep sequencing with a brief lockout hold target.",
+      "difficulty": "advanced",
+      "drillType": "rep",
+      "tags": [
+        "conditioning",
+        "hybrid"
+      ],
+      "defaultView": "front",
+      "analysis": {
+        "measurementType": "hybrid",
+        "orderedPhaseSequence": [
+          "phase_squat",
+          "phase_plank",
+          "phase_jump",
+          "phase_lockout"
+        ],
+        "criticalPhaseIds": [
+          "phase_plank",
+          "phase_lockout"
+        ],
+        "allowedPhaseSkips": [
+          {
+            "fromPhaseId": "phase_plank",
+            "toPhaseId": "phase_lockout",
+            "skippedPhaseIds": [
+              "phase_jump"
+            ]
+          }
+        ],
+        "minimumConfirmationFrames": 2,
+        "exitGraceFrames": 3,
+        "minimumRepDurationMs": 900,
+        "maximumRepDurationMs": 7000,
+        "cooldownMs": 300,
+        "targetHoldPhaseId": "phase_lockout",
+        "entryConfirmationFrames": 3,
+        "minimumHoldDurationMs": 600
+      },
+      "phases": [
+        {
+          "phaseId": "phase_squat",
+          "order": 1,
+          "title": "Squat",
+          "durationMs": 900,
+          "startOffsetMs": 0,
+          "analysis": {
+            "semanticRole": "transition"
+          },
+          "poseSequence": [
+            {
+              "poseId": "pose_burpee_squat_001",
+              "timestampMs": 0,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
                 "widthRef": 1000,
@@ -153,120 +356,154 @@
                 "view": "front"
               },
               "joints": {
-                "nose": {
-                  "x": 0.52,
-                  "y": 0.1,
-                  "confidence": 0.95
-                },
-                "leftShoulder": {
-                  "x": 0.41,
-                  "y": 0.27,
-                  "confidence": 0.91
-                },
-                "rightShoulder": {
-                  "x": 0.62,
-                  "y": 0.31,
-                  "confidence": 0.91
-                },
                 "leftHip": {
-                  "x": 0.45,
-                  "y": 0.55,
-                  "confidence": 0.9
+                  "x": 0.44,
+                  "y": 0.6
                 },
                 "rightHip": {
-                  "x": 0.58,
-                  "y": 0.57,
-                  "confidence": 0.9
+                  "x": 0.56,
+                  "y": 0.6
+                },
+                "leftKnee": {
+                  "x": 0.45,
+                  "y": 0.78
+                },
+                "rightKnee": {
+                  "x": 0.55,
+                  "y": 0.78
                 }
               }
             }
           ],
-          "assetRefs": [
-            {
-              "assetId": "asset_reference_front",
-              "type": "image",
-              "uri": "package://assets/phase-images/phase_motion-motion_front.png",
-              "mimeType": "image/png",
-              "role": "phase-source-image",
-              "ownerDrillId": "drill_reactive_defense_001",
-              "ownerPhaseId": "phase_motion"
-            }
-          ]
+          "assetRefs": []
         },
         {
-          "phaseId": "phase_reset",
-          "order": 3,
-          "title": "Recovery + reset",
-          "durationMs": 10000,
-          "startOffsetMs": 24000,
+          "phaseId": "phase_plank",
+          "order": 2,
+          "title": "Plank",
+          "durationMs": 800,
+          "startOffsetMs": 900,
+          "analysis": {
+            "semanticRole": "bottom",
+            "isCritical": true
+          },
           "poseSequence": [
             {
-              "poseId": "pose_reset_001",
-              "timestampMs": 24000,
+              "poseId": "pose_burpee_plank_001",
+              "timestampMs": 900,
               "canvas": {
                 "coordinateSystem": "normalized-2d",
                 "widthRef": 1000,
                 "heightRef": 1600,
-                "view": "rear"
+                "view": "front"
               },
               "joints": {
-                "nose": {
-                  "x": 0.49,
-                  "y": 0.12,
-                  "confidence": 0.72
-                },
                 "leftShoulder": {
-                  "x": 0.4,
-                  "y": 0.28,
-                  "confidence": 0.75
+                  "x": 0.43,
+                  "y": 0.36
                 },
                 "rightShoulder": {
-                  "x": 0.59,
-                  "y": 0.29,
-                  "confidence": 0.74
+                  "x": 0.57,
+                  "y": 0.36
                 },
                 "leftHip": {
                   "x": 0.45,
-                  "y": 0.57,
-                  "confidence": 0.7
+                  "y": 0.58
+                },
+                "rightHip": {
+                  "x": 0.55,
+                  "y": 0.58
                 }
               }
             }
           ],
-          "assetRefs": [],
-          "summary": "Return to guard with intentionally sparse joint data for robustness checks."
+          "assetRefs": []
+        },
+        {
+          "phaseId": "phase_jump",
+          "order": 3,
+          "title": "Jump",
+          "durationMs": 700,
+          "startOffsetMs": 1700,
+          "analysis": {
+            "semanticRole": "top"
+          },
+          "poseSequence": [
+            {
+              "poseId": "pose_burpee_jump_001",
+              "timestampMs": 1700,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "front"
+              },
+              "joints": {
+                "leftAnkle": {
+                  "x": 0.45,
+                  "y": 0.9
+                },
+                "rightAnkle": {
+                  "x": 0.55,
+                  "y": 0.9
+                },
+                "leftWrist": {
+                  "x": 0.42,
+                  "y": 0.22
+                },
+                "rightWrist": {
+                  "x": 0.58,
+                  "y": 0.22
+                }
+              }
+            }
+          ],
+          "assetRefs": []
+        },
+        {
+          "phaseId": "phase_lockout",
+          "order": 4,
+          "title": "Lockout",
+          "durationMs": 900,
+          "startOffsetMs": 2400,
+          "analysis": {
+            "semanticRole": "lockout",
+            "isCritical": true
+          },
+          "poseSequence": [
+            {
+              "poseId": "pose_burpee_lockout_001",
+              "timestampMs": 2400,
+              "canvas": {
+                "coordinateSystem": "normalized-2d",
+                "widthRef": 1000,
+                "heightRef": 1600,
+                "view": "front"
+              },
+              "joints": {
+                "leftShoulder": {
+                  "x": 0.43,
+                  "y": 0.3
+                },
+                "rightShoulder": {
+                  "x": 0.57,
+                  "y": 0.3
+                },
+                "leftHip": {
+                  "x": 0.45,
+                  "y": 0.54
+                },
+                "rightHip": {
+                  "x": 0.55,
+                  "y": 0.54
+                }
+              }
+            }
+          ],
+          "assetRefs": []
         }
-      ],
-      "thumbnailAssetId": "asset_drill_thumb_001",
-      "drillType": "hold"
+      ]
     }
   ],
-  "assets": [
-    {
-      "assetId": "asset_overlay_setup",
-      "type": "image",
-      "role": "phase-source-image",
-      "ownerDrillId": "drill_reactive_defense_001",
-      "ownerPhaseId": "phase_setup",
-      "uri": "package://assets/phase-images/phase_setup-overlay_setup.png",
-      "mimeType": "image/png"
-    },
-    {
-      "assetId": "asset_reference_front",
-      "type": "image",
-      "role": "phase-source-image",
-      "ownerDrillId": "drill_reactive_defense_001",
-      "ownerPhaseId": "phase_motion",
-      "uri": "package://assets/phase-images/phase_motion-motion_front.png",
-      "mimeType": "image/png"
-    },
-    {
-      "assetId": "asset_drill_thumb_001",
-      "type": "image",
-      "role": "drill-thumbnail",
-      "ownerDrillId": "drill_reactive_defense_001",
-      "uri": "package://assets/thumbnails/drill_reactive_defense_001-thumb.png",
-      "mimeType": "image/png"
-    }
-  ]
+  "assets": []
 }

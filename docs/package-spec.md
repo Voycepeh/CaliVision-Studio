@@ -20,6 +20,8 @@ Validation/parsing flows live in:
 - `DrillPackageVersioningMetadata` (lineage/provenance metadata)
 - `DrillPackagePublishingMetadata` (optional publish/discovery metadata)
 - `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`
+- `PortableDrillAnalysis`, `PortablePhaseAnalysis`, `PortablePhaseMatchHints`
+- `AnalysisSession`, `FramePhaseSample`, `AnalysisEvent` (typed analysis output models)
 
 ### `PortableDrill` required field note
 
@@ -28,6 +30,52 @@ Validation/parsing flows live in:
 - `rep`
 
 Studio authoring should always capture this in the main Drill Studio workflow. It is not optional metadata.
+
+## Drill analysis schema v1 (additive)
+
+`PortableDrill.analysis` is optional/additive and supports:
+
+- `measurementType`: `rep | hold | hybrid`
+- ordered sequence: `orderedPhaseSequence`
+- critical phase references: `criticalPhaseIds`
+- explicit bounded skip transitions: `allowedPhaseSkips` (`fromPhaseId`, `toPhaseId`, `skippedPhaseIds`)
+- temporal stability controls:
+  - `minimumConfirmationFrames`
+  - `exitGraceFrames`
+  - `minimumRepDurationMs`
+  - optional `maximumRepDurationMs`
+  - `cooldownMs`
+  - `entryConfirmationFrames`
+  - `minimumHoldDurationMs`
+- hold targeting: optional `targetHoldPhaseId`
+
+Design intent:
+- rep detection is phase-progression based,
+- authored animation duration is not required for rep counting,
+- hold drills have explicit entry/exit stability controls,
+- schema remains extensible for future confidence/visibility matching rules.
+
+## Phase analysis metadata (additive)
+
+`PortablePhase.analysis` is optional and currently supports:
+- `semanticRole`: `start | bottom | top | lockout | transition | hold`
+- `isCritical`
+- `matchHints` placeholder object:
+  - `requiredJoints`
+  - `optionalJoints`
+  - `toleranceProfile`
+  - `viewHint`
+
+This is intentionally a typed placeholder and does not implement scoring logic.
+
+## Analysis output models (schema-only for now)
+
+To support future Upload Video and live-analysis flows, typed models are defined for:
+- `AnalysisSession`
+- `FramePhaseSample`
+- `AnalysisEvent`
+
+These are contract/types only in this phase (no runtime engine wiring yet).
 
 ## Versioning + provenance semantics
 
@@ -63,13 +111,6 @@ Identity note for Drill Studio authoring UX:
 - `slug`: user-facing friendly identifier for naming/linkability.
 - package/export identifiers (`manifest.packageId`, bundle/distribution references): portability/distribution concern, not primary authoring identity fields.
 
-Examples:
-- `PackageRegistryEntry`
-- `PackageSummary`
-- `PackageDetails`
-- `PackageOrigin`
-- `PackageSourceType`
-
 ## Sample payloads and fixtures
 
 Canonical Studio sample fixtures used by runtime code:
@@ -87,4 +128,5 @@ Keep these aligned whenever contract semantics change.
 - no hosted registry schema/API contract,
 - no auth identity inside portable package metadata,
 - no backend conflict-resolution graph semantics,
-- no cloud storage references in core package schema.
+- no cloud storage references in core package schema,
+- no analysis classifier/scorer implementation in package contract layer.

@@ -1,5 +1,11 @@
 import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
-import type { DrillPackage, PortableAssetRef, PortablePhase } from "@/lib/schema/contracts";
+import type {
+  DrillPackage,
+  PortableAssetRef,
+  PortableDrill,
+  PortableDrillAnalysis,
+  PortablePhase,
+} from "@/lib/schema/contracts";
 
 const SUPPORTED_SCHEMA_VERSION = "0.1.0";
 
@@ -7,6 +13,47 @@ const CANONICAL_JOINT_SET = new Set<string>(CANONICAL_JOINT_NAMES);
 const PORTABLE_VIEW_SET = new Set<string>(["front", "side", "rear"]);
 const ASSET_TYPE_SET = new Set<string>(["image", "video", "audio", "overlay"]);
 const ASSET_ROLE_SET = new Set<string>(["phase-source-image", "drill-thumbnail", "drill-preview"]);
+const ANALYSIS_MEASUREMENT_SET = new Set<string>(["rep", "hold", "hybrid"]);
+const PHASE_SEMANTIC_ROLE_SET = new Set<string>(["start", "bottom", "top", "lockout", "transition", "hold"]);
+
+const DEFAULT_ANALYSIS_BY_MEASUREMENT: Record<"rep" | "hold" | "hybrid", PortableDrillAnalysis> = {
+  rep: {
+    measurementType: "rep",
+    orderedPhaseSequence: [],
+    criticalPhaseIds: [],
+    allowedPhaseSkips: [],
+    minimumConfirmationFrames: 2,
+    exitGraceFrames: 2,
+    minimumRepDurationMs: 300,
+    cooldownMs: 150,
+    entryConfirmationFrames: 2,
+    minimumHoldDurationMs: 500
+  },
+  hold: {
+    measurementType: "hold",
+    orderedPhaseSequence: [],
+    criticalPhaseIds: [],
+    allowedPhaseSkips: [],
+    minimumConfirmationFrames: 2,
+    exitGraceFrames: 4,
+    minimumRepDurationMs: 300,
+    cooldownMs: 150,
+    entryConfirmationFrames: 4,
+    minimumHoldDurationMs: 1500
+  },
+  hybrid: {
+    measurementType: "hybrid",
+    orderedPhaseSequence: [],
+    criticalPhaseIds: [],
+    allowedPhaseSkips: [],
+    minimumConfirmationFrames: 2,
+    exitGraceFrames: 3,
+    minimumRepDurationMs: 300,
+    cooldownMs: 150,
+    entryConfirmationFrames: 3,
+    minimumHoldDurationMs: 1000
+  }
+};
 
 type Severity = "error" | "warning";
 
@@ -26,7 +73,8 @@ export type PackageValidationIssue = {
     | "asset"
     | "empty"
     | "provenance"
-    | "versioning";
+    | "versioning"
+    | "analysis";
 };
 
 export type PackageValidationResult = {
@@ -90,8 +138,60 @@ export function toValidatedPackage(input: unknown):
 
   return {
     ok: true,
-    value: input as DrillPackage,
+    value: normalizePortableDrillPackage(input as DrillPackage),
     validation
+  };
+}
+
+export function normalizePortableDrillPackage(input: DrillPackage): DrillPackage {
+  return {
+    ...input,
+    drills: input.drills.map((drill) => normalizePortableDrill(drill))
+  };
+}
+
+export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
+  return {
+    ...drill,
+    analysis: normalizePortableDrillAnalysis(drill.analysis, drill.drillType),
+    phases: drill.phases.map((phase) => normalizePortablePhase(phase))
+  };
+}
+
+export function normalizePortablePhase(phase: PortablePhase): PortablePhase {
+  if (!phase.analysis) {
+    return phase;
+  }
+
+  return {
+    ...phase,
+    analysis: {
+      ...phase.analysis,
+      matchHints: phase.analysis.matchHints
+        ? {
+            ...phase.analysis.matchHints,
+            requiredJoints: phase.analysis.matchHints.requiredJoints ?? [],
+            optionalJoints: phase.analysis.matchHints.optionalJoints ?? []
+          }
+        : undefined
+    }
+  };
+}
+
+export function normalizePortableDrillAnalysis(
+  analysis: PortableDrillAnalysis | undefined,
+  drillType: PortableDrill["drillType"]
+): PortableDrillAnalysis {
+  const measurementType = analysis?.measurementType ?? drillType;
+  const defaults = DEFAULT_ANALYSIS_BY_MEASUREMENT[measurementType === "rep" || measurementType === "hold" ? measurementType : "hybrid"];
+
+  return {
+    ...defaults,
+    ...analysis,
+    measurementType,
+    orderedPhaseSequence: analysis?.orderedPhaseSequence ?? [],
+    criticalPhaseIds: analysis?.criticalPhaseIds ?? [],
+    allowedPhaseSkips: analysis?.allowedPhaseSkips ?? []
   };
 }
 
@@ -202,7 +302,6 @@ function validateProvenanceMetadata(input: unknown, path: string, issues: Packag
   validateOptionalNonEmptyString(input.note, `${path}.note`, issues);
 }
 
-
 function validatePublishingMetadata(input: unknown, path: string, issues: PackageValidationIssue[]): void {
   if (!isRecord(input)) {
     issues.push(makeIssue("error", path, "Publishing metadata must be an object when present.", "type"));
@@ -274,6 +373,10 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
       return;
     }
 
+    if (drill.analysis !== undefined) {
+      validateDrillAnalysis(drill.analysis, drill.phases, drill.drillType, `${drillPath}.analysis`, issues);
+    }
+
     const seenOrder = new Set<number>();
 
     drill.phases.forEach((phase, phaseIndex) => {
@@ -283,6 +386,112 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validatePhaseOrderingAndTitles(drill.phases, drillPath, issues);
     validateDrillTimingConsistency(drill.phases, drillPath, issues);
   });
+}
+
+function validateDrillAnalysis(
+  input: unknown,
+  phases: unknown[],
+  drillType: unknown,
+  path: string,
+  issues: PackageValidationIssue[]
+): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "analysis must be an object when present.", "analysis"));
+    return;
+  }
+
+  if (typeof input.measurementType !== "string" || !ANALYSIS_MEASUREMENT_SET.has(input.measurementType)) {
+    issues.push(makeIssue("error", `${path}.measurementType`, "measurementType must be rep, hold, or hybrid.", "analysis"));
+  }
+
+  const phaseIds = new Set(
+    phases.filter(isRecord).map((phase) => (typeof phase.phaseId === "string" ? phase.phaseId : "")).filter(Boolean)
+  );
+
+  validateStringArray(input.orderedPhaseSequence, `${path}.orderedPhaseSequence`, true, issues, "analysis");
+  validateStringArray(input.criticalPhaseIds, `${path}.criticalPhaseIds`, true, issues, "analysis");
+
+  if (Array.isArray(input.orderedPhaseSequence)) {
+    input.orderedPhaseSequence.forEach((phaseId, index) => {
+      if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
+        issues.push(makeIssue("error", `${path}.orderedPhaseSequence[${index}]`, `Unknown phaseId '${phaseId}' in orderedPhaseSequence.`, "analysis"));
+      }
+    });
+  }
+
+  if (Array.isArray(input.criticalPhaseIds)) {
+    input.criticalPhaseIds.forEach((phaseId, index) => {
+      if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
+        issues.push(makeIssue("error", `${path}.criticalPhaseIds[${index}]`, `Unknown phaseId '${phaseId}' in criticalPhaseIds.`, "analysis"));
+      }
+    });
+  }
+
+  if (!Array.isArray(input.allowedPhaseSkips)) {
+    issues.push(makeIssue("error", `${path}.allowedPhaseSkips`, "allowedPhaseSkips must be an array of bounded skip transition objects.", "analysis"));
+  } else {
+    input.allowedPhaseSkips.forEach((skipTransition, transitionIndex) => {
+      if (!isRecord(skipTransition)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}]`, "Each allowed skip transition must be an object.", "analysis"));
+        return;
+      }
+
+      validateNonEmptyString(skipTransition.fromPhaseId, `${path}.allowedPhaseSkips[${transitionIndex}].fromPhaseId`, issues);
+      validateNonEmptyString(skipTransition.toPhaseId, `${path}.allowedPhaseSkips[${transitionIndex}].toPhaseId`, issues);
+      validateStringArray(
+        skipTransition.skippedPhaseIds,
+        `${path}.allowedPhaseSkips[${transitionIndex}].skippedPhaseIds`,
+        true,
+        issues,
+        "analysis"
+      );
+
+      if (typeof skipTransition.fromPhaseId === "string" && !phaseIds.has(skipTransition.fromPhaseId)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].fromPhaseId`, `Unknown phaseId '${skipTransition.fromPhaseId}' in allowedPhaseSkips transition.`, "analysis"));
+      }
+
+      if (typeof skipTransition.toPhaseId === "string" && !phaseIds.has(skipTransition.toPhaseId)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].toPhaseId`, `Unknown phaseId '${skipTransition.toPhaseId}' in allowedPhaseSkips transition.`, "analysis"));
+      }
+
+      if (Array.isArray(skipTransition.skippedPhaseIds)) {
+        skipTransition.skippedPhaseIds.forEach((phaseId, phaseIndex) => {
+          if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
+            issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].skippedPhaseIds[${phaseIndex}]`, `Unknown phaseId '${phaseId}' in allowedPhaseSkips transition.`, "analysis"));
+          }
+        });
+      }
+    });
+  }
+
+  validatePositiveNumber(input.minimumConfirmationFrames, `${path}.minimumConfirmationFrames`, issues, "analysis");
+  validateNonNegativeNumber(input.exitGraceFrames, `${path}.exitGraceFrames`, issues, "analysis");
+  validatePositiveNumber(input.minimumRepDurationMs, `${path}.minimumRepDurationMs`, issues, "analysis");
+  validateNonNegativeNumber(input.cooldownMs, `${path}.cooldownMs`, issues, "analysis");
+  validatePositiveNumber(input.entryConfirmationFrames, `${path}.entryConfirmationFrames`, issues, "analysis");
+  validatePositiveNumber(input.minimumHoldDurationMs, `${path}.minimumHoldDurationMs`, issues, "analysis");
+
+  if (input.maximumRepDurationMs !== undefined) {
+    validatePositiveNumber(input.maximumRepDurationMs, `${path}.maximumRepDurationMs`, issues, "analysis");
+    if (typeof input.minimumRepDurationMs === "number" && typeof input.maximumRepDurationMs === "number" && input.maximumRepDurationMs < input.minimumRepDurationMs) {
+      issues.push(makeIssue("error", `${path}.maximumRepDurationMs`, "maximumRepDurationMs must be >= minimumRepDurationMs.", "analysis"));
+    }
+  }
+
+  if (input.targetHoldPhaseId !== undefined) {
+    validateNonEmptyString(input.targetHoldPhaseId, `${path}.targetHoldPhaseId`, issues);
+    if (typeof input.targetHoldPhaseId === "string" && !phaseIds.has(input.targetHoldPhaseId)) {
+      issues.push(makeIssue("error", `${path}.targetHoldPhaseId`, `Unknown hold phaseId '${input.targetHoldPhaseId}'.`, "analysis"));
+    }
+  }
+
+  if (input.measurementType === "hold" && input.targetHoldPhaseId === undefined) {
+    issues.push(makeIssue("warning", `${path}.targetHoldPhaseId`, "Hold drills should define targetHoldPhaseId for stable hold detection.", "analysis"));
+  }
+
+  if (input.measurementType === "rep" && drillType === "hold") {
+    issues.push(makeIssue("warning", `${path}.measurementType`, "measurementType 'rep' differs from drillType 'hold'.", "analysis"));
+  }
 }
 
 function validatePhaseOrderingAndTitles(phases: unknown[], drillPath: string, issues: PackageValidationIssue[]): void {
@@ -362,6 +571,10 @@ function validatePhase(
     issues.push(makeIssue("error", `${path}.startOffsetMs`, "startOffsetMs must be >= 0 when present.", "timing"));
   }
 
+  if (input.analysis !== undefined) {
+    validatePhaseAnalysis(input.analysis, `${path}.analysis`, issues);
+  }
+
   if (!Array.isArray(input.poseSequence)) {
     issues.push(makeIssue("error", `${path}.poseSequence`, "poseSequence must be an array.", "type"));
   } else {
@@ -375,6 +588,62 @@ function validatePhase(
       validateAssetRef(asset, `${path}.assetRefs[${assetIndex}]`, issues, true)
     );
   }
+}
+
+function validatePhaseAnalysis(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "phase analysis metadata must be an object.", "analysis"));
+    return;
+  }
+
+  if (input.semanticRole !== undefined) {
+    if (typeof input.semanticRole !== "string" || !PHASE_SEMANTIC_ROLE_SET.has(input.semanticRole)) {
+      issues.push(makeIssue("error", `${path}.semanticRole`, "semanticRole must be start, bottom, top, lockout, transition, or hold.", "analysis"));
+    }
+  }
+
+  if (input.isCritical !== undefined && typeof input.isCritical !== "boolean") {
+    issues.push(makeIssue("error", `${path}.isCritical`, "isCritical must be a boolean when present.", "analysis"));
+  }
+
+  if (input.matchHints !== undefined) {
+    validatePhaseMatchHints(input.matchHints, `${path}.matchHints`, issues);
+  }
+}
+
+function validatePhaseMatchHints(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "matchHints must be an object when present.", "analysis"));
+    return;
+  }
+
+  validateJointNameArray(input.requiredJoints, `${path}.requiredJoints`, issues);
+  validateJointNameArray(input.optionalJoints, `${path}.optionalJoints`, issues);
+
+  if (input.toleranceProfile !== undefined && typeof input.toleranceProfile !== "string") {
+    issues.push(makeIssue("error", `${path}.toleranceProfile`, "toleranceProfile must be a string when present.", "analysis"));
+  }
+
+  if (input.viewHint !== undefined && typeof input.viewHint !== "string") {
+    issues.push(makeIssue("error", `${path}.viewHint`, "viewHint must be a string when present.", "analysis"));
+  }
+}
+
+function validateJointNameArray(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (input === undefined) {
+    return;
+  }
+
+  if (!Array.isArray(input)) {
+    issues.push(makeIssue("error", path, "Expected an array of canonical joint names.", "analysis"));
+    return;
+  }
+
+  input.forEach((jointName, index) => {
+    if (typeof jointName !== "string" || !CANONICAL_JOINT_SET.has(jointName)) {
+      issues.push(makeIssue("error", `${path}[${index}]`, `Unknown canonical joint '${String(jointName)}'.`, "analysis"));
+    }
+  });
 }
 
 function validatePose(input: unknown, path: string, issues: PackageValidationIssue[]): void {
@@ -559,13 +828,135 @@ function validateNonEmptyString(
   }
 }
 
+function validateStringArray(
+  input: unknown,
+  path: string,
+  required: boolean,
+  issues: PackageValidationIssue[],
+  code: PackageValidationIssue["code"]
+): void {
+  if (input === undefined && !required) {
+    return;
+  }
+
+  if (!Array.isArray(input)) {
+    issues.push(makeIssue("error", path, "Expected an array of strings.", code));
+    return;
+  }
+
+  input.forEach((value, index) => {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      issues.push(makeIssue("error", `${path}[${index}]`, "Expected a non-empty string.", code));
+    }
+  });
+}
+
+function validatePositiveNumber(
+  input: unknown,
+  path: string,
+  issues: PackageValidationIssue[],
+  code: PackageValidationIssue["code"]
+): void {
+  if (typeof input !== "number" || !Number.isFinite(input) || input <= 0) {
+    issues.push(makeIssue("error", path, "Expected a positive number.", code));
+  }
+}
+
+function validateNonNegativeNumber(
+  input: unknown,
+  path: string,
+  issues: PackageValidationIssue[],
+  code: PackageValidationIssue["code"]
+): void {
+  if (typeof input !== "number" || !Number.isFinite(input) || input < 0) {
+    issues.push(makeIssue("error", path, "Expected a non-negative number.", code));
+  }
+}
+
+
+export function validatePhaseTimingConsistency(phases: PortablePhase[]): PackageValidationIssue[] {
+  const issues: PackageValidationIssue[] = [];
+  validateDrillTimingConsistency(phases, "drill", issues);
+  return issues;
+}
+
+function validateDrillTimingConsistency(phases: unknown[], drillPath: string, issues: PackageValidationIssue[]): void {
+  const parsedPhases = phases
+    .map((phase, index) => {
+      if (!isRecord(phase)) {
+        return null;
+      }
+
+      return {
+        index,
+        order: typeof phase.order === "number" ? phase.order : Number.NaN,
+        durationMs: typeof phase.durationMs === "number" ? phase.durationMs : Number.NaN,
+        startOffsetMs: typeof phase.startOffsetMs === "number" ? phase.startOffsetMs : null,
+        title: typeof phase.title === "string" ? phase.title : ""
+      };
+    })
+    .filter((phase): phase is NonNullable<typeof phase> => phase !== null)
+    .sort((a, b) => a.order - b.order);
+
+  let rollingStart = 0;
+
+  parsedPhases.forEach((phase, sortedIndex) => {
+    if (!Number.isFinite(phase.durationMs) || phase.durationMs <= 0) {
+      return;
+    }
+
+    if (phase.startOffsetMs === null) {
+      rollingStart += phase.durationMs;
+      return;
+    }
+
+    if (phase.startOffsetMs < rollingStart) {
+      issues.push(
+        makeIssue(
+          "warning",
+          `${drillPath}.phases[${phase.index}].startOffsetMs`,
+          `Phase '${phase.title || phase.order}' starts before the previous phase window completes.`,
+          "timing"
+        )
+      );
+    }
+
+    if (sortedIndex > 0) {
+      const previous = parsedPhases[sortedIndex - 1];
+      const expected = (previous.startOffsetMs ?? rollingStart - previous.durationMs) + previous.durationMs;
+
+      if (phase.startOffsetMs > expected + 1000) {
+        issues.push(
+          makeIssue(
+            "warning",
+            `${drillPath}.phases[${phase.index}].startOffsetMs`,
+            `Gap detected before phase '${phase.title || phase.order}' (${phase.startOffsetMs - expected}ms).`,
+            "timing"
+          )
+        );
+      }
+    }
+
+    rollingStart = Math.max(rollingStart, phase.startOffsetMs + phase.durationMs);
+  });
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
 function makeIssue(
   severity: Severity,
   path: string,
   message: string,
   code: PackageValidationIssue["code"]
 ): PackageValidationIssue {
-  return { severity, path, message, code };
+  return {
+    severity,
+    path,
+    message,
+    code
+  };
 }
 
 function toResult(issues: PackageValidationIssue[]): PackageValidationResult {
@@ -578,76 +969,4 @@ function toResult(issues: PackageValidationIssue[]): PackageValidationResult {
     warnings,
     issues
   };
-}
-
-function isRecord(input: unknown): input is Record<string, unknown> {
-  return typeof input === "object" && input !== null;
-}
-
-function validateDrillTimingConsistency(
-  phases: unknown[],
-  drillPath: string,
-  issues: PackageValidationIssue[]
-): void {
-  const timingCandidates = phases
-    .filter(isRecord)
-    .filter((phase) => typeof phase.order === "number" && typeof phase.durationMs === "number" && phase.durationMs > 0)
-    .map((phase) => ({
-      phaseId: typeof phase.phaseId === "string" ? phase.phaseId : "unknown-phase",
-      order: phase.order as number,
-      durationMs: phase.durationMs as number,
-      startOffsetMs: typeof phase.startOffsetMs === "number" ? phase.startOffsetMs : undefined
-    }))
-    .sort((a, b) => a.order - b.order);
-
-  let cumulativeMs = 0;
-
-  timingCandidates.forEach((phase, index) => {
-    issues.push(
-      ...validatePhaseTimingConsistency(
-        {
-          phaseId: phase.phaseId,
-          order: phase.order,
-          title: "",
-          durationMs: phase.durationMs,
-          poseSequence: [],
-          assetRefs: [],
-          startOffsetMs: phase.startOffsetMs
-        },
-        cumulativeMs
-      ).map((issue) => ({
-        ...issue,
-        path: `${drillPath}.phases[order=${phase.order}].startOffsetMs`
-      }))
-    );
-
-    if (phase.startOffsetMs !== undefined && phase.startOffsetMs > cumulativeMs && index > 0) {
-      issues.push(
-        makeIssue(
-          "warning",
-          `${drillPath}.phases[order=${phase.order}].startOffsetMs`,
-          "startOffsetMs is ahead of previous cumulative duration (gap detected).",
-          "timing"
-        )
-      );
-    }
-
-    cumulativeMs += phase.durationMs;
-  });
-}
-
-export function validatePhaseTimingConsistency(phase: PortablePhase, previousDurationTotal: number): PackageValidationIssue[] {
-  const issues: PackageValidationIssue[] = [];
-  if (phase.startOffsetMs !== undefined && phase.startOffsetMs < previousDurationTotal) {
-    issues.push(
-      makeIssue(
-        "warning",
-        `phase:${phase.phaseId}.startOffsetMs`,
-        "startOffsetMs is behind the cumulative duration of previous phases.",
-        "timing"
-      )
-    );
-  }
-
-  return issues;
 }
