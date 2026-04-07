@@ -8,7 +8,11 @@ import { getPrimarySamplePackage } from "@/lib/package/samples";
 import {
   createImportedAnalysisSessionCopy,
   deserializeAnalysisSession,
+  deriveReplayMarkers,
+  deriveReplaySessionOverview,
+  deriveReplayStateAtTime,
   getBrowserAnalysisSessionRepository,
+  getReplayDurationMs,
   persistCompletedUploadAnalysisSession,
   persistFailedUploadAnalysisSession,
   serializeAnalysisSession,
@@ -34,6 +38,20 @@ function formatDuration(durationMs?: number): string {
     return "Unknown";
   }
   return `${(durationMs / 1000).toFixed(1)}s`;
+}
+
+function formatClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function markerColor(type: string): string {
+  if (type === "rep_complete") return "#89f0a5";
+  if (type === "hold_start" || type === "hold_end") return "#f5c77a";
+  if (type === "invalid_transition" || type === "partial_attempt") return "#f09c9c";
+  return "#7fb6ff";
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -80,12 +98,18 @@ export function UploadVideoWorkspace() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [isReplayPlaying, setIsReplayPlaying] = useState(false);
+  const [replayElapsedMs, setReplayElapsedMs] = useState(0);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs.find((job) => job.status === "completed"), [jobs, selectedJobId]);
   const selectedSession = useMemo(
     () => recentSessions.find((session) => session.sessionId === selectedSessionId) ?? recentSessions[0],
     [recentSessions, selectedSessionId]
   );
+  const replayDurationMs = useMemo(() => getReplayDurationMs(selectedSession), [selectedSession]);
+  const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
+  const replayMarkers = useMemo(() => deriveReplayMarkers(selectedSession), [selectedSession]);
+  const replayOverview = useMemo(() => deriveReplaySessionOverview(selectedSession), [selectedSession]);
 
   const dispatch = useCallback((action: JobAction) => setJobs((prev) => reducer(prev, action)), []);
   const refreshRecentSessions = useCallback(async () => {
@@ -218,6 +242,28 @@ export function UploadVideoWorkspace() {
   useEffect(() => {
     void refreshRecentSessions();
   }, [refreshRecentSessions]);
+
+  useEffect(() => {
+    setReplayElapsedMs(0);
+    setIsReplayPlaying(false);
+  }, [selectedSession?.sessionId]);
+
+  useEffect(() => {
+    if (!isReplayPlaying || replayDurationMs <= 0) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setReplayElapsedMs((current) => {
+        const next = current + 100;
+        if (next >= replayDurationMs) {
+          setIsReplayPlaying(false);
+          return replayDurationMs;
+        }
+        return next;
+      });
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [isReplayPlaying, replayDurationMs]);
 
   useEffect(() => {
     if (!selectedJob) {
@@ -420,15 +466,93 @@ export function UploadVideoWorkspace() {
               <li>Frame samples: {selectedSession.frameSamples.length}</li>
               <li>Events: {selectedSession.events.length}</li>
             </ul>
+            <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
+              <h5 style={{ margin: 0 }}>Replay review</h5>
+              <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
+                {selectedSession.drillTitle ?? selectedSession.drillId} • {new Date(selectedSession.createdAtIso).toLocaleString()} • quality {replayOverview.qualityLabel}
+              </p>
+              <div
+                style={{
+                  position: "relative",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  padding: "0.6rem",
+                  background: "rgba(15,23,42,0.5)",
+                  marginBottom: "0.6rem"
+                }}
+              >
+                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="pill">Phase: {replayState.activePhaseId ?? "n/a"}</span>
+                  {selectedSession.summary.repCount !== undefined ? <span className="pill">Reps: {replayState.repCount}</span> : null}
+                  {selectedSession.summary.holdDurationMs !== undefined ? (
+                    <span className="pill">
+                      Hold: {replayState.holdActive ? formatDuration(replayState.holdElapsedMs) : "inactive"}
+                    </span>
+                  ) : null}
+                  <span className="pill">Status: {selectedSession.status}</span>
+                </div>
+                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
+                  {formatClock(replayState.timestampMs)} / {formatClock(replayDurationMs)} • nearest event: {replayState.nearestEvent?.type ?? "none"}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.4rem" }}>
+                <button type="button" className="pill" onClick={() => setIsReplayPlaying((current) => !current)} disabled={replayDurationMs <= 0}>
+                  {isReplayPlaying ? "Pause" : "Play"}
+                </button>
+                <button type="button" className="pill" onClick={() => setReplayElapsedMs(0)} disabled={replayDurationMs <= 0}>Reset</button>
+              </div>
+              <div style={{ position: "relative", paddingTop: "0.65rem" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(1, replayDurationMs)}
+                  value={Math.min(replayElapsedMs, replayDurationMs)}
+                  onChange={(event) => setReplayElapsedMs(Number(event.target.value))}
+                  style={{ width: "100%" }}
+                  disabled={replayDurationMs <= 0}
+                />
+                <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 8, pointerEvents: "none" }}>
+                  {replayMarkers.map((marker) => (
+                    <span
+                      key={marker.eventId}
+                      title={`${marker.type} @ ${(marker.timestampMs / 1000).toFixed(2)}s`}
+                      style={{
+                        position: "absolute",
+                        left: `${replayDurationMs > 0 ? (marker.timestampMs / replayDurationMs) * 100 : 0}%`,
+                        width: 2,
+                        height: "100%",
+                        borderRadius: 999,
+                        background: markerColor(marker.type),
+                        opacity: 0.85
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {replayOverview.phaseCoverage.length > 0 ? (
+                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
+                  Phase coverage:{" "}
+                  {replayOverview.phaseCoverage
+                    .slice(0, 4)
+                    .map((entry) => `${entry.phaseId} ${entry.percent.toFixed(0)}%`)
+                    .join(" • ")}
+                </p>
+              ) : null}
+            </div>
 
             <details>
               <summary style={{ cursor: "pointer" }}>Event log</summary>
               <ol className="muted">
                 {selectedSession.events.map((event) => (
-                  <li key={event.eventId}>
-                    {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
-                    {event.phaseId ? ` • phase=${event.phaseId}` : ""}
-                    {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                  <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
+                    <button type="button" className="pill" onClick={() => setReplayElapsedMs(event.timestampMs)}>
+                      {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
+                      {event.phaseId ? ` • phase=${event.phaseId}` : ""}
+                      {event.repIndex ? ` • rep=${event.repIndex}` : ""}
+                      {typeof event.details?.["holdDurationMs"] === "number" ? ` • hold=${formatDuration(Number(event.details?.["holdDurationMs"]))}` : ""}
+                      {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                    </button>
                   </li>
                 ))}
               </ol>
