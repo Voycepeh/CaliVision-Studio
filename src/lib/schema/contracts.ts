@@ -221,6 +221,10 @@ export type AnalysisSummaryMetrics = {
   holdDurationMs?: number;
   invalidTransitionCount?: number;
   partialAttemptCount?: number;
+  analyzedDurationMs?: number;
+  detectedPhaseCoverage?: number;
+  confidenceAvg?: number;
+  lowConfidenceFrames?: number;
 };
 
 export type FramePhaseSample = {
