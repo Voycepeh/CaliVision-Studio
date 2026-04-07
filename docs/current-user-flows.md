@@ -9,13 +9,13 @@
 
 ## Current Drill Studio flow
 
-1. Create a new draft or open an existing draft/drill.
+1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
 2. Edit drill metadata (title, slug, required drill type, difficulty, view).
 3. Create/edit/reorder phases.
 4. Upload a phase image.
 5. Run detection and apply/refine pose.
-6. Preview animation.
-7. Export a portable drill file.
+6. Preview and validation review.
+7. Open advanced diagnostics only when needed (collapsible, hidden by default).
 
 ## Current Upload Video flow
 
@@ -51,8 +51,9 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 2. `Continue editing` opens that draft in Drill Studio without automatic promotion.
 3. `Save to My drills` explicitly promotes the draft into **My drills**.
 4. `Import drill` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
-5. `Delete draft` removes draft data from the active persistence scope.
-6. `Delete` in **My drills** removes the saved drill from the active persistence scope.
+5. `Export drill file` from **My drills** downloads a portable drill file from Library.
+6. `Delete draft` removes draft data from the active persistence scope.
+7. `Delete` in **My drills** removes the saved drill from the active persistence scope.
 
 ## Hosted drafts foundation (April 2026)
 

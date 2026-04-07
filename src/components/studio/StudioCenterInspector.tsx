@@ -6,6 +6,7 @@ import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
+import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
@@ -20,8 +21,7 @@ const WORKFLOW_SECTION_IDS = {
   phases: 1,
   sourceImage: 2,
   poseAuthoring: 3,
-  review: 4,
-  export: 5
+  review: 4
 } as const;
 
 const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
@@ -29,8 +29,7 @@ const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
   [WORKFLOW_SECTION_IDS.phases]: true,
   [WORKFLOW_SECTION_IDS.sourceImage]: false,
   [WORKFLOW_SECTION_IDS.poseAuthoring]: false,
-  [WORKFLOW_SECTION_IDS.review]: false,
-  [WORKFLOW_SECTION_IDS.export]: false
+  [WORKFLOW_SECTION_IDS.review]: false
 };
 
 type FocusRegion = "full" | "upper" | "lower" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg";
@@ -107,8 +106,7 @@ export function StudioCenterInspector() {
     selectedPhaseSourceImage,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
-    resetSelectedPhaseOverlayState,
-    exportSelectedPackage
+    resetSelectedPhaseOverlayState
   } = useStudioState();
 
   const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
@@ -128,10 +126,6 @@ export function StudioCenterInspector() {
     if (!selectedPhase) return WORKFLOW_SECTION_IDS.phases;
     if (!selectedPhaseSourceImage) return WORKFLOW_SECTION_IDS.sourceImage;
     if (!selectedPose) return WORKFLOW_SECTION_IDS.poseAuthoring;
-    if (selectedPackage.validation.isValid) {
-      return WORKFLOW_SECTION_IDS.export;
-    }
-
     return WORKFLOW_SECTION_IDS.review;
   }, [selectedPackage, selectedPhase, selectedPhaseSourceImage, selectedPose]);
 
@@ -163,7 +157,7 @@ export function StudioCenterInspector() {
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio editor workflow</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Work top-to-bottom: drill info, phases, source image, pose refinement, review, then export your drill file.
+          Work top-to-bottom: drill info, phases, source image, pose refinement, and review.
         </p>
       </header>
 
@@ -348,15 +342,7 @@ export function StudioCenterInspector() {
           <WorkflowSection title="Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs />
           </WorkflowSection>
-
-          <WorkflowSection title="Export" stepIndex={WORKFLOW_SECTION_IDS.export} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.export)} onToggle={handleSectionToggle}>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Export generates a portable drill file with packaged assets when local files are available.
-            </p>
-            <button type="button" onClick={exportSelectedPackage} className="studio-button studio-button-primary" disabled={!selectedPackage}>
-              Export drill bundle
-            </button>
-          </WorkflowSection>
+          <StudioRightPanel />
         </div>
       </div>
     </div>
