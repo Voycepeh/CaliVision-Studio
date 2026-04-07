@@ -10,7 +10,7 @@ Android repo: <https://github.com/Voycepeh/CaliVision>.
 ## UX implication
 
 - web Home explains the ecosystem and routes users into workspace flows,
-- Library + Drill Studio + Upload Video + Drill Exchange guide authoring/discovery,
+- Library + Drill Studio + Upload Video + Drill Exchange guide drill-first authoring/discovery,
 - Upload Video local processing artifacts are generated in-browser first,
 - export/import package workflows bridge to mobile runtime consumption.
 

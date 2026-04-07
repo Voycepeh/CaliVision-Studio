@@ -4,12 +4,13 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
-  active?: "home" | "library" | "upload" | "exchange" | "packages";
+  active?: "home" | "library" | "studio" | "upload" | "exchange";
 };
 
 const items = [
   { href: "/", label: "Home", key: "home" },
   { href: "/library", label: "Library", key: "library" },
+  { href: "/studio", label: "Studio", key: "studio" },
   { href: "/upload", label: "Upload Video", key: "upload" },
   { href: "/marketplace", label: "Exchange", key: "exchange" }
 ] as const;
@@ -32,7 +33,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/" className="site-brand">
+        <Link href="/library" className="site-brand">
           <span className="site-brand-mark">CV</span>
           <span>CaliVision Studio</span>
         </Link>

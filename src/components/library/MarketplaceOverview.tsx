@@ -55,7 +55,7 @@ export function MarketplaceOverview() {
             <article key={entry.entryId} className="card" style={{ margin: 0 }}>
               <strong>{entry.summary.title}</strong>
               <p className="muted" style={{ margin: "0.3rem 0" }}>
-                {entry.summary.packageId} • v{entry.summary.packageVersion} • {entry.summary.authorDisplayName}
+                Revision {entry.summary.packageVersion} • {entry.summary.authorDisplayName}
               </p>
               <p className="muted" style={{ margin: 0 }}>{entry.details.description}</p>
               <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>

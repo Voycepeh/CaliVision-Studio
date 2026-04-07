@@ -35,6 +35,10 @@ function downloadBlob(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
+function createArtifactBaseName(fileName: string): string {
+  return fileName.replace(/\.[^./\\]+$/, "");
+}
+
 function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
   if (action.type === "add") {
     return [...state, ...action.jobs];
@@ -125,10 +129,12 @@ export function UploadVideoWorkspace() {
           status: "completed",
           progress: 1,
           stageLabel: "Completed",
+          errorMessage: undefined,
+          errorDetails: undefined,
           completedAtIso: new Date().toISOString(),
           artefacts: {
             poseTimeline: timeline,
-            analysis: buildAnalysisSummary(timeline),
+            processingSummary: buildAnalysisSummary(timeline),
             annotatedVideoBlob: annotated.blob,
             annotatedVideoMimeType: annotated.mimeType
           }
@@ -143,7 +149,8 @@ export function UploadVideoWorkspace() {
         patch: {
           status: cancelled ? "cancelled" : "failed",
           stageLabel: cancelled ? "Cancelled" : "Failed",
-          errorMessage: error instanceof Error ? error.message : "Upload processing failed"
+          errorMessage: cancelled ? "Processing was cancelled for this video." : "Processing failed. Retry to start a fresh local processing context.",
+          errorDetails: error instanceof Error ? error.message : "Upload processing failed"
         }
       });
     } finally {
@@ -248,13 +255,29 @@ export function UploadVideoWorkspace() {
                 </p>
                 <p className="muted" style={{ margin: "0.2rem 0 0" }}>{job.stageLabel}</p>
                 {job.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{job.errorMessage}</p> : null}
+                {job.errorDetails ? (
+                  <details style={{ marginTop: "0.3rem" }}>
+                    <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
+                    <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{job.errorDetails}</pre>
+                  </details>
+                ) : null}
               </div>
               <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
                 <button type="button" className="pill" onClick={() => setSelectedJobId(job.id)}>Preview</button>
                 {job.status === "queued" ? <button type="button" className="pill" onClick={() => dispatch({ type: "remove", id: job.id })}>Remove</button> : null}
                 {job.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
                 {job.status === "failed" || job.status === "cancelled" ? (
-                  <button type="button" className="pill" onClick={() => dispatch({ type: "update", id: job.id, patch: { status: "queued", progress: 0, stageLabel: "Retry queued", errorMessage: undefined } })}>Retry</button>
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => dispatch({
+                      type: "update",
+                      id: job.id,
+                      patch: { status: "queued", progress: 0, stageLabel: "Retry queued", errorMessage: undefined, errorDetails: undefined, artefacts: undefined }
+                    })}
+                  >
+                    Retry
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -271,29 +294,34 @@ export function UploadVideoWorkspace() {
             <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
           </div>
           <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-            <button
-              type="button"
-              className="pill"
-              onClick={() => downloadBlob(new Blob([JSON.stringify(selectedJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${selectedJob.fileName}.pose-timeline.json`)}
-            >
-              Download pose timeline JSON
-            </button>
-            <button
-              type="button"
-              className="pill"
-              onClick={() => downloadBlob(new Blob([JSON.stringify(selectedJob.artefacts?.analysis, null, 2)], { type: "application/json" }), `${selectedJob.fileName}.analysis.json`)}
-            >
-              Download analysis JSON
-            </button>
             {selectedJob.artefacts.annotatedVideoBlob ? (
               <button
                 type="button"
                 className="pill"
-                onClick={() => downloadBlob(selectedJob.artefacts!.annotatedVideoBlob!, `${selectedJob.fileName}.annotated.webm`)}
+                onClick={() => downloadBlob(selectedJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(selectedJob.fileName)}.annotated-video.webm`)}
               >
-                Download annotated video (WebM)
+                Download Annotated Video
               </button>
             ) : null}
+            <button
+              type="button"
+              className="pill"
+              onClick={() => downloadBlob(new Blob([JSON.stringify(selectedJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(selectedJob.fileName)}.processing-summary.json`)}
+            >
+              Download Processing Summary (.json)
+            </button>
+            <button
+              type="button"
+              className="pill"
+              onClick={() => downloadBlob(new Blob([JSON.stringify(selectedJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(selectedJob.fileName)}.pose-timeline.json`)}
+            >
+              Download Pose Timeline (.json)
+            </button>
+          </div>
+          <div className="muted" style={{ marginTop: "0.45rem", display: "grid", gap: "0.2rem" }}>
+            <span><strong>Annotated Video:</strong> video preview with pose overlay styling for playback/export.</span>
+            <span><strong>Processing Summary (.json):</strong> lightweight summary metadata about this run.</span>
+            <span><strong>Pose Timeline (.json):</strong> frame-by-frame pose keypoints and timestamps.</span>
           </div>
         </section>
       ) : null}

@@ -4,34 +4,36 @@ CaliVision Studio is the **web-first home** for:
 
 - **Drill Studio** authoring,
 - browser **Upload Video** local analysis,
-- **portable drill package** import/export/publishing,
-- future **Drill Exchange** discovery, sharing, and fork/remix flows.
+- **Drill Exchange** discovery and sharing workflows,
+- portable drill file import/export compatibility.
 
-`/` is now the brand-first landing page, while **Library** lives at `/library` as the primary workspace for drafts, saved drills, and Studio entry.
+`/library` is the primary workspace start for drill creation and recovery. `/` remains the brand landing route.
 
 Android/mobile runtime client (downstream consumer): <https://github.com/Voycepeh/CaliVision>.
 
 ## Product flow (current UX)
 
-1. Start on **Home** (`/`) to understand the product and choose a primary flow.
-2. Use **Library** to continue local drafts, create new drills, import drills, and enter Drill Studio.
-3. Use **Drill Studio** for editing metadata, phases, source images, detection/refinement, and animation preview.
-4. Use **Upload Video** to process one or more local videos in-browser with MediaPipe Pose Landmarker, preview overlays, and download local artifacts.
-5. Use **Drill Exchange** for discovery semantics (currently local/mock-backed).
-6. Use **Package Tools** for technical import/export portability workflows.
+1. Start in **Library** (`/library`) to create a new drill, continue drafts, import drill files, and browse shared drills.
+2. Use **Drill Studio** (`/studio`) to edit drill metadata, phases, source images, pose detection/refinement, and animation preview.
+3. Use **Upload Video** (`/upload`) for browser-local video analysis and artifact downloads.
+4. Use **Exchange** (`/marketplace`) for discovery, sharing, and fork/remix direction (currently local/mock-backed).
 
 ## Current capabilities
 
-- create drill content,
+- create drill drafts,
 - edit metadata/phases,
 - upload phase image,
 - detect/refine pose,
 - preview animation,
-- export Android-compatible package,
+- export Android-compatible drill file,
 - process local upload videos in-browser and download:
-  - pose timeline JSON,
-  - analysis JSON,
-  - annotated WebM video export.
+  - Pose Timeline (.json),
+  - Processing Summary (.json),
+  - Annotated Video export (WebM).
+
+## Engineering note on drill files
+
+The portable drill package/file format is still maintained for portability, Android compatibility, and future schema evolution/migration.
 
 ## Upload Video local-first constraints
 
@@ -56,7 +58,7 @@ Drill Studio autosaves working drafts to browser-local IndexedDB so edits surviv
 
 - **Local draft**: durable in this browser only, appears under `Recent local drafts`.
 - **Saved drill**: appears under `My drills` only after explicit Save to library/import/publish.
-- **Export package**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
+- **Export drill**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
 - **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.
 
 ## Hosted drafts foundation (April 2026)

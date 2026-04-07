@@ -5,6 +5,7 @@ import { useRef } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
@@ -13,7 +14,6 @@ const navItems = [
   { href: "/studio", label: "Drill Studio" },
   { href: "/upload", label: "Upload Video" },
   { href: "/marketplace", label: "Exchange" },
-  { href: "/packages", label: "Package Tools" },
   { href: "/#android-app", label: "Download app" }
 ];
 
@@ -33,10 +33,11 @@ export function TopBar() {
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
-  const packageHeader = selectedPackage
-    ? `${selectedPackage.workingPackage.manifest.packageId} • v${selectedPackage.workingPackage.manifest.packageVersion}`
-    : "No drill selected";
-  const provenance = selectedPackage ? summarizeProvenance(selectedPackage.workingPackage) : "Open a drill from Library to begin.";
+  const selectedDrill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
+  const draftHeader = selectedDrill?.title ?? "No drill selected";
+  const secondaryMeta = selectedPackage
+    ? `Draft ${selectedPackage.isDirty ? "has unsaved changes" : "is saved locally"} • ${summarizeProvenance(selectedPackage.workingPackage)}`
+    : "Open a drill from Library to begin.";
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -63,12 +64,9 @@ export function TopBar() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         <div>
-          <strong>CaliVision Studio</strong>
+          <strong>{draftHeader}</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
-            Web home for Drill Studio, Upload Video, and Drill Exchange
-          </p>
-          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
-            {packageHeader} • {provenance}
+            Editing drill draft in CaliVision Studio
           </p>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
             {isConfigured ? userEmail ? `Signed in: ${userEmail}` : "Not signed in (hosted save unavailable)" : "Supabase not configured: local-only mode"}
@@ -94,25 +92,25 @@ export function TopBar() {
           onChange={onImportFileChange}
         />
         <button type="button" onClick={() => fileInputRef.current?.click()} style={actionButtonStyle}>
-          Import drill package
+          Open drill file
         </button>
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
-          Export package
+          Export drill
         </button>
         <button type="button" onClick={() => void saveSelectedToHosted()} style={actionButtonStyle} disabled={!selectedPackage || !userEmail || !isConfigured}>
           Save to account
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
-          Publish to Exchange (Mock)
+          Share to Exchange (Mock)
         </button>
         <button type="button" onClick={duplicateSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
-          Duplicate
+          Save copy
         </button>
         <button type="button" onClick={forkSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
           Fork / Remix
         </button>
         <button type="button" onClick={createSelectedPackageNewVersion} style={actionButtonStyle} disabled={!selectedPackage}>
-          New version
+          Create revision
         </button>
       </div>
     </header>

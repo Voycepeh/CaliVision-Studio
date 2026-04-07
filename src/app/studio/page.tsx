@@ -1,7 +1,7 @@
 import { StudioExperience } from "@/components/studio/StudioExperience";
 
 /**
- * Flagship Studio route wired to drill-file local import/export workflow.
+ * Flagship Studio route for editing drill drafts and handling drill-file compatibility import/export.
  */
 export default async function StudioPage({
   searchParams
