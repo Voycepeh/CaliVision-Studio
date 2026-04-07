@@ -13,6 +13,19 @@ Studio is the long-term **source of truth** for drill definitions and package pu
 
 The Android app is a downstream runtime/live-coaching client: <https://github.com/Voycepeh/CaliVision>.
 
+## Product UX direction (current)
+
+- `/library` is the default home/landing route and should feel like the user’s primary workspace start.
+- `/studio` is the focused editing workspace.
+- `/upload` is the first-class Upload Video route shell.
+- `/marketplace` is user-facing **Drill Exchange** discovery language.
+- `/packages` is technical portability tooling and should be de-emphasized in primary product messaging.
+
+Prefer user-facing wording:
+- **Drill** for most UI language,
+- **Package** for import/export/portability contexts,
+- **Drill Exchange** for discovery/sharing semantics.
+
 ## Ecosystem boundary
 
 - **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, package export/publish, exchange workflows.

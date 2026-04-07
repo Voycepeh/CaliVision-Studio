@@ -12,16 +12,16 @@ export function PackageOverview() {
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
-      <h2 style={{ margin: 0 }}>Package Artifacts & Transport</h2>
+      <h2 style={{ margin: 0 }}>Import / export package workflows</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Packages focuses on import/export portability, schema compatibility, and artifact lifecycle. Use Library to browse
-        installed/available entries and Marketplace for discovery semantics.
+        Use this surface when you need technical portability: moving drill packages between Studio and downstream runtime
+        clients while preserving schema compatibility.
       </p>
 
       <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-        <li>Import package files into local Library via Studio top bar import.</li>
-        <li>Export current working package from Studio as portable JSON artifact.</li>
-        <li>Mock publish writes listing metadata into local registry state only.</li>
+        <li>Import package files via the top bar to add drills into your local Studio library.</li>
+        <li>Export the selected drill from Studio as a portable package JSON artifact.</li>
+        <li>Mock publish updates local Exchange listings only (no hosted backend yet).</li>
       </ul>
 
       <div className="card" style={{ margin: 0 }}>

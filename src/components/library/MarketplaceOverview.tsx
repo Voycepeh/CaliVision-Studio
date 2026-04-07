@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { loadLocalRegistryEntries, queryPackageCatalog, type PackageRegistryEntry } from "@/lib/registry";
+import { createDerivedRegistryEntry, loadLocalRegistryEntries, queryPackageCatalog, type PackageRegistryEntry } from "@/lib/registry";
 
 export function MarketplaceOverview() {
   const [entries, setEntries] = useState<PackageRegistryEntry[]>([]);
   const [search, setSearch] = useState("");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     setEntries(loadLocalRegistryEntries());
@@ -21,16 +22,22 @@ export function MarketplaceOverview() {
     [entries, search]
   );
 
+  function forkRemix(entryId: string) {
+    const next = createDerivedRegistryEntry({ entryId, relation: "fork" });
+    setEntries(loadLocalRegistryEntries());
+    setMessage(`Forked ${next.summary.title}. Open it from Library or Drill Studio to continue editing.`);
+  }
+
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
-      <h2 style={{ margin: 0 }}>Marketplace Discovery (Local-First Groundwork)</h2>
+      <h2 style={{ margin: 0 }}>Drill Exchange discovery (local/mock)</h2>
       <p className="muted" style={{ margin: 0 }}>
-        This route intentionally mimics a future shared marketplace using local/mock registry entries only. No auth,
-        cloud storage, comments, ratings, or cross-user sharing exists yet.
+        Exchange is today powered by local/mock entries to shape discovery, import, and fork/remix UX. Hosted sharing,
+        auth, and community features are intentionally deferred.
       </p>
 
       <label style={{ display: "grid", gap: "0.2rem", color: "var(--muted)", fontSize: "0.84rem" }}>
-        <span>Search listed packages</span>
+        <span>Search shared drills</span>
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -41,30 +48,32 @@ export function MarketplaceOverview() {
       <div style={{ display: "grid", gap: "0.45rem" }}>
         {catalog.entries.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            No mock-published entries yet. Publish from Studio to populate this discovery surface.
+            Nothing listed yet. Publish a drill from Drill Studio (mock publish) to populate Exchange discovery.
           </p>
         ) : (
           catalog.entries.map((entry) => (
             <article key={entry.entryId} className="card" style={{ margin: 0 }}>
               <strong>{entry.summary.title}</strong>
               <p className="muted" style={{ margin: "0.3rem 0" }}>
-                {entry.summary.packageId} • v{entry.summary.packageVersion} • {entry.summary.authorDisplayName} • {entry.summary.provenanceSummary}
+                {entry.summary.packageId} • v{entry.summary.packageVersion} • {entry.summary.authorDisplayName}
               </p>
-              <p className="muted" style={{ margin: 0 }}>
-                {entry.details.description}
-              </p>
-              <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem" }}>
+              <p className="muted" style={{ margin: 0 }}>{entry.details.description}</p>
+              <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                 <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
                   Open in Studio
                 </Link>
                 <Link className="pill" href="/library">
-                  Add/Install via Library
+                  Import via Library
                 </Link>
+                <button type="button" className="pill" onClick={() => forkRemix(entry.entryId)}>
+                  Fork / Remix
+                </button>
               </div>
             </article>
           ))
         )}
       </div>
+      {message ? <p className="muted" style={{ margin: 0 }}>{message}</p> : null}
     </section>
   );
 }

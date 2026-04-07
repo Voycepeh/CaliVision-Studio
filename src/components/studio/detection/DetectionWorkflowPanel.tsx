@@ -34,13 +34,13 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
 
   return (
     <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
-      <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: "0.95rem" }}>Image pose detection (MediaPipe)</h3>
+      <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: "0.95rem" }}>Phase image detection</h3>
       <p className="muted" style={{ margin: 0 }}>
-        Upload a phase image, detect a mapped canonical pose preview, then apply intentionally.
+        Upload a phase image, run detection, review the preview, then apply it to the selected phase.
       </p>
 
       <label style={labelStyle}>
-        <span>Upload source image (local only)</span>
+        <span>Upload phase image (local only)</span>
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -72,7 +72,7 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
           </p>
         </div>
       ) : (
-        <p className="muted" style={{ margin: 0 }}>No source image uploaded for this phase yet.</p>
+        <p className="muted" style={{ margin: 0 }}>No image selected for this phase yet.</p>
       )}
 
       <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -85,7 +85,7 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
           style={smallButton}
           disabled={!selectedPhaseDetection.result || selectedPhaseDetection.result.status === "failed"}
         >
-          Apply to phase
+          Apply pose to phase
         </button>
         <button type="button" onClick={() => clearSelectedPhaseImage()} style={smallButton} disabled={!selectedPhaseSourceImage}>
           Clear image
@@ -113,7 +113,7 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
         </div>
       ) : null}
 
-      {previewPoseModel ? <PoseCanvas pose={previewPoseModel} title="Detected pose preview" subtitle="Mapped canonical joints before apply" /> : null}
+      {previewPoseModel ? <PoseCanvas pose={previewPoseModel} title="Detection preview" subtitle="Review before applying to your drill" /> : null}
     </section>
   );
 }

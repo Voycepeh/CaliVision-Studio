@@ -12,9 +12,14 @@ export function RoutePageIntro({ title, description, children }: RoutePageIntroP
     <main className="page-shell">
       <h1>{title}</h1>
       <p className="muted">{description}</p>
-      <Link href="/studio" style={{ color: "var(--accent)" }}>
-        Open Studio workspace
-      </Link>
+      <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+        <Link href="/library" className="pill">
+          Back to Library
+        </Link>
+        <Link href="/studio" className="pill">
+          Open Drill Studio
+        </Link>
+      </div>
       {children}
     </main>
   );

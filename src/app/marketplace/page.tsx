@@ -4,8 +4,8 @@ import { MarketplaceOverview } from "@/components/library/MarketplaceOverview";
 export default function MarketplacePage() {
   return (
     <RoutePageIntro
-      title="Marketplace"
-      description="Future hosted Drill Exchange package discovery route. Currently powered by local/mock registry listings to establish marketplace mental models before backend integration."
+      title="Drill Exchange"
+      description="Discovery and sharing surface for community drills. Currently local/mock-backed, designed to evolve into hosted Exchange workflows without changing package compatibility."
     >
       <MarketplaceOverview />
     </RoutePageIntro>

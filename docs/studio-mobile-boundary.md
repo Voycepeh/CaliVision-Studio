@@ -2,36 +2,12 @@
 
 ## Boundary statement
 
-CaliVision-Studio is the **source of truth** for drill/package authoring and publishing.
-Mobile apps are **runtime consumers** of Studio-authored packages.
+Studio is the source of truth for authoring, upload-analysis direction, and publishing/discovery direction.
+Mobile is a downstream runtime/live-coaching consumer.
 
 Android repo: <https://github.com/Voycepeh/CaliVision>.
 
-## Mermaid: boundary diagram
+## UX implication
 
-```mermaid
-flowchart TB
-    subgraph Studio[Studio Web]
-      A[Drill authoring]
-      B[Upload Video direction]
-      C[Package validation/export/publish]
-      D[Future Drill Exchange]
-    end
-
-    subgraph Mobile[Mobile runtime client]
-      E[Package import]
-      F[Runtime playback]
-      G[Live coaching]
-      H[User session consumption]
-    end
-
-    Studio -->|portable drill package| Mobile
-```
-
-## Engineering implications
-
-- keep portable package contracts stable,
-- keep schema evolution explicit/versioned,
-- avoid embedding mobile runtime logic into Studio,
-- ensure Studio docs reflect what is implemented vs planned,
-- preserve Android compatibility whenever contracts/semantics change.
+- web Library + Studio + Upload + Exchange should guide authoring/discovery,
+- export/import package workflows bridge to mobile runtime consumption.

@@ -5,7 +5,7 @@ export default function LibraryPage() {
   return (
     <RoutePageIntro
       title="Library"
-      description="Main local package management surface for authored/imported/installed portable drill packages with local-first registry-style browsing."
+      description="Your home base for drills: continue recent work, start a new drill, import/export package files, explore Exchange listings, and jump into Drill Studio."
     >
       <LibraryOverview />
     </RoutePageIntro>
