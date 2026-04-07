@@ -1,43 +1,35 @@
-# PR Plan — UX/Product-Flow Pass
+# PR Plan — Upload Video Local-First Processing
 
 ## Summary
 
-This pass prioritizes product IA and UX clarity on top of the existing local-first package foundation.
+This pass implements Upload Video as a working browser-first local processing flow with queueing, MediaPipe pose extraction, overlay preview, and local artifact exports.
 
 ## Assumptions
 
 - Studio is the web-first source of truth.
 - Mobile runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
-- No real auth/backend/storage is added in this pass.
+- No required backend video upload/storage/cloud compute in this pass.
 
 ## Non-goals
 
-- no giant architecture rewrite,
-- no heavy video processing implementation,
-- no browser live coaching,
-- no social/community feature buildout,
-- no contract-breaking package changes.
+- no cloud queue/worker,
+- no hosted artifact persistence or job history,
+- no browser live coaching runtime,
+- no contract-breaking package changes,
+- no unrelated architecture rewrite.
 
 ## Scope
 
-- Library as default home UX.
-- Studio workflow wording/state clarity polish.
-- Upload Video first-class route shell.
-- Marketplace reframed as Drill Exchange in user-facing UX.
-- Terminology cleanup (drill-first wording; package where technical).
-- docs synchronized to current-vs-future product story.
+- Upload Video top-level page with drag/drop + multi-select input.
+- Local queue state with queued/processing/completed/failed/cancelled status.
+- Browser MediaPipe Pose Landmarker video-mode processing.
+- Overlay preview player for completed jobs.
+- Local artifact export (pose timeline JSON, analysis JSON, annotated WebM).
+- Clear local-processing messaging (keep tab open, close/reload interrupts).
 
-## Local persistence pass additions
+## Follow-up candidates (not included)
 
-### Scope additions
-
-- Add browser-local IndexedDB draft repository and local asset blob storage.
-- Add Studio autosave and restore-last-opened behavior.
-- Surface local drafts in Library with continue/duplicate/delete actions.
-- Add local-vs-export-vs-future-hosted clarity in UX and docs.
-
-### Additional non-goals
-
-- no hosted auth/storage/sync,
-- no cross-device collaboration,
-- no Supabase/backend integration in this pass.
+- optional cloud fallback execution,
+- optional backend blob storage + persistence,
+- optional Android handoff/import integration,
+- optional multi-concurrency controls.
