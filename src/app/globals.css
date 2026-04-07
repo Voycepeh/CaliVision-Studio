@@ -605,7 +605,7 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
-  align-items: end;
+  align-items: flex-end;
   margin-top: 0.55rem;
 }
 
@@ -672,15 +672,15 @@ main {
   position: sticky;
   top: 0;
   z-index: 30;
-  border-bottom: 1px solid rgba(145, 173, 204, 0.2);
-  backdrop-filter: blur(8px);
-  background: rgba(7, 11, 17, 0.78);
+  border-bottom: 1px solid rgba(145, 173, 204, 0.25);
+  backdrop-filter: blur(14px);
+  background: linear-gradient(180deg, rgba(8, 13, 20, 0.9), rgba(8, 13, 20, 0.72));
 }
 
 .site-header-inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0.8rem 1.6rem;
+  padding: 0.9rem 1.6rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -690,54 +690,61 @@ main {
 .site-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .site-brand-mark {
   display: grid;
   place-items: center;
-  width: 1.9rem;
-  height: 1.9rem;
+  width: 1.95rem;
+  height: 1.95rem;
   border-radius: 999px;
   font-size: 0.74rem;
-  background: linear-gradient(145deg, #86b4ff, #5579b8);
+  background: radial-gradient(circle at 30% 20%, #9ec2ff, #5f84c5);
   color: #021225;
+  box-shadow: 0 0 24px rgba(114, 168, 255, 0.25);
 }
 
 .site-nav {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(19, 30, 45, 0.48);
+  border: 1px solid rgba(145, 173, 204, 0.14);
 }
 
 .site-nav-link {
-  padding: 0.38rem 0.7rem;
+  padding: 0.42rem 0.72rem;
   border-radius: 999px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
 }
 
 .site-nav-link.active,
 .site-nav-link:hover {
-  background: rgba(114, 168, 255, 0.16);
+  background: rgba(114, 168, 255, 0.2);
   color: var(--text);
 }
 
 .site-download-cta {
-  border: 1px solid rgba(114, 168, 255, 0.45);
-  background: rgba(114, 168, 255, 0.16);
+  border: 1px solid rgba(114, 168, 255, 0.55);
+  background: linear-gradient(180deg, rgba(114, 168, 255, 0.22), rgba(114, 168, 255, 0.14));
   border-radius: 999px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 .home-shell {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 4.2rem 1.6rem 4rem;
+  padding: 4.8rem 1.6rem 4.2rem;
   display: grid;
-  gap: 3.4rem;
+  gap: 3.5rem;
 }
 
 .home-hero {
@@ -749,24 +756,25 @@ main {
 
 .home-kicker {
   margin: 0;
-  color: #a8c2e8;
-  letter-spacing: 0.12em;
+  color: #b4caf0;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .home-hero h1 {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3.9rem);
-  line-height: 1.08;
-  max-width: 980px;
+  font-size: clamp(2rem, 5.1vw, 4.1rem);
+  line-height: 1.05;
+  max-width: 960px;
+  letter-spacing: -0.02em;
 }
 
 .home-subtitle {
   margin: 0;
   color: var(--muted);
-  max-width: 760px;
-  font-size: clamp(1rem, 2.2vw, 1.2rem);
+  max-width: 700px;
+  font-size: clamp(1rem, 2.1vw, 1.15rem);
 }
 
 .home-hero-actions {
@@ -779,19 +787,20 @@ main {
 .home-button {
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 0.55rem 0.95rem;
+  padding: 0.58rem 0.98rem;
   background: var(--panel-soft);
   color: var(--text);
   font-size: 0.92rem;
 }
 
 .home-button-primary {
-  border-color: rgba(114, 168, 255, 0.52);
-  background: rgba(114, 168, 255, 0.2);
+  border-color: rgba(114, 168, 255, 0.6);
+  background: rgba(114, 168, 255, 0.24);
 }
 
-.home-button:disabled {
-  opacity: 0.6;
+.home-button-secondary,
+.home-button-tertiary {
+  background: rgba(19, 30, 45, 0.66);
 }
 
 .home-feature-grid {
@@ -801,18 +810,34 @@ main {
 }
 
 .home-feature-card {
-  border: 1px solid rgba(145, 173, 204, 0.2);
-  border-radius: 1.1rem;
-  background: linear-gradient(180deg, rgba(23, 34, 50, 0.9), rgba(12, 18, 28, 0.98));
-  padding: 1.4rem;
+  border: 1px solid rgba(145, 173, 204, 0.22);
+  border-radius: 1.15rem;
+  background: linear-gradient(180deg, rgba(23, 34, 50, 0.88), rgba(12, 18, 28, 0.98));
+  padding: 1.45rem;
 }
 
 .home-feature-icon {
-  font-size: 1.6rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(114, 168, 255, 0.14);
+  border: 1px solid rgba(114, 168, 255, 0.28);
+}
+
+.home-feature-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  stroke: #d2e5ff;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .home-feature-card h2 {
-  margin: 0.65rem 0 0.45rem;
+  margin: 0.8rem 0 0.45rem;
   font-size: 1.15rem;
 }
 
@@ -825,12 +850,12 @@ main {
 .home-feature-link {
   display: inline-block;
   margin-top: 0.95rem;
-  color: #bcd4f4;
+  color: #c7dcfa;
 }
 
 .home-workflow,
 .home-supporting {
-  border: 1px solid rgba(145, 173, 204, 0.2);
+  border: 1px solid rgba(145, 173, 204, 0.24);
   border-radius: 1.2rem;
   background: rgba(18, 27, 40, 0.72);
   padding: 1.6rem;
@@ -849,7 +874,7 @@ main {
 }
 
 .home-workflow-step {
-  border: 1px solid rgba(145, 173, 204, 0.18);
+  border: 1px solid rgba(145, 173, 204, 0.2);
   border-radius: 0.9rem;
   padding: 0.9rem;
   display: grid;
@@ -862,7 +887,7 @@ main {
   width: 1.7rem;
   height: 1.7rem;
   border-radius: 999px;
-  background: rgba(114, 168, 255, 0.18);
+  background: rgba(114, 168, 255, 0.2);
   font-size: 0.85rem;
 }
 
@@ -872,10 +897,45 @@ main {
   color: var(--muted);
 }
 
+.home-supporting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+}
+
+.home-supporting-eyebrow {
+  margin-bottom: 0.5rem;
+  color: #afc8ec;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+}
+
+.home-supporting-actions {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+}
+
+.home-coming-soon {
+  color: var(--muted);
+  font-size: 0.83rem;
+}
+
 @media (max-width: 980px) {
   .home-feature-grid,
   .home-workflow-steps {
     grid-template-columns: 1fr;
+  }
+
+  .home-supporting {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-supporting-actions {
+    justify-items: start;
   }
 }
 
