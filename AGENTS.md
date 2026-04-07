@@ -28,6 +28,18 @@ Do not move runtime/live coaching concerns into Studio unless explicitly request
 4. Prefer additive schema evolution and explicit manifest/versioning notes.
 5. Keep docs and user workflows clear and synchronized with implementation.
 
+## Repo structure responsibility map
+
+- `src/lib/schema/contracts.ts`: canonical portable package contract definitions.
+- `src/lib/package/*`: package validation/import/export/versioning/sample fixtures.
+- `src/lib/editor/*`: Studio working-copy mutation helpers.
+- `src/lib/detection/*` + `src/lib/pose/*` + `src/lib/canvas/*`: detection integration and canonical pose/canvas mapping.
+- `src/lib/publishing/*` + `src/lib/registry/*`: publish and local catalog abstractions around package artifacts.
+- `src/components/*`: UI components only.
+- `src/app/*`: route entrypoints/layout composition.
+
+Prefer keeping business logic out of components when it can live in `src/lib/*` seams.
+
 ## Contract and documentation synchronization (mandatory)
 
 If you modify drill/package contracts, semantics, or payload examples, update all relevant files in the same PR:

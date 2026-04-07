@@ -41,3 +41,14 @@ test("returns null when package has no phases", () => {
 
   assert.equal(next, null);
 });
+
+
+test("falls back to first phase when no phase is currently selected", () => {
+  const next = chooseFallbackPhaseId({
+    selectedPhaseId: null,
+    availablePhaseIds: ["phase_1", "phase_2"],
+    previousPhaseIndexes: {}
+  });
+
+  assert.equal(next, "phase_1");
+});

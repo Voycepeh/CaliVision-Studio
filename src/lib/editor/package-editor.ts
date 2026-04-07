@@ -1,7 +1,6 @@
 import { clampNormalized } from "@/lib/canvas/mapping";
-import { getCanonicalRenderCanvasSpec } from "@/lib/canvas/spec";
 import { validatePortableDrillPackage, type PackageValidationResult } from "@/lib/package/validation/validate-package";
-import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
+import { createDefaultPortablePose } from "@/lib/pose/portable-pose";
 import type { CanonicalJointName, DrillPackage, PortablePhase, PortablePose, PortableViewType } from "@/lib/schema/contracts";
 
 export type EditablePackageEntry = {
@@ -88,23 +87,7 @@ export function ensureUniquePhaseId(phases: PortablePhase[], seed: string): stri
 }
 
 export function createDefaultPose(poseId: string, view: PortableViewType, timestampMs = 0): PortablePose {
-  const canvas = getCanonicalRenderCanvasSpec(view);
-  const joints: PortablePose["joints"] = {};
-
-  CANONICAL_JOINT_NAMES.forEach((joint) => {
-    joints[joint] = {
-      x: 0.5,
-      y: 0.5,
-      confidence: 1
-    };
-  });
-
-  return {
-    poseId,
-    timestampMs,
-    canvas,
-    joints
-  };
+  return createDefaultPortablePose(poseId, view, timestampMs);
 }
 
 export function createNewPhase(phaseId: string, order: number, view: PortableViewType): PortablePhase {
