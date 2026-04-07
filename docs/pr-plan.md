@@ -22,8 +22,9 @@ Studio now has drill/package analysis metadata but no runtime comparison layer t
   - temporal smoothing/ordered transition enforcement,
   - rep/hold event extraction,
   - session-level analysis runner output.
-- Support ordered phase sequence semantics, bounded allowed skip transitions, confirmation frames, and exit grace handling.
+- Support ordered phase sequence semantics, bounded allowed skip transitions, confirmation frames, hold entry confirmation (`entryConfirmationFrames`), and exit grace handling.
 - Emit typed event logs and summary metrics from sampled frame analysis.
+- Phase scoring currently picks the best match from authored `phase.poseSequence` key poses as a deterministic baseline (not full sequence-progress modeling yet).
 - Add synthetic fixtures/tests for rep, hold, skip, cooldown, invalid transition, and low-confidence behavior.
 
 ## Non-goals

@@ -3,9 +3,10 @@ import type { FramePhaseScore, SmoothedPhaseFrame, TemporalSmoothingResult } fro
 
 export function smoothPhaseTimeline(
   scoredFrames: FramePhaseScore[],
-  analysis: PortableDrillAnalysis
+  analysis: PortableDrillAnalysis,
+  options: { entryConfirmationFrames?: number } = {}
 ): TemporalSmoothingResult {
-  const minimumConfirmationFrames = Math.max(1, analysis.minimumConfirmationFrames || 1);
+  const minimumConfirmationFrames = Math.max(1, options.entryConfirmationFrames ?? analysis.minimumConfirmationFrames ?? 1);
   const exitGraceFrames = Math.max(0, analysis.exitGraceFrames || 0);
   const allowedSkipKeys = new Set(
     analysis.allowedPhaseSkips.map((skip) => `${skip.fromPhaseId}->${skip.toPhaseId}`)

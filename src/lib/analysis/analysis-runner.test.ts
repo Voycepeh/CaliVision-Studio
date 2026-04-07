@@ -232,3 +232,47 @@ test("unknown/low-confidence frames do not create false reps", () => {
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
   assert.equal(result.session.summary.repCount, 0);
 });
+
+test("hold entryConfirmationFrames overrides generic confirmation for hold entry", () => {
+  const drill = buildDrill({
+    drillType: "hold",
+    analysis: {
+      ...buildDrill().analysis!,
+      measurementType: "hold",
+      orderedPhaseSequence: ["bottom"],
+      targetHoldPhaseId: "bottom",
+      minimumConfirmationFrames: 1,
+      entryConfirmationFrames: 3,
+      exitGraceFrames: 1,
+      minimumHoldDurationMs: 100
+    }
+  });
+
+  const frames = [poseFrame(0, 0.8), poseFrame(100, 0.8), poseFrame(200, 0.8), poseFrame(300, 0.8), poseFrame(400, 0.2), poseFrame(500, 0.2)];
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+
+  const holdStart = result.session.events.find((event) => event.type === "hold_start");
+  assert.ok(holdStart);
+  assert.equal(holdStart?.timestampMs, 200);
+});
+
+test("phase scorer can match any authored pose in phase poseSequence", () => {
+  const drill = buildDrill({
+    phases: [
+      {
+        ...buildDrill().phases[0],
+        phaseId: "top",
+        poseSequence: [makePose("top_a", 0, 0.2), makePose("top_b", 100, 0.35)]
+      },
+      buildDrill().phases[1]
+    ]
+  });
+
+  const result = runDrillAnalysisPipeline({
+    drill,
+    sampledFrames: [poseFrame(0, 0.35)]
+  });
+
+  assert.equal(result.scoredFrames[0].bestPhaseId, "top");
+  assert.ok(result.scoredFrames[0].bestPhaseScore > 0.9);
+});

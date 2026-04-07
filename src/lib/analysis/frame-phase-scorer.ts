@@ -43,11 +43,29 @@ export function scoreFramesAgainstDrillPhases(
 }
 
 function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: number): number {
-  const template = phase.poseSequence[0];
-  if (!template) {
+  if (phase.poseSequence.length === 0) {
     return 0;
   }
 
+  // Baseline behavior: pick the best authored key pose match within the phase sequence.
+  // TODO: evolve toward sequence-aware intra-phase progression scoring.
+  let bestTemplateScore = 0;
+  for (const template of phase.poseSequence) {
+    const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance);
+    if (templateScore > bestTemplateScore) {
+      bestTemplateScore = templateScore;
+    }
+  }
+
+  return bestTemplateScore;
+}
+
+function scoreFrameForTemplate(
+  frame: PoseFrame,
+  phase: PortablePhase,
+  template: NonNullable<PortablePhase["poseSequence"][number]>,
+  tolerance: number
+): number {
   const hintRequired = phase.analysis?.matchHints?.requiredJoints ?? [];
   const hintOptional = phase.analysis?.matchHints?.optionalJoints ?? [];
   const preferredJoints = hintRequired.length > 0 || hintOptional.length > 0
@@ -96,7 +114,7 @@ function computeNormalizationDistance(frame: PoseFrame, template: NonNullable<Po
     ? Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y)
     : 0;
 
-  return Math.max(0.2, hipWidth, shoulderWidth, 1);
+  return Math.max(0.2, hipWidth, shoulderWidth);
 }
 
 function buildQualityFlags(frame: PoseFrame, phase: PortablePhase | undefined) {

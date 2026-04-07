@@ -8,7 +8,12 @@ export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOu
     includePerPhaseScores: true
   });
 
-  const smoothed = smoothPhaseTimeline(scoredFrames, input.drill.analysis ?? createFallbackAnalysis());
+  const effectiveAnalysis = input.drill.analysis ?? createFallbackAnalysis();
+  const smoothed = smoothPhaseTimeline(scoredFrames, effectiveAnalysis, {
+    entryConfirmationFrames: effectiveAnalysis.measurementType === "hold"
+      ? effectiveAnalysis.entryConfirmationFrames
+      : effectiveAnalysis.minimumConfirmationFrames
+  });
   const extracted = extractAnalysisEvents(input.drill, smoothed.frames, smoothed.transitions);
 
   const startedAtIso = new Date().toISOString();
