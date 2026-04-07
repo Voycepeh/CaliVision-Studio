@@ -58,6 +58,11 @@ Consumers that ignore this block remain compatible.
 
 Studio registry/listing concepts live outside the package payload in `src/lib/registry/*` and are intentionally separate from artifact schema.
 
+Identity note for Drill Studio authoring UX:
+- `drillId`: internal authored-drill identifier (system-managed).
+- `slug`: user-facing friendly identifier for naming/linkability.
+- package/export identifiers (`manifest.packageId`, bundle/distribution references): portability/distribution concern, not primary authoring identity fields.
+
 Examples:
 - `PackageRegistryEntry`
 - `PackageSummary`

@@ -179,15 +179,15 @@ export function StudioCenterInspector() {
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
                   <p className="muted" style={{ margin: 0 }}>Select a phase, then reorder, duplicate, or delete as needed.</p>
-                  <div style={{ display: "flex", gap: "0.35rem" }}>
-                    <button type="button" onClick={() => addPhase()} style={smallButtonStyle}>Add phase</button>
-                    <button type="button" onClick={() => selectPhase(null)} style={smallButtonStyle}>Clear selection</button>
+                  <div className="studio-action-row">
+                    <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary">Add phase</button>
+                    <button type="button" onClick={() => selectPhase(null)} className="studio-button">Clear selection</button>
                   </div>
                 </div>
-                <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.5rem" }}>
+                <div style={{ display: "grid", gap: "0.5rem", marginTop: "0.65rem" }}>
                   {phases.map((phase, index) => (
                     <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>
-                      <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle}>
+                      <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle} className="studio-phase-select-button">
                         <div className="studio-phase-list-heading">
                           <strong className="studio-phase-list-title">{phase.order}. {phase.title}</strong>
                           <span className="muted studio-phase-list-meta">{(phase.durationMs / 1000).toFixed(1)}s • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
@@ -195,11 +195,11 @@ export function StudioCenterInspector() {
                         <small className="muted studio-phase-list-subline">{phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}</small>
                       </button>
 
-                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                        <button type="button" onClick={() => movePhase(phase.phaseId, "up")} style={smallButtonStyle} disabled={index === 0}>Move up</button>
-                        <button type="button" onClick={() => movePhase(phase.phaseId, "down")} style={smallButtonStyle} disabled={index === phases.length - 1}>Move down</button>
-                        <button type="button" onClick={() => duplicatePhase(phase.phaseId)} style={smallButtonStyle}>Duplicate</button>
-                        <button type="button" onClick={() => deletePhase(phase.phaseId)} style={{ ...smallButtonStyle, borderColor: "rgba(232,131,131,0.45)", color: "#f2bbbb" }} disabled={phases.length <= 1}>Delete</button>
+                      <div className="studio-action-row">
+                        <button type="button" onClick={() => movePhase(phase.phaseId, "up")} className="studio-button" disabled={index === 0}>Move up</button>
+                        <button type="button" onClick={() => movePhase(phase.phaseId, "down")} className="studio-button" disabled={index === phases.length - 1}>Move down</button>
+                        <button type="button" onClick={() => duplicatePhase(phase.phaseId)} className="studio-button">Duplicate</button>
+                        <button type="button" onClick={() => deletePhase(phase.phaseId)} className="studio-button studio-button-danger" disabled={phases.length <= 1}>Delete</button>
                       </div>
                     </div>
                   ))}
@@ -208,6 +208,7 @@ export function StudioCenterInspector() {
                 {selectedPhase ? (
                   <div className="card studio-selected-phase-basics">
                     <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase</h4>
+                    <p className="muted" style={{ margin: 0 }}>Update phase name, duration, and author notes.</p>
                     <div className="field-grid">
                       <label style={labelStyle}>
                         <span>Phase name</span>
@@ -239,7 +240,7 @@ export function StudioCenterInspector() {
           <WorkflowSection title="Pose authoring" stepIndex={WORKFLOW_SECTION_IDS.poseAuthoring} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.poseAuthoring)} onToggle={handleSectionToggle}>
             {selectedPhase ? (
               <>
-                <section className="studio-inspector-controls-row" style={{ marginBottom: "0.5rem" }}>
+                <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
                   <label style={labelStyle}>
                     <span>Selected joint</span>
                     <select value={selectedJointName ?? ""} style={inputStyle} onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}>
@@ -266,7 +267,7 @@ export function StudioCenterInspector() {
 
                   <label style={labelStyle}>
                     <span>Canvas size</span>
-                    <button type="button" onClick={() => setIsPoseCanvasExpanded((current) => !current)} style={smallButtonStyle} aria-pressed={isPoseCanvasExpanded}>
+                    <button type="button" onClick={() => setIsPoseCanvasExpanded((current) => !current)} className="studio-button" aria-pressed={isPoseCanvasExpanded}>
                       {isPoseCanvasExpanded ? "Use standard canvas" : "Focus canvas"}
                     </button>
                   </label>
@@ -314,12 +315,12 @@ export function StudioCenterInspector() {
                         </label>
                       </div>
 
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: "0.25rem" }}>
-                        <button type="button" style={smallButtonStyle} onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, -NUDGE_STEP)}>↑</button>
-                        <button type="button" style={smallButtonStyle} onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, -NUDGE_STEP, 0)}>←</button>
-                        <button type="button" style={smallButtonStyle} onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, NUDGE_STEP, 0)}>→</button>
-                        <button type="button" style={smallButtonStyle} onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, NUDGE_STEP)}>↓</button>
-                        <button type="button" style={smallButtonStyle} onClick={() => revertSelectedJoint(selectedPhase.phaseId, selectedJointName)}>Revert joint</button>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: "0.35rem" }}>
+                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, -NUDGE_STEP)}>↑</button>
+                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, -NUDGE_STEP, 0)}>←</button>
+                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, NUDGE_STEP, 0)}>→</button>
+                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, NUDGE_STEP)}>↓</button>
+                        <button type="button" className="studio-button" onClick={() => revertSelectedJoint(selectedPhase.phaseId, selectedJointName)}>Revert joint</button>
                       </div>
                     </>
                   ) : <p className="muted" style={{ margin: 0 }}>Select a joint from the canvas or dropdown to nudge and refine it.</p>}
@@ -327,14 +328,14 @@ export function StudioCenterInspector() {
 
                 <section className="card studio-overlay-controls">
                   <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Overlay alignment</h4>
-                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} style={smallButtonStyle}>
+                  <div className="studio-action-row">
+                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
                       {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
                     </button>
-                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} style={smallButtonStyle}>
+                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
                       {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
                     </button>
-                    <button type="button" onClick={() => resetSelectedPhaseOverlayState()} style={smallButtonStyle}>Reset overlay</button>
+                    <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlay</button>
                   </div>
                 </section>
               </>
@@ -349,7 +350,7 @@ export function StudioCenterInspector() {
             <p className="muted" style={{ marginTop: 0 }}>
               Export generates a bundled drill package with package:// assets when local files are available.
             </p>
-            <button type="button" onClick={exportSelectedPackage} style={smallButtonStyle} disabled={!selectedPackage}>
+            <button type="button" onClick={exportSelectedPackage} className="studio-button studio-button-primary" disabled={!selectedPackage}>
               Export drill bundle
             </button>
           </WorkflowSection>
@@ -358,15 +359,6 @@ export function StudioCenterInspector() {
     </div>
   );
 }
-
-const smallButtonStyle: CSSProperties = {
-  border: "1px solid var(--border)",
-  borderRadius: "0.5rem",
-  background: "var(--panel-soft)",
-  color: "var(--text)",
-  padding: "0.35rem 0.6rem",
-  cursor: "pointer"
-};
 
 const phaseButtonStyle: CSSProperties = {
   textAlign: "left",
