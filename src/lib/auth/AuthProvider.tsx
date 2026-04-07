@@ -1,21 +1,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  loadStoredSession,
-  readSessionFromUrlFragment,
-  sendMagicLink,
-  signOutRemote,
-  storeSession,
-  type AuthSession
-} from "@/lib/auth/supabase-auth";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getActiveAuthSession, mapAuthSession, signInWithGoogle, signOutRemote, type AuthSession } from "@/lib/auth/supabase-auth";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
 
 type AuthContextValue = {
   isConfigured: boolean;
   session: AuthSession | null;
   userEmail: string | null;
-  signInWithEmail: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
 };
 
@@ -25,15 +20,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
-    const sessionFromUrl = readSessionFromUrlFragment();
-    if (sessionFromUrl) {
-      setSession(sessionFromUrl);
-      storeSession(sessionFromUrl);
-      window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+    let mounted = true;
+    const client = createBrowserSupabaseClient();
+
+    if (!client) {
+      setSession(null);
       return;
     }
 
-    setSession(loadStoredSession());
+    void getActiveAuthSession().then((initialSession) => {
+      if (!mounted) return;
+      setSession(initialSession);
+    });
+
+    const {
+      data: { subscription }
+    } = client.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
+      setSession(mapAuthSession(nextSession));
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -41,13 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isConfigured: isSupabaseConfigured(),
       session,
       userEmail: session?.user.email ?? null,
-      signInWithEmail: async (email: string) => sendMagicLink(email),
+      signInWithGoogle: async () => signInWithGoogle("/library"),
       signOut: async () => {
-        if (session) {
-          await signOutRemote(session.accessToken);
-        }
+        await signOutRemote();
         setSession(null);
-        storeSession(null);
       }
     }),
     [session]

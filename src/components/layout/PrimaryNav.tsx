@@ -16,7 +16,7 @@ const items = [
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
-  const { isConfigured, userEmail, signInWithEmail, signOut } = useAuth();
+  const { isConfigured, userEmail, signInWithGoogle, signOut } = useAuth();
 
   async function onAuthClick() {
     if (userEmail) {
@@ -24,10 +24,10 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
       return;
     }
 
-    const email = window.prompt("Enter your email for a magic-link sign in:");
-    if (!email) return;
-    const result = await signInWithEmail(email);
-    window.alert(result.ok ? "Magic link sent. Check your email." : result.error ?? "Sign-in failed.");
+    const result = await signInWithGoogle();
+    if (!result.ok) {
+      window.alert(result.error ?? "Google sign-in failed.");
+    }
   }
 
   return (
@@ -44,8 +44,8 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
             </Link>
           ))}
         </nav>
-        <button type="button" className="site-download-cta" onClick={() => void onAuthClick()}>
-          {!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in"}
+        <button type="button" className="site-download-cta" onClick={() => void onAuthClick()} disabled={!isConfigured}>
+          {!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in with Google"}
         </button>
       </div>
     </header>

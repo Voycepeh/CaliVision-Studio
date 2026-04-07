@@ -17,7 +17,22 @@ create table if not exists public.hosted_drafts (
 
 create unique index if not exists hosted_drafts_owner_package_idx on public.hosted_drafts (owner_user_id, package_id, package_version);
 
+create table if not exists public.hosted_library (
+  id uuid primary key default gen_random_uuid(),
+  owner_user_id uuid not null references auth.users(id) on delete cascade,
+  package_id text not null,
+  package_version text not null,
+  title text not null,
+  summary text not null default '',
+  content jsonb not null,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create unique index if not exists hosted_library_owner_package_idx on public.hosted_library (owner_user_id, package_id, package_version);
+
 alter table public.hosted_drafts enable row level security;
+alter table public.hosted_library enable row level security;
 
 create policy "hosted_drafts_owner_select" on public.hosted_drafts
 for select using (auth.uid() = owner_user_id);
@@ -32,7 +47,20 @@ with check (auth.uid() = owner_user_id);
 create policy "hosted_drafts_owner_delete" on public.hosted_drafts
 for delete using (auth.uid() = owner_user_id);
 
-create or replace function public.set_hosted_draft_owner_from_auth()
+create policy "hosted_library_owner_select" on public.hosted_library
+for select using (auth.uid() = owner_user_id);
+
+create policy "hosted_library_owner_insert" on public.hosted_library
+for insert with check (auth.uid() = owner_user_id);
+
+create policy "hosted_library_owner_update" on public.hosted_library
+for update using (auth.uid() = owner_user_id)
+with check (auth.uid() = owner_user_id);
+
+create policy "hosted_library_owner_delete" on public.hosted_library
+for delete using (auth.uid() = owner_user_id);
+
+create or replace function public.set_owner_from_auth()
 returns trigger
 language plpgsql
 security definer
@@ -50,8 +78,26 @@ $$;
 drop trigger if exists trg_set_hosted_draft_owner on public.hosted_drafts;
 create trigger trg_set_hosted_draft_owner
 before insert or update on public.hosted_drafts
-for each row execute function public.set_hosted_draft_owner_from_auth();
+for each row execute function public.set_owner_from_auth();
+
+drop trigger if exists trg_set_hosted_library_owner on public.hosted_library;
+create trigger trg_set_hosted_library_owner
+before insert or update on public.hosted_library
+for each row execute function public.set_owner_from_auth();
 
 insert into storage.buckets (id, name, public)
 values ('draft-assets', 'draft-assets', false)
 on conflict (id) do nothing;
+
+create policy "draft_assets_owner_select" on storage.objects
+for select using (bucket_id = 'draft-assets' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "draft_assets_owner_insert" on storage.objects
+for insert with check (bucket_id = 'draft-assets' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "draft_assets_owner_update" on storage.objects
+for update using (bucket_id = 'draft-assets' and auth.uid()::text = (storage.foldername(name))[1])
+with check (bucket_id = 'draft-assets' and auth.uid()::text = (storage.foldername(name))[1]);
+
+create policy "draft_assets_owner_delete" on storage.objects
+for delete using (bucket_id = 'draft-assets' and auth.uid()::text = (storage.foldername(name))[1]);

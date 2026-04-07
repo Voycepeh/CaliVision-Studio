@@ -1,17 +1,27 @@
 export type SupabasePublicEnv = {
   url: string;
-  anonKey: string;
+  publishableKey: string;
 };
+
+function readKey(): string | null {
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (publishableKey) {
+    return publishableKey;
+  }
+
+  const legacyAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  return legacyAnonKey || null;
+}
 
 export function getSupabasePublicEnv(): SupabasePublicEnv | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const publishableKey = readKey();
 
-  if (!url || !anonKey) {
+  if (!url || !publishableKey) {
     return null;
   }
 
-  return { url, anonKey };
+  return { url, publishableKey };
 }
 
 export function isSupabaseConfigured(): boolean {

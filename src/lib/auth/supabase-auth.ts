@@ -1,4 +1,5 @@
-import { getSupabasePublicEnv } from "@/lib/supabase/public-env";
+import type { Session } from "@supabase/supabase-js";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export type AuthUser = {
   id: string;
@@ -12,87 +13,52 @@ export type AuthSession = {
   user: AuthUser;
 };
 
-const SESSION_KEY = "calivision.supabase.session";
-
-export function loadStoredSession(): AuthSession | null {
-  if (typeof window === "undefined") return null;
-  const raw = window.localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthSession;
-  } catch {
+export function mapAuthSession(session: Session | null): AuthSession | null {
+  if (!session?.user?.id || !session.access_token) {
     return null;
   }
+
+  return {
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresAt: session.expires_at ?? null,
+    user: {
+      id: session.user.id,
+      email: session.user.email ?? null
+    }
+  };
 }
 
-export function storeSession(session: AuthSession | null): void {
-  if (typeof window === "undefined") return;
-  if (!session) {
-    window.localStorage.removeItem(SESSION_KEY);
-    return;
+export async function getActiveAuthSession(): Promise<AuthSession | null> {
+  const client = createBrowserSupabaseClient();
+  if (!client) return null;
+
+  const { data } = await client.auth.getSession();
+  return mapAuthSession(data.session);
+}
+
+export async function signInWithGoogle(returnTo: string): Promise<{ ok: boolean; error?: string }> {
+  const client = createBrowserSupabaseClient();
+  if (!client || typeof window === "undefined") {
+    return { ok: false, error: "Supabase is not configured." };
   }
-  window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-}
 
-export async function sendMagicLink(email: string): Promise<{ ok: boolean; error?: string }> {
-  const env = getSupabasePublicEnv();
-  if (!env) return { ok: false, error: "Supabase is not configured." };
-
-  const response = await fetch(`${env.url}/auth/v1/otp`, {
-    method: "POST",
-    headers: {
-      apikey: env.anonKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      email,
-      create_user: true
-    })
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnTo)}`;
+  const { error } = await client.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo }
   });
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error_description?: string } | null;
-    return { ok: false, error: payload?.error_description ?? "Failed to send magic link." };
+  if (error) {
+    return { ok: false, error: error.message };
   }
 
   return { ok: true };
 }
 
-export async function signOutRemote(accessToken: string): Promise<void> {
-  const env = getSupabasePublicEnv();
-  if (!env) return;
-  await fetch(`${env.url}/auth/v1/logout`, {
-    method: "POST",
-    headers: {
-      apikey: env.anonKey,
-      Authorization: `Bearer ${accessToken}`
-    }
-  }).catch(() => undefined);
-}
+export async function signOutRemote(): Promise<void> {
+  const client = createBrowserSupabaseClient();
+  if (!client) return;
 
-export function readSessionFromUrlFragment(): AuthSession | null {
-  if (typeof window === "undefined") return null;
-  const fragment = window.location.hash.replace(/^#/, "");
-  if (!fragment) return null;
-  const params = new URLSearchParams(fragment);
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token") ?? "";
-  const expiresIn = params.get("expires_in");
-  const userId = params.get("user_id") ?? "";
-  const type = params.get("type");
-
-  if (!accessToken || type !== "magiclink") return null;
-
-  const email = params.get("email");
-  const expiresAt = expiresIn ? Date.now() + Number(expiresIn) * 1000 : null;
-
-  return {
-    accessToken,
-    refreshToken,
-    expiresAt,
-    user: {
-      id: userId,
-      email
-    }
-  };
+  await client.auth.signOut();
 }

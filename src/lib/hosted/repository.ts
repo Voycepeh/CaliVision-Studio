@@ -37,7 +37,7 @@ function headers(session: AuthSession): HeadersInit {
   const env = getSupabasePublicEnv();
   return {
     "Content-Type": "application/json",
-    apikey: env?.anonKey ?? "",
+    apikey: env?.publishableKey ?? "",
     Authorization: `Bearer ${session.accessToken}`
   };
 }
