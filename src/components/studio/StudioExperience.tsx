@@ -17,7 +17,9 @@ export function StudioExperience({
 }) {
   return (
     <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId} initialHostedDraftId={initialHostedDraftId}>
-      <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
+      <div className="studio-route-surface">
+        <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
+      </div>
     </StudioStateProvider>
   );
 }
