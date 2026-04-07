@@ -34,65 +34,55 @@ export function storeSession(session: AuthSession | null): void {
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
-export async function sendMagicLink(email: string): Promise<{ ok: boolean; error?: string }> {
-  const env = getSupabasePublicEnv();
-  if (!env) return { ok: false, error: "Supabase is not configured." };
-
-  const response = await fetch(`${env.url}/auth/v1/otp`, {
-    method: "POST",
-    headers: {
-      apikey: env.anonKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      email,
-      create_user: true
-    })
-  });
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error_description?: string } | null;
-    return { ok: false, error: payload?.error_description ?? "Failed to send magic link." };
-  }
-
-  return { ok: true };
-}
-
-export async function signOutRemote(accessToken: string): Promise<void> {
-  const env = getSupabasePublicEnv();
-  if (!env) return;
-  await fetch(`${env.url}/auth/v1/logout`, {
-    method: "POST",
-    headers: {
-      apikey: env.anonKey,
-      Authorization: `Bearer ${accessToken}`
-    }
-  }).catch(() => undefined);
-}
-
 export function readSessionFromUrlFragment(): AuthSession | null {
   if (typeof window === "undefined") return null;
   const fragment = window.location.hash.replace(/^#/, "");
   if (!fragment) return null;
+
   const params = new URLSearchParams(fragment);
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token") ?? "";
   const expiresIn = params.get("expires_in");
   const userId = params.get("user_id") ?? "";
-  const type = params.get("type");
 
-  if (!accessToken || type !== "magiclink") return null;
+  if (!accessToken || !userId) return null;
 
-  const email = params.get("email");
   const expiresAt = expiresIn ? Date.now() + Number(expiresIn) * 1000 : null;
-
   return {
     accessToken,
     refreshToken,
     expiresAt,
     user: {
       id: userId,
-      email
+      email: params.get("email")
     }
   };
+}
+
+export async function signInWithGoogle(returnTo: string): Promise<{ ok: boolean; error?: string }> {
+  const env = getSupabasePublicEnv();
+  if (!env || typeof window === "undefined") {
+    return { ok: false, error: "Supabase is not configured." };
+  }
+
+  const redirectTo = `${window.location.origin}${returnTo}`;
+  const authorizeUrl = new URL(`${env.url}/auth/v1/authorize`);
+  authorizeUrl.searchParams.set("provider", "google");
+  authorizeUrl.searchParams.set("redirect_to", redirectTo);
+
+  window.location.assign(authorizeUrl.toString());
+  return { ok: true };
+}
+
+export async function signOutRemote(accessToken: string): Promise<void> {
+  const env = getSupabasePublicEnv();
+  if (!env) return;
+
+  await fetch(`${env.url}/auth/v1/logout`, {
+    method: "POST",
+    headers: {
+      apikey: env.publishableKey,
+      Authorization: `Bearer ${accessToken}`
+    }
+  }).catch(() => undefined);
 }

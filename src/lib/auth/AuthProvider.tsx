@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   loadStoredSession,
   readSessionFromUrlFragment,
-  sendMagicLink,
+  signInWithGoogle,
   signOutRemote,
   storeSession,
   type AuthSession
@@ -15,7 +15,7 @@ type AuthContextValue = {
   isConfigured: boolean;
   session: AuthSession | null;
   userEmail: string | null;
-  signInWithEmail: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
 };
 
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isConfigured: isSupabaseConfigured(),
       session,
       userEmail: session?.user.email ?? null,
-      signInWithEmail: async (email: string) => sendMagicLink(email),
+      signInWithGoogle: async () => signInWithGoogle("/library"),
       signOut: async () => {
         if (session) {
           await signOutRemote(session.accessToken);

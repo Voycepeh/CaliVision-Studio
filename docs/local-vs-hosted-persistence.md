@@ -1,17 +1,17 @@
-# Local vs hosted persistence
+# Local-only vs signed-in hosted persistence
 
-## Local drafts (existing, still primary safety layer)
+## Local-only behavior (guest or missing Supabase env)
 
-- Stored in browser IndexedDB.
-- Autosaved continuously in Studio.
-- Works offline/local-only.
+- App remains fully usable.
+- Drafts and library data stay in browser-local persistence.
+- Hosted controls are hidden or disabled.
 
-## Hosted drafts (new)
+## Signed-in hosted behavior (Google auth)
 
-- Require Supabase config + signed-in user.
-- Saved manually via "Save to account".
-- Available across sessions/devices for that user.
+- User signs in with Google through Supabase.
+- Hosted drafts/library become available under that user account.
+- RLS policies ensure each user can only access their own hosted rows.
 
-## Failure behavior
+## Failure safety
 
-If hosted save/load/auth/network fails, local editing and local autosave remain intact.
+If Supabase is unavailable, browser-local authoring remains available so Drill Studio workflows are not blocked.

@@ -15,7 +15,7 @@ export async function uploadHostedDraftAsset(input: {
   const response = await fetch(`${env.url}/storage/v1/object/draft-assets/${path}`, {
     method: "POST",
     headers: {
-      apikey: env.anonKey,
+      apikey: env.publishableKey,
       Authorization: `Bearer ${input.session.accessToken}`,
       "Content-Type": input.file.type || "application/octet-stream",
       "x-upsert": "true"
