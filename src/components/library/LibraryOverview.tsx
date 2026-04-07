@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { deleteHostedDraft, listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
+import { deleteHostedDraft, listMyHostedDrafts, loadHostedDraft, upsertHostedDraft } from "@/lib/hosted/repository";
 import type { HostedDraftSummary } from "@/lib/hosted/types";
 import {
   deleteHostedLibraryItem,
@@ -34,6 +34,11 @@ import {
 } from "@/lib/persistence/local-draft-store";
 
 type FeedbackTone = "success" | "error";
+type ItemActionState = {
+  pendingActionByItemId: Record<string, string>;
+  actionMessageByItemId: Record<string, string>;
+  actionErrorByItemId: Record<string, string>;
+};
 
 export function LibraryOverview() {
   const router = useRouter();
@@ -42,12 +47,15 @@ export function LibraryOverview() {
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const [localDrafts, setLocalDrafts] = useState<LocalDraftSummary[]>([]);
-  const [message, setMessage] = useState("");
   const [hostedDrafts, setHostedDrafts] = useState<HostedDraftSummary[]>([]);
   const [hostedLibrary, setHostedLibrary] = useState<HostedLibraryItem[]>([]);
   const [localImportDismissed, setLocalImportDismissed] = useState(false);
   const { session, userEmail } = useAuth();
-  const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("success");
+  const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
+    pendingActionByItemId: {},
+    actionMessageByItemId: {},
+    actionErrorByItemId: {}
+  });
   const signedInMode = Boolean(userEmail && isSupabaseConfigured() && session);
   const meaningfulLocalDrafts = useMemo(
     () => localDrafts.filter((draft) => !draft.sourceLabel.startsWith("hosted-library:")),
@@ -58,7 +66,7 @@ export function LibraryOverview() {
     try {
       setLocalDrafts(await loadDraftList());
     } catch {
-      setFeedback("Local draft storage is unavailable in this browser.", "error");
+      setItemFeedback("global:drafts", "Local draft storage is unavailable in this browser.", "error");
     }
   }, []);
 
@@ -74,7 +82,7 @@ export function LibraryOverview() {
       return;
     }
 
-    setFeedback(result.error, "error");
+    setItemFeedback("global:hosted-drafts", result.error, "error");
   }, [session]);
 
   const refreshHostedLibrary = useCallback(async (): Promise<void> => {
@@ -89,7 +97,7 @@ export function LibraryOverview() {
       return;
     }
 
-    setFeedback(result.error, "error");
+    setItemFeedback("global:hosted-library", result.error, "error");
   }, [session]);
 
   useEffect(() => {
@@ -109,9 +117,52 @@ export function LibraryOverview() {
     setLocalImportDismissed(window.localStorage.getItem(key) === "1");
   }, [userEmail]);
 
-  function setFeedback(nextMessage: string, tone: FeedbackTone = "success"): void {
-    setMessage(nextMessage);
-    setFeedbackTone(tone);
+  function setItemFeedback(itemId: string, nextMessage: string, tone: FeedbackTone = "success"): void {
+    setItemActionState((current) => ({
+      ...current,
+      actionMessageByItemId: {
+        ...current.actionMessageByItemId,
+        [itemId]: tone === "success" ? nextMessage : ""
+      },
+      actionErrorByItemId: {
+        ...current.actionErrorByItemId,
+        [itemId]: tone === "error" ? nextMessage : ""
+      }
+    }));
+  }
+
+  async function runItemAction(itemId: string, actionLabel: string, run: () => Promise<void>): Promise<void> {
+    setItemActionState((current) => ({
+      ...current,
+      pendingActionByItemId: {
+        ...current.pendingActionByItemId,
+        [itemId]: actionLabel
+      },
+      actionMessageByItemId: {
+        ...current.actionMessageByItemId,
+        [itemId]: ""
+      },
+      actionErrorByItemId: {
+        ...current.actionErrorByItemId,
+        [itemId]: ""
+      }
+    }));
+
+    try {
+      await run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Action failed. Please try again.";
+      setItemFeedback(itemId, message, "error");
+    } finally {
+      setItemActionState((current) => {
+        const nextPending = { ...current.pendingActionByItemId };
+        delete nextPending[itemId];
+        return {
+          ...current,
+          pendingActionByItemId: nextPending
+        };
+      });
+    }
   }
 
   function refreshLibrary(): void {
@@ -157,13 +208,26 @@ export function LibraryOverview() {
     next.manifest.createdAtIso = createdAt;
     next.manifest.updatedAtIso = createdAt;
     next.drills[0].title = "New drill draft";
+    if (signedInMode && session) {
+      const hosted = await upsertHostedDraft(session, { packageJson: next });
+      if (!hosted.ok) {
+        setItemFeedback("global:create", hosted.error, "error");
+        return;
+      }
+
+      setItemFeedback("global:create", "Created a new drill draft.");
+      await refreshHostedDrafts();
+      router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
+      return;
+    }
+
     await saveDraft({
       draftId,
       sourceLabel: "authored-local",
       packageJson: next,
       assetsById: {}
     });
-    setFeedback("Created a new drill draft.");
+    setItemFeedback("global:create", "Created a new drill draft.");
     await refreshDrafts();
     router.push(`/studio?draftId=${encodeURIComponent(draftId)}`);
   }
@@ -171,17 +235,17 @@ export function LibraryOverview() {
   async function onSaveDraftToLibrary(draftId: string): Promise<void> {
     const loaded = await loadDraft(draftId);
     if (!loaded) {
-      setFeedback("Draft could not be loaded.", "error");
+      setItemFeedback(`draft:${draftId}`, "Draft could not be loaded.", "error");
       return;
     }
 
     if (signedInMode && session) {
       const saved = await upsertHostedLibraryItem(session, loaded.record.packageJson);
       if (!saved.ok) {
-        setFeedback(saved.error, "error");
+        setItemFeedback(`draft:${draftId}`, saved.error, "error");
         return;
       }
-      setFeedback(`Saved \"${saved.value.title}\" to My drills.`);
+      setItemFeedback(`draft:${draftId}`, `Saved "${saved.value.title}" to My drills.`);
       await refreshHostedLibrary();
       return;
     }
@@ -193,12 +257,12 @@ export function LibraryOverview() {
         sourceLabel: `draft:${draftId}`
       });
       await deleteDraft(draftId);
-      setFeedback(`Saved \"${saved.summary.title}\" to My drills and removed the draft.`);
+      setItemFeedback(`draft:${draftId}`, `Saved "${saved.summary.title}" to My drills and removed the draft.`);
       refreshLibrary();
       await refreshDrafts();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Draft could not be saved to My drills.";
-      setFeedback(errorMessage, "error");
+      setItemFeedback(`draft:${draftId}`, errorMessage, "error");
     }
   }
 
@@ -214,17 +278,17 @@ export function LibraryOverview() {
     if (!imported.ok) {
       const issueCount = imported.validation?.issues.length ?? 0;
       const issueSuffix = issueCount > 0 ? ` (${issueCount} validation issue${issueCount > 1 ? "s" : ""})` : "";
-      setFeedback(`Import failed for ${file.name}: ${imported.error}${issueSuffix}`, "error");
+      setItemFeedback("global:import", `Import failed for ${file.name}: ${imported.error}${issueSuffix}`, "error");
       return;
     }
 
     if (signedInMode && session) {
       const saved = await upsertHostedLibraryItem(session, imported.packageViewModel.package);
       if (!saved.ok) {
-        setFeedback(saved.error, "error");
+        setItemFeedback("global:import", saved.error, "error");
         return;
       }
-      setFeedback(`Imported \"${saved.value.title}\" into My drills.`);
+      setItemFeedback("global:import", `Imported "${saved.value.title}" into My drills.`);
       await refreshHostedLibrary();
       return;
     }
@@ -236,10 +300,10 @@ export function LibraryOverview() {
         sourceLabel: `library-import:${file.name}`
       });
       refreshLibrary();
-      setFeedback(`Imported \"${saved.summary.title}\" into My drills.`);
+      setItemFeedback("global:import", `Imported "${saved.summary.title}" into My drills.`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Imported file could not be added to My drills.";
-      setFeedback(errorMessage, "error");
+      setItemFeedback("global:import", errorMessage, "error");
     }
   }
 
@@ -248,13 +312,13 @@ export function LibraryOverview() {
       return;
     }
     await deleteDraft(draftId);
-    setFeedback("Deleted local draft.");
+    setItemFeedback(`draft:${draftId}`, "Deleted local draft.");
     await refreshDrafts();
   }
 
   async function onDuplicateDraft(draftId: string): Promise<void> {
     await duplicateDraft(draftId);
-    setFeedback("Duplicated local draft.");
+    setItemFeedback(`draft:${draftId}`, "Duplicated draft.");
     await refreshDrafts();
   }
 
@@ -266,7 +330,7 @@ export function LibraryOverview() {
       packageJson: structuredClone(entry.details.packageJson),
       assetsById: {}
     });
-    setFeedback("Created a drill draft copy from My drills.");
+    setItemFeedback(`drill:${entry.entryId}`, "Created a draft copy.");
     await refreshDrafts();
   }
 
@@ -277,19 +341,22 @@ export function LibraryOverview() {
 
     const removed = deleteRegistryEntry(entry.entryId);
     if (!removed) {
-      setFeedback("Drill was already removed.", "error");
+      setItemFeedback(`drill:${entry.entryId}`, "Drill was already removed.", "error");
       return;
     }
 
     const removedDraftCount = await deleteDraftsForPackage(entry.summary.packageId, entry.summary.packageVersion);
-    setFeedback(removedDraftCount > 0 ? `Deleted drill and ${removedDraftCount} linked draft(s).` : "Deleted drill from My drills.");
+    setItemFeedback(
+      `drill:${entry.entryId}`,
+      removedDraftCount > 0 ? `Deleted drill and ${removedDraftCount} linked draft(s).` : "Deleted drill from My drills."
+    );
     refreshLibrary();
     await refreshDrafts();
   }
 
   async function onDeleteHostedDrill(item: HostedLibraryItem): Promise<void> {
     if (!session) {
-      setFeedback("Sign in to manage My drills in your account.", "error");
+      setItemFeedback(`hosted-drill:${item.id}`, "Sign in to manage My drills in your account.", "error");
       return;
     }
     if (!window.confirm("Delete this drill from My drills?")) {
@@ -298,39 +365,39 @@ export function LibraryOverview() {
 
     const removed = await deleteHostedLibraryItem(session, item.id);
     if (!removed.ok) {
-      setFeedback(removed.error, "error");
+      setItemFeedback(`hosted-drill:${item.id}`, removed.error, "error");
       return;
     }
 
-    setFeedback("Deleted drill from My drills.");
+    setItemFeedback(`hosted-drill:${item.id}`, "Deleted drill from My drills.");
     await refreshHostedLibrary();
   }
 
   async function onOpenHostedLibraryItem(item: HostedLibraryItem): Promise<void> {
     if (!session) {
-      setFeedback("Sign in to open this drill.", "error");
+      setItemFeedback(`hosted-drill:${item.id}`, "Sign in to open this drill.", "error");
       return;
     }
 
     const hosted = await upsertHostedDraft(session, { packageJson: item.content });
     if (!hosted.ok) {
-      setFeedback(hosted.error, "error");
+      setItemFeedback(`hosted-drill:${item.id}`, hosted.error, "error");
       return;
     }
 
-    setFeedback("Opened drill in Drafts.");
+    setItemFeedback(`hosted-drill:${item.id}`, "Opened drill in Drafts.");
     await refreshHostedDrafts();
     router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
   }
 
   async function onImportLocalDraftsToAccount(): Promise<void> {
     if (!session || !signedInMode) {
-      setFeedback("Sign in to import local drafts.", "error");
+      setItemFeedback("global:import-local", "Sign in to import local drafts.", "error");
       return;
     }
 
     if (meaningfulLocalDrafts.length === 0) {
-      setFeedback("No local drafts found on this browser.");
+      setItemFeedback("global:import-local", "No local drafts found on this browser.");
       return;
     }
 
@@ -339,19 +406,27 @@ export function LibraryOverview() {
       const loaded = await loadDraft(summary.draftId);
       if (!loaded) continue;
       const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-      if (saved.ok) imported += 1;
+      if (saved.ok) {
+        imported += 1;
+        await deleteDraft(summary.draftId);
+      }
     }
 
     const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
     window.localStorage.setItem(dismissKey, "1");
     setLocalImportDismissed(true);
-    setFeedback(imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.", imported > 0 ? "success" : "error");
+    setItemFeedback(
+      "global:import-local",
+      imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.",
+      imported > 0 ? "success" : "error"
+    );
+    await refreshDrafts();
     await refreshHostedDrafts();
   }
 
   async function onDeleteHostedDraft(draft: HostedDraftSummary): Promise<void> {
     if (!session) {
-      setFeedback("Sign in to manage Drafts.", "error");
+      setItemFeedback(`hosted-draft:${draft.id}`, "Sign in to manage Drafts.", "error");
       return;
     }
     if (!window.confirm("Delete this draft?")) {
@@ -359,11 +434,33 @@ export function LibraryOverview() {
     }
     const removed = await deleteHostedDraft(session, draft.id);
     if (!removed.ok) {
-      setFeedback(removed.error, "error");
+      setItemFeedback(`hosted-draft:${draft.id}`, removed.error, "error");
       return;
     }
-    setFeedback("Deleted draft.");
+    setItemFeedback(`hosted-draft:${draft.id}`, "Deleted draft.");
     await refreshHostedDrafts();
+  }
+
+  async function onSaveHostedDraftToLibrary(draft: HostedDraftSummary): Promise<void> {
+    if (!session) {
+      setItemFeedback(`hosted-draft:${draft.id}`, "Sign in to manage Drafts.", "error");
+      return;
+    }
+
+    const loaded = await loadHostedDraft(session, draft.id);
+    if (!loaded.ok) {
+      setItemFeedback(`hosted-draft:${draft.id}`, loaded.error, "error");
+      return;
+    }
+
+    const saved = await upsertHostedLibraryItem(session, loaded.value.content);
+    if (!saved.ok) {
+      setItemFeedback(`hosted-draft:${draft.id}`, saved.error, "error");
+      return;
+    }
+
+    setItemFeedback(`hosted-draft:${draft.id}`, `Saved "${saved.value.title}" to My drills.`);
+    await refreshHostedLibrary();
   }
 
   return (
@@ -374,7 +471,12 @@ export function LibraryOverview() {
           Start a new drill, continue Drafts, open My drills, import drill files, or browse Exchange.
         </p>
         <div style={compactActionRowStyle}>
-          <button type="button" style={primaryButtonStyle} onClick={() => void onCreateDraft()}>
+          <button
+            type="button"
+            style={primaryButtonStyle}
+            disabled={Boolean(pendingActionByItemId["global:create"])}
+            onClick={() => void runItemAction("global:create", "Creating drill…", onCreateDraft)}
+          >
             New drill
           </button>
           <input
@@ -400,10 +502,16 @@ export function LibraryOverview() {
             </p>
           </div>
           <div style={compactActionRowStyle}>
-            <button type="button" style={chipStyle(true)} onClick={() => void onImportLocalDraftsToAccount()}>
+            <button
+              type="button"
+              style={chipStyle(true)}
+              disabled={Boolean(pendingActionByItemId["global:import-local"])}
+              onClick={() => void runItemAction("global:import-local", "Importing drafts…", onImportLocalDraftsToAccount)}
+            >
               Import local drafts to account
             </button>
           </div>
+          <InlineItemFeedback itemId="global:import-local" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
         </section>
       ) : null}
 
@@ -430,12 +538,33 @@ export function LibraryOverview() {
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(draft.updatedAtIso).toLocaleString()}</p>
                   <div style={compactActionRowStyle}>
                     <Link className="pill" href={`/studio?hostedDraftId=${encodeURIComponent(draft.id)}`}>
-                      Continue editing
+                      Open
                     </Link>
-                    <button type="button" style={chipStyle(false)} onClick={() => void onDeleteHostedDraft(draft)}>
+                    <button
+                      type="button"
+                      style={chipStyle(true)}
+                      disabled={Boolean(pendingActionByItemId[`hosted-draft:${draft.id}`])}
+                      onClick={() =>
+                        void runItemAction(`hosted-draft:${draft.id}`, "Saving to My drills…", () => onSaveHostedDraftToLibrary(draft))
+                      }
+                    >
+                      Save to My drills
+                    </button>
+                    <button type="button" style={chipStyle(false)} disabled title="Duplicate for hosted drafts is not available yet.">
+                      Duplicate draft
+                    </button>
+                    <button
+                      type="button"
+                      style={chipStyle(false)}
+                      disabled={Boolean(pendingActionByItemId[`hosted-draft:${draft.id}`])}
+                      onClick={() =>
+                        void runItemAction(`hosted-draft:${draft.id}`, "Deleting draft…", () => onDeleteHostedDraft(draft))
+                      }
+                    >
                       Delete draft
                     </button>
                   </div>
+                  <InlineItemFeedback itemId={`hosted-draft:${draft.id}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                 </article>
               ))}
             </div>
@@ -461,16 +590,32 @@ export function LibraryOverview() {
                   <Link className="pill" href={`/studio?draftId=${encodeURIComponent(draft.draftId)}`}>
                     Continue editing
                   </Link>
-                  <button type="button" style={chipStyle(true)} onClick={() => void onSaveDraftToLibrary(draft.draftId)}>
+                  <button
+                    type="button"
+                    style={chipStyle(true)}
+                    disabled={Boolean(pendingActionByItemId[`draft:${draft.draftId}`])}
+                    onClick={() => void runItemAction(`draft:${draft.draftId}`, "Saving to My drills…", () => onSaveDraftToLibrary(draft.draftId))}
+                  >
                     Save to My drills
                   </button>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDraft(draft.draftId)}>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`draft:${draft.draftId}`])}
+                    onClick={() => void runItemAction(`draft:${draft.draftId}`, "Duplicating draft…", () => onDuplicateDraft(draft.draftId))}
+                  >
                     Duplicate draft
                   </button>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onDeleteDraft(draft.draftId)}>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`draft:${draft.draftId}`])}
+                    onClick={() => void runItemAction(`draft:${draft.draftId}`, "Deleting draft…", () => onDeleteDraft(draft.draftId))}
+                  >
                     Delete draft
                   </button>
                 </div>
+                <InlineItemFeedback itemId={`draft:${draft.draftId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
               </article>
             ))}
           </div>
@@ -518,13 +663,24 @@ export function LibraryOverview() {
                   <p className="muted" style={{ margin: 0 }}>v{item.packageVersion} • account</p>
                 </div>
                 <div style={compactActionRowStyle}>
-                  <button type="button" style={chipStyle(true)} onClick={() => void onOpenHostedLibraryItem(item)}>
-                    Open in Studio
+                  <button
+                    type="button"
+                    style={chipStyle(true)}
+                    disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
+                    onClick={() => void runItemAction(`hosted-drill:${item.id}`, "Opening in Studio…", () => onOpenHostedLibraryItem(item))}
+                  >
+                    Open
                   </button>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onDeleteHostedDrill(item)}>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
+                    onClick={() => void runItemAction(`hosted-drill:${item.id}`, "Deleting drill…", () => onDeleteHostedDrill(item))}
+                  >
                     Delete
                   </button>
                 </div>
+                <InlineItemFeedback itemId={`hosted-drill:${item.id}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
               </article>
             ))}
           </div>
@@ -548,39 +704,37 @@ export function LibraryOverview() {
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
                     Open
                   </Link>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDrill(entry)}>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
+                    onClick={() => void runItemAction(`drill:${entry.entryId}`, "Duplicating drill…", () => onDuplicateDrill(entry))}
+                  >
                     Duplicate
                   </button>
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
                     Export drill
                   </Link>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onDeleteDrill(entry)}>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
+                    onClick={() => void runItemAction(`drill:${entry.entryId}`, "Deleting drill…", () => onDeleteDrill(entry))}
+                  >
                     Delete
                   </button>
                 </div>
+                <InlineItemFeedback itemId={`drill:${entry.entryId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
               </article>
             ))}
           </div>
         )}
       </section>
-
-      <section className="card" style={toolsCardStyle}>
-        <h3 style={{ margin: 0 }}>More tools</h3>
-        <div style={compactActionRowStyle}>
-          <Link className="pill" href="/upload">
-            Upload Video
-          </Link>
-          <Link className="pill" href="/marketplace">
-            Browse Exchange
-          </Link>
-        </div>
-      </section>
-
-      {message ? (
-        <p className="muted" style={{ margin: 0, color: feedbackTone === "error" ? "#f2bbbb" : "var(--success)" }}>
-          {message}
-        </p>
-      ) : null}
+      <InlineItemFeedback itemId="global:create" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+      <InlineItemFeedback itemId="global:import" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+      <InlineItemFeedback itemId="global:hosted-drafts" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+      <InlineItemFeedback itemId="global:hosted-library" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+      <InlineItemFeedback itemId="global:drafts" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
     </section>
   );
 }
@@ -603,17 +757,36 @@ const sectionCardStyle: CSSProperties = {
   padding: "0.8rem"
 };
 
-const toolsCardStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.45rem",
-  padding: "0.7rem",
-  background: "rgba(24, 36, 53, 0.45)"
-};
-
 const sectionHeadingStyle: CSSProperties = {
   display: "grid",
   gap: "0.25rem"
 };
+
+function InlineItemFeedback({
+  itemId,
+  pending,
+  success,
+  error
+}: {
+  itemId: string;
+  pending: Record<string, string>;
+  success: Record<string, string>;
+  error: Record<string, string>;
+}) {
+  if (pending[itemId]) {
+    return <p className="muted" style={{ margin: 0 }}>{pending[itemId]}</p>;
+  }
+
+  if (error[itemId]) {
+    return <p className="muted" style={{ margin: 0, color: "#f2bbbb" }}>{error[itemId]}</p>;
+  }
+
+  if (success[itemId]) {
+    return <p className="muted" style={{ margin: 0, color: "var(--success)" }}>{success[itemId]}</p>;
+  }
+
+  return null;
+}
 
 const listStackStyle: CSSProperties = {
   display: "grid",

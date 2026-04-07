@@ -238,6 +238,10 @@ function toDraftIdFromPackage(entry: EditablePackageEntry): string {
   return manifest.versioning?.versionId ?? `${manifest.packageId}@${manifest.packageVersion}`;
 }
 
+function draftIdFromPackageKey(packageKey: string): string | null {
+  return packageKey.startsWith("draft:") ? packageKey.slice("draft:".length) : null;
+}
+
 function normalizeFileStem(raw: string): string {
   return raw
     .toLocaleLowerCase()
@@ -346,6 +350,9 @@ export function StudioStateProvider({
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const [hydrationComplete, setHydrationComplete] = useState(false);
   const hasLoadedDraftsRef = useRef(false);
+  const packagesRef = useRef(packages);
+  const draftIdsByPackageKeyRef = useRef(draftIdsByPackageKey);
+  const packageAssetBlobsRef = useRef(packageAssetBlobs);
   const [publishService] = useState(
     () => new PackagePublishService(new MockStorageProvider(), new MockPackageRegistryAdapter())
   );
@@ -353,6 +360,18 @@ export function StudioStateProvider({
   const previousPhaseIndexesRef = useRef<PreviousPhaseIndexMap>({});
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
+
+  useEffect(() => {
+    packagesRef.current = packages;
+  }, [packages]);
+
+  useEffect(() => {
+    draftIdsByPackageKeyRef.current = draftIdsByPackageKey;
+  }, [draftIdsByPackageKey]);
+
+  useEffect(() => {
+    packageAssetBlobsRef.current = packageAssetBlobs;
+  }, [packageAssetBlobs]);
 
   const selectedScopeKey = getPhaseScopeKey(selectedPackageKey, selectedPhaseId);
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
@@ -569,7 +588,8 @@ export function StudioStateProvider({
         try {
           for (const entry of packages) {
             const fallbackDraftId = toDraftIdFromPackage(entry);
-            const draftId = draftIdsByPackageKey[entry.packageKey] ?? fallbackDraftId;
+            const packageKeyDraftId = draftIdFromPackageKey(entry.packageKey);
+            const draftId = draftIdsByPackageKey[entry.packageKey] ?? packageKeyDraftId ?? fallbackDraftId;
             await saveDraft({
               draftId,
               sourceLabel: entry.sourceLabel,
@@ -589,6 +609,29 @@ export function StudioStateProvider({
 
     return () => window.clearTimeout(timer);
   }, [draftIdsByPackageKey, hydrationComplete, packageAssetBlobs, packages]);
+
+  useEffect(
+    () => () => {
+      if (!hydrationComplete || packagesRef.current.length === 0) {
+        return;
+      }
+
+      void (async () => {
+        for (const entry of packagesRef.current) {
+          const fallbackDraftId = toDraftIdFromPackage(entry);
+          const packageKeyDraftId = draftIdFromPackageKey(entry.packageKey);
+          const draftId = draftIdsByPackageKeyRef.current[entry.packageKey] ?? packageKeyDraftId ?? fallbackDraftId;
+          await saveDraft({
+            draftId,
+            sourceLabel: entry.sourceLabel,
+            packageJson: entry.workingPackage,
+            assetsById: packageAssetBlobsRef.current[entry.packageKey] ?? {}
+          });
+        }
+      })();
+    },
+    [hydrationComplete]
+  );
 
   const saveStatusLabel = selectedPackage
     ? localSaveState === "saving"
