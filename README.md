@@ -27,9 +27,9 @@ Android/mobile runtime client (downstream consumer): <https://github.com/Voycepe
 - preview animation,
 - export Android-compatible drill file,
 - process local upload videos in-browser and download:
-  - pose timeline JSON,
-  - analysis JSON,
-  - annotated WebM video export.
+  - Pose Timeline (.json),
+  - Processing Summary (.json),
+  - Annotated Video export (WebM).
 
 ## Engineering note on drill files
 

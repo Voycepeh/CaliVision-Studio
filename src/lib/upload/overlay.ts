@@ -1,8 +1,9 @@
-import { getPreviewConnections } from "@/lib/pose/preview-overlay";
+import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, getPreviewJointRole } from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
+const VISIBLE_JOINTS = new Set(getPreviewJointNames("front"));
 
 function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number) {
   return { x: joint.x * width, y: joint.y * height };
@@ -19,8 +20,10 @@ export function drawPoseOverlay(
   }
 
   ctx.save();
-  ctx.lineWidth = Math.max(2, width * 0.004);
-  ctx.strokeStyle = "rgba(114, 168, 255, 0.92)";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = Math.max(2, (width / 1280) * PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth);
+  ctx.strokeStyle = PREVIEW_OVERLAY_STYLE.skeletonBase;
 
   for (const connection of CONNECTIONS) {
     const from = frame.joints[connection.from as CanonicalJointName];
@@ -37,14 +40,20 @@ export function drawPoseOverlay(
     ctx.stroke();
   }
 
-  ctx.fillStyle = "rgba(124, 240, 169, 0.95)";
-  for (const point of Object.values(frame.joints)) {
+  for (const [jointName, point] of Object.entries(frame.joints)) {
     if (!point) {
       continue;
     }
+    if (!VISIBLE_JOINTS.has(jointName as CanonicalJointName)) {
+      continue;
+    }
+    const role = getPreviewJointRole(jointName as CanonicalJointName);
+    ctx.fillStyle = role === "nose" ? PREVIEW_OVERLAY_STYLE.nose : role === "hip" ? PREVIEW_OVERLAY_STYLE.hip : PREVIEW_OVERLAY_STYLE.skeletonBase;
     const { x, y } = toCanvasPoint(point, width, height);
     ctx.beginPath();
-    ctx.arc(x, y, Math.max(2, width * 0.006), 0, Math.PI * 2);
+    const baseRadius = Math.max(2, (width / 1280) * PREVIEW_OVERLAY_STYLE.jointRadiusBase);
+    const radius = role === "nose" ? baseRadius * PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();

@@ -10,13 +10,37 @@ type PoseLandmarkerResult = {
 
 type PoseLandmarkerLike = {
   detectForVideo: (video: HTMLVideoElement, timestampMs: number) => PoseLandmarkerResult;
+  close?: () => void;
 };
 
-let poseLandmarkerPromise: Promise<PoseLandmarkerLike> | null = null;
+type VisionRuntime = {
+  visionModule: {
+    PoseLandmarker: {
+      createFromOptions: (fileset: unknown, options: unknown) => Promise<PoseLandmarkerLike>;
+    };
+    FilesetResolver: {
+      forVisionTasks: (wasmPath: string) => Promise<unknown>;
+    };
+  };
+  fileset: unknown;
+};
+
+let visionRuntimePromise: Promise<VisionRuntime> | null = null;
+
+async function getVisionRuntime(): Promise<VisionRuntime> {
+  if (!visionRuntimePromise) {
+    visionRuntimePromise = (async () => {
+      const visionTasks = await import(/* webpackIgnore: true */ `${TASKS_VISION_CDN}`);
+      const fileset = await visionTasks.FilesetResolver.forVisionTasks(`${TASKS_VISION_CDN}/wasm`);
+      return { visionModule: visionTasks, fileset };
+    })();
+  }
+
+  return visionRuntimePromise;
+}
 
 async function createPoseLandmarker(): Promise<PoseLandmarkerLike> {
-  const visionModule = await import(/* webpackIgnore: true */ `${TASKS_VISION_CDN}`);
-  const fileset = await visionModule.FilesetResolver.forVisionTasks(`${TASKS_VISION_CDN}/wasm`);
+  const runtime = await getVisionRuntime();
 
   const baseOptions = {
     runningMode: "VIDEO",
@@ -27,7 +51,7 @@ async function createPoseLandmarker(): Promise<PoseLandmarkerLike> {
   } as const;
 
   try {
-    return (await visionModule.PoseLandmarker.createFromOptions(fileset, {
+    return (await runtime.visionModule.PoseLandmarker.createFromOptions(runtime.fileset, {
       ...baseOptions,
       baseOptions: {
         modelAssetPath: MODEL_URL,
@@ -35,7 +59,7 @@ async function createPoseLandmarker(): Promise<PoseLandmarkerLike> {
       }
     })) as PoseLandmarkerLike;
   } catch {
-    return (await visionModule.PoseLandmarker.createFromOptions(fileset, {
+    return (await runtime.visionModule.PoseLandmarker.createFromOptions(runtime.fileset, {
       ...baseOptions,
       baseOptions: {
         modelAssetPath: MODEL_URL,
@@ -45,11 +69,8 @@ async function createPoseLandmarker(): Promise<PoseLandmarkerLike> {
   }
 }
 
-export async function getPoseLandmarker(): Promise<PoseLandmarkerLike> {
-  if (!poseLandmarkerPromise) {
-    poseLandmarkerPromise = createPoseLandmarker();
-  }
-  return poseLandmarkerPromise;
+export async function createPoseLandmarkerForJob(): Promise<PoseLandmarkerLike> {
+  return createPoseLandmarker();
 }
 
 export function mapLandmarksToPoseFrame(landmarks: Array<{ x: number; y: number; visibility?: number }>, timestampMs: number): PoseFrame {

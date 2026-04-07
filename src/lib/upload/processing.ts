@@ -1,4 +1,4 @@
-import { getPoseLandmarker, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
+import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import type { PoseTimeline } from "@/lib/upload/types";
 
@@ -10,6 +10,7 @@ export type ProcessVideoOptions = {
 
 const SEEK_EPSILON_SECONDS = 0.001;
 const SEEK_TIMEOUT_MS = 2500;
+const MIN_TIMESTAMP_STEP_MS = 1;
 
 function createObjectUrl(file: File): string {
   return URL.createObjectURL(file);
@@ -82,29 +83,41 @@ export async function readVideoMetadata(file: File): Promise<{ durationMs?: numb
 
 export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<PoseTimeline> {
   const cadenceMs = 1000 / options.cadenceFps;
-  const poseLandmarker = await getPoseLandmarker();
+  const poseLandmarker = await createPoseLandmarkerForJob();
   const { video, objectUrl } = await loadVideoElement(file);
 
   const durationMs = Math.round(video.duration * 1000);
   const frames = [] as PoseTimeline["frames"];
+  let lastTimestampMs = -1;
 
   try {
     options.onProgress?.(0.02, "Sampling frames");
 
-    for (let timestampMs = 0; timestampMs <= durationMs; timestampMs += cadenceMs) {
+    const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
       if (options.signal?.aborted) {
         throw new DOMException("Processing cancelled", "AbortError");
+      }
+
+      const candidateTimestampMs = Math.min(durationMs, Math.round(sampleIndex * cadenceMs));
+      const timestampMs = candidateTimestampMs <= lastTimestampMs
+        ? Math.min(durationMs, lastTimestampMs + MIN_TIMESTAMP_STEP_MS)
+        : candidateTimestampMs;
+      if (timestampMs <= lastTimestampMs) {
+        continue;
       }
 
       await seekVideo(video, timestampMs / 1000);
 
       const result = poseLandmarker.detectForVideo(video, timestampMs);
+      lastTimestampMs = timestampMs;
       const firstPose = result.landmarks?.[0];
       if (firstPose) {
         frames.push(mapLandmarksToPoseFrame(firstPose, timestampMs));
       }
 
-      options.onProgress?.(Math.min(0.95, timestampMs / durationMs), `Processing ${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s`);
+      const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
+      options.onProgress?.(progressRatio, `Processing ${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s`);
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
@@ -125,7 +138,10 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       frames,
       generatedAtIso: new Date().toISOString()
     };
+  } catch (error) {
+    throw toUserFacingUploadError(error);
   } finally {
+    poseLandmarker.close?.();
     URL.revokeObjectURL(objectUrl);
   }
 }
@@ -204,4 +220,19 @@ export function buildAnalysisSummary(timeline: PoseTimeline) {
     sampledFrameCount: timeline.frames.length,
     durationMs: timeline.video.durationMs
   };
+}
+
+function toUserFacingUploadError(error: unknown): Error {
+  if (!(error instanceof Error)) {
+    return new Error("Upload processing failed.");
+  }
+
+  const normalized = error.message.toLowerCase();
+  if (normalized.includes("packet timestamp mismatch") || normalized.includes("minimum expected timestamp")) {
+    return new Error(
+      "Video processing hit a timestamp ordering issue. Please retry this video; Upload Video now starts retries with a fresh local processing context."
+    );
+  }
+
+  return error;
 }
