@@ -51,3 +51,13 @@ npm run dev
 ```
 
 Open <http://localhost:3000>.
+
+## Local draft persistence (current)
+
+Drill Studio now autosaves working drafts to browser-local IndexedDB so edits survive refresh, tab close, and reopen on the same device/browser.
+
+- **Local draft**: durable in this browser only.
+- **Export package**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
+- **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.
+
+If browser storage is blocked/unavailable, editing still works in-session but local durability is reduced.

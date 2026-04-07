@@ -6,8 +6,8 @@ import { StudioExperience } from "@/components/studio/StudioExperience";
 export default async function StudioPage({
   searchParams
 }: {
-  searchParams: Promise<{ packageId?: string }>;
+  searchParams: Promise<{ packageId?: string; draftId?: string }>;
 }) {
   const params = await searchParams;
-  return <StudioExperience initialPackageId={params.packageId} />;
+  return <StudioExperience initialPackageId={params.packageId} initialDraftId={params.draftId} />;
 }

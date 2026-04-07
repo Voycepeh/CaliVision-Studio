@@ -24,3 +24,12 @@
 - optional cloud-assisted media processing.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+
+## Local-first to hosted-save progression (planned)
+
+Current local draft autosave is intentionally browser-scoped and acts as durability groundwork.
+Future hosted save/sync will be additive and must preserve clear distinctions:
+
+- local draft persistence (today),
+- portable package export/import,
+- hosted account-owned draft sync/publish (future).

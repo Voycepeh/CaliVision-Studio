@@ -6,9 +6,15 @@ import { StudioCenterInspector } from "@/components/studio/StudioCenterInspector
 import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { StudioStateProvider } from "@/components/studio/StudioState";
 
-export function StudioExperience({ initialPackageId }: { initialPackageId?: string }) {
+export function StudioExperience({
+  initialPackageId,
+  initialDraftId
+}: {
+  initialPackageId?: string;
+  initialDraftId?: string;
+}) {
   return (
-    <StudioStateProvider initialPackageId={initialPackageId}>
+    <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId}>
       <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
     </StudioStateProvider>
   );

@@ -26,3 +26,18 @@ This pass prioritizes product IA and UX clarity on top of the existing local-fir
 - Marketplace reframed as Drill Exchange in user-facing UX.
 - Terminology cleanup (drill-first wording; package where technical).
 - docs synchronized to current-vs-future product story.
+
+## Local persistence pass additions
+
+### Scope additions
+
+- Add browser-local IndexedDB draft repository and local asset blob storage.
+- Add Studio autosave and restore-last-opened behavior.
+- Surface local drafts in Library with continue/duplicate/delete actions.
+- Add local-vs-export-vs-future-hosted clarity in UX and docs.
+
+### Additional non-goals
+
+- no hosted auth/storage/sync,
+- no cross-device collaboration,
+- no Supabase/backend integration in this pass.

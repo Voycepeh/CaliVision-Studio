@@ -23,3 +23,12 @@
 - Hosted auth/storage/community services are deferred.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+
+## Local draft durability flow (available now)
+
+1. User edits in Drill Studio and sees local save state updates (saving/saved/failed).
+2. Draft and phase image assets autosave into IndexedDB.
+3. On refresh/reopen, user restores the last-opened draft or opens a recent local draft from Library.
+4. User exports a portable drill package when they need portability/import to Android runtime client: <https://github.com/Voycepeh/CaliVision>.
+
+Local draft state is browser/device scoped only.
