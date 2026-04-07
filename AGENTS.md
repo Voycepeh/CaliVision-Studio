@@ -100,3 +100,9 @@ Do not overclaim hosted auth/storage/exchange features before implementation exi
 - Use consistent terminology: **Drill Studio**, **Upload Video**, **portable drill package**, **Drill Exchange**, **mobile runtime client**, **source of truth**.
 - Keep current capabilities clearly separated from planned/future features.
 - Call out limitations honestly (for example local-first persistence vs hosted services).
+
+## Local persistence direction (current)
+
+- Use browser-local IndexedDB for durable draft and asset persistence while hosted storage is deferred.
+- Keep local draft persistence models separate from portable package export contracts.
+- Keep local draft messaging explicit: local to this browser/device, not cloud sync.

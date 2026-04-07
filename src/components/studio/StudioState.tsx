@@ -36,6 +36,13 @@ import {
   type PublishResult
 } from "@/lib/publishing";
 import { createDerivedRegistryEntry, loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
+import {
+  getLastOpenedDraft,
+  loadDraft,
+  loadDraftList,
+  saveDraft,
+  setLastOpenedDraft
+} from "@/lib/persistence/local-draft-store";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import type {
@@ -95,6 +102,8 @@ export type PublishWorkflowState = {
   message: string;
 };
 
+export type LocalSaveState = "idle" | "saving" | "saved" | "error";
+
 type StudioStateValue = {
   packages: EditablePackageEntry[];
   selectedPackageKey: string | null;
@@ -102,6 +111,7 @@ type StudioStateValue = {
   selectedJointName: CanonicalJointName | null;
   importFeedback: ImportFeedback;
   saveStatusLabel: string;
+  localSaveState: LocalSaveState;
   selectedPackage: EditablePackageEntry | null;
   selectedPhaseSourceImage: PhaseSourceImage | null;
   selectedPhaseDetection: DetectionWorkflowState;
@@ -214,6 +224,11 @@ function getPhaseScopeKey(packageKey: string | null, phaseId: string | null): st
   return `${packageKey}:${phaseId}`;
 }
 
+function toDraftIdFromPackage(entry: EditablePackageEntry): string {
+  const manifest = entry.workingPackage.manifest;
+  return manifest.versioning?.versionId ?? `${manifest.packageId}@${manifest.packageVersion}`;
+}
+
 function normalizeFileStem(raw: string): string {
   return raw
     .toLocaleLowerCase()
@@ -291,10 +306,12 @@ async function toPhaseSourceImageFromBlob(
 
 export function StudioStateProvider({
   children,
-  initialPackageId
+  initialPackageId,
+  initialDraftId
 }: {
   children: React.ReactNode;
   initialPackageId?: string;
+  initialDraftId?: string;
 }) {
   const [packages, setPackages] = useState<EditablePackageEntry[]>(() => createInitialPackages());
   const [selectedPackageKey, setSelectedPackageKey] = useState<string | null>(() => createInitialPackages()[0]?.packageKey ?? null);
@@ -310,6 +327,10 @@ export function StudioStateProvider({
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
+  const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
+  const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
+  const [hydrationComplete, setHydrationComplete] = useState(false);
+  const hasLoadedDraftsRef = useRef(false);
   const [publishService] = useState(
     () => new PackagePublishService(new MockStorageProvider(), new MockPackageRegistryAdapter())
   );
@@ -322,6 +343,92 @@ export function StudioStateProvider({
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
+
+  useEffect(() => {
+    if (hasLoadedDraftsRef.current) {
+      return;
+    }
+
+    hasLoadedDraftsRef.current = true;
+
+    void (async () => {
+      try {
+        const summaries = await loadDraftList();
+        if (summaries.length === 0) {
+          setHydrationComplete(true);
+          return;
+        }
+
+        const nextEntries: EditablePackageEntry[] = [];
+        const nextPackageAssetBlobs: Record<string, Record<string, Blob>> = {};
+        const nextDraftIds: Record<string, string> = {};
+        const draftToPackageKey: Record<string, string> = {};
+
+        for (const summary of summaries) {
+          const loaded = await loadDraft(summary.draftId);
+          if (!loaded) {
+            continue;
+          }
+
+          const packageKey = `draft:${summary.draftId}`;
+          nextDraftIds[packageKey] = summary.draftId;
+          draftToPackageKey[summary.draftId] = packageKey;
+          nextEntries.push(createEditablePackageEntry(packageKey, summary.sourceLabel, loaded.record.packageJson));
+          nextPackageAssetBlobs[packageKey] = loaded.assetsById;
+        }
+
+        if (nextEntries.length === 0) {
+          setHydrationComplete(true);
+          return;
+        }
+
+        const nextPhaseSourceImages: Record<string, PhaseSourceImage> = {};
+        for (const entry of nextEntries) {
+          const blobs = nextPackageAssetBlobs[entry.packageKey] ?? {};
+          const drill = getPrimaryDrill(entry.workingPackage);
+          for (const phase of drill?.phases ?? []) {
+            const phaseImageAsset = phase.assetRefs.find((asset) => asset.role === "phase-source-image");
+            if (!phaseImageAsset) {
+              continue;
+            }
+
+            const blob = blobs[phaseImageAsset.assetId];
+            if (!blob) {
+              continue;
+            }
+
+            try {
+              const sourceImage = await toPhaseSourceImageFromBlob(
+                phaseImageAsset.assetId,
+                phaseImageAsset.uri,
+                `${phaseImageAsset.assetId}.img`,
+                blob,
+                "local-editor"
+              );
+              nextPhaseSourceImages[`${entry.packageKey}:${phase.phaseId}`] = sourceImage;
+            } catch {
+              // Skip unreadable assets; package data remains editable.
+            }
+          }
+        }
+
+        const lastOpenedDraftId = initialDraftId ?? (await getLastOpenedDraft());
+        const preferredPackageKey = lastOpenedDraftId ? draftToPackageKey[lastOpenedDraftId] : nextEntries[0]?.packageKey ?? null;
+        const preferredEntry = nextEntries.find((entry) => entry.packageKey === preferredPackageKey) ?? nextEntries[0] ?? null;
+
+        setPackages(nextEntries);
+        setDraftIdsByPackageKey(nextDraftIds);
+        setPackageAssetBlobs(nextPackageAssetBlobs);
+        setPhaseSourceImages(nextPhaseSourceImages);
+        setSelectedPackageKey(preferredEntry?.packageKey ?? null);
+        setSelectedPhaseId(preferredEntry ? getSortedPhases(preferredEntry.workingPackage)[0]?.phaseId ?? null : null);
+      } catch {
+        setLocalSaveState("error");
+      } finally {
+        setHydrationComplete(true);
+      }
+    })();
+  }, [initialDraftId]);
 
   useEffect(() => {
     if (!initialPackageId) {
@@ -345,6 +452,20 @@ export function StudioStateProvider({
     setSelectedPhaseId(getSortedPhases(match.workingPackage)[0]?.phaseId ?? null);
     setSelectedJointName(null);
   }, [initialPackageId, packages]);
+
+  useEffect(() => {
+    if (!selectedPackageKey) {
+      return;
+    }
+
+    const entry = packages.find((item) => item.packageKey === selectedPackageKey);
+    if (!entry) {
+      return;
+    }
+
+    const draftId = draftIdsByPackageKey[selectedPackageKey] ?? toDraftIdFromPackage(entry);
+    void setLastOpenedDraft(draftId);
+  }, [draftIdsByPackageKey, packages, selectedPackageKey]);
 
   useEffect(() => {
     const previousIndexes = previousPhaseIndexesRef.current;
@@ -399,10 +520,46 @@ export function StudioStateProvider({
     previousPhaseIndexesRef.current = buildPhaseIndexMap(packages);
   }, [packages, selectedJointName, selectedPackageKey, selectedPhaseId]);
 
+  useEffect(() => {
+    if (!hydrationComplete || packages.length === 0) {
+      return;
+    }
+
+    setLocalSaveState("saving");
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          for (const entry of packages) {
+            const fallbackDraftId = toDraftIdFromPackage(entry);
+            const draftId = draftIdsByPackageKey[entry.packageKey] ?? fallbackDraftId;
+            await saveDraft({
+              draftId,
+              sourceLabel: entry.sourceLabel,
+              packageJson: entry.workingPackage,
+              assetsById: packageAssetBlobs[entry.packageKey] ?? {}
+            });
+            if (!draftIdsByPackageKey[entry.packageKey]) {
+              setDraftIdsByPackageKey((current) => ({ ...current, [entry.packageKey]: draftId }));
+            }
+          }
+          setLocalSaveState("saved");
+        } catch {
+          setLocalSaveState("error");
+        }
+      })();
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [draftIdsByPackageKey, hydrationComplete, packageAssetBlobs, packages]);
+
   const saveStatusLabel = selectedPackage
-    ? selectedPackage.isDirty
-      ? `Unsaved changes (${selectedPackage.sourceLabel})`
-      : `Saved (${selectedPackage.sourceLabel})`
+    ? localSaveState === "saving"
+      ? "Saving locally…"
+      : localSaveState === "error"
+        ? "Save failed (local draft)"
+        : selectedPackage.isDirty
+          ? `Unsaved changes (${selectedPackage.sourceLabel})`
+          : `Saved locally (${selectedPackage.sourceLabel})`
     : "No drill loaded";
 
   async function importFromFile(file: File): Promise<void> {
@@ -437,6 +594,7 @@ export function StudioStateProvider({
     }
 
     const nextEntry = createEditablePackageEntry(result.packageViewModel.packageKey, `local-file:${file.name}`, normalized);
+    const nextDraftId = toDraftIdFromPackage(nextEntry);
 
     setPackages((current) => {
       const withoutExisting = current.filter(
@@ -509,6 +667,7 @@ export function StudioStateProvider({
       sourceType: "imported-local",
       sourceLabel: `local-file:${file.name}`
     });
+    setDraftIdsByPackageKey((current) => ({ ...current, [nextEntry.packageKey]: nextDraftId }));
   }
 
   function loadSampleById(sampleId: string): void {
@@ -534,6 +693,7 @@ export function StudioStateProvider({
       `sample:${sample.id}`,
       ensureVersioningMetadata(result.packageViewModel.package)
     );
+    const nextDraftId = toDraftIdFromPackage(nextEntry);
     setPackages((current) => {
       const withoutExisting = current.filter(
         (entry) => entry.workingPackage.manifest.packageId !== result.packageViewModel.package.manifest.packageId
@@ -555,6 +715,7 @@ export function StudioStateProvider({
       sourceType: "authored-local",
       sourceLabel: `sample:${sample.id}`
     });
+    setDraftIdsByPackageKey((current) => ({ ...current, [nextEntry.packageKey]: nextDraftId }));
   }
 
   function selectPackage(packageKey: string): void {
@@ -562,6 +723,11 @@ export function StudioStateProvider({
     const next = packages.find((entry) => entry.packageKey === packageKey);
     setSelectedPhaseId(next ? getSortedPhases(next.workingPackage)[0]?.phaseId ?? null : null);
     setSelectedJointName(null);
+
+    const draftId = draftIdsByPackageKey[packageKey] ?? next?.workingPackage.manifest.versioning?.versionId;
+    if (draftId) {
+      void setLastOpenedDraft(draftId);
+    }
   }
 
   function selectPhase(phaseId: string | null): void {
@@ -1093,6 +1259,7 @@ export function StudioStateProvider({
 
     const packageKey = `${relation}-${Date.now()}`;
     const nextEntry = createEditablePackageEntry(packageKey, `${relation}:${source.packageKey}`, derivedPackage);
+    const nextDraftId = toDraftIdFromPackage(nextEntry);
     setPackages((current) => [nextEntry, ...current.filter((entry) => entry.packageKey !== packageKey)]);
     setSelectedPackageKey(packageKey);
     setSelectedPhaseId(getSortedPhases(nextEntry.workingPackage)[0]?.phaseId ?? null);
@@ -1114,6 +1281,7 @@ export function StudioStateProvider({
         });
       }
     }
+    setDraftIdsByPackageKey((current) => ({ ...current, [nextEntry.packageKey]: nextDraftId }));
   }
 
   function duplicateSelectedPackage(): void {
@@ -1345,6 +1513,7 @@ export function StudioStateProvider({
     selectedJointName,
     importFeedback,
     saveStatusLabel,
+    localSaveState,
     selectedPackage,
     selectedPhaseSourceImage,
     selectedPhaseDetection,

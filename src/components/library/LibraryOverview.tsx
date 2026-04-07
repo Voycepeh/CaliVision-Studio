@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { getPrimarySamplePackage } from "@/lib/package";
 import {
   collectCatalogTags,
   createDerivedRegistryEntry,
@@ -13,6 +14,7 @@ import {
   type PackageRegistryEntry,
   type PackageSourceType
 } from "@/lib/registry";
+import { deleteDraft, duplicateDraft, loadDraftList, saveDraft, type LocalDraftSummary } from "@/lib/persistence/local-draft-store";
 
 const SOURCE_FILTERS: Array<{ key: PackageSourceType; label: string }> = [
   { key: "authored-local", label: "Authored" },
@@ -29,12 +31,27 @@ export function LibraryOverview() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const [installMessage, setInstallMessage] = useState<string>("");
+  const [localDrafts, setLocalDrafts] = useState<LocalDraftSummary[]>([]);
+  const [draftMessage, setDraftMessage] = useState("");
 
   useEffect(() => {
     const next = loadLocalRegistryEntries();
     setEntries(next);
     setSelectedEntryId(next[0]?.entryId ?? null);
   }, []);
+
+  useEffect(() => {
+    void refreshDrafts();
+  }, []);
+
+  async function refreshDrafts(): Promise<void> {
+    try {
+      const summaries = await loadDraftList();
+      setLocalDrafts(summaries);
+    } catch {
+      setDraftMessage("Local draft storage is unavailable in this browser.");
+    }
+  }
 
   const availableTags = useMemo(() => collectCatalogTags(entries), [entries]);
 
@@ -85,6 +102,41 @@ export function LibraryOverview() {
     }
   }
 
+  async function onCreateDraft(): Promise<void> {
+    const sample = getPrimarySamplePackage();
+    const createdAt = new Date().toISOString();
+    const draftId = `draft-${Date.now()}`;
+    const next = structuredClone(sample);
+    next.manifest.packageId = `local-draft-${Date.now()}`;
+    next.manifest.packageVersion = "0.1.0";
+    next.manifest.createdAtIso = createdAt;
+    next.manifest.updatedAtIso = createdAt;
+    next.drills[0].title = "New Local Draft";
+    await saveDraft({
+      draftId,
+      sourceLabel: "authored-local",
+      packageJson: next,
+      assetsById: {}
+    });
+    setDraftMessage("Created a new local draft.");
+    await refreshDrafts();
+  }
+
+  async function onDeleteDraft(draftId: string): Promise<void> {
+    if (!window.confirm("Delete this local draft from this browser?")) {
+      return;
+    }
+    await deleteDraft(draftId);
+    setDraftMessage("Deleted local draft.");
+    await refreshDrafts();
+  }
+
+  async function onDuplicateDraft(draftId: string): Promise<void> {
+    await duplicateDraft(draftId);
+    setDraftMessage("Duplicated local draft.");
+    await refreshDrafts();
+  }
+
   const authoredCount = entries.filter((entry) => entry.summary.sourceType === "authored-local").length;
   const importedCount = entries.filter((entry) => entry.summary.sourceType === "imported-local").length;
   const remixedCount = entries.filter((entry) => entry.summary.provenanceSummary.toLowerCase().includes("fork")).length;
@@ -125,6 +177,45 @@ export function LibraryOverview() {
             <p className="muted" style={{ margin: "0.2rem 0 0" }}>Recent mock-published drills</p>
           </article>
         </div>
+      </section>
+
+      <section className="card" style={{ display: "grid", gap: "0.65rem" }}>
+        <h3 style={{ margin: 0 }}>Recent local drafts</h3>
+        <p className="muted" style={{ margin: 0 }}>
+          Drafts are saved in this browser/device only. Export package files for portability to the mobile runtime client.
+        </p>
+        <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+          <button type="button" style={chipStyle(false)} onClick={() => void onCreateDraft()}>
+            Create new drill
+          </button>
+        </div>
+        {localDrafts.length === 0 ? (
+          <p className="muted" style={{ margin: 0 }}>No local drafts yet. Create one to begin.</p>
+        ) : (
+          <div style={{ display: "grid", gap: "0.45rem" }}>
+            {localDrafts.map((draft) => (
+              <article key={draft.draftId} className="card" style={{ margin: 0 }}>
+                <strong>{draft.title}</strong>
+                <p className="muted" style={{ margin: "0.2rem 0 0.3rem" }}>
+                  {draft.status} • {draft.phaseCount} phases • {draft.hasAssets ? "has local images" : "no images"}
+                </p>
+                <p className="muted" style={{ margin: "0 0 0.4rem" }}>Last edited: {new Date(draft.updatedAtIso).toLocaleString()}</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                  <Link className="pill" href={`/studio?draftId=${encodeURIComponent(draft.draftId)}`}>
+                    Continue editing
+                  </Link>
+                  <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDraft(draft.draftId)}>
+                    Duplicate draft
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => void onDeleteDraft(draft.draftId)}>
+                    Delete draft
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        {draftMessage ? <p className="muted" style={{ margin: 0 }}>{draftMessage}</p> : null}
       </section>
 
       <section className="card" style={{ display: "grid", gap: "0.65rem" }}>
