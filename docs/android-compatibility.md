@@ -20,7 +20,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
    - `PortableDrill.analysis` and `PortablePhase.analysis` are optional.
    - Older drill files without analysis metadata continue to validate/load.
 2. **No runtime execution coupling introduced**
-   - Rep/hold/hybrid analysis fields are intent metadata for Upload Video and future live-analysis flows.
+   - Rep/hold/hybrid analysis fields are intent metadata for Upload Video and future live-analysis flows, including bounded skip transitions for fast observations.
    - Authored playback timing and phase sequencing semantics are unchanged.
 3. **Extensible placeholder shape only**
    - `matchHints` is typed but non-executing (no classifier runtime behavior added).

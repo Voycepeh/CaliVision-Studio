@@ -38,7 +38,7 @@ Studio authoring should always capture this in the main Drill Studio workflow. I
 - `measurementType`: `rep | hold | hybrid`
 - ordered sequence: `orderedPhaseSequence`
 - critical phase references: `criticalPhaseIds`
-- explicit skip paths: `allowedPhaseSkips`
+- explicit bounded skip transitions: `allowedPhaseSkips` (`fromPhaseId`, `toPhaseId`, `skippedPhaseIds`)
 - temporal stability controls:
   - `minimumConfirmationFrames`
   - `exitGraceFrames`

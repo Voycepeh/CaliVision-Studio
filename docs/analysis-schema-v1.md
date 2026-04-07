@@ -20,7 +20,7 @@ This keeps authored motion preview helpful, but not required for analysis correc
 
 ## Expected handling of skipped observed phases
 
-Schema v1 supports fast/abbreviated observations with `allowedPhaseSkips` so a temporal engine can tolerate missing intermediate detections without dropping the attempt.
+Schema v1 supports fast/abbreviated observations with `allowedPhaseSkips` bounded transitions (`fromPhaseId` -> `toPhaseId` with `skippedPhaseIds`) so a temporal engine can tolerate missing intermediate detections without dropping the attempt.
 
 Future classifier/temporal logic should treat skip paths as explicit, bounded alternatives rather than unrestricted phase jumps.
 

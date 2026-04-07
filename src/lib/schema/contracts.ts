@@ -74,11 +74,17 @@ export type PortablePhaseAnalysis = {
   matchHints?: PortablePhaseMatchHints;
 };
 
+export type PortableAllowedPhaseSkip = {
+  fromPhaseId: string;
+  toPhaseId: string;
+  skippedPhaseIds: string[];
+};
+
 export type PortableDrillAnalysis = {
   measurementType: PortableAnalysisMeasurementType;
   orderedPhaseSequence: string[];
   criticalPhaseIds: string[];
-  allowedPhaseSkips: string[][];
+  allowedPhaseSkips: PortableAllowedPhaseSkip[];
   minimumConfirmationFrames: number;
   exitGraceFrames: number;
   minimumRepDurationMs: number;

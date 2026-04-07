@@ -414,7 +414,7 @@ function validateDrillAnalysis(
   if (Array.isArray(input.orderedPhaseSequence)) {
     input.orderedPhaseSequence.forEach((phaseId, index) => {
       if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
-        issues.push(makeIssue("warning", `${path}.orderedPhaseSequence[${index}]`, `Unknown phaseId '${phaseId}' in orderedPhaseSequence.`, "analysis"));
+        issues.push(makeIssue("error", `${path}.orderedPhaseSequence[${index}]`, `Unknown phaseId '${phaseId}' in orderedPhaseSequence.`, "analysis"));
       }
     });
   }
@@ -422,30 +422,45 @@ function validateDrillAnalysis(
   if (Array.isArray(input.criticalPhaseIds)) {
     input.criticalPhaseIds.forEach((phaseId, index) => {
       if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
-        issues.push(makeIssue("warning", `${path}.criticalPhaseIds[${index}]`, `Unknown phaseId '${phaseId}' in criticalPhaseIds.`, "analysis"));
+        issues.push(makeIssue("error", `${path}.criticalPhaseIds[${index}]`, `Unknown phaseId '${phaseId}' in criticalPhaseIds.`, "analysis"));
       }
     });
   }
 
   if (!Array.isArray(input.allowedPhaseSkips)) {
-    issues.push(makeIssue("error", `${path}.allowedPhaseSkips`, "allowedPhaseSkips must be an array of phaseId arrays.", "analysis"));
+    issues.push(makeIssue("error", `${path}.allowedPhaseSkips`, "allowedPhaseSkips must be an array of bounded skip transition objects.", "analysis"));
   } else {
-    input.allowedPhaseSkips.forEach((sequence, sequenceIndex) => {
-      if (!Array.isArray(sequence)) {
-        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${sequenceIndex}]`, "Each allowed skip path must be an array.", "analysis"));
+    input.allowedPhaseSkips.forEach((skipTransition, transitionIndex) => {
+      if (!isRecord(skipTransition)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}]`, "Each allowed skip transition must be an object.", "analysis"));
         return;
       }
 
-      sequence.forEach((phaseId, phaseIndex) => {
-        if (typeof phaseId !== "string" || phaseId.trim().length === 0) {
-          issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${sequenceIndex}][${phaseIndex}]`, "Skipped phase ids must be non-empty strings.", "analysis"));
-          return;
-        }
+      validateNonEmptyString(skipTransition.fromPhaseId, `${path}.allowedPhaseSkips[${transitionIndex}].fromPhaseId`, issues);
+      validateNonEmptyString(skipTransition.toPhaseId, `${path}.allowedPhaseSkips[${transitionIndex}].toPhaseId`, issues);
+      validateStringArray(
+        skipTransition.skippedPhaseIds,
+        `${path}.allowedPhaseSkips[${transitionIndex}].skippedPhaseIds`,
+        true,
+        issues,
+        "analysis"
+      );
 
-        if (!phaseIds.has(phaseId)) {
-          issues.push(makeIssue("warning", `${path}.allowedPhaseSkips[${sequenceIndex}][${phaseIndex}]`, `Unknown phaseId '${phaseId}' in allowedPhaseSkips.`, "analysis"));
-        }
-      });
+      if (typeof skipTransition.fromPhaseId === "string" && !phaseIds.has(skipTransition.fromPhaseId)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].fromPhaseId`, `Unknown phaseId '${skipTransition.fromPhaseId}' in allowedPhaseSkips transition.`, "analysis"));
+      }
+
+      if (typeof skipTransition.toPhaseId === "string" && !phaseIds.has(skipTransition.toPhaseId)) {
+        issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].toPhaseId`, `Unknown phaseId '${skipTransition.toPhaseId}' in allowedPhaseSkips transition.`, "analysis"));
+      }
+
+      if (Array.isArray(skipTransition.skippedPhaseIds)) {
+        skipTransition.skippedPhaseIds.forEach((phaseId, phaseIndex) => {
+          if (typeof phaseId === "string" && !phaseIds.has(phaseId)) {
+            issues.push(makeIssue("error", `${path}.allowedPhaseSkips[${transitionIndex}].skippedPhaseIds[${phaseIndex}]`, `Unknown phaseId '${phaseId}' in allowedPhaseSkips transition.`, "analysis"));
+          }
+        });
+      }
     });
   }
 
@@ -466,7 +481,7 @@ function validateDrillAnalysis(
   if (input.targetHoldPhaseId !== undefined) {
     validateNonEmptyString(input.targetHoldPhaseId, `${path}.targetHoldPhaseId`, issues);
     if (typeof input.targetHoldPhaseId === "string" && !phaseIds.has(input.targetHoldPhaseId)) {
-      issues.push(makeIssue("warning", `${path}.targetHoldPhaseId`, `Unknown hold phaseId '${input.targetHoldPhaseId}'.`, "analysis"));
+      issues.push(makeIssue("error", `${path}.targetHoldPhaseId`, `Unknown hold phaseId '${input.targetHoldPhaseId}'.`, "analysis"));
     }
   }
 

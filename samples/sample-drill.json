@@ -5,12 +5,22 @@
   "difficulty": "beginner",
   "defaultView": "side",
   "drillType": "rep",
-  "tags": ["push", "strength", "reps"],
+  "tags": [
+    "push",
+    "strength",
+    "reps"
+  ],
   "analysis": {
     "measurementType": "rep",
-    "orderedPhaseSequence": ["phase_top", "phase_bottom", "phase_top"],
-    "criticalPhaseIds": ["phase_bottom"],
-    "allowedPhaseSkips": [["phase_transition_down"], ["phase_transition_up"]],
+    "orderedPhaseSequence": [
+      "phase_top",
+      "phase_bottom",
+      "phase_top"
+    ],
+    "criticalPhaseIds": [
+      "phase_bottom"
+    ],
+    "allowedPhaseSkips": [],
     "minimumConfirmationFrames": 2,
     "exitGraceFrames": 2,
     "minimumRepDurationMs": 450,
@@ -40,10 +50,22 @@
             "view": "side"
           },
           "joints": {
-            "leftShoulder": { "x": 0.46, "y": 0.33 },
-            "rightShoulder": { "x": 0.52, "y": 0.33 },
-            "leftHip": { "x": 0.48, "y": 0.56 },
-            "rightHip": { "x": 0.54, "y": 0.56 }
+            "leftShoulder": {
+              "x": 0.46,
+              "y": 0.33
+            },
+            "rightShoulder": {
+              "x": 0.52,
+              "y": 0.33
+            },
+            "leftHip": {
+              "x": 0.48,
+              "y": 0.56
+            },
+            "rightHip": {
+              "x": 0.54,
+              "y": 0.56
+            }
           }
         }
       ],
@@ -65,10 +87,22 @@
             "view": "side"
           },
           "joints": {
-            "leftShoulder": { "x": 0.45, "y": 0.42 },
-            "rightShoulder": { "x": 0.53, "y": 0.42 },
-            "leftElbow": { "x": 0.44, "y": 0.48 },
-            "rightElbow": { "x": 0.54, "y": 0.48 }
+            "leftShoulder": {
+              "x": 0.45,
+              "y": 0.42
+            },
+            "rightShoulder": {
+              "x": 0.53,
+              "y": 0.42
+            },
+            "leftElbow": {
+              "x": 0.44,
+              "y": 0.48
+            },
+            "rightElbow": {
+              "x": 0.54,
+              "y": 0.48
+            }
           }
         }
       ],

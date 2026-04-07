@@ -14,8 +14,13 @@
       "title": "Analysis Ready Sample Drills",
       "summary": "Sample package used for analysis schema v1 validation and import/export round-trips.",
       "authorDisplayName": "Studio Author",
-      "tags": ["analysis", "sample"],
-      "categories": ["technique"],
+      "tags": [
+        "analysis",
+        "sample"
+      ],
+      "categories": [
+        "technique"
+      ],
       "visibility": "private",
       "publishStatus": "draft"
     },
@@ -35,13 +40,23 @@
       "description": "Rep drill using ordered phase progression independent of animation timing.",
       "difficulty": "beginner",
       "drillType": "rep",
-      "tags": ["push", "strength", "reps"],
+      "tags": [
+        "push",
+        "strength",
+        "reps"
+      ],
       "defaultView": "side",
       "analysis": {
         "measurementType": "rep",
-        "orderedPhaseSequence": ["phase_top", "phase_bottom", "phase_top"],
-        "criticalPhaseIds": ["phase_bottom"],
-        "allowedPhaseSkips": [["phase_transition_down"], ["phase_transition_up"]],
+        "orderedPhaseSequence": [
+          "phase_top",
+          "phase_bottom",
+          "phase_top"
+        ],
+        "criticalPhaseIds": [
+          "phase_bottom"
+        ],
+        "allowedPhaseSkips": [],
         "minimumConfirmationFrames": 2,
         "exitGraceFrames": 2,
         "minimumRepDurationMs": 450,
@@ -61,8 +76,16 @@
             "semanticRole": "top",
             "isCritical": true,
             "matchHints": {
-              "requiredJoints": ["leftShoulder", "rightShoulder", "leftHip", "rightHip"],
-              "optionalJoints": ["leftAnkle", "rightAnkle"],
+              "requiredJoints": [
+                "leftShoulder",
+                "rightShoulder",
+                "leftHip",
+                "rightHip"
+              ],
+              "optionalJoints": [
+                "leftAnkle",
+                "rightAnkle"
+              ],
               "toleranceProfile": "balanced",
               "viewHint": "side"
             }
@@ -78,10 +101,22 @@
                 "view": "side"
               },
               "joints": {
-                "leftShoulder": { "x": 0.46, "y": 0.33 },
-                "rightShoulder": { "x": 0.52, "y": 0.33 },
-                "leftHip": { "x": 0.48, "y": 0.56 },
-                "rightHip": { "x": 0.54, "y": 0.56 }
+                "leftShoulder": {
+                  "x": 0.46,
+                  "y": 0.33
+                },
+                "rightShoulder": {
+                  "x": 0.52,
+                  "y": 0.33
+                },
+                "leftHip": {
+                  "x": 0.48,
+                  "y": 0.56
+                },
+                "rightHip": {
+                  "x": 0.54,
+                  "y": 0.56
+                }
               }
             }
           ],
@@ -97,7 +132,12 @@
             "semanticRole": "bottom",
             "isCritical": true,
             "matchHints": {
-              "requiredJoints": ["leftElbow", "rightElbow", "leftShoulder", "rightShoulder"],
+              "requiredJoints": [
+                "leftElbow",
+                "rightElbow",
+                "leftShoulder",
+                "rightShoulder"
+              ],
               "toleranceProfile": "balanced",
               "viewHint": "side"
             }
@@ -113,10 +153,22 @@
                 "view": "side"
               },
               "joints": {
-                "leftShoulder": { "x": 0.45, "y": 0.42 },
-                "rightShoulder": { "x": 0.53, "y": 0.42 },
-                "leftElbow": { "x": 0.44, "y": 0.48 },
-                "rightElbow": { "x": 0.54, "y": 0.48 }
+                "leftShoulder": {
+                  "x": 0.45,
+                  "y": 0.42
+                },
+                "rightShoulder": {
+                  "x": 0.53,
+                  "y": 0.42
+                },
+                "leftElbow": {
+                  "x": 0.44,
+                  "y": 0.48
+                },
+                "rightElbow": {
+                  "x": 0.54,
+                  "y": 0.48
+                }
               }
             }
           ],
@@ -131,12 +183,20 @@
       "description": "Hold drill with stable entry and grace exit semantics.",
       "difficulty": "intermediate",
       "drillType": "hold",
-      "tags": ["core", "hold"],
+      "tags": [
+        "core",
+        "hold"
+      ],
       "defaultView": "side",
       "analysis": {
         "measurementType": "hold",
-        "orderedPhaseSequence": ["phase_entry", "phase_hold"],
-        "criticalPhaseIds": ["phase_hold"],
+        "orderedPhaseSequence": [
+          "phase_entry",
+          "phase_hold"
+        ],
+        "criticalPhaseIds": [
+          "phase_hold"
+        ],
         "allowedPhaseSkips": [],
         "minimumConfirmationFrames": 2,
         "exitGraceFrames": 6,
@@ -167,9 +227,18 @@
                 "view": "side"
               },
               "joints": {
-                "leftShoulder": { "x": 0.44, "y": 0.38 },
-                "leftHip": { "x": 0.48, "y": 0.56 },
-                "leftAnkle": { "x": 0.52, "y": 0.75 }
+                "leftShoulder": {
+                  "x": 0.44,
+                  "y": 0.38
+                },
+                "leftHip": {
+                  "x": 0.48,
+                  "y": 0.56
+                },
+                "leftAnkle": {
+                  "x": 0.52,
+                  "y": 0.75
+                }
               }
             }
           ],
@@ -185,7 +254,11 @@
             "semanticRole": "hold",
             "isCritical": true,
             "matchHints": {
-              "requiredJoints": ["leftShoulder", "leftHip", "leftAnkle"],
+              "requiredJoints": [
+                "leftShoulder",
+                "leftHip",
+                "leftAnkle"
+              ],
               "toleranceProfile": "strict",
               "viewHint": "side"
             }
@@ -201,9 +274,18 @@
                 "view": "side"
               },
               "joints": {
-                "leftShoulder": { "x": 0.45, "y": 0.36 },
-                "leftHip": { "x": 0.49, "y": 0.54 },
-                "leftAnkle": { "x": 0.54, "y": 0.72 }
+                "leftShoulder": {
+                  "x": 0.45,
+                  "y": 0.36
+                },
+                "leftHip": {
+                  "x": 0.49,
+                  "y": 0.54
+                },
+                "leftAnkle": {
+                  "x": 0.54,
+                  "y": 0.72
+                }
               }
             }
           ],
@@ -218,13 +300,32 @@
       "description": "Hybrid drill example combining rep sequencing with a brief lockout hold target.",
       "difficulty": "advanced",
       "drillType": "rep",
-      "tags": ["conditioning", "hybrid"],
+      "tags": [
+        "conditioning",
+        "hybrid"
+      ],
       "defaultView": "front",
       "analysis": {
         "measurementType": "hybrid",
-        "orderedPhaseSequence": ["phase_squat", "phase_plank", "phase_jump", "phase_lockout"],
-        "criticalPhaseIds": ["phase_plank", "phase_lockout"],
-        "allowedPhaseSkips": [["phase_jump"]],
+        "orderedPhaseSequence": [
+          "phase_squat",
+          "phase_plank",
+          "phase_jump",
+          "phase_lockout"
+        ],
+        "criticalPhaseIds": [
+          "phase_plank",
+          "phase_lockout"
+        ],
+        "allowedPhaseSkips": [
+          {
+            "fromPhaseId": "phase_plank",
+            "toPhaseId": "phase_lockout",
+            "skippedPhaseIds": [
+              "phase_jump"
+            ]
+          }
+        ],
         "minimumConfirmationFrames": 2,
         "exitGraceFrames": 3,
         "minimumRepDurationMs": 900,
@@ -241,7 +342,9 @@
           "title": "Squat",
           "durationMs": 900,
           "startOffsetMs": 0,
-          "analysis": { "semanticRole": "transition" },
+          "analysis": {
+            "semanticRole": "transition"
+          },
           "poseSequence": [
             {
               "poseId": "pose_burpee_squat_001",
@@ -253,10 +356,22 @@
                 "view": "front"
               },
               "joints": {
-                "leftHip": { "x": 0.44, "y": 0.6 },
-                "rightHip": { "x": 0.56, "y": 0.6 },
-                "leftKnee": { "x": 0.45, "y": 0.78 },
-                "rightKnee": { "x": 0.55, "y": 0.78 }
+                "leftHip": {
+                  "x": 0.44,
+                  "y": 0.6
+                },
+                "rightHip": {
+                  "x": 0.56,
+                  "y": 0.6
+                },
+                "leftKnee": {
+                  "x": 0.45,
+                  "y": 0.78
+                },
+                "rightKnee": {
+                  "x": 0.55,
+                  "y": 0.78
+                }
               }
             }
           ],
@@ -268,7 +383,10 @@
           "title": "Plank",
           "durationMs": 800,
           "startOffsetMs": 900,
-          "analysis": { "semanticRole": "bottom", "isCritical": true },
+          "analysis": {
+            "semanticRole": "bottom",
+            "isCritical": true
+          },
           "poseSequence": [
             {
               "poseId": "pose_burpee_plank_001",
@@ -280,10 +398,22 @@
                 "view": "front"
               },
               "joints": {
-                "leftShoulder": { "x": 0.43, "y": 0.36 },
-                "rightShoulder": { "x": 0.57, "y": 0.36 },
-                "leftHip": { "x": 0.45, "y": 0.58 },
-                "rightHip": { "x": 0.55, "y": 0.58 }
+                "leftShoulder": {
+                  "x": 0.43,
+                  "y": 0.36
+                },
+                "rightShoulder": {
+                  "x": 0.57,
+                  "y": 0.36
+                },
+                "leftHip": {
+                  "x": 0.45,
+                  "y": 0.58
+                },
+                "rightHip": {
+                  "x": 0.55,
+                  "y": 0.58
+                }
               }
             }
           ],
@@ -295,7 +425,9 @@
           "title": "Jump",
           "durationMs": 700,
           "startOffsetMs": 1700,
-          "analysis": { "semanticRole": "top" },
+          "analysis": {
+            "semanticRole": "top"
+          },
           "poseSequence": [
             {
               "poseId": "pose_burpee_jump_001",
@@ -307,10 +439,22 @@
                 "view": "front"
               },
               "joints": {
-                "leftAnkle": { "x": 0.45, "y": 0.9 },
-                "rightAnkle": { "x": 0.55, "y": 0.9 },
-                "leftWrist": { "x": 0.42, "y": 0.22 },
-                "rightWrist": { "x": 0.58, "y": 0.22 }
+                "leftAnkle": {
+                  "x": 0.45,
+                  "y": 0.9
+                },
+                "rightAnkle": {
+                  "x": 0.55,
+                  "y": 0.9
+                },
+                "leftWrist": {
+                  "x": 0.42,
+                  "y": 0.22
+                },
+                "rightWrist": {
+                  "x": 0.58,
+                  "y": 0.22
+                }
               }
             }
           ],
@@ -322,7 +466,10 @@
           "title": "Lockout",
           "durationMs": 900,
           "startOffsetMs": 2400,
-          "analysis": { "semanticRole": "lockout", "isCritical": true },
+          "analysis": {
+            "semanticRole": "lockout",
+            "isCritical": true
+          },
           "poseSequence": [
             {
               "poseId": "pose_burpee_lockout_001",
@@ -334,10 +481,22 @@
                 "view": "front"
               },
               "joints": {
-                "leftShoulder": { "x": 0.43, "y": 0.3 },
-                "rightShoulder": { "x": 0.57, "y": 0.3 },
-                "leftHip": { "x": 0.45, "y": 0.54 },
-                "rightHip": { "x": 0.55, "y": 0.54 }
+                "leftShoulder": {
+                  "x": 0.43,
+                  "y": 0.3
+                },
+                "rightShoulder": {
+                  "x": 0.57,
+                  "y": 0.3
+                },
+                "leftHip": {
+                  "x": 0.45,
+                  "y": 0.54
+                },
+                "rightHip": {
+                  "x": 0.55,
+                  "y": 0.54
+                }
               }
             }
           ],
