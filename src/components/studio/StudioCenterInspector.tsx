@@ -162,7 +162,7 @@ export function StudioCenterInspector() {
       <header>
         <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio editor workflow</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Work top-to-bottom: drill info, phases, source image, pose refinement, review, then export package.
+          Work top-to-bottom: drill info, phases, source image, pose refinement, review, then export your drill file.
         </p>
       </header>
 
@@ -348,7 +348,7 @@ export function StudioCenterInspector() {
 
           <WorkflowSection title="Export" stepIndex={WORKFLOW_SECTION_IDS.export} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.export)} onToggle={handleSectionToggle}>
             <p className="muted" style={{ marginTop: 0 }}>
-              Export generates a bundled drill package with package:// assets when local files are available.
+              Export generates a portable drill file with packaged assets when local files are available.
             </p>
             <button type="button" onClick={exportSelectedPackage} className="studio-button studio-button-primary" disabled={!selectedPackage}>
               Export drill bundle

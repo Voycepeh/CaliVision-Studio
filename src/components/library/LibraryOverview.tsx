@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
@@ -25,6 +26,7 @@ import {
 type FeedbackTone = "success" | "error";
 
 export function LibraryOverview() {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [entries, setEntries] = useState<PackageRegistryEntry[]>([]);
   const [searchText, setSearchText] = useState("");
@@ -75,15 +77,16 @@ export function LibraryOverview() {
     next.manifest.packageVersion = "0.1.0";
     next.manifest.createdAtIso = createdAt;
     next.manifest.updatedAtIso = createdAt;
-    next.drills[0].title = "New local draft";
+    next.drills[0].title = "New drill draft";
     await saveDraft({
       draftId,
       sourceLabel: "authored-local",
       packageJson: next,
       assetsById: {}
     });
-    setFeedback("Created a new local draft.");
+    setFeedback("Created a new drill draft.");
     await refreshDrafts();
+    router.push(`/studio?draftId=${encodeURIComponent(draftId)}`);
   }
 
   async function onSaveDraftToLibrary(draftId: string): Promise<void> {
@@ -162,7 +165,7 @@ export function LibraryOverview() {
       packageJson: structuredClone(entry.details.packageJson),
       assetsById: {}
     });
-    setFeedback("Created a draft copy from My drills.");
+    setFeedback("Created a drill draft copy from My drills.");
     await refreshDrafts();
   }
 
@@ -188,11 +191,11 @@ export function LibraryOverview() {
       <section className="card" style={headerCardStyle}>
         <h2 style={{ margin: 0 }}>Library</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Your workspace for local drafts, saved drills, and import/export-ready package management.
+          Start a new drill, continue local drafts, open saved drills, import drill files, or browse Exchange.
         </p>
         <div style={compactActionRowStyle}>
           <button type="button" style={primaryButtonStyle} onClick={() => void onCreateDraft()}>
-            Create new drill
+            New drill
           </button>
           <input
             ref={fileInputRef}
@@ -202,7 +205,7 @@ export function LibraryOverview() {
             onChange={(event) => void onImportFileChange(event)}
           />
           <button type="button" style={chipStyle(false)} onClick={() => fileInputRef.current?.click()}>
-            Import drill
+            Import drill file
           </button>
         </div>
       </section>
@@ -211,13 +214,13 @@ export function LibraryOverview() {
         <div style={sectionHeadingStyle}>
           <h3 style={{ margin: 0 }}>Recent local drafts</h3>
           <p className="muted" style={{ margin: 0 }}>
-            Browser-local working drafts. Save to library to promote a draft into My drills.
+            Browser-local editable drafts. Save to library only when you want a persistent drill record.
           </p>
         </div>
         {localDrafts.length === 0 ? (
           <article style={emptyStateStyle}>
             <p className="muted" style={{ margin: 0 }}>
-              No local drafts yet. Start with <strong>Create new drill</strong>.
+              No local drafts yet. Start with <strong>New drill</strong>.
             </p>
           </article>
         ) : (
@@ -265,7 +268,7 @@ export function LibraryOverview() {
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
               style={inputStyle}
-              placeholder="Search by title, tags, or package id"
+              placeholder="Search by title, tags, or drill ID"
             />
           </label>
           <label style={{ ...labelStyle, width: "min(100%, 210px)", flex: "0 0 min(100%, 210px)" }}>
@@ -280,7 +283,7 @@ export function LibraryOverview() {
         {catalog.entries.length === 0 ? (
           <article style={emptyStateStyle}>
             <p className="muted" style={{ margin: 0 }}>
-              No saved drills yet. Promote a draft or import a package file to populate My drills.
+              No saved drills yet. Promote a draft or import a drill file to populate My drills.
             </p>
           </article>
         ) : (
@@ -295,13 +298,13 @@ export function LibraryOverview() {
                 </div>
                 <div style={compactActionRowStyle}>
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Edit
+                    Open
                   </Link>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDrill(entry)}>
                     Duplicate
                   </button>
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Export
+                    Export drill
                   </Link>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDeleteDrill(entry)}>
                     Delete
@@ -320,10 +323,7 @@ export function LibraryOverview() {
             Upload Video
           </Link>
           <Link className="pill" href="/marketplace">
-            Drill Exchange
-          </Link>
-          <Link className="pill" href="/packages">
-            Package tools
+            Browse Exchange
           </Link>
         </div>
       </section>

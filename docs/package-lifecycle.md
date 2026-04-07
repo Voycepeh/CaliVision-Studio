@@ -1,11 +1,11 @@
-# Package Lifecycle
+# Drill File Lifecycle
 
 1. Start from Home and open Library.
-2. Enter Drill Studio from Library to author/edit drill and phases.
+2. Create or open a drill draft in Drill Studio.
 3. (Optional) use Upload Video for local analysis and reference artifacts.
-4. Export a portable package artifact.
+4. Export a portable drill file/package artifact.
 5. Optionally mock-publish to local Drill Exchange listing.
 6. Import/use in mobile runtime client.
-7. Fork/remix/version and republish over time.
+7. Fork/remix/revise and republish over time.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.

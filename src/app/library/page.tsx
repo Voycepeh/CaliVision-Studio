@@ -5,7 +5,7 @@ export default function LibraryPage() {
   return (
     <RoutePageIntro
       title="Library"
-      description="Manage local drafts, saved drills, and your main entry into Drill Studio workflows."
+      description="Create a new drill, continue local drafts, open saved drills, import drill files, and jump into Studio."
       navActive="library"
     >
       <LibraryOverview />
