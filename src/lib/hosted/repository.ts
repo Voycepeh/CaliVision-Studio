@@ -19,6 +19,39 @@ type HostedDraftRow = {
   updated_at: string;
 };
 
+type PostgrestErrorPayload = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
+
+async function readBackendError(response: Response): Promise<string> {
+  const fallback = `Request failed (${response.status} ${response.statusText || "error"})`;
+
+  try {
+    const payload = (await response.json()) as PostgrestErrorPayload | null;
+    if (!payload || typeof payload !== "object") {
+      return fallback;
+    }
+
+    const message = payload.message?.trim();
+    const details = payload.details?.trim();
+    const hint = payload.hint?.trim();
+    const code = payload.code?.trim();
+    const parts = [message, details, hint, code ? `code=${code}` : null].filter(Boolean);
+    return parts.length > 0 ? parts.join(" | ") : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function logHostedFailure(operation: string, detail: string): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`[hosted-drafts] ${operation} failed: ${detail}`);
+  }
+}
+
 function toSummary(row: HostedDraftRow): HostedDraftSummary {
   return {
     id: row.id,
@@ -85,6 +118,7 @@ export async function upsertHostedDraft(
   const pkg = input.packageJson;
   const payload = {
     id: input.draftId,
+    owner_user_id: session.user.id,
     title: pkg.drills[0]?.title ?? pkg.manifest.packageId,
     summary: pkg.drills[0]?.description ?? "Hosted drill draft",
     status: "draft",
@@ -95,7 +129,7 @@ export async function upsertHostedDraft(
     content: pkg
   };
 
-  const response = await fetch(`${env.url}/rest/v1/hosted_drafts`, {
+  const response = await fetch(`${env.url}/rest/v1/hosted_drafts?on_conflict=owner_user_id,package_id,package_version`, {
     method: "POST",
     headers: {
       ...headers(session),
@@ -105,7 +139,9 @@ export async function upsertHostedDraft(
   });
 
   if (!response.ok) {
-    return { ok: false, error: "Hosted save failed." };
+    const backendError = await readBackendError(response);
+    logHostedFailure("save", backendError);
+    return { ok: false, error: `Hosted save failed: ${backendError}` };
   }
 
   const rows = (await response.json()) as HostedDraftRow[];
