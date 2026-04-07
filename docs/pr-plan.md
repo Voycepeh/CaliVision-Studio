@@ -1,41 +1,43 @@
-# PR Plan — Drill Analysis Schema v1
+# PR Plan — Drill Comparison Pipeline Skeleton (Phase Scoring + Smoothing + Events)
 
 ## Summary
 
-Add additive drill-analysis contract metadata so Drill Studio-authored drills can support upcoming Upload Video and future live-analysis flows without changing current playback behavior.
+Add a deterministic, testable Drill Studio analysis runtime pipeline that scores sampled pose frames against authored drill phases, smooths temporal phase progression, extracts rep/hold events, and emits typed analysis session outputs for future persistence/replay work.
 
 ## Problem
 
-Current drill files are playable, but they do not provide enough explicit measurement intent for robust rep/hold interpretation across variable user speed and noisy observations.
+Studio now has drill/package analysis metadata but no runtime comparison layer to interpret sampled motion into actionable, structured analysis outputs.
 
 ## Assumptions
 
-- Studio remains the web-first source of truth for drill authoring.
-- Mobile runtime responsibilities stay in Android: <https://github.com/Voycepeh/CaliVision>.
-- Local-first browser persistence remains required for resilience.
-- Existing drill files without analysis metadata must continue loading unchanged.
+- Studio remains the web-first source of truth for drill authoring and portable drill file/package semantics.
+- Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+- Local-first behavior remains a hard requirement even as hosted foundations grow.
+- This PR is intentionally a baseline deterministic pipeline skeleton, not final biomechanics scoring quality.
 
 ## Scope
 
-- Add optional drill-level analysis metadata for rep/hold/hybrid measurement intent.
-- Add optional phase-level analysis metadata (`semanticRole`, `isCritical`, `matchHints`).
-- Add normalization helpers/defaults for backward compatibility.
-- Add typed analysis output models (`AnalysisSession`, `FramePhaseSample`, `AnalysisEvent`).
-- Update sample package payloads to include rep/hold/hybrid examples.
-- Update package and compatibility docs for schema v1 analysis direction.
+- Add modular analysis runtime stages:
+  - frame phase scoring,
+  - temporal smoothing/ordered transition enforcement,
+  - rep/hold event extraction,
+  - session-level analysis runner output.
+- Support ordered phase sequence semantics, bounded allowed skip transitions, confirmation frames, and exit grace handling.
+- Emit typed event logs and summary metrics from sampled frame analysis.
+- Add synthetic fixtures/tests for rep, hold, skip, cooldown, invalid transition, and low-confidence behavior.
 
 ## Non-goals
 
-- no frame scorer or pose-comparison runtime implementation,
-- no temporal smoothing/event extraction engine behavior,
-- no persistence wiring/UI for analysis sessions,
-- no replay overlay integration,
-- no broad UI rework.
+- no production-grade biomechanical model,
+- no ML model integration,
+- no persistence wiring for analysis sessions,
+- no replay overlay rendering/burning into video,
+- no broad Upload Video UX overhaul.
 
 ## Follow-up candidates (not included)
 
-- implement per-frame scoring pipeline and confidence calibration,
-- implement temporal smoothing + event extraction engine,
-- persist analysis sessions and event logs,
-- connect structured logs to annotated replay overlays,
-- add editor UX for rich analysis metadata authoring.
+- persist analysis sessions and query history in Studio,
+- connect analysis logs to replay overlay rendering,
+- refine scoring model (angles/velocity/domain weighting),
+- calibration and confidence tuning with real capture fixtures,
+- hybrid drill extraction expansion beyond baseline compatibility.
