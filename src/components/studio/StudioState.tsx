@@ -214,15 +214,7 @@ function createInitialPackages(): EditablePackageEntry[] {
     });
   }
 
-  return SAMPLE_PACKAGE_DEFINITIONS.flatMap((sample) => {
-    const result = loadPackageFromUnknown(sample.payload, `sample-${sample.id}`, `sample:${sample.id}`);
-
-    if (!result.ok) {
-      return [];
-    }
-
-    return [createEditablePackageEntry(result.packageViewModel.packageKey, `sample:${sample.id}`, result.packageViewModel.package)];
-  });
+  return [];
 }
 
 function getPhaseScopeKey(packageKey: string | null, phaseId: string | null): string | null {

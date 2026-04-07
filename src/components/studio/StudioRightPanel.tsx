@@ -19,10 +19,10 @@ export function StudioRightPanel() {
   const drill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
 
   return (
-    <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
-      <h2 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Details & diagnostics</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Quick context for the selected drill and phase, plus technical diagnostics when needed.
+    <details className="card" style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600 }}>Advanced technical details</summary>
+      <p className="muted" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
+        Internal IDs, validation internals, and detection diagnostics are hidden by default.
       </p>
 
       <StudioInspectorAccordion title="Drill draft identity and save state" >
@@ -97,6 +97,6 @@ export function StudioRightPanel() {
           <p className="muted" style={{ margin: 0 }}>Load a drill file to inspect validation internals.</p>
         )}
       </StudioInspectorAccordion>
-    </div>
+    </details>
   );
 }

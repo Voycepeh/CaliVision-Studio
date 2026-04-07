@@ -1,8 +1,8 @@
-# PR Plan — Drill-First IA Refresh on Main
+# PR Plan — Library/Studio Responsibility Cleanup
 
 ## Summary
 
-This pass simplifies Library persistence UX directly on top of current `main`, so storage mode is not exposed as a primary user concept and signed-in experience is account-first.
+This pass simplifies Studio into a focused editor workspace and moves drill file-management actions to Library so browsing/import/export are no longer duplicated in Studio.
 
 ## Assumptions
 
@@ -10,6 +10,7 @@ This pass simplifies Library persistence UX directly on top of current `main`, s
 - Mobile runtime responsibilities stay in Android: <https://github.com/Voycepeh/CaliVision>.
 - Local-first browser persistence (IndexedDB + localStorage metadata) remains required for resilience.
 - Signed-in Library should present one account-first Drafts/My drills workflow without parallel local sections.
+- Library is the canonical drill browsing + file-management route, and Studio edits the selected drill only.
 
 ## Non-goals
 
@@ -19,16 +20,16 @@ This pass simplifies Library persistence UX directly on top of current `main`, s
 - no Drill Exchange backend implementation,
 - no broad refactor of internal package-based type names.
 - no developer-facing storage terminology in primary Library sections.
+- no removal of existing editing capability; only responsibility relocation and UI de-cluttering.
 
 ## Scope
 
-- Keep Library focused on two user-facing concepts: Drafts and My drills.
-- Signed out: show Drafts/My drills from browser-local persistence with clear local-device messaging.
-- Signed in: show Drafts/My drills from hosted persistence as primary source of truth.
-- Remove parallel primary sections like hosted drafts vs local drafts in signed-in mode.
-- Add one-time local-draft import affordance after sign-in when local drafts exist.
-- Preserve local safety fallback messaging when cloud save fails.
-- Synchronize docs with the storage-agnostic UX model.
+- Remove Studio's "Drill source" browsing surface and rely on Library for drill selection/opening.
+- Keep Studio actions focused on editing (status, save draft, return to Library, compact overflow for optional publish prep).
+- Move file-management actions (import/export/save copy/delete/open) to Library surfaces.
+- Replace permanent Studio diagnostics side rail with an optional collapsible advanced section.
+- Add a polished Studio empty state when no drill is selected, with CTA back to Library.
+- Preserve local/hosted draft persistence behavior and autosave flows.
 
 ## Follow-up candidates (not included)
 

@@ -1,10 +1,32 @@
 "use client";
 
-import { StudioResizableLayout } from "@/components/layout/StudioResizableLayout";
-import { LibraryPanel } from "@/components/studio/LibraryPanel";
+import Link from "next/link";
 import { StudioCenterInspector } from "@/components/studio/StudioCenterInspector";
-import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { StudioStateProvider } from "@/components/studio/StudioState";
+import { useStudioState } from "@/components/studio/StudioState";
+
+function StudioEmptyState() {
+  const { selectedPackage } = useStudioState();
+  if (selectedPackage) {
+    return <StudioCenterInspector />;
+  }
+
+  return (
+    <section className="panel" style={{ padding: "1rem" }}>
+      <div className="card" style={{ maxWidth: "640px", margin: "0 auto", display: "grid", gap: "0.65rem", textAlign: "center" }}>
+        <h2 style={{ margin: 0 }}>No drill selected</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Choose a drill from Library to start editing.
+        </p>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <Link href="/library" className="pill" style={{ fontWeight: 600 }}>
+            Go to Library
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function StudioExperience({
   initialPackageId,
@@ -18,7 +40,7 @@ export function StudioExperience({
   return (
     <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId} initialHostedDraftId={initialHostedDraftId}>
       <div className="studio-route-surface">
-        <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
+        <StudioEmptyState />
       </div>
     </StudioStateProvider>
   );

@@ -13,7 +13,7 @@ import {
   type HostedLibraryItem
 } from "@/lib/hosted/library-repository";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
-import { getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
+import { buildBundleForExport, downloadPackageBundle, getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
   DEFAULT_PACKAGE_LISTING_QUERY,
   deleteRegistryEntry,
@@ -373,6 +373,13 @@ export function LibraryOverview() {
     await refreshHostedLibrary();
   }
 
+  async function onExportDrillFile(itemId: string, packageJson: PackageRegistryEntry["details"]["packageJson"]): Promise<void> {
+    const result = await buildBundleForExport(packageJson, {});
+    downloadPackageBundle(result.bundle, packageJson);
+    const warningSuffix = result.warnings.length > 0 ? ` (${result.warnings.length} missing asset warning${result.warnings.length > 1 ? "s" : ""})` : "";
+    setItemFeedback(itemId, `Exported drill file.${warningSuffix}`);
+  }
+
   async function onOpenHostedLibraryItem(item: HostedLibraryItem): Promise<void> {
     if (!session) {
       setItemFeedback(`hosted-drill:${item.id}`, "Sign in to open this drill.", "error");
@@ -675,6 +682,18 @@ export function LibraryOverview() {
                     type="button"
                     style={chipStyle(false)}
                     disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
+                    onClick={() =>
+                      void runItemAction(`hosted-drill:${item.id}`, "Exporting drill file…", () =>
+                        onExportDrillFile(`hosted-drill:${item.id}`, item.content)
+                      )
+                    }
+                  >
+                    Export drill file
+                  </button>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
                     onClick={() => void runItemAction(`hosted-drill:${item.id}`, "Deleting drill…", () => onDeleteHostedDrill(item))}
                   >
                     Delete
@@ -710,11 +729,16 @@ export function LibraryOverview() {
                     disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
                     onClick={() => void runItemAction(`drill:${entry.entryId}`, "Duplicating drill…", () => onDuplicateDrill(entry))}
                   >
-                    Duplicate
+                    Save copy
                   </button>
-                  <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Export drill
-                  </Link>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
+                    onClick={() => void runItemAction(`drill:${entry.entryId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${entry.entryId}`, entry.details.packageJson))}
+                  >
+                    Export drill file
+                  </button>
                   <button
                     type="button"
                     style={chipStyle(false)}
