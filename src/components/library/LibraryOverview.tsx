@@ -150,6 +150,9 @@ export function LibraryOverview() {
 
     try {
       await run();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Action failed. Please try again.";
+      setItemFeedback(itemId, message, "error");
     } finally {
       setItemActionState((current) => {
         const nextPending = { ...current.pendingActionByItemId };
@@ -205,6 +208,19 @@ export function LibraryOverview() {
     next.manifest.createdAtIso = createdAt;
     next.manifest.updatedAtIso = createdAt;
     next.drills[0].title = "New drill draft";
+    if (signedInMode && session) {
+      const hosted = await upsertHostedDraft(session, { packageJson: next });
+      if (!hosted.ok) {
+        setItemFeedback("global:create", hosted.error, "error");
+        return;
+      }
+
+      setItemFeedback("global:create", "Created a new drill draft.");
+      await refreshHostedDrafts();
+      router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
+      return;
+    }
+
     await saveDraft({
       draftId,
       sourceLabel: "authored-local",
@@ -390,7 +406,10 @@ export function LibraryOverview() {
       const loaded = await loadDraft(summary.draftId);
       if (!loaded) continue;
       const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-      if (saved.ok) imported += 1;
+      if (saved.ok) {
+        imported += 1;
+        await deleteDraft(summary.draftId);
+      }
     }
 
     const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
@@ -401,6 +420,7 @@ export function LibraryOverview() {
       imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.",
       imported > 0 ? "success" : "error"
     );
+    await refreshDrafts();
     await refreshHostedDrafts();
   }
 
