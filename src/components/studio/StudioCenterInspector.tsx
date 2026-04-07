@@ -5,6 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
+import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
@@ -166,6 +167,8 @@ export function StudioCenterInspector() {
         </p>
       </header>
 
+      <StudioActionBar />
+
       <div className="studio-authoring-workspace-grid">
         <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
           <WorkflowSection title="Drill info" stepIndex={WORKFLOW_SECTION_IDS.drillInfo} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillInfo)} onToggle={handleSectionToggle}>
@@ -231,7 +234,7 @@ export function StudioCenterInspector() {
             )}
           </WorkflowSection>
 
-          <WorkflowSection title="Source image" stepIndex={WORKFLOW_SECTION_IDS.sourceImage} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.sourceImage)} onToggle={handleSectionToggle}>
+          <WorkflowSection title="Phase source image" stepIndex={WORKFLOW_SECTION_IDS.sourceImage} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.sourceImage)} onToggle={handleSectionToggle}>
             {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : <p className="muted" style={{ margin: 0 }}>Select a phase to upload an image and run detection.</p>}
           </WorkflowSection>
         </div>
