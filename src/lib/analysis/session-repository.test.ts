@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  createImportedAnalysisSessionCopy,
   deserializeAnalysisSession,
   InMemoryAnalysisSessionRepository,
   serializeAnalysisSession,
@@ -72,4 +73,15 @@ test("analysis session export/import round-trip is stable", () => {
 
 test("invalid export payload is rejected", () => {
   assert.throws(() => deserializeAnalysisSession(JSON.stringify({ schemaVersion: "bad", session: {} })));
+});
+
+test("import copy creates a new imported session entry", () => {
+  const source = buildSession({ sessionId: "source-session", sourceKind: "upload", sourceLabel: "attempt.mp4" });
+  const imported = createImportedAnalysisSessionCopy(source, { nowIso: "2026-04-07T12:00:00.000Z", importedSessionId: "imported-session" });
+
+  assert.equal(imported.sessionId, "imported-session");
+  assert.equal(imported.sourceKind, "imported");
+  assert.equal(imported.sourceId, "source-session");
+  assert.equal(imported.sourceLabel, "imported:attempt.mp4");
+  assert.equal(imported.createdAtIso, "2026-04-07T12:00:00.000Z");
 });

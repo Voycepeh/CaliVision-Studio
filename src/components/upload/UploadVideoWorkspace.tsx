@@ -6,6 +6,7 @@ import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideo
 import type { UploadJob } from "@/lib/upload/types";
 import { getPrimarySamplePackage } from "@/lib/package/samples";
 import {
+  createImportedAnalysisSessionCopy,
   deserializeAnalysisSession,
   getBrowserAnalysisSessionRepository,
   persistCompletedUploadAnalysisSession,
@@ -46,6 +47,10 @@ function downloadBlob(blob: Blob, filename: string) {
 
 function createArtifactBaseName(fileName: string): string {
   return fileName.replace(/\.[^./\\]+$/, "");
+}
+
+function createUploadSourceUri(jobId: string, fileName: string): string {
+  return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
 }
 
 function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
@@ -168,7 +173,9 @@ export function UploadVideoWorkspace() {
         drillVersion: "sample-v1",
         timeline,
         sourceId: nextJob.id,
-        sourceLabel: nextJob.fileName
+        sourceLabel: nextJob.fileName,
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
       });
       setSelectedSessionId(persisted.sessionId);
       await refreshRecentSessions();
@@ -194,6 +201,7 @@ export function UploadVideoWorkspace() {
           drillVersion: "sample-v1",
           sourceId: nextJob.id,
           sourceLabel: nextJob.fileName,
+          sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
           errorMessage: message
         });
         await refreshRecentSessions();
@@ -402,6 +410,9 @@ export function UploadVideoWorkspace() {
               Source: {selectedSession.sourceKind} / {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"} • Pipeline:{" "}
               {selectedSession.pipelineVersion ?? "unknown"}
             </p>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Raw URI: {selectedSession.rawVideoUri ?? selectedSession.sourceUri ?? "n/a"} • Annotated URI: {selectedSession.annotatedVideoUri ?? "n/a"}
+            </p>
             <ul className="muted" style={{ marginTop: "0.2rem" }}>
               <li>Rep count: {selectedSession.summary.repCount ?? 0}</li>
               <li>Hold duration: {formatDuration(selectedSession.summary.holdDurationMs)}</li>
@@ -444,11 +455,16 @@ export function UploadVideoWorkspace() {
                 type="button"
                 className="pill"
                 onClick={async () => {
-                  await analysisRepository.saveSession(deserializeAnalysisSession(serializeAnalysisSession(selectedSession)));
+                  const importedSession = createImportedAnalysisSessionCopy(
+                    deserializeAnalysisSession(serializeAnalysisSession(selectedSession)),
+                    { importedSessionId: crypto.randomUUID() }
+                  );
+                  await analysisRepository.saveSession(importedSession);
                   await refreshRecentSessions();
+                  setSelectedSessionId(importedSession.sessionId);
                 }}
               >
-                Re-import JSON (round-trip)
+                Import JSON as New Session
               </button>
             </div>
           </article>

@@ -4,6 +4,7 @@ export { smoothPhaseTimeline } from "./temporal-phase-smoother.ts";
 export { extractAnalysisEvents } from "./event-extractor.ts";
 export { runDrillAnalysisPipeline } from "./analysis-runner.ts";
 export {
+  createImportedAnalysisSessionCopy,
   deserializeAnalysisSession,
   getBrowserAnalysisSessionRepository,
   IndexedDbAnalysisSessionRepository,

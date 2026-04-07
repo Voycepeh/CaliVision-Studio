@@ -22,9 +22,9 @@
 1. Select multiple local videos (file picker or drag/drop).
 2. Queue jobs in-browser (default single active processing job).
 3. Run MediaPipe Pose Landmarker in video mode locally.
-4. Persist one local analysis session per completed (or failed) attempt, including source linkage, frame-phase samples, event log, and summary metrics.
+4. Persist one local analysis session per completed (or failed) attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
 5. Review overlay preview for completed jobs.
-6. Inspect **Recent analyses** in Upload Video to reopen session summaries, event logs, and JSON debug payload.
+6. Inspect **Recent analyses** in Upload Video to reopen session summaries, event logs, URI linkage, and JSON debug payload.
 7. Download local artifacts in clear user-facing order:
    - Annotated Video,
    - Processing Summary (.json),

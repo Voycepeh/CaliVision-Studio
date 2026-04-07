@@ -113,13 +113,17 @@ test("upload analysis path persists exactly one completed session", async () => 
     drillVersion: "sample-v1",
     timeline: createTimeline(),
     sourceId: "upload-job-1",
-    sourceLabel: "attempt.mp4"
+    sourceLabel: "attempt.mp4",
+    sourceUri: "upload://local/upload-job-1/attempt.mp4",
+    annotatedVideoUri: "upload://local/upload-job-1/attempt.annotated-video.webm"
   });
 
   const sessions = await repository.listRecentSessions();
   assert.equal(sessions.length, 1);
   assert.equal(sessions[0]?.status, "completed");
   assert.equal(sessions[0]?.sourceKind, "upload");
+  assert.equal(sessions[0]?.sourceUri, "upload://local/upload-job-1/attempt.mp4");
+  assert.equal(sessions[0]?.annotatedVideoUri, "upload://local/upload-job-1/attempt.annotated-video.webm");
 });
 
 test("failed analysis attempts can be persisted truthfully", async () => {

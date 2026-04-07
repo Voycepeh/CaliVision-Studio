@@ -215,3 +215,20 @@ export function deserializeAnalysisSession(value: string): AnalysisSessionRecord
 
   return parsed.session;
 }
+
+export function createImportedAnalysisSessionCopy(
+  session: AnalysisSessionRecord,
+  options?: { nowIso?: string; importedSessionId?: string }
+): AnalysisSessionRecord {
+  const nowIso = options?.nowIso ?? new Date().toISOString();
+  return {
+    ...session,
+    sessionId: options?.importedSessionId ?? `analysis_imported_${Date.now()}`,
+    sourceKind: "imported",
+    sourceId: session.sessionId,
+    sourceLabel: session.sourceLabel ? `imported:${session.sourceLabel}` : `imported:${session.sessionId}`,
+    status: "completed",
+    createdAtIso: nowIso,
+    completedAtIso: nowIso
+  };
+}
