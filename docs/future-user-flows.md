@@ -34,7 +34,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 ## Local-first to hosted-save progression (planned)
 
-Current local draft autosave and Upload Video processing are intentionally browser-scoped. Future hosted save/sync should remain additive and preserve distinction between:
+Current local draft autosave and Upload Video processing are intentionally browser-scoped. Future hosted save/sync should remain additive while preserving simple user-facing concepts (Drafts and My drills), with distinction between:
 
 - local browser draft and local video processing,
 - portable drill file export/import,
@@ -48,4 +48,3 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Public Drill Exchange retrieval/publishing remains deferred.
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
-

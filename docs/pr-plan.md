@@ -2,31 +2,33 @@
 
 ## Summary
 
-This pass reapplies the drill-first IA cleanup directly on top of current `main`, replacing package-first user wording and flow in navigation, Library, Studio shell copy, and docs.
+This pass simplifies Library persistence UX directly on top of current `main`, so storage mode is not exposed as a primary user concept and signed-in experience is account-first.
 
 ## Assumptions
 
 - Studio remains the web-first source of truth for drill authoring.
 - Mobile runtime responsibilities stay in Android: <https://github.com/Voycepeh/CaliVision>.
-- Local-first browser persistence (IndexedDB + localStorage metadata) remains the active storage model.
+- Local-first browser persistence (IndexedDB + localStorage metadata) remains required for resilience.
+- Signed-in Library should present one account-first Drafts/My drills workflow without parallel local sections.
 
 ## Non-goals
 
-- no hosted backend sync/auth/storage,
+- no new hosted backend domains beyond existing auth + hosted drafts/library scope,
 - no package contract/schema changes,
 - no Android runtime behavior changes,
 - no Drill Exchange backend implementation,
 - no broad refactor of internal package-based type names.
+- no developer-facing storage terminology in primary Library sections.
 
 ## Scope
 
-- Remove package as a top-level UX concept in nav and primary flows.
-- Keep `/packages` as compatibility handling only (redirect to `/library`).
-- Make Library the obvious home for create/continue/open/import/browse.
-- Ensure `New drill` creates local draft only and routes straight into Studio by draft id.
-- Update Studio top-bar identity and action labels to drill/draft language.
-- Keep technical package/file metadata only as secondary diagnostics.
-- Synchronize docs and AGENTS guidance with drill-first UX story.
+- Keep Library focused on two user-facing concepts: Drafts and My drills.
+- Signed out: show Drafts/My drills from browser-local persistence with clear local-device messaging.
+- Signed in: show Drafts/My drills from hosted persistence as primary source of truth.
+- Remove parallel primary sections like hosted drafts vs local drafts in signed-in mode.
+- Add one-time local-draft import affordance after sign-in when local drafts exist.
+- Preserve local safety fallback messaging when cloud save fails.
+- Synchronize docs with the storage-agnostic UX model.
 
 ## Follow-up candidates (not included)
 
@@ -43,4 +45,3 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Public Drill Exchange retrieval/publishing remains deferred.
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
-

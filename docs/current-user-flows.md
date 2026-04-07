@@ -4,12 +4,12 @@
 
 1. User lands on **Home** (`/`) as the brand-first product entry.
 2. User picks one of three primary paths: **Open Library**, **Upload Video**, or **Download Android app**.
-3. From **Library** (`/library`), user can create a new drill draft, continue recent drafts, open saved drills, import drill files, and open Drill Exchange.
+3. From **Library** (`/library`), user can create a new drill draft, continue Drafts, open My drills, import drill files, and open Drill Exchange.
 4. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
 
 ## Current Drill Studio flow
 
-1. Create a new local draft or open an existing draft/drill.
+1. Create a new draft or open an existing draft/drill.
 2. Edit drill metadata (title, slug, required drill type, difficulty, view).
 3. Create/edit/reorder phases.
 4. Upload a phase image.
@@ -36,30 +36,30 @@
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
-## Local draft durability flow (available now)
+## Draft durability flow (available now)
 
-1. User edits in Drill Studio and sees local save state updates (saving/saved/failed).
-2. Draft and phase image assets autosave into IndexedDB.
-3. On refresh/reopen, user restores the last-opened draft or opens a recent local draft from Library.
+1. User edits in Drill Studio and sees draft save state updates.
+2. Draft and phase image assets autosave into IndexedDB for resilience.
+3. On refresh/reopen, user restores the last-opened draft from Library.
 4. User exports a portable drill file when they need portability/import to Android runtime client: <https://github.com/Voycepeh/CaliVision>.
 
-Local draft state is browser/device scoped only.
+Signed-out draft state is browser/device scoped only. Signed-in mode keeps hosted persistence as the primary source of truth.
 
 ## Library draft/drill lifecycle flow (available now)
 
-1. `Create new drill` creates a **local draft only** (not a saved drill entry).
+1. `Create new drill` creates a **draft** (work in progress, not yet in My drills).
 2. `Continue editing` opens that draft in Drill Studio without automatic promotion.
-3. `Save to library` explicitly promotes the draft into **My drills** and removes that draft from `Recent local drafts`.
+3. `Save to My drills` explicitly promotes the draft into **My drills**.
 4. `Import drill` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
-5. `Delete draft` removes draft-only IndexedDB data for that draft.
-6. `Delete` in **My drills** removes the saved drill and cleans linked same-version drafts to avoid orphan records.
+5. `Delete draft` removes draft data from the active persistence scope.
+6. `Delete` in **My drills** removes the saved drill from the active persistence scope.
 
 ## Hosted drafts foundation (April 2026)
 
 Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
 
-- Hosted drafts are private and user-owned.
+- Hosted drafts/My drills are private and user-owned.
 - Public Drill Exchange retrieval/publishing remains deferred.
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
-
+- Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.

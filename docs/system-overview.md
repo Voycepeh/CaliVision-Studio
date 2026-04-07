@@ -14,3 +14,9 @@
 - hosted backend/auth/storage remain future layers.
 
 > Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).
+
+## Library persistence UX (current)
+
+- Signed out: browser/device-local persistence for Drafts and My drills.
+- Signed in: account-hosted persistence is primary for Drafts and My drills.
+- Local browser persistence remains as resilience/fallback and technical diagnostics, not primary navigation.

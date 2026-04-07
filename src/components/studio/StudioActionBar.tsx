@@ -56,7 +56,7 @@ export function StudioActionBar() {
           Export drill
         </button>
         <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || !userEmail || !isConfigured}>
-          Save to account
+          Save draft
         </button>
         <button type="button" onClick={openPublishPanel} className="studio-button" disabled={!selectedPackage}>
           Share to Exchange (Mock)
