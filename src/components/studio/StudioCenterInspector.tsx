@@ -6,7 +6,6 @@ import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
-import { StudioPublishPanel } from "@/components/studio/StudioPublishPanel";
 import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
@@ -343,7 +342,6 @@ export function StudioCenterInspector() {
           <WorkflowSection title="Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs />
           </WorkflowSection>
-          <StudioPublishPanel />
           <StudioRightPanel />
         </div>
       </div>

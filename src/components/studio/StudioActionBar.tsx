@@ -7,7 +7,6 @@ import Link from "next/link";
 export function StudioActionBar() {
   const {
     saveStatusLabel,
-    openPublishPanel,
     selectedPackage,
     saveSelectedToHosted,
     hostedSaveStatusMessage
@@ -31,14 +30,6 @@ export function StudioActionBar() {
         <Link href="/library" className="pill">
           Back to Library
         </Link>
-        <details>
-          <summary className="studio-button">More</summary>
-          <div style={{ marginTop: "0.4rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-            <button type="button" onClick={openPublishPanel} className="studio-button" disabled={!selectedPackage}>
-              Share to Exchange (Mock)
-            </button>
-          </div>
-        </details>
       </div>
     </section>
   );

@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { StudioCenterInspector } from "@/components/studio/StudioCenterInspector";
-import { StudioStateProvider } from "@/components/studio/StudioState";
-import { useStudioState } from "@/components/studio/StudioState";
+import { StudioStateProvider, useStudioState } from "@/components/studio/StudioState";
 
 function StudioEmptyState() {
   const { selectedPackage } = useStudioState();
