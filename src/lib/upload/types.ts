@@ -12,6 +12,7 @@ export type UploadJob = {
   stageLabel: string;
   progress: number;
   errorMessage?: string;
+  errorDetails?: string;
   createdAtIso: string;
   startedAtIso?: string;
   completedAtIso?: string;
@@ -41,7 +42,7 @@ export type PoseTimeline = {
 
 export type UploadJobArtifacts = {
   poseTimeline: PoseTimeline;
-  analysis: {
+  processingSummary: {
     schemaVersion: "upload-analysis-v1";
     averageConfidence: number;
     sampledFrameCount: number;

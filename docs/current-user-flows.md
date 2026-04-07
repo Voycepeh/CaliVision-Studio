@@ -23,7 +23,10 @@
 2. Queue jobs in-browser (default single active processing job).
 3. Run MediaPipe Pose Landmarker in video mode locally.
 4. Review overlay preview for completed jobs.
-5. Download local artifacts (pose timeline JSON, analysis JSON, annotated WebM).
+5. Download local artifacts in clear user-facing order:
+   - Annotated Video,
+   - Processing Summary (.json),
+   - Pose Timeline (.json).
 
 ## Current availability notes
 
