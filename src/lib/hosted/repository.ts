@@ -150,3 +150,21 @@ export async function upsertHostedDraft(
 
   return { ok: true, value: toSummary(row) };
 }
+
+export async function deleteHostedDraft(session: AuthSession, draftId: string): Promise<Result<void>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/hosted_drafts?id=eq.${encodeURIComponent(draftId)}`, {
+    method: "DELETE",
+    headers: headers(session)
+  });
+
+  if (!response.ok) {
+    const backendError = await readBackendError(response);
+    logHostedFailure("delete", backendError);
+    return { ok: false, error: `Failed to delete draft: ${backendError}` };
+  }
+
+  return { ok: true, value: undefined };
+}

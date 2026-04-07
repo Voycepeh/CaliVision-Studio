@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
+import { deleteHostedDraft, listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
 import type { HostedDraftSummary } from "@/lib/hosted/types";
 import {
   deleteHostedLibraryItem,
@@ -49,6 +49,10 @@ export function LibraryOverview() {
   const { session, userEmail } = useAuth();
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("success");
   const signedInMode = Boolean(userEmail && isSupabaseConfigured() && session);
+  const meaningfulLocalDrafts = useMemo(
+    () => localDrafts.filter((draft) => !draft.sourceLabel.startsWith("hosted-library:")),
+    [localDrafts]
+  );
 
   const refreshDrafts = useCallback(async (): Promise<void> => {
     try {
@@ -124,6 +128,24 @@ export function LibraryOverview() {
       }),
     [entries, searchText, sortBy]
   );
+
+  const hostedCatalog = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLocaleLowerCase();
+    const filtered = hostedLibrary.filter((item) => {
+      if (!normalizedSearch) return true;
+      return [item.title, item.summary, item.packageId].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "title-asc") {
+        return a.title.localeCompare(b.title);
+      }
+      if (sortBy === "publish-status") {
+        return a.title.localeCompare(b.title);
+      }
+      return new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime();
+    });
+  }, [hostedLibrary, searchText, sortBy]);
 
   async function onCreateDraft(): Promise<void> {
     const sample = getPrimarySamplePackage();
@@ -285,15 +307,20 @@ export function LibraryOverview() {
   }
 
   async function onOpenHostedLibraryItem(item: HostedLibraryItem): Promise<void> {
-    const nextDraftId = `draft-${Date.now()}`;
-    await saveDraft({
-      draftId: nextDraftId,
-      sourceLabel: `hosted-library:${item.id}`,
-      packageJson: structuredClone(item.content),
-      assetsById: {}
-    });
-    setFeedback("Opened drill in Studio.");
-    router.push(`/studio?draftId=${encodeURIComponent(nextDraftId)}`);
+    if (!session) {
+      setFeedback("Sign in to open this drill.", "error");
+      return;
+    }
+
+    const hosted = await upsertHostedDraft(session, { packageJson: item.content });
+    if (!hosted.ok) {
+      setFeedback(hosted.error, "error");
+      return;
+    }
+
+    setFeedback("Opened drill in Drafts.");
+    await refreshHostedDrafts();
+    router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
   }
 
   async function onImportLocalDraftsToAccount(): Promise<void> {
@@ -302,13 +329,13 @@ export function LibraryOverview() {
       return;
     }
 
-    if (localDrafts.length === 0) {
+    if (meaningfulLocalDrafts.length === 0) {
       setFeedback("No local drafts found on this browser.");
       return;
     }
 
     let imported = 0;
-    for (const summary of localDrafts) {
+    for (const summary of meaningfulLocalDrafts) {
       const loaded = await loadDraft(summary.draftId);
       if (!loaded) continue;
       const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
@@ -319,6 +346,23 @@ export function LibraryOverview() {
     window.localStorage.setItem(dismissKey, "1");
     setLocalImportDismissed(true);
     setFeedback(imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.", imported > 0 ? "success" : "error");
+    await refreshHostedDrafts();
+  }
+
+  async function onDeleteHostedDraft(draft: HostedDraftSummary): Promise<void> {
+    if (!session) {
+      setFeedback("Sign in to manage Drafts.", "error");
+      return;
+    }
+    if (!window.confirm("Delete this draft?")) {
+      return;
+    }
+    const removed = await deleteHostedDraft(session, draft.id);
+    if (!removed.ok) {
+      setFeedback(removed.error, "error");
+      return;
+    }
+    setFeedback("Deleted draft.");
     await refreshHostedDrafts();
   }
 
@@ -347,7 +391,7 @@ export function LibraryOverview() {
       </section>
 
 
-      {signedInMode && !localImportDismissed && localDrafts.length > 0 ? (
+      {signedInMode && !localImportDismissed && meaningfulLocalDrafts.length > 0 ? (
         <section className="card" style={sectionCardStyle}>
           <div style={sectionHeadingStyle}>
             <h3 style={{ margin: 0 }}>Local drafts found on this device</h3>
@@ -388,6 +432,9 @@ export function LibraryOverview() {
                     <Link className="pill" href={`/studio?hostedDraftId=${encodeURIComponent(draft.id)}`}>
                       Continue editing
                     </Link>
+                    <button type="button" style={chipStyle(false)} onClick={() => void onDeleteHostedDraft(draft)}>
+                      Delete draft
+                    </button>
                   </div>
                 </article>
               ))}
@@ -456,7 +503,7 @@ export function LibraryOverview() {
             </select>
           </label>
         </div>
-        {signedInMode ? hostedLibrary.length === 0 ? (
+        {signedInMode ? hostedCatalog.length === 0 ? (
           <article style={emptyStateStyle}>
             <p className="muted" style={{ margin: 0 }}>
               No drills yet. Save a draft or import a drill file to populate My drills.
@@ -464,7 +511,7 @@ export function LibraryOverview() {
           </article>
         ) : (
           <div style={listStackStyle}>
-            {hostedLibrary.map((item) => (
+            {hostedCatalog.map((item) => (
               <article key={item.id} className="card" style={listCardStyle}>
                 <div style={rowTitleWrapStyle}>
                   <strong>{item.title}</strong>
