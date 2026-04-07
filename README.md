@@ -31,6 +31,12 @@ Android/mobile runtime client (downstream consumer): <https://github.com/Voycepe
   - Processing Summary (.json),
   - Annotated Video export (WebM).
 
+## Branding assets (homepage + app shell)
+
+- Primary homepage and navbar logo asset: `public/brand/calivision-home-logo.svg`.
+- Temporary app icon placeholder for Next.js app router: `src/app/icon.svg`.
+- Current implementation intentionally reuses the same branding family while we prepare dedicated tiny-size icon artwork.
+
 ## Engineering note on drill files
 
 The portable drill package/file format is still maintained for portability, Android compatibility, and future schema evolution/migration.
