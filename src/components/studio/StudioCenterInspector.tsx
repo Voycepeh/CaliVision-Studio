@@ -12,7 +12,6 @@ import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-v
 import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
 import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contracts";
 
-const WORKFLOW_STEPS = ["Drill info", "Phases", "Source image", "Pose authoring", "Review", "Export"] as const;
 const NUDGE_STEP = 0.01;
 
 const WORKFLOW_SECTION_IDS = {
@@ -23,6 +22,15 @@ const WORKFLOW_SECTION_IDS = {
   review: 4,
   export: 5
 } as const;
+
+const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
+  [WORKFLOW_SECTION_IDS.drillInfo]: true,
+  [WORKFLOW_SECTION_IDS.phases]: true,
+  [WORKFLOW_SECTION_IDS.sourceImage]: false,
+  [WORKFLOW_SECTION_IDS.poseAuthoring]: false,
+  [WORKFLOW_SECTION_IDS.review]: false,
+  [WORKFLOW_SECTION_IDS.export]: false
+};
 
 type FocusRegion = "full" | "upper" | "lower" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg";
 
@@ -64,8 +72,11 @@ function WorkflowSection({
   return (
     <details className="card studio-workflow-section" data-current={stepIndex === currentStepIndex} open={open} onToggle={(event) => onToggle((event.currentTarget as HTMLDetailsElement).open, stepIndex)}>
       <summary className="studio-workflow-section-summary">
-        <span>
-          {stepIndex + 1}. {title}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+          <span className="studio-workflow-chevron" aria-hidden="true">
+            {open ? "▾" : "▸"}
+          </span>
+          <span>{title}</span>
         </span>
         {stepIndex === currentStepIndex ? <strong className="pill">Current step</strong> : null}
       </summary>
@@ -130,8 +141,7 @@ export function StudioCenterInspector() {
       return sectionOpenState[stepIndex];
     }
 
-    const nextStep = Math.min(currentStepIndex + 1, WORKFLOW_STEPS.length - 1);
-    return stepIndex === currentStepIndex || stepIndex === nextStep;
+    return DEFAULT_OPEN_SECTIONS[stepIndex] ?? false;
   }
 
   function handleSectionToggle(isOpen: boolean, stepIndex: number): void {
@@ -155,15 +165,6 @@ export function StudioCenterInspector() {
           Work top-to-bottom: drill info, phases, source image, pose refinement, review, then export package.
         </p>
       </header>
-
-      <section className="card studio-workflow-header" aria-label="Authoring flow overview">
-        {WORKFLOW_STEPS.map((step, index) => (
-          <div key={step} className="studio-flow-step" data-current={index === currentStepIndex}>
-            <span className="studio-flow-number">{index + 1}</span>
-            <span>{step}</span>
-          </div>
-        ))}
-      </section>
 
       <div className="studio-authoring-workspace-grid">
         <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>

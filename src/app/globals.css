@@ -277,10 +277,22 @@ main {
   gap: 0.4rem;
   align-items: center;
   font-weight: 600;
+  padding: 0.15rem 0.1rem;
+  border-radius: 0.45rem;
 }
 
 .studio-workflow-section-summary::-webkit-details-marker {
   display: none;
+}
+
+.studio-workflow-section-summary:hover {
+  background: rgba(114, 168, 255, 0.08);
+}
+
+.studio-workflow-chevron {
+  color: var(--muted);
+  width: 0.9rem;
+  text-align: center;
 }
 
 .studio-workflow-section-body {

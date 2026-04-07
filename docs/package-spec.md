@@ -21,6 +21,14 @@ Validation/parsing flows live in:
 - `DrillPackagePublishingMetadata` (optional publish/discovery metadata)
 - `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`
 
+### `PortableDrill` required field note
+
+`PortableDrill.drillType` is required and currently supports:
+- `hold`
+- `rep`
+
+Studio authoring should always capture this in the main Drill Studio workflow. It is not optional metadata.
+
 ## Versioning + provenance semantics
 
 `manifest.versioning` remains additive and optional:

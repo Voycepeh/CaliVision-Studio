@@ -9,12 +9,17 @@
 ## Current Drill Studio flow
 
 1. Create/open a drill.
-2. Edit drill metadata.
+2. Edit drill metadata (title, slug, required drill type, difficulty, view).
 3. Create/edit/reorder phases.
 4. Upload a phase image.
 5. Run detection and apply/refine pose.
 6. Preview animation.
 7. Export a portable drill package.
+
+Default workflow section state on first load/refresh:
+- Drill info: expanded
+- Phases: expanded (phase 1 selected when available)
+- Source image / Pose authoring / Review / Export: collapsed until needed
 
 ## Current availability notes
 

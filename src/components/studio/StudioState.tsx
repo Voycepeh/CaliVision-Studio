@@ -49,6 +49,7 @@ import type {
   CanonicalJointName,
   DrillPackagePublishingMetadata,
   PortableAssetRef,
+  PortableDrill,
   PortablePhase,
   PortableViewType,
   SchemaVersion
@@ -129,6 +130,7 @@ type StudioStateValue = {
   setDrillTitle: (title: string) => void;
   setDrillSlug: (slug: string) => void;
   setDrillDescription: (description: string) => void;
+  setDrillType: (drillType: PortableDrill["drillType"]) => void;
   setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
   setDrillDefaultView: (view: PortableViewType) => void;
   setManifestSchemaVersion: (schemaVersion: SchemaVersion) => void;
@@ -845,6 +847,19 @@ export function StudioStateProvider({
     );
   }
 
+  function setDrillType(drillType: PortableDrill["drillType"]): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        drill.drillType = drillType;
+      })
+    );
+  }
+
   function setDrillDifficulty(difficulty: "beginner" | "intermediate" | "advanced"): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -1531,6 +1546,7 @@ export function StudioStateProvider({
     setDrillTitle,
     setDrillSlug,
     setDrillDescription,
+    setDrillType,
     setDrillDifficulty,
     setDrillDefaultView,
     setManifestSchemaVersion,

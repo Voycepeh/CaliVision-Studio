@@ -29,5 +29,6 @@ Android remains the behavioral reference for package semantics. PR11 adds additi
 ## Current baseline
 
 - Contract baseline: `0.1.0`
+- `PortableDrill.drillType` is required (`hold | rep`) and should be treated as core drill logic metadata.
 - Sample payloads remain Android-compatible.
 - Registry/marketplace behavior in PR11 is local/mock only and does not add runtime coupling for mobile.

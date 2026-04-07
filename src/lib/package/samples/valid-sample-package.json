@@ -237,7 +237,8 @@
           "summary": "Return to guard with intentionally sparse joint data for robustness checks."
         }
       ],
-      "thumbnailAssetId": "asset_drill_thumb_001"
+      "thumbnailAssetId": "asset_drill_thumb_001",
+      "drillType": "hold"
     }
   ],
   "assets": [

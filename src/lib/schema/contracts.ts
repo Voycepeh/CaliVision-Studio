@@ -72,6 +72,7 @@ export type PortableDrill = {
   drillId: string;
   slug: string;
   title: string;
+  drillType: "hold" | "rep";
   description?: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   tags: string[];

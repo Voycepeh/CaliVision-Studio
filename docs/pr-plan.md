@@ -35,6 +35,10 @@ This pass prioritizes product IA and UX clarity on top of the existing local-fir
 - Add Studio autosave and restore-last-opened behavior.
 - Surface local drafts in Library with continue/duplicate/delete actions.
 - Add local-vs-export-vs-future-hosted clarity in UX and docs.
+- Keep Drill Studio workflow-first editing with collapsible sections and no redundant top step bar.
+- Keep package/container identifiers out of default authoring flow except where needed for import/export/publish internals.
+- Keep system-managed internal IDs immutable in UI.
+- Require explicit drill type selection (`hold` or `rep`) in main Drill info workflow.
 
 ### Additional non-goals
 
