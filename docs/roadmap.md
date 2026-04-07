@@ -22,3 +22,5 @@
 - stronger Studio/mobile continuity.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+
+> Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).

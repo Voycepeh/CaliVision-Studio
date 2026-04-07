@@ -106,3 +106,14 @@ Do not overclaim hosted auth/storage/exchange features before implementation exi
 - Use browser-local IndexedDB for durable draft and asset persistence while hosted storage is deferred.
 - Keep local draft persistence models separate from portable package export contracts.
 - Keep local draft messaging explicit: local to this browser/device, not cloud sync.
+
+## Hosted backend milestone (April 2026)
+
+Supabase is now approved for first-party hosted foundations in Studio when changes stay scoped to:
+- Auth/session identity,
+- user-owned private hosted drafts,
+- initial hosted storage groundwork.
+
+Maintain local-first safety: local IndexedDB drafts must continue to work even when hosted services fail or are not configured.
+
+Do not blur ecosystem boundaries: hosted work here supports Studio authoring and package workflows; Android runtime/live coaching remains in https://github.com/Voycepeh/CaliVision.

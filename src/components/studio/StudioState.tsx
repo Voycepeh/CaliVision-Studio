@@ -1,6 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { loadHostedDraft, upsertHostedDraft } from "@/lib/hosted/repository";
+import { uploadHostedDraftAsset } from "@/lib/hosted/storage";
 import {
   clonePackage,
   createEditablePackageEntry,
@@ -104,6 +107,7 @@ export type PublishWorkflowState = {
 };
 
 export type LocalSaveState = "idle" | "saving" | "saved" | "error";
+export type HostedSaveState = "idle" | "saving" | "saved" | "error";
 
 type StudioStateValue = {
   packages: EditablePackageEntry[];
@@ -113,6 +117,8 @@ type StudioStateValue = {
   importFeedback: ImportFeedback;
   saveStatusLabel: string;
   localSaveState: LocalSaveState;
+  hostedSaveState: HostedSaveState;
+  hostedSaveStatusMessage: string;
   selectedPackage: EditablePackageEntry | null;
   selectedPhaseSourceImage: PhaseSourceImage | null;
   selectedPhaseDetection: DetectionWorkflowState;
@@ -157,6 +163,7 @@ type StudioStateValue = {
   duplicateSelectedPackage: () => void;
   forkSelectedPackage: () => void;
   createSelectedPackageNewVersion: () => void;
+  saveSelectedToHosted: () => Promise<void>;
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -309,11 +316,13 @@ async function toPhaseSourceImageFromBlob(
 export function StudioStateProvider({
   children,
   initialPackageId,
-  initialDraftId
+  initialDraftId,
+  initialHostedDraftId
 }: {
   children: React.ReactNode;
   initialPackageId?: string;
   initialDraftId?: string;
+  initialHostedDraftId?: string;
 }) {
   const [packages, setPackages] = useState<EditablePackageEntry[]>(() => createInitialPackages());
   const [selectedPackageKey, setSelectedPackageKey] = useState<string | null>(() => createInitialPackages()[0]?.packageKey ?? null);
@@ -330,6 +339,10 @@ export function StudioStateProvider({
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
+  const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
+  const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Hosted save is available when signed in.");
+  const [hostedDraftIdsByPackageKey, setHostedDraftIdsByPackageKey] = useState<Record<string, string>>({});
+  const { session, isConfigured } = useAuth();
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const [hydrationComplete, setHydrationComplete] = useState(false);
   const hasLoadedDraftsRef = useRef(false);
@@ -431,6 +444,29 @@ export function StudioStateProvider({
       }
     })();
   }, [initialDraftId]);
+
+  useEffect(() => {
+    if (!initialHostedDraftId || !session || !isConfigured) {
+      return;
+    }
+
+    void (async () => {
+      const loaded = await loadHostedDraft(session, initialHostedDraftId);
+      if (!loaded.ok) {
+        setHostedSaveState("error");
+        setHostedSaveStatusMessage(loaded.error);
+        return;
+      }
+
+      const packageKey = `hosted:${loaded.value.id}`;
+      const entry = createEditablePackageEntry(packageKey, `hosted:${loaded.value.id}`, loaded.value.content);
+      setPackages((current) => [entry, ...current.filter((item) => item.packageKey !== packageKey)]);
+      setHostedDraftIdsByPackageKey((current) => ({ ...current, [packageKey]: loaded.value.id }));
+      setSelectedPackageKey(packageKey);
+      setSelectedPhaseId(getSortedPhases(entry.workingPackage)[0]?.phaseId ?? null);
+      setHostedSaveStatusMessage(`Opened hosted draft: ${loaded.value.title}`);
+    })();
+  }, [initialHostedDraftId, isConfigured, session]);
 
   useEffect(() => {
     if (!initialPackageId) {
@@ -563,6 +599,36 @@ export function StudioStateProvider({
           ? `Unsaved changes (${selectedPackage.sourceLabel})`
           : `Saved locally (${selectedPackage.sourceLabel})`
     : "No drill loaded";
+
+
+  async function saveSelectedToHosted(): Promise<void> {
+    if (!selectedPackage) {
+      return;
+    }
+    if (!isConfigured || !session) {
+      setHostedSaveState("error");
+      setHostedSaveStatusMessage("Sign in to save this drill draft to your account.");
+      return;
+    }
+
+    setHostedSaveState("saving");
+    const currentHostedId = hostedDraftIdsByPackageKey[selectedPackage.packageKey];
+    const upsert = await upsertHostedDraft(session, { draftId: currentHostedId, packageJson: selectedPackage.workingPackage });
+    if (!upsert.ok) {
+      setHostedSaveState("error");
+      setHostedSaveStatusMessage(upsert.error);
+      return;
+    }
+
+    const blobs = packageAssetBlobs[selectedPackage.packageKey] ?? {};
+    for (const [assetId, file] of Object.entries(blobs)) {
+      await uploadHostedDraftAsset({ session, draftId: upsert.value.id, assetId, file });
+    }
+
+    setHostedDraftIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.id }));
+    setHostedSaveState("saved");
+    setHostedSaveStatusMessage(`Saved to account at ${new Date(upsert.value.updatedAtIso).toLocaleString()}.`);
+  }
 
   async function importFromFile(file: File): Promise<void> {
     const packageKey = packageKeyFromFile(file);
@@ -1509,6 +1575,8 @@ export function StudioStateProvider({
     importFeedback,
     saveStatusLabel,
     localSaveState,
+    hostedSaveState,
+    hostedSaveStatusMessage,
     selectedPackage,
     selectedPhaseSourceImage,
     selectedPhaseDetection,
@@ -1552,7 +1620,8 @@ export function StudioStateProvider({
     updatePublishingMetadata,
     duplicateSelectedPackage,
     forkSelectedPackage,
-    createSelectedPackageNewVersion
+    createSelectedPackageNewVersion,
+    saveSelectedToHosted
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;

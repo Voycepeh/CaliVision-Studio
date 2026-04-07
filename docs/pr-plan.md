@@ -32,3 +32,13 @@ This pass introduces a dedicated `/` homepage for CaliVision Studio and moves Li
 - add polished rendered visuals/screens when available,
 - add personalized/usage-aware homepage content,
 - introduce optional Exchange spotlight modules once backed by hosted data.
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+

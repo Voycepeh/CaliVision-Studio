@@ -13,3 +13,5 @@ Android repo: <https://github.com/Voycepeh/CaliVision>.
 - Library + Drill Studio + Upload Video + Drill Exchange guide authoring/discovery,
 - Upload Video local processing artifacts are generated in-browser first,
 - export/import package workflows bridge to mobile runtime consumption.
+
+> Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).

@@ -8,13 +8,15 @@ import { StudioStateProvider } from "@/components/studio/StudioState";
 
 export function StudioExperience({
   initialPackageId,
-  initialDraftId
+  initialDraftId,
+  initialHostedDraftId
 }: {
   initialPackageId?: string;
   initialDraftId?: string;
+  initialHostedDraftId?: string;
 }) {
   return (
-    <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId}>
+    <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId} initialHostedDraftId={initialHostedDraftId}>
       <StudioResizableLayout left={<LibraryPanel />} center={<StudioCenterInspector />} right={<StudioRightPanel />} />
     </StudioStateProvider>
   );

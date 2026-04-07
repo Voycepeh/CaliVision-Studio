@@ -50,3 +50,13 @@ Local draft state is browser/device scoped only.
 4. `Import drill` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
 5. `Delete draft` removes draft-only IndexedDB data for that draft.
 6. `Delete` in **My drills** removes the saved drill and cleans linked same-version drafts to avoid orphan records.
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+
