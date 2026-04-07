@@ -4,15 +4,15 @@
 
 - Library-first product IA,
 - polished Drill Studio authoring flow,
-- Upload Video route shell,
+- Upload Video local-first queue + MediaPipe processing + artifact download,
 - Drill Exchange naming/discovery clarity,
 - package portability retained.
 
 ## Phase B (next)
 
-- Upload Video processing pipeline,
-- generated draft/review workflows,
-- richer drill-to-studio handoff.
+- Upload Video optional cloud fallback,
+- generated drill draft handoff automation,
+- optional hosted history/artifact persistence.
 
 ## Phase C
 

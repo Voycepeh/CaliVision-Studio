@@ -4,7 +4,7 @@
 
 1. User lands in **Library** (`/library`) as the primary start surface.
 2. User chooses a recent drill, creates a new draft via Studio, imports a drill package, or opens Exchange.
-3. User moves into **Drill Studio** for editing.
+3. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
 
 ## Current Drill Studio flow
 
@@ -16,14 +16,17 @@
 6. Preview animation.
 7. Export a portable drill package.
 
-Default workflow section state on first load/refresh:
-- Drill info: expanded
-- Phases: expanded (phase 1 selected when available)
-- Source image / Pose authoring / Review / Export: collapsed until needed
+## Current Upload Video flow
+
+1. Select multiple local videos (file picker or drag/drop).
+2. Queue jobs in-browser (default single active processing job).
+3. Run MediaPipe Pose Landmarker in video mode locally.
+4. Review overlay preview for completed jobs.
+5. Download local artifacts (pose timeline JSON, analysis JSON, annotated WebM).
 
 ## Current availability notes
 
-- Upload Video route exists as first-class product shell, but heavy processing is deferred.
+- Upload Video processing is browser-local and tab-bound.
 - Drill Exchange discovery is local/mock-backed.
 - Hosted auth/storage/community services are deferred.
 
