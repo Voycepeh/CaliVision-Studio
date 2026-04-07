@@ -91,3 +91,15 @@ Never expose in browser code:
 1. Add the same public env vars in Vercel project settings.
 2. Add production callback URL in Supabase Google provider settings.
 3. Deploy and repeat sign-in/session-refresh/sign-out checks on production domain.
+
+## 7) Troubleshooting hosted save failures
+
+If UI shows **"Hosted save failed: ..."**, use the appended backend payload to identify the real issue (constraint mismatch, RLS denial, auth token failure, etc.). In non-production mode Studio also logs `[hosted-drafts] save failed: ...` in the browser console for developer diagnostics.
+
+Common checks:
+
+- confirm `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set in Vercel and local `.env.local`,
+- confirm migration `20260407_hosted_drafts_foundation.sql` was applied,
+- confirm signed-in user session is active before clicking **Save to account**.
+
+Hosted draft writes rely on PostgREST upsert conflict keys `(owner_user_id, package_id, package_version)`. If a deployment is running older code without this conflict target, repeated saves for the same draft package/version can fail with a unique-constraint error.
