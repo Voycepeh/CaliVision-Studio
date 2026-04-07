@@ -409,7 +409,7 @@ export function StudioStateProvider({
               );
               nextPhaseSourceImages[`${entry.packageKey}:${phase.phaseId}`] = sourceImage;
             } catch {
-              // Skip unreadable assets; package data remains editable.
+              // Skip unreadable assets; drill data remains editable.
             }
           }
         }
@@ -660,7 +660,7 @@ export function StudioStateProvider({
     setImportFeedback({
       status: "success",
       message: result.importedBundle
-        ? `Imported bundled drill package ${file.name} successfully.`
+        ? `Imported bundled drill file ${file.name} successfully.`
         : `Imported drill file ${file.name} successfully.`,
       issues: nextEntry.validation.issues
     });
@@ -1423,7 +1423,7 @@ export function StudioStateProvider({
       setPublishWorkflow((current) => ({
         ...current,
         status: "blocked",
-        message: "Load a package before running publish readiness."
+        message: "Load a drill before running publish readiness."
       }));
       return;
     }

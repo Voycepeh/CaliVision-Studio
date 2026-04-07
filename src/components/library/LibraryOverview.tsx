@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { getPrimarySamplePackage } from "@/lib/package";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/lib/persistence/local-draft-store";
 
 export function LibraryOverview() {
+  const router = useRouter();
   const [entries, setEntries] = useState<PackageRegistryEntry[]>([]);
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
@@ -65,15 +67,19 @@ export function LibraryOverview() {
     next.manifest.packageVersion = "0.1.0";
     next.manifest.createdAtIso = createdAt;
     next.manifest.updatedAtIso = createdAt;
-    next.drills[0].title = "New local draft";
+    next.drills[0].title = "Untitled drill";
+    next.drills[0].description = "";
+
     await saveDraft({
       draftId,
       sourceLabel: "authored-local",
       packageJson: next,
       assetsById: {}
     });
-    setMessage("Created a new local draft.");
+
+    setMessage("Started a new local draft.");
     await refreshDrafts();
+    router.push(`/studio?draftId=${encodeURIComponent(draftId)}`);
   }
 
   async function onSaveDraftToLibrary(draftId: string): Promise<void> {
@@ -141,14 +147,17 @@ export function LibraryOverview() {
       <section className="card" style={{ display: "grid", gap: "0.7rem" }}>
         <h2 style={{ margin: 0 }}>Library</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Manage drills, continue local draft work, and keep your saved drill library organized.
+          Start a new drill, continue local drafts, open saved drills, import drill files, and browse Drill Exchange.
         </p>
         <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-          <button type="button" style={chipStyle(false)} onClick={() => void onCreateDraft()}>
-            Create new drill
+          <button type="button" style={primaryActionStyle} onClick={() => void onCreateDraft()}>
+            New drill
           </button>
           <Link className="pill" href="/studio">
-            Import drill
+            Open Studio
+          </Link>
+          <Link className="pill" href="/marketplace">
+            Browse Exchange
           </Link>
         </div>
       </section>
@@ -160,7 +169,7 @@ export function LibraryOverview() {
         </p>
         {localDrafts.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            No local drafts yet. Select <strong>Create new drill</strong> to start editing in Drill Studio.
+            No local drafts yet. Select <strong>New drill</strong> to start editing immediately in Drill Studio.
           </p>
         ) : (
           <div style={{ display: "grid", gap: "0.45rem" }}>
@@ -173,7 +182,7 @@ export function LibraryOverview() {
                 <p className="muted" style={{ margin: "0 0 0.4rem" }}>Last edited: {new Date(draft.updatedAtIso).toLocaleString()}</p>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                   <Link className="pill" href={`/studio?draftId=${encodeURIComponent(draft.draftId)}`}>
-                    Continue editing
+                    Continue draft
                   </Link>
                   <button type="button" style={chipStyle(false)} onClick={() => void onSaveDraftToLibrary(draft.draftId)}>
                     Save to library
@@ -221,13 +230,13 @@ export function LibraryOverview() {
                 </p>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Edit
+                    Open in Studio
                   </Link>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDrill(entry)}>
-                    Duplicate
+                    Duplicate to draft
                   </button>
                   <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Export
+                    Export drill
                   </Link>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDeleteDrill(entry)}>
                     Delete
@@ -240,14 +249,18 @@ export function LibraryOverview() {
       </section>
 
       <section className="card" style={{ display: "grid", gap: "0.5rem" }}>
-        <h3 style={{ margin: 0 }}>More tools</h3>
+        <h3 style={{ margin: 0 }}>Import / export tools</h3>
         <p className="muted" style={{ margin: 0 }}>
-          Use Upload Video, Drill Exchange, and package tooling when needed.
+          Import and export drill files from Studio. These technical tools stay secondary so Library remains drill-first.
         </p>
         <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+          <Link className="pill" href="/studio">
+            Import drill file
+          </Link>
+          <Link className="pill" href="/studio">
+            Export drill
+          </Link>
           <Link className="pill" href="/upload">Upload Video</Link>
-          <Link className="pill" href="/marketplace">Drill Exchange</Link>
-          <Link className="pill" href="/packages">Package tools</Link>
         </div>
       </section>
 
@@ -260,25 +273,34 @@ const labelStyle: CSSProperties = {
   display: "grid",
   gap: "0.25rem",
   color: "var(--muted)",
-  fontSize: "0.85rem"
+  fontSize: "0.84rem"
 };
 
 const inputStyle: CSSProperties = {
   border: "1px solid var(--border)",
-  borderRadius: "0.6rem",
-  padding: "0.45rem 0.55rem",
+  borderRadius: "0.55rem",
   background: "var(--panel-soft)",
-  color: "var(--text)"
+  color: "var(--text)",
+  padding: "0.45rem"
 };
 
 function chipStyle(active: boolean): CSSProperties {
   return {
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    border: active ? "1px solid var(--accent)" : "1px solid var(--border)",
     borderRadius: "999px",
-    padding: "0.28rem 0.62rem",
-    fontSize: "0.78rem",
-    color: active ? "var(--text)" : "var(--muted)",
-    background: active ? "var(--accent-soft)" : "var(--panel-soft)",
+    background: active ? "var(--accent-soft)" : "var(--panel-elevated)",
+    color: "var(--text)",
+    padding: "0.38rem 0.7rem",
     cursor: "pointer"
   };
 }
+
+const primaryActionStyle: CSSProperties = {
+  border: "1px solid var(--accent)",
+  borderRadius: "999px",
+  background: "var(--accent-soft)",
+  color: "var(--text)",
+  fontWeight: 700,
+  padding: "0.42rem 0.85rem",
+  cursor: "pointer"
+};

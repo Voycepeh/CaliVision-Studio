@@ -8,10 +8,9 @@ import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
   { href: "/library", label: "Library" },
-  { href: "/studio", label: "Drill Studio" },
-  { href: "/upload", label: "Upload Video" },
-  { href: "/marketplace", label: "Exchange" },
-  { href: "/packages", label: "Package Tools" }
+  { href: "/studio", label: "Studio" },
+  { href: "/upload", label: "Upload" },
+  { href: "/marketplace", label: "Exchange" }
 ];
 
 export function TopBar() {
@@ -27,7 +26,7 @@ export function TopBar() {
     createSelectedPackageNewVersion
   } = useStudioState();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
-  const packageHeader = selectedPackage
+  const drillHeader = selectedPackage
     ? `${selectedPackage.workingPackage.manifest.packageId} • v${selectedPackage.workingPackage.manifest.packageVersion}`
     : "No drill selected";
   const provenance = selectedPackage ? summarizeProvenance(selectedPackage.workingPackage) : "Open a drill from Library to begin.";
@@ -62,7 +61,7 @@ export function TopBar() {
             Web home for Drill Studio, Upload Video, and Drill Exchange
           </p>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
-            {packageHeader} • {provenance}
+            {drillHeader} • {provenance}
           </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -84,22 +83,22 @@ export function TopBar() {
           onChange={onImportFileChange}
         />
         <button type="button" onClick={() => fileInputRef.current?.click()} style={actionButtonStyle}>
-          Import drill package
+          Import drill file
         </button>
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
-          Export package
+          Export drill
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
-          Publish to Exchange (Mock)
+          Share to Exchange (Mock)
         </button>
         <button type="button" onClick={duplicateSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
-          Duplicate
+          Duplicate draft
         </button>
         <button type="button" onClick={forkSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
           Fork / Remix
         </button>
         <button type="button" onClick={createSelectedPackageNewVersion} style={actionButtonStyle} disabled={!selectedPackage}>
-          New version
+          Version snapshot
         </button>
       </div>
     </header>

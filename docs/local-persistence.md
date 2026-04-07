@@ -2,7 +2,7 @@
 
 ## Why this exists now
 
-CaliVision Studio prioritizes durable authoring before hosted auth/database/storage exists. Local persistence prevents draft loss on refresh/reopen while preserving package-first architecture.
+CaliVision Studio prioritizes durable authoring before hosted auth/database/storage exists. Local persistence prevents draft loss on refresh/reopen while preserving a drill-first UX and a clean transport boundary.
 
 Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
@@ -36,7 +36,7 @@ Supported local lifecycle actions:
 
 In the same browser/device profile:
 
-- drill/package working state,
+- drill draft working state,
 - phase/pose/timing/metadata edits,
 - local draft lineage/versioning metadata,
 - source image assets saved into IndexedDB blob storage (subject to browser quota/storage policy).
@@ -51,5 +51,5 @@ In the same browser/device profile:
 ## Mental model
 
 - **Local draft** = saved to this browser/device only.
-- **Export package** = portable package file for share/import/runtime usage.
+- **Export drill** = portable drill file/package artifact for share/import/runtime usage.
 - **Publish** = future hosted/shared flow, not provided by local persistence.

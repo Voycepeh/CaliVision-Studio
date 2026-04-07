@@ -2,11 +2,11 @@
 
 ## Phase A (current)
 
-- Library-first product IA,
+- Library-first product IA with explicit `New drill` CTA,
 - polished Drill Studio authoring flow,
 - Upload Video local-first queue + MediaPipe processing + artifact download,
 - Drill Exchange naming/discovery clarity,
-- package portability retained.
+- package portability retained as technical boundary.
 
 ## Phase B (next)
 

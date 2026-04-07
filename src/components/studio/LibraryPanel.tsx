@@ -10,9 +10,9 @@ export function LibraryPanel() {
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.55rem", alignContent: "start" }}>
-      <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Drill source</h2>
+      <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Drill drafts</h2>
       <p className="muted" style={{ marginTop: 0, marginBottom: "0.2rem" }}>
-        Choose the drill you are editing, load starter samples, and review package import feedback.
+        Choose the drill draft you are editing, load starter samples, and review drill file import feedback.
       </p>
 
       <section className="card" style={{ padding: "0.6rem" }}>
@@ -44,7 +44,7 @@ export function LibraryPanel() {
       </section>
 
       <section className="card" style={{ padding: "0.6rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Available drills</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Open drafts and drills</h3>
         <div style={{ display: "grid", gap: "0.3rem" }}>
           {packages.map((entry) => {
             const drillCount = entry.workingPackage.drills.length;
@@ -77,7 +77,7 @@ export function LibraryPanel() {
                   v{entry.workingPackage.manifest.packageVersion} • {drillCount} drill(s) • {phaseCount} phase(s)
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
-                  {entry.workingPackage.manifest.packageId} • {entry.isDirty ? "unsaved" : "saved"}
+                  Draft state: {entry.isDirty ? "unsaved" : "saved"}
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {summarizeProvenance(entry.workingPackage)}
@@ -95,7 +95,7 @@ export function LibraryPanel() {
         <h3 style={{ marginTop: 0, marginBottom: "0.35rem", fontSize: "0.92rem" }}>Import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
-            Import a drill package JSON from the top bar. Studio validates it before adding it to your local library.
+            Import a drill file JSON from the top bar. Studio validates it before adding it to your local drafts.
           </p>
         ) : (
           <>

@@ -1,13 +1,5 @@
-import { RoutePageIntro } from "@/components/layout/RoutePageIntro";
-import { PackageOverview } from "@/components/package/PackageOverview";
+import { redirect } from "next/navigation";
 
 export default function PackagesPage() {
-  return (
-    <RoutePageIntro
-      title="Package Tools"
-      description="Technical portability workspace for importing/exporting portable drill packages and checking transport compatibility."
-    >
-      <PackageOverview />
-    </RoutePageIntro>
-  );
+  redirect("/library");
 }

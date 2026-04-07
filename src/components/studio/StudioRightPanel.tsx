@@ -28,10 +28,10 @@ export function StudioRightPanel() {
       <StudioInspectorAccordion title="Drill identity and save state" >
         {selectedPackage && drill ? (
           <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-            <li>Package ID: {selectedPackage.workingPackage.manifest.packageId}</li>
+            <li>Drill file ID: {selectedPackage.workingPackage.manifest.packageId}</li>
             <li>Drill ID: {drill.drillId}</li>
             <li>Selected phase ID: {selectedPhase?.phaseId ?? "none"}</li>
-            <li>Package version: {selectedPackage.workingPackage.manifest.packageVersion}</li>
+            <li>Drill file version: {selectedPackage.workingPackage.manifest.packageVersion}</li>
             <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
           </ul>
         ) : (
@@ -59,7 +59,7 @@ export function StudioRightPanel() {
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Package asset manifest" >
+      <StudioInspectorAccordion title="Drill file asset details" >
         {selectedPackage ? (
           <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
             <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
@@ -69,7 +69,7 @@ export function StudioRightPanel() {
             <li>Previews: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-preview").length}</li>
           </ul>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>No package selected.</p>
+          <p className="muted" style={{ margin: 0 }}>No drill selected.</p>
         )}
       </StudioInspectorAccordion>
 
@@ -93,7 +93,7 @@ export function StudioRightPanel() {
             )}
           </>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>Load a package to inspect validation internals.</p>
+          <p className="muted" style={{ margin: 0 }}>Load a drill file to inspect validation internals.</p>
         )}
       </StudioInspectorAccordion>
     </div>

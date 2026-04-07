@@ -1,8 +1,8 @@
-# PR Plan — Library Workflow Cleanup + Draft/Drill Lifecycle Fix
+# PR Plan — Drill-First IA and UX Cleanup
 
 ## Summary
 
-This pass simplifies `/library` into a clear manage/resume flow and separates **local drafts** from **saved drills** so users do not get accidental dual registration.
+This pass makes `/library` and top-level navigation explicitly drill-first while keeping portable package semantics available for technical import/export compatibility.
 
 ## Assumptions
 
@@ -19,13 +19,11 @@ This pass simplifies `/library` into a clear manage/resume flow and separates **
 
 ## Scope
 
-- Remove redundant Library intro/hero duplication.
-- Keep Library IA focused on: header actions, recent local drafts, My drills, and secondary tools.
-- Add explicit `Save to library` promotion from local draft to drill library item.
-- Ensure drill duplication from Library creates a draft copy for editing.
-- Add explicit drill delete action in My drills.
-- Ensure drill deletion also removes linked draft records for the same package/version to avoid orphans.
-- Keep draft deletion isolated to draft persistence only.
+- Remove `Packages` from top-level navigation and primary IA.
+- Make `New drill` the primary Library CTA and route directly to Studio with a newly created local draft.
+- Keep import/export available as secondary drill workflow actions.
+- Convert `/packages` into a compatibility redirect back to `/library`.
+- Update docs to consistently describe drill-first UX and package-as-transport boundary.
 
 ## Follow-up candidates (not included)
 

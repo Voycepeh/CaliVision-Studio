@@ -11,4 +11,4 @@ Android repo: <https://github.com/Voycepeh/CaliVision>.
 
 - web Library + Drill Studio + Upload Video + Drill Exchange guide authoring/discovery,
 - Upload Video local processing artifacts are generated in-browser first,
-- export/import package workflows bridge to mobile runtime consumption.
+- export/import drill file workflows bridge to mobile runtime consumption.

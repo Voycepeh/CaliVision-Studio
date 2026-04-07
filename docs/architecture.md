@@ -1,6 +1,6 @@
 # Architecture
 
-CaliVision Studio remains package-first under the hood, while UX is now organized by product flow.
+CaliVision Studio uses a drill-first UX while retaining package/file contracts as the portability boundary under the hood.
 
 Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
@@ -10,7 +10,7 @@ Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision
 - `/studio`: core editing workspace.
 - `/upload`: Upload Video workflow shell.
 - `/marketplace`: Drill Exchange discovery surface (local/mock for now).
-- `/packages`: technical portability/import-export tools.
+- `/packages`: compatibility route that redirects to `/library` while import/export remains available inside drill workflows.
 
 ## Architectural guardrails
 

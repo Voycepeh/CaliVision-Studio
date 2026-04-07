@@ -50,13 +50,13 @@ export function StudioPublishPanel() {
 
       {!summary ? (
         <p className="muted" style={{ marginBottom: 0 }}>
-          Load a package to begin publish preparation.
+          Load a drill draft to begin publish preparation.
         </p>
       ) : (
         <>
           <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
-            <li>Package: {summary.packageId}</li>
-            <li>Version: {summary.packageVersion}</li>
+            <li>Drill file ID: {summary.packageId}</li>
+            <li>Drill file version: {summary.packageVersion}</li>
             <li>Drill phases: {summary.phaseCount}</li>
           </ul>
 
