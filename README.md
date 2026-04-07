@@ -52,22 +52,24 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-## Local draft persistence (current)
+## Draft and My drills persistence (current)
 
 Drill Studio autosaves working drafts to browser-local IndexedDB so edits survive refresh, tab close, and reopen on the same device/browser.
 
-- **Local draft**: durable in this browser only, appears under `Recent local drafts`.
-- **Saved drill**: appears under `My drills` only after explicit Save to library/import/publish.
+- **Drafts** are work in progress.
+- **My drills** are saved drills.
+- Signed out: Drafts and My drills are stored on this browser/device.
+- Signed in: Drafts and My drills are account-hosted first, with browser-local safety fallback.
 - **Export drill**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
 - **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.
 
 ## Hosted drafts foundation (April 2026)
 
-CaliVision Studio now includes an initial Supabase-backed hosted slice for **auth + user-owned hosted drafts + hosted asset groundwork** while preserving browser-local draft persistence.
+CaliVision Studio now includes an initial Supabase-backed hosted slice for **auth + user-owned drafts/My drills + hosted asset groundwork** while preserving browser-local draft resilience.
 
 - Local IndexedDB drafts continue to autosave for resilience.
 - Hosted mode requires Google sign-in (Supabase) and environment configuration.
-- Hosted drafts are user-scoped private records, not public Drill Exchange listings.
+- Hosted drafts/My drills are user-scoped private records, not public Drill Exchange listings.
 - Android runtime responsibilities remain in the companion client: https://github.com/Voycepeh/CaliVision.
 
 See:

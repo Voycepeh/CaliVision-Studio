@@ -14,6 +14,7 @@
 - Upload Video optional cloud fallback,
 - generated drill draft handoff automation,
 - optional hosted history/artifact persistence.
+- finish account-first Library polish so Drafts + My drills stay storage-agnostic for normal users.
 
 ## Phase C
 

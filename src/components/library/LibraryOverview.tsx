@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
+import { deleteHostedDraft, listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
 import type { HostedDraftSummary } from "@/lib/hosted/types";
+import {
+  deleteHostedLibraryItem,
+  listHostedLibrary,
+  upsertHostedLibraryItem,
+  type HostedLibraryItem
+} from "@/lib/hosted/library-repository";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
 import { getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
@@ -38,8 +44,15 @@ export function LibraryOverview() {
   const [localDrafts, setLocalDrafts] = useState<LocalDraftSummary[]>([]);
   const [message, setMessage] = useState("");
   const [hostedDrafts, setHostedDrafts] = useState<HostedDraftSummary[]>([]);
+  const [hostedLibrary, setHostedLibrary] = useState<HostedLibraryItem[]>([]);
+  const [localImportDismissed, setLocalImportDismissed] = useState(false);
   const { session, userEmail } = useAuth();
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("success");
+  const signedInMode = Boolean(userEmail && isSupabaseConfigured() && session);
+  const meaningfulLocalDrafts = useMemo(
+    () => localDrafts.filter((draft) => !draft.sourceLabel.startsWith("hosted-library:")),
+    [localDrafts]
+  );
 
   const refreshDrafts = useCallback(async (): Promise<void> => {
     try {
@@ -64,11 +77,37 @@ export function LibraryOverview() {
     setFeedback(result.error, "error");
   }, [session]);
 
+  const refreshHostedLibrary = useCallback(async (): Promise<void> => {
+    if (!session || !isSupabaseConfigured()) {
+      setHostedLibrary([]);
+      return;
+    }
+
+    const result = await listHostedLibrary(session);
+    if (result.ok) {
+      setHostedLibrary(result.value);
+      return;
+    }
+
+    setFeedback(result.error, "error");
+  }, [session]);
+
   useEffect(() => {
     refreshLibrary();
     void refreshDrafts();
     void refreshHostedDrafts();
-  }, [refreshDrafts, refreshHostedDrafts]);
+    void refreshHostedLibrary();
+  }, [refreshDrafts, refreshHostedDrafts, refreshHostedLibrary]);
+
+  useEffect(() => {
+    if (!userEmail) {
+      setLocalImportDismissed(false);
+      return;
+    }
+
+    const key = `library-local-import-dismissed:${userEmail}`;
+    setLocalImportDismissed(window.localStorage.getItem(key) === "1");
+  }, [userEmail]);
 
   function setFeedback(nextMessage: string, tone: FeedbackTone = "success"): void {
     setMessage(nextMessage);
@@ -89,6 +128,24 @@ export function LibraryOverview() {
       }),
     [entries, searchText, sortBy]
   );
+
+  const hostedCatalog = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLocaleLowerCase();
+    const filtered = hostedLibrary.filter((item) => {
+      if (!normalizedSearch) return true;
+      return [item.title, item.summary, item.packageId].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "title-asc") {
+        return a.title.localeCompare(b.title);
+      }
+      if (sortBy === "publish-status") {
+        return a.title.localeCompare(b.title);
+      }
+      return new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime();
+    });
+  }, [hostedLibrary, searchText, sortBy]);
 
   async function onCreateDraft(): Promise<void> {
     const sample = getPrimarySamplePackage();
@@ -118,6 +175,17 @@ export function LibraryOverview() {
       return;
     }
 
+    if (signedInMode && session) {
+      const saved = await upsertHostedLibraryItem(session, loaded.record.packageJson);
+      if (!saved.ok) {
+        setFeedback(saved.error, "error");
+        return;
+      }
+      setFeedback(`Saved \"${saved.value.title}\" to My drills.`);
+      await refreshHostedLibrary();
+      return;
+    }
+
     try {
       const saved = upsertRegistryEntryFromPackage({
         packageJson: loaded.record.packageJson,
@@ -125,7 +193,7 @@ export function LibraryOverview() {
         sourceLabel: `draft:${draftId}`
       });
       await deleteDraft(draftId);
-      setFeedback(`Saved \"${saved.summary.title}\" to My drills and removed the local draft.`);
+      setFeedback(`Saved \"${saved.summary.title}\" to My drills and removed the draft.`);
       refreshLibrary();
       await refreshDrafts();
     } catch (error) {
@@ -147,6 +215,17 @@ export function LibraryOverview() {
       const issueCount = imported.validation?.issues.length ?? 0;
       const issueSuffix = issueCount > 0 ? ` (${issueCount} validation issue${issueCount > 1 ? "s" : ""})` : "";
       setFeedback(`Import failed for ${file.name}: ${imported.error}${issueSuffix}`, "error");
+      return;
+    }
+
+    if (signedInMode && session) {
+      const saved = await upsertHostedLibraryItem(session, imported.packageViewModel.package);
+      if (!saved.ok) {
+        setFeedback(saved.error, "error");
+        return;
+      }
+      setFeedback(`Imported \"${saved.value.title}\" into My drills.`);
+      await refreshHostedLibrary();
       return;
     }
 
@@ -208,26 +287,82 @@ export function LibraryOverview() {
     await refreshDrafts();
   }
 
-
-  async function onSaveDraftToHosted(draftId: string): Promise<void> {
+  async function onDeleteHostedDrill(item: HostedLibraryItem): Promise<void> {
     if (!session) {
-      setFeedback("Sign in to save drafts to your account.", "error");
+      setFeedback("Sign in to manage My drills in your account.", "error");
+      return;
+    }
+    if (!window.confirm("Delete this drill from My drills?")) {
       return;
     }
 
-    const loaded = await loadDraft(draftId);
-    if (!loaded) {
-      setFeedback("Draft could not be loaded for hosted save.", "error");
+    const removed = await deleteHostedLibraryItem(session, item.id);
+    if (!removed.ok) {
+      setFeedback(removed.error, "error");
       return;
     }
 
-    const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-    if (!saved.ok) {
-      setFeedback(saved.error, "error");
+    setFeedback("Deleted drill from My drills.");
+    await refreshHostedLibrary();
+  }
+
+  async function onOpenHostedLibraryItem(item: HostedLibraryItem): Promise<void> {
+    if (!session) {
+      setFeedback("Sign in to open this drill.", "error");
       return;
     }
 
-    setFeedback(`Saved \"${saved.value.title}\" to your hosted drafts.`);
+    const hosted = await upsertHostedDraft(session, { packageJson: item.content });
+    if (!hosted.ok) {
+      setFeedback(hosted.error, "error");
+      return;
+    }
+
+    setFeedback("Opened drill in Drafts.");
+    await refreshHostedDrafts();
+    router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
+  }
+
+  async function onImportLocalDraftsToAccount(): Promise<void> {
+    if (!session || !signedInMode) {
+      setFeedback("Sign in to import local drafts.", "error");
+      return;
+    }
+
+    if (meaningfulLocalDrafts.length === 0) {
+      setFeedback("No local drafts found on this browser.");
+      return;
+    }
+
+    let imported = 0;
+    for (const summary of meaningfulLocalDrafts) {
+      const loaded = await loadDraft(summary.draftId);
+      if (!loaded) continue;
+      const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
+      if (saved.ok) imported += 1;
+    }
+
+    const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
+    window.localStorage.setItem(dismissKey, "1");
+    setLocalImportDismissed(true);
+    setFeedback(imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.", imported > 0 ? "success" : "error");
+    await refreshHostedDrafts();
+  }
+
+  async function onDeleteHostedDraft(draft: HostedDraftSummary): Promise<void> {
+    if (!session) {
+      setFeedback("Sign in to manage Drafts.", "error");
+      return;
+    }
+    if (!window.confirm("Delete this draft?")) {
+      return;
+    }
+    const removed = await deleteHostedDraft(session, draft.id);
+    if (!removed.ok) {
+      setFeedback(removed.error, "error");
+      return;
+    }
+    setFeedback("Deleted draft.");
     await refreshHostedDrafts();
   }
 
@@ -236,7 +371,7 @@ export function LibraryOverview() {
       <section className="card" style={headerCardStyle}>
         <h2 style={{ margin: 0 }}>Library</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Start a new drill, continue local drafts, open saved drills, import drill files, or browse Exchange.
+          Start a new drill, continue Drafts, open My drills, import drill files, or browse Exchange.
         </p>
         <div style={compactActionRowStyle}>
           <button type="button" style={primaryButtonStyle} onClick={() => void onCreateDraft()}>
@@ -256,50 +391,59 @@ export function LibraryOverview() {
       </section>
 
 
-      <section className="card" style={sectionCardStyle}>
-        <div style={sectionHeadingStyle}>
-          <h3 style={{ margin: 0 }}>My hosted drafts</h3>
-          <p className="muted" style={{ margin: 0 }}>
-            Account-backed drafts that sync across sessions and devices.
-          </p>
-        </div>
-        {!isSupabaseConfigured() ? (
-          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>Supabase is not configured. Library is running in local-only mode.</p></article>
-        ) : !userEmail ? (
-          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>Sign in to load account-hosted drafts.</p></article>
-        ) : hostedDrafts.length === 0 ? (
-          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>No hosted drafts yet. Save one from Studio or a local draft.</p></article>
-        ) : (
-          <div style={listStackStyle}>
-            {hostedDrafts.map((draft) => (
-              <article key={draft.id} className="card" style={listCardStyle}>
-                <div style={rowTitleWrapStyle}>
-                  <strong>{draft.title}</strong>
-                  <p className="muted" style={{ margin: 0 }}>Hosted • {draft.status} • v{draft.packageVersion}</p>
-                </div>
-                <p className="muted" style={{ margin: 0 }}>Updated {new Date(draft.updatedAtIso).toLocaleString()}</p>
-                <div style={compactActionRowStyle}>
-                  <Link className="pill" href={`/studio?hostedDraftId=${encodeURIComponent(draft.id)}`}>
-                    Open hosted draft
-                  </Link>
-                </div>
-              </article>
-            ))}
+      {signedInMode && !localImportDismissed && meaningfulLocalDrafts.length > 0 ? (
+        <section className="card" style={sectionCardStyle}>
+          <div style={sectionHeadingStyle}>
+            <h3 style={{ margin: 0 }}>Local drafts found on this device</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              Import existing browser drafts into your account to keep everything together.
+            </p>
           </div>
-        )}
-      </section>
+          <div style={compactActionRowStyle}>
+            <button type="button" style={chipStyle(true)} onClick={() => void onImportLocalDraftsToAccount()}>
+              Import local drafts to account
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="card" style={sectionCardStyle}>
         <div style={sectionHeadingStyle}>
-          <h3 style={{ margin: 0 }}>Recent local drafts</h3>
+          <h3 style={{ margin: 0 }}>Drafts</h3>
           <p className="muted" style={{ margin: 0 }}>
-            Browser-local editable drafts. Save to library only when you want a persistent drill record.
+            {signedInMode
+              ? "Your in-progress drafts in your account."
+              : "Your in-progress drafts on this browser/device."}
           </p>
         </div>
-        {localDrafts.length === 0 ? (
+        {signedInMode ? (
+          hostedDrafts.length === 0 ? (
+            <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>No drafts yet. Create one from Studio or Library.</p></article>
+          ) : (
+            <div style={listStackStyle}>
+              {hostedDrafts.map((draft) => (
+                <article key={draft.id} className="card" style={listCardStyle}>
+                  <div style={rowTitleWrapStyle}>
+                    <strong>{draft.title}</strong>
+                    <p className="muted" style={{ margin: 0 }}>{draft.status} • v{draft.packageVersion}</p>
+                  </div>
+                  <p className="muted" style={{ margin: 0 }}>Updated {new Date(draft.updatedAtIso).toLocaleString()}</p>
+                  <div style={compactActionRowStyle}>
+                    <Link className="pill" href={`/studio?hostedDraftId=${encodeURIComponent(draft.id)}`}>
+                      Continue editing
+                    </Link>
+                    <button type="button" style={chipStyle(false)} onClick={() => void onDeleteHostedDraft(draft)}>
+                      Delete draft
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
+        ) : localDrafts.length === 0 ? (
           <article style={emptyStateStyle}>
             <p className="muted" style={{ margin: 0 }}>
-              No local drafts yet. Start with <strong>New drill</strong>.
+              No drafts yet. Start with <strong>New drill</strong>.
             </p>
           </article>
         ) : (
@@ -309,19 +453,16 @@ export function LibraryOverview() {
                 <div style={rowTitleWrapStyle}>
                   <strong>{draft.title}</strong>
                   <p className="muted" style={{ margin: 0 }}>
-                    {draft.phaseCount} phases • {draft.hasAssets ? "has local images" : "no images"}
+                    {draft.phaseCount} phases • {draft.hasAssets ? "has images" : "no images"}
                   </p>
                 </div>
-                <p className="muted" style={{ margin: 0 }}>Last edited {new Date(draft.updatedAtIso).toLocaleString()}</p>
+                <p className="muted" style={{ margin: 0 }}>Updated {new Date(draft.updatedAtIso).toLocaleString()}</p>
                 <div style={compactActionRowStyle}>
                   <Link className="pill" href={`/studio?draftId=${encodeURIComponent(draft.draftId)}`}>
                     Continue editing
                   </Link>
                   <button type="button" style={chipStyle(true)} onClick={() => void onSaveDraftToLibrary(draft.draftId)}>
-                    Save to library
-                  </button>
-                  <button type="button" style={chipStyle(false)} onClick={() => void onSaveDraftToHosted(draft.draftId)} disabled={!userEmail || !isSupabaseConfigured()}>
-                    Save to account
+                    Save to My drills
                   </button>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDraft(draft.draftId)}>
                     Duplicate draft
@@ -362,7 +503,32 @@ export function LibraryOverview() {
             </select>
           </label>
         </div>
-        {catalog.entries.length === 0 ? (
+        {signedInMode ? hostedCatalog.length === 0 ? (
+          <article style={emptyStateStyle}>
+            <p className="muted" style={{ margin: 0 }}>
+              No drills yet. Save a draft or import a drill file to populate My drills.
+            </p>
+          </article>
+        ) : (
+          <div style={listStackStyle}>
+            {hostedCatalog.map((item) => (
+              <article key={item.id} className="card" style={listCardStyle}>
+                <div style={rowTitleWrapStyle}>
+                  <strong>{item.title}</strong>
+                  <p className="muted" style={{ margin: 0 }}>v{item.packageVersion} • account</p>
+                </div>
+                <div style={compactActionRowStyle}>
+                  <button type="button" style={chipStyle(true)} onClick={() => void onOpenHostedLibraryItem(item)}>
+                    Open in Studio
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => void onDeleteHostedDrill(item)}>
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : catalog.entries.length === 0 ? (
           <article style={emptyStateStyle}>
             <p className="muted" style={{ margin: 0 }}>
               No saved drills yet. Promote a draft or import a drill file to populate My drills.
@@ -375,7 +541,7 @@ export function LibraryOverview() {
                 <div style={rowTitleWrapStyle}>
                   <strong>{entry.summary.title}</strong>
                   <p className="muted" style={{ margin: 0 }}>
-                    v{entry.summary.packageVersion} • {entry.summary.phaseCount} phases • {entry.summary.sourceType}
+                    v{entry.summary.packageVersion} • {entry.summary.phaseCount} phases
                   </p>
                 </div>
                 <div style={compactActionRowStyle}>

@@ -340,7 +340,7 @@ export function StudioStateProvider({
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
-  const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Hosted save is available when signed in.");
+  const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Cloud save is available when signed in.");
   const [hostedDraftIdsByPackageKey, setHostedDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const { session, isConfigured } = useAuth();
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
@@ -464,7 +464,7 @@ export function StudioStateProvider({
       setHostedDraftIdsByPackageKey((current) => ({ ...current, [packageKey]: loaded.value.id }));
       setSelectedPackageKey(packageKey);
       setSelectedPhaseId(getSortedPhases(entry.workingPackage)[0]?.phaseId ?? null);
-      setHostedSaveStatusMessage(`Opened hosted draft: ${loaded.value.title}`);
+      setHostedSaveStatusMessage(`Opened draft: ${loaded.value.title}`);
     })();
   }, [initialHostedDraftId, isConfigured, session]);
 
@@ -592,12 +592,12 @@ export function StudioStateProvider({
 
   const saveStatusLabel = selectedPackage
     ? localSaveState === "saving"
-      ? "Saving locally…"
+      ? "Saving draft…"
       : localSaveState === "error"
-        ? "Save failed (local draft)"
+        ? "Cloud save failed — edits are still safe on this device."
         : selectedPackage.isDirty
-          ? `Unsaved changes (${selectedPackage.sourceLabel})`
-          : `Saved locally (${selectedPackage.sourceLabel})`
+          ? "Unsaved changes"
+          : "Draft saved on this device"
     : "No drill loaded";
 
 
@@ -607,7 +607,7 @@ export function StudioStateProvider({
     }
     if (!isConfigured || !session) {
       setHostedSaveState("error");
-      setHostedSaveStatusMessage("Sign in to save this drill draft to your account.");
+      setHostedSaveStatusMessage("Sign in to save this draft to your account.");
       return;
     }
 
@@ -616,7 +616,7 @@ export function StudioStateProvider({
     const upsert = await upsertHostedDraft(session, { draftId: currentHostedId, packageJson: selectedPackage.workingPackage });
     if (!upsert.ok) {
       setHostedSaveState("error");
-      setHostedSaveStatusMessage(upsert.error);
+      setHostedSaveStatusMessage("Cloud save failed — edits are still safe on this device.");
       return;
     }
 
