@@ -10,6 +10,7 @@ export function StudioMetadataEditor() {
     setDrillTitle,
     setDrillSlug,
     setDrillDescription,
+    setDrillType,
     setDrillDifficulty,
     setDrillDefaultView,
     setManifestSchemaVersion,
@@ -45,6 +46,14 @@ export function StudioMetadataEditor() {
           <input value={drill.slug} onChange={(event) => setDrillSlug(event.target.value)} style={inputStyle} />
         </label>
       </div>
+
+      <label style={labelStyle}>
+        <span>Drill type</span>
+        <select value={drill.drillType} onChange={(event) => setDrillType(event.target.value as typeof drill.drillType)} style={inputStyle}>
+          <option value="hold">hold</option>
+          <option value="rep">rep</option>
+        </select>
+      </label>
 
       <label style={labelStyle}>
         <span>Description</span>
@@ -98,11 +107,6 @@ export function StudioMetadataEditor() {
       </div>
 
       <div className="field-grid">
-        <label style={labelStyle}>
-          <span>Internal package ID (system-generated)</span>
-          <input value={selectedPackage.workingPackage.manifest.packageId} style={inputStyle} readOnly />
-        </label>
-
         <label style={labelStyle}>
           <span>Internal drill ID (system-generated)</span>
           <input value={drill.drillId} style={inputStyle} readOnly />

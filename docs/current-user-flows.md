@@ -9,7 +9,7 @@
 ## Current Drill Studio flow
 
 1. Create/open a drill.
-2. Edit drill metadata.
+2. Edit drill metadata (title, slug, required drill type, difficulty, view).
 3. Create/edit/reorder phases.
 4. Upload a phase image.
 5. Run detection and apply/refine pose.

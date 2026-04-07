@@ -48,37 +48,46 @@ export function StudioReviewTabs() {
 
       {activeTab === "validation" ? (
         selectedPackage ? (
-          <div style={{ display: "grid", gap: "0.5rem" }}>
-            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-              <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
-              <li>Errors: {selectedPackage.validation.errors.length}</li>
-              <li>Warnings: {selectedPackage.validation.warnings.length}</li>
-              <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
-            </ul>
+          <div style={{ display: "grid", gap: "0.65rem" }}>
+            <div className="card" style={{ display: "grid", gap: "0.4rem" }}>
+              <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Validation summary</h4>
+              <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+                <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
+                <li>Errors: {selectedPackage.validation.errors.length}</li>
+                <li>Warnings: {selectedPackage.validation.warnings.length}</li>
+                <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
+              </ul>
+            </div>
 
             {selectedPackage.validation.issues.length === 0 ? (
               <p className="muted" style={{ margin: 0 }}>
                 No validation issues.
               </p>
             ) : (
-              <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-                {selectedPackage.validation.issues.map((issue, index) => (
-                  <li key={`${issue.path}-${index}`} className="muted">
-                    [{issue.severity}] {issue.path}: {issue.message}
-                  </li>
-                ))}
-              </ul>
+              <div className="card" style={{ display: "grid", gap: "0.35rem" }}>
+                <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Issues</h4>
+                <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+                  {selectedPackage.validation.issues.map((issue, index) => (
+                    <li key={`${issue.path}-${index}`} className="muted">
+                      [{issue.severity}] {issue.path}: {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             {selectedPhase ? (
-              <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-                {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">Source image exists but no canonical pose is applied yet.</li> : null}
-                {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
-                  <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
-                ) : null}
-                {selectedPhaseDetection.status === "failed" ? <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li> : null}
-                {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">No source image and no pose data available yet for this phase.</li> : null}
-              </ul>
+              <div className="card" style={{ display: "grid", gap: "0.35rem" }}>
+                <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Selected phase checks</h4>
+                <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+                  {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">Source image exists but no canonical pose is applied yet.</li> : null}
+                  {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
+                    <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
+                  ) : null}
+                  {selectedPhaseDetection.status === "failed" ? <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li> : null}
+                  {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">No source image and no pose data available yet for this phase.</li> : null}
+                </ul>
+              </div>
             ) : null}
           </div>
         ) : (

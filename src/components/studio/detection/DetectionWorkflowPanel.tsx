@@ -33,7 +33,7 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
   }, [phaseId, selectedPhaseDetection.result]);
 
   return (
-    <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
+    <section className="card" style={{ display: "grid", gap: "0.75rem" }}>
       <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: "0.95rem" }}>Phase image detection</h3>
       <p className="muted" style={{ margin: 0 }}>
         Upload a phase image, run detection, review the preview, then apply it to the selected phase.
@@ -75,19 +75,19 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
         <p className="muted" style={{ margin: 0 }}>No image selected for this phase yet.</p>
       )}
 
-      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-        <button type="button" onClick={() => runPoseDetectionForSelectedPhase()} style={smallButton} disabled={!selectedPhaseSourceImage || selectedPhaseDetection.status === "detecting"}>
+      <div className="studio-action-row">
+        <button type="button" onClick={() => runPoseDetectionForSelectedPhase()} className="studio-button studio-button-primary" disabled={!selectedPhaseSourceImage || selectedPhaseDetection.status === "detecting"}>
           {selectedPhaseDetection.status === "detecting" ? "Detecting..." : "Detect pose"}
         </button>
         <button
           type="button"
           onClick={() => applyDetectionToSelectedPhase()}
-          style={smallButton}
+          className="studio-button"
           disabled={!selectedPhaseDetection.result || selectedPhaseDetection.result.status === "failed"}
         >
           Apply pose to phase
         </button>
-        <button type="button" onClick={() => clearSelectedPhaseImage()} style={smallButton} disabled={!selectedPhaseSourceImage}>
+        <button type="button" onClick={() => clearSelectedPhaseImage()} className="studio-button studio-button-danger" disabled={!selectedPhaseSourceImage}>
           Clear image
         </button>
       </div>
@@ -97,7 +97,7 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
       </p>
 
       {selectedPhaseDetection.result ? (
-        <div style={{ display: "grid", gap: "0.35rem" }}>
+        <div className="card" style={{ display: "grid", gap: "0.45rem" }}>
           <p className="muted" style={{ margin: 0 }}>
             Coverage: {selectedPhaseDetection.result.coverage.detectedJoints}/{selectedPhaseDetection.result.coverage.totalCanonicalJoints} • Avg confidence: {selectedPhaseDetection.result.confidence.averageJointConfidence.toFixed(2)}
           </p>
@@ -131,13 +131,4 @@ const inputStyle: CSSProperties = {
   background: "var(--panel-soft)",
   color: "var(--text)",
   padding: "0.45rem"
-};
-
-const smallButton: CSSProperties = {
-  border: "1px solid var(--border)",
-  borderRadius: "0.5rem",
-  background: "var(--panel-soft)",
-  color: "var(--text)",
-  padding: "0.35rem 0.6rem",
-  cursor: "pointer"
 };

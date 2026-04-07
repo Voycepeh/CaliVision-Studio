@@ -251,6 +251,9 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validateNonEmptyString(drill.drillId, `${drillPath}.drillId`, issues);
     validateNonEmptyString(drill.slug, `${drillPath}.slug`, issues);
     validateNonEmptyString(drill.title, `${drillPath}.title`, issues);
+    if (!["hold", "rep"].includes(String(drill.drillType))) {
+      issues.push(makeIssue("error", `${drillPath}.drillType`, "drillType must be hold or rep.", "type"));
+    }
 
     if (drill.thumbnailAssetId !== undefined) {
       validateNonEmptyString(drill.thumbnailAssetId, `${drillPath}.thumbnailAssetId`, issues);

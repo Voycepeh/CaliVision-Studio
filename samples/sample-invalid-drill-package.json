@@ -81,7 +81,8 @@
           "poseSequence": [],
           "assetRefs": []
         }
-      ]
+      ],
+      "drillType": "hold"
     }
   ],
   "assets": []
