@@ -14,7 +14,7 @@ export default async function StudioPage({
     <RoutePageIntro
       navActive="studio"
       title="Drill Studio"
-      description="Edit your drill draft top-to-bottom, from drill info and phase pose authoring through review, export, and technical details."
+      description="Edit the currently selected drill draft top-to-bottom, from drill info and phase pose authoring through review."
     >
       <StudioExperience initialPackageId={params.packageId} initialDraftId={params.draftId} initialHostedDraftId={params.hostedDraftId} />
     </RoutePageIntro>

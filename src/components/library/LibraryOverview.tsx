@@ -13,7 +13,7 @@ import {
   type HostedLibraryItem
 } from "@/lib/hosted/library-repository";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
-import { getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
+import { buildBundleForExport, downloadPackageBundle, getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
   DEFAULT_PACKAGE_LISTING_QUERY,
   deleteRegistryEntry,
@@ -373,6 +373,13 @@ export function LibraryOverview() {
     await refreshHostedLibrary();
   }
 
+  async function onExportDrillFile(itemId: string, packageJson: PackageRegistryEntry["details"]["packageJson"]): Promise<void> {
+    const result = await buildBundleForExport(packageJson, {});
+    downloadPackageBundle(result.bundle, packageJson);
+    const warningSuffix = result.warnings.length > 0 ? ` (${result.warnings.length} missing asset warning${result.warnings.length > 1 ? "s" : ""})` : "";
+    setItemFeedback(itemId, `Exported drill file.${warningSuffix}`);
+  }
+
   async function onOpenHostedLibraryItem(item: HostedLibraryItem): Promise<void> {
     if (!session) {
       setItemFeedback(`hosted-drill:${item.id}`, "Sign in to open this drill.", "error");
@@ -401,24 +408,46 @@ export function LibraryOverview() {
       return;
     }
 
-    let imported = 0;
+    const importedDraftIds: string[] = [];
+    const failedDraftIds: string[] = [];
     for (const summary of meaningfulLocalDrafts) {
-      const loaded = await loadDraft(summary.draftId);
-      if (!loaded) continue;
-      const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-      if (saved.ok) {
-        imported += 1;
+      try {
+        const loaded = await loadDraft(summary.draftId);
+        if (!loaded) {
+          failedDraftIds.push(summary.draftId);
+          continue;
+        }
+
+        const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
+        if (!saved.ok) {
+          failedDraftIds.push(summary.draftId);
+          continue;
+        }
+
         await deleteDraft(summary.draftId);
+        importedDraftIds.push(summary.draftId);
+      } catch {
+        failedDraftIds.push(summary.draftId);
       }
     }
 
     const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
-    window.localStorage.setItem(dismissKey, "1");
-    setLocalImportDismissed(true);
+    const hasRemainingLocalDrafts = failedDraftIds.length > 0;
+    if (hasRemainingLocalDrafts) {
+      window.localStorage.removeItem(dismissKey);
+      setLocalImportDismissed(false);
+    } else {
+      window.localStorage.setItem(dismissKey, "1");
+      setLocalImportDismissed(true);
+    }
     setItemFeedback(
       "global:import-local",
-      imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.",
-      imported > 0 ? "success" : "error"
+      importedDraftIds.length > 0
+        ? failedDraftIds.length > 0
+          ? `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"}. ${failedDraftIds.length} local draft${failedDraftIds.length === 1 ? "" : "s"} could not be moved.`
+          : `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"} to your account and removed local ${importedDraftIds.length === 1 ? "copy" : "copies"}.`
+        : "Local drafts could not be moved.",
+      importedDraftIds.length > 0 ? "success" : "error"
     );
     await refreshDrafts();
     await refreshHostedDrafts();
@@ -675,6 +704,18 @@ export function LibraryOverview() {
                     type="button"
                     style={chipStyle(false)}
                     disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
+                    onClick={() =>
+                      void runItemAction(`hosted-drill:${item.id}`, "Exporting drill file…", () =>
+                        onExportDrillFile(`hosted-drill:${item.id}`, item.content)
+                      )
+                    }
+                  >
+                    Export drill file
+                  </button>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`hosted-drill:${item.id}`])}
                     onClick={() => void runItemAction(`hosted-drill:${item.id}`, "Deleting drill…", () => onDeleteHostedDrill(item))}
                   >
                     Delete
@@ -710,11 +751,16 @@ export function LibraryOverview() {
                     disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
                     onClick={() => void runItemAction(`drill:${entry.entryId}`, "Duplicating drill…", () => onDuplicateDrill(entry))}
                   >
-                    Duplicate
+                    Save copy
                   </button>
-                  <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                    Export drill
-                  </Link>
+                  <button
+                    type="button"
+                    style={chipStyle(false)}
+                    disabled={Boolean(pendingActionByItemId[`drill:${entry.entryId}`])}
+                    onClick={() => void runItemAction(`drill:${entry.entryId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${entry.entryId}`, entry.details.packageJson))}
+                  >
+                    Export drill file
+                  </button>
                   <button
                     type="button"
                     style={chipStyle(false)}
