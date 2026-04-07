@@ -37,3 +37,10 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
 
+
+## Drill analysis schema layering
+
+- Drill authoring/playback fields remain the source of truth for Studio editing and preview.
+- Additive `analysis` metadata on drills/phases defines rep/hold/hybrid interpretation intent for Upload Video and future live-analysis flows.
+- Rep detection intent is phase-order based (not authored animation duration based), with explicit skip-path support for fast observations.
+- See `docs/analysis-schema-v1.md` for detailed schema boundaries and deferred engine work.

@@ -2,33 +2,34 @@
 
 ## Compatibility posture
 
-Android remains the behavioral reference for package semantics. PR11 adds additive versioning/provenance metadata and local-first lineage UX without altering canonical drill motion semantics.
+Android remains the behavioral reference for package semantics. Schema updates in this pass are additive so existing Android/mobile drill import behavior remains safe.
 
-## PR8 compatibility commitments
+Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+
+## Compatibility commitments
 
 - Preserve canonical joint naming and normalized coordinate semantics.
-- Preserve explicit phase order/timing behavior.
+- Preserve explicit phase order/timing behavior for authored playback.
 - Preserve manifest-driven schema compatibility fields.
 - Keep Studio export payloads Android-consumable.
-- Treat `manifest.publishing` as additive metadata Android can ignore safely.
+- Treat new analysis blocks as additive metadata that can be ignored by runtime clients that do not yet consume them.
 
-## PR11 compatibility notes
+## Analysis schema v1 compatibility notes
 
 1. **Artifact contract remains backward-compatible**
-   - `src/lib/schema/contracts.ts` remains canonical and Android-portable.
-   - `manifest.versioning` is optional/additive metadata.
-2. **Registry/listing is external metadata**
-   - New local registry entries are Studio-side wrappers around package artifacts (`src/lib/registry/*`).
-3. **Provenance is UI/catalog-only**
-   - Source types like `authored-local` / `mock-published` describe listing origin, not Android runtime semantics.
-4. **Export/import interoperability preserved**
-   - Package import/export continues to rely on existing package validation and JSON artifact paths.
-5. **Lineage semantics do not change runtime execution**
-   - Fork/remix/new-version data informs authoring/discovery workflows only.
+   - `PortableDrill.analysis` and `PortablePhase.analysis` are optional.
+   - Older drill files without analysis metadata continue to validate/load.
+2. **No runtime execution coupling introduced**
+   - Rep/hold/hybrid analysis fields are intent metadata for Upload Video and future live-analysis flows.
+   - Authored playback timing and phase sequencing semantics are unchanged.
+3. **Extensible placeholder shape only**
+   - `matchHints` is typed but non-executing (no classifier runtime behavior added).
+4. **Session result models are additive types**
+   - `AnalysisSession`, `FramePhaseSample`, and `AnalysisEvent` define future output structures only.
 
 ## Current baseline
 
 - Contract baseline: `0.1.0`
-- `PortableDrill.drillType` is required (`hold | rep`) and should be treated as core drill logic metadata.
-- Sample payloads remain Android-compatible.
-- Registry/marketplace behavior in PR11 is local/mock only and does not add runtime coupling for mobile.
+- `PortableDrill.drillType` remains required (`hold | rep`).
+- `PortableDrill.analysis.measurementType` supports `rep | hold | hybrid` when present.
+- Sample payloads now include rep, hold, and hybrid analysis examples while remaining portable.

@@ -57,6 +57,38 @@ export type PortableAssetRef = {
   ownerPhaseId?: string;
 };
 
+export type PortableAnalysisMeasurementType = "rep" | "hold" | "hybrid";
+
+export type PortablePhaseSemanticRole = "start" | "bottom" | "top" | "lockout" | "transition" | "hold";
+
+export type PortablePhaseMatchHints = {
+  requiredJoints?: CanonicalJointName[];
+  optionalJoints?: CanonicalJointName[];
+  toleranceProfile?: "strict" | "balanced" | "lenient" | string;
+  viewHint?: PortableViewType | "auto" | string;
+};
+
+export type PortablePhaseAnalysis = {
+  semanticRole?: PortablePhaseSemanticRole;
+  isCritical?: boolean;
+  matchHints?: PortablePhaseMatchHints;
+};
+
+export type PortableDrillAnalysis = {
+  measurementType: PortableAnalysisMeasurementType;
+  orderedPhaseSequence: string[];
+  criticalPhaseIds: string[];
+  allowedPhaseSkips: string[][];
+  minimumConfirmationFrames: number;
+  exitGraceFrames: number;
+  minimumRepDurationMs: number;
+  maximumRepDurationMs?: number;
+  cooldownMs: number;
+  targetHoldPhaseId?: string;
+  entryConfirmationFrames: number;
+  minimumHoldDurationMs: number;
+};
+
 export type PortablePhase = {
   phaseId: string;
   order: number;
@@ -66,6 +98,7 @@ export type PortablePhase = {
   startOffsetMs?: number;
   poseSequence: PortablePose[];
   assetRefs: PortableAssetRef[];
+  analysis?: PortablePhaseAnalysis;
 };
 
 export type PortableDrill = {
@@ -80,8 +113,8 @@ export type PortableDrill = {
   thumbnailAssetId?: string;
   previewAssetId?: string;
   phases: PortablePhase[];
+  analysis?: PortableDrillAnalysis;
 };
-
 
 export type DrillPackagePublishingMetadata = {
   title?: string;
@@ -169,4 +202,57 @@ export type DrillBundleFile = {
   manifest: DrillBundleManifest;
   drill: DrillPackage;
   files: DrillBundleAssetFile[];
+};
+
+export type AnalysisSourceInfo = {
+  sourceType: "upload-video" | "live-stream" | "manual";
+  sourceLabel?: string;
+  capturedFps?: number;
+};
+
+export type AnalysisSummaryMetrics = {
+  repCount?: number;
+  holdDurationMs?: number;
+  invalidTransitionCount?: number;
+  partialAttemptCount?: number;
+};
+
+export type FramePhaseSample = {
+  timestampMs: number;
+  classifiedPhaseId?: string;
+  confidence: number;
+  perPhaseScores?: Record<string, number>;
+};
+
+export type AnalysisEventType =
+  | "phase_enter"
+  | "phase_exit"
+  | "rep_complete"
+  | "hold_start"
+  | "hold_end"
+  | "invalid_transition"
+  | "partial_attempt";
+
+export type AnalysisEvent = {
+  eventId: string;
+  timestampMs: number;
+  type: AnalysisEventType;
+  phaseId?: string;
+  fromPhaseId?: string;
+  toPhaseId?: string;
+  repIndex?: number;
+  details?: Record<string, string | number | boolean>;
+};
+
+export type AnalysisSession = {
+  sessionId: string;
+  drillId: string;
+  drillVersion?: string;
+  source: AnalysisSourceInfo;
+  startedAtIso: string;
+  completedAtIso?: string;
+  summary: AnalysisSummaryMetrics;
+  annotatedVideoUri?: string;
+  frameSamples: FramePhaseSample[];
+  events: AnalysisEvent[];
 };
