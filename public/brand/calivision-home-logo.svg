@@ -1,0 +1,33 @@
+<svg width="1024" height="320" viewBox="0 0 1024 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">CaliVision Studio logo</title>
+  <desc id="desc">CaliVision Studio wordmark with circular gradient mark and CV monogram.</desc>
+  <defs>
+    <radialGradient id="cvGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(168 90) rotate(54.1623) scale(132.75)">
+      <stop stop-color="#D9EAFF"/>
+      <stop offset="0.55" stop-color="#7FB0FF"/>
+      <stop offset="1" stop-color="#3E5E9C"/>
+    </radialGradient>
+    <linearGradient id="cvStroke" x1="64" y1="64" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D5E8FF"/>
+      <stop offset="1" stop-color="#7CABFF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="320" fill="transparent"/>
+  <g>
+    <circle cx="160" cy="160" r="98" fill="url(#cvGlow)"/>
+    <circle cx="160" cy="160" r="98" stroke="url(#cvStroke)" stroke-opacity="0.52" stroke-width="2"/>
+    <path d="M117 160C117 136.278 136.278 117 160 117H195" stroke="#071328" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M146 131L160 194L174 131" stroke="#071328" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="160" cy="160" r="108" stroke="#7FB0FF" stroke-opacity="0.25" stroke-width="1.5"/>
+  </g>
+  <g fill="#EAF2FF">
+    <path d="M334.649 93.6H362.489V212H334.649V93.6Z"/>
+    <path d="M373.649 93.6H401.489V212H373.649V93.6Z"/>
+    <path d="M414.489 153.28C414.489 117.488 441.145 90.72 477.497 90.72C513.849 90.72 540.505 117.488 540.505 153.28C540.505 189.072 513.849 215.84 477.497 215.84C441.145 215.84 414.489 189.072 414.489 153.28ZM511.993 153.28C511.993 132.176 497.273 117.712 477.497 117.712C457.721 117.712 443.001 132.176 443.001 153.28C443.001 174.384 457.721 188.848 477.497 188.848C497.273 188.848 511.993 174.384 511.993 153.28Z"/>
+    <path d="M547.489 93.6H578.081L608.545 149.312L639.137 93.6H669.729L622.185 176.928V212H594.345V176.928L547.489 93.6Z"/>
+    <path d="M673.649 93.6H701.489V212H673.649V93.6Z"/>
+    <path d="M711.121 93.6H740.369L792.513 172.32V93.6H820.353V212H791.105L738.961 133.28V212H711.121V93.6Z"/>
+    <path d="M830.649 93.6H858.489V212H830.649V93.6Z"/>
+    <path d="M867.617 153.024C867.617 116.72 894.529 90.72 931.137 90.72C957.617 90.72 979.377 104.288 988.849 125.152L963.249 136.288C958.129 124.128 946.609 117.712 931.137 117.712C910.593 117.712 896.129 132.176 896.129 153.024C896.129 173.872 910.593 188.848 931.137 188.848C946.609 188.848 958.129 182.432 963.249 170.272L988.849 181.408C979.377 202.272 957.617 215.84 931.137 215.84C894.529 215.84 867.617 189.84 867.617 153.024Z"/>
+  </g>
+</svg>

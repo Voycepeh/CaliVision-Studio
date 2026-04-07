@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 
 type IconName = "upload" | "studio" | "android";
@@ -78,6 +79,9 @@ export function HomeLandingPage() {
       <PrimaryNav active="home" />
       <main className="home-shell">
         <section className="home-hero">
+          <div className="home-hero-logo-wrap">
+            <CaliVisionLogo size="hero" priority className="home-hero-logo" />
+          </div>
           <p className="home-kicker">CaliVision Studio</p>
           <h1>Train smarter with a premium browser workspace for drills and feedback.</h1>
           <p className="home-subtitle">

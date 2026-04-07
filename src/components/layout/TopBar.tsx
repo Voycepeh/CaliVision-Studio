@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
+import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useStudioState } from "@/components/studio/StudioState";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
@@ -60,6 +61,10 @@ export function TopBar() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
         <div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", marginBottom: "0.35rem" }}>
+            <CaliVisionLogo size="compact" className="topbar-brand-logo" />
+            <span style={{ fontSize: "0.82rem", color: "var(--muted)", letterSpacing: "0.02em" }}>CaliVision Studio</span>
+          </div>
           <strong>{draftHeader}</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
             Editing drill draft in CaliVision Studio

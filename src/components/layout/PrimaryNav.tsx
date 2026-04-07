@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
@@ -34,8 +35,8 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
     <header className="site-header">
       <div className="site-header-inner">
         <Link href="/library" className="site-brand">
-          <span className="site-brand-mark">CV</span>
-          <span>CaliVision Studio</span>
+          <CaliVisionLogo size="nav" className="site-brand-logo" />
+          <span className="site-brand-text">CaliVision Studio</span>
         </Link>
         <nav className="site-nav" aria-label="Primary">
           {items.map((item) => (
