@@ -26,9 +26,9 @@ If these are missing, Studio keeps working in local-only mode and hosted control
 
 1. Create a Supabase project.
 2. In **Authentication → Providers**, enable **Google** provider.
-3. Configure Google OAuth credentials and callback URLs for:
-   - local dev (`http://localhost:3000/auth/callback`)
-   - production (for example `https://your-app.vercel.app/auth/callback`)
+3. Configure redirects in two places:
+   - **Google Cloud → Authorized redirect URIs**: use the Supabase callback URL shown on the Supabase Google provider page (do not use your app URL here).
+   - **Supabase Auth → Redirect URLs** (and your app `redirectTo`): allow your app callback routes, such as `http://localhost:3000/auth/callback` and your production `/auth/callback` URL.
 4. Run SQL migration: `supabase/migrations/20260407_hosted_drafts_foundation.sql`.
 
 ## 3) Official Next.js auth flow used in Studio
