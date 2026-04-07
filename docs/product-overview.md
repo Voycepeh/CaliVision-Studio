@@ -2,7 +2,7 @@
 
 ## Mission
 
-CaliVision Studio is the web-first source of truth for drill authoring, with portable drill file/package export retained for downstream runtime portability.
+CaliVision Studio is the web-first source of truth for drill authoring, with drill file export retained for downstream runtime portability.
 
 Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/CaliVision>.
 
@@ -16,5 +16,5 @@ Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/
 ## Language model
 
 - user-facing: **drill**, **draft**, **drill file**
-- technical portability boundary: **package schema/artifact**
+- technical portability boundary: **package schema** (behind drill file import/export)
 - discovery/share: **Drill Exchange**

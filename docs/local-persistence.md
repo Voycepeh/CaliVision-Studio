@@ -51,5 +51,5 @@ In the same browser/device profile:
 ## Mental model
 
 - **Local draft** = saved to this browser/device only.
-- **Export drill** = portable drill file/package artifact for share/import/runtime usage.
+- **Export drill** = portable drill file artifact for share/import/runtime usage.
 - **Publish** = future hosted/shared flow, not provided by local persistence.

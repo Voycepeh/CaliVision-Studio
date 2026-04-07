@@ -4,7 +4,7 @@ CaliVision Studio is the **web-first home** for:
 
 - **Drill Studio** authoring,
 - browser **Upload Video** local analysis,
-- **portable drill file/package** import/export portability,
+- portable **drill file** import/export portability,
 - future **Drill Exchange** discovery, sharing, and fork/remix flows.
 
 Library is the default home route (`/library`), with Drill Studio (`/studio`) as the focused editing workspace.
@@ -18,7 +18,7 @@ Android/mobile runtime client (downstream consumer): <https://github.com/Voycepe
 3. Use **Upload Video** to process one or more local videos in-browser with MediaPipe Pose Landmarker, preview overlays, and download local artifacts.
 4. Use **Drill Exchange** (`/marketplace`) for discovery, sharing direction, and fork/remix workflows (currently local/mock-backed).
 
-Engineering note: the portable package/file format is still retained for cross-client transport and Android compatibility, but it is not the primary user-facing object in Studio UX.
+Engineering note: the portable package schema still exists behind drill file import/export for cross-client transport and Android compatibility, but it is not a primary user-facing object in Studio UX.
 
 ## Current capabilities
 
@@ -27,7 +27,7 @@ Engineering note: the portable package/file format is still retained for cross-c
 - upload phase image,
 - detect/refine pose,
 - preview animation,
-- export Android-compatible drill file/package,
+- export Android-compatible drill file,
 - process local upload videos in-browser and download:
   - pose timeline JSON,
   - analysis JSON,
@@ -56,5 +56,5 @@ Drill Studio autosaves working drafts to browser-local IndexedDB so edits surviv
 
 - **Local draft**: durable in this browser only, appears under `Recent local drafts`.
 - **Saved drill**: appears under `My drills` only after explicit Save to library/import/publish.
-- **Export drill**: creates a portable drill file/package for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
+- **Export drill**: creates a portable drill file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
 - **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.

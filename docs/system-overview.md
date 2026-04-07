@@ -3,7 +3,7 @@
 ## Ecosystem split
 
 - **Studio web (this repo):** Library, Drill Studio, Upload Video local-first analysis, Drill Exchange direction.
-- **Android/mobile runtime client:** import/use portable drill files/packages and run live coaching/runtime playback. <https://github.com/Voycepeh/CaliVision>
+- **Android/mobile runtime client:** import/use portable drill files and run live coaching/runtime playback. <https://github.com/Voycepeh/CaliVision>
 
 ## Current platform posture
 

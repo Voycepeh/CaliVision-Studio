@@ -2,7 +2,7 @@
 
 ## Summary
 
-This pass makes `/library` and top-level navigation explicitly drill-first while keeping portable package semantics available for technical import/export compatibility.
+This pass makes `/library` and top-level navigation explicitly drill-first while keeping portable drill file semantics available for technical import/export compatibility.
 
 ## Assumptions
 
@@ -23,7 +23,7 @@ This pass makes `/library` and top-level navigation explicitly drill-first while
 - Make `New drill` the primary Library CTA and route directly to Studio with a newly created local draft.
 - Keep import/export available as secondary drill workflow actions.
 - Convert `/packages` into a compatibility redirect back to `/library`.
-- Update docs to consistently describe drill-first UX and package-as-transport boundary.
+- Update docs to consistently describe drill-first UX and drill-file transport boundary.
 
 ## Follow-up candidates (not included)
 

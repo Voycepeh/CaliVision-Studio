@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
+import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
@@ -26,10 +27,11 @@ export function TopBar() {
     createSelectedPackageNewVersion
   } = useStudioState();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
-  const drillHeader = selectedPackage
-    ? `${selectedPackage.workingPackage.manifest.packageId} • v${selectedPackage.workingPackage.manifest.packageVersion}`
-    : "No drill selected";
-  const provenance = selectedPackage ? summarizeProvenance(selectedPackage.workingPackage) : "Open a drill from Library to begin.";
+  const drillTitle = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage)?.title ?? "Untitled drill" : "No drill selected";
+  const drillSubline = selectedPackage
+    ? `${selectedPackage.isDirty ? "Draft has unsaved changes" : "Draft saved locally"} • v${selectedPackage.workingPackage.manifest.packageVersion}`
+    : "Open a drill from Library to begin.";
+  const provenance = selectedPackage ? summarizeProvenance(selectedPackage.workingPackage) : "";
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -58,10 +60,10 @@ export function TopBar() {
         <div>
           <strong>CaliVision Studio</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
-            Web home for Drill Studio, Upload Video, and Drill Exchange
+            Editing: {drillTitle}
           </p>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
-            {drillHeader} • {provenance}
+            {drillSubline}{provenance ? ` • ${provenance}` : ""}
           </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -92,13 +94,13 @@ export function TopBar() {
           Share to Exchange (Mock)
         </button>
         <button type="button" onClick={duplicateSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
-          Duplicate draft
+          Save copy
         </button>
         <button type="button" onClick={forkSelectedPackage} style={actionButtonStyle} disabled={!selectedPackage}>
           Fork / Remix
         </button>
         <button type="button" onClick={createSelectedPackageNewVersion} style={actionButtonStyle} disabled={!selectedPackage}>
-          Version snapshot
+          Create revision
         </button>
       </div>
     </header>
