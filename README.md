@@ -1,55 +1,79 @@
 # CaliVision Studio
 
-CaliVision Studio is the **web-first home** for:
+CaliVision Studio is the browser workspace for authoring drills, managing your drill library, and running upload-video analysis.
 
-- **Drill Studio** authoring,
-- browser **Upload Video** local analysis,
-- **Drill Exchange** discovery and sharing workflows,
-- portable drill file import/export compatibility.
+CaliVision also includes a separate Android app for edge-device live coaching:
+<https://github.com/Voycepeh/CaliVision>
 
-`/library` is the primary workspace start for drill creation and recovery. `/` remains the brand landing route.
+## How CaliVision is split
 
-Android/mobile runtime client (downstream consumer): <https://github.com/Voycepeh/CaliVision>.
+### Web Studio
 
-## Product flow (current UX)
+- Create and edit drills in Drill Studio
+- Manage drafts and saved drills in Library
+- Run Upload Video analysis in the browser
+- Review outputs and prepare drill data used by runtime clients
 
-1. Start in **Library** (`/library`) to create a new drill, continue drafts, import drill files, and browse shared drills.
-2. Use **Drill Studio** (`/studio`) to edit the currently selected drill (metadata, phases, source images, pose detection/refinement, animation preview, and review).
-3. Use **Upload Video** (`/upload`) for browser-local video analysis and artifact downloads.
-4. Use **Exchange** (`/marketplace`) for discovery, sharing, and fork/remix direction (currently local/mock-backed).
+### Android app
+
+- Choose drills on device
+- Run live coaching sessions on device
+- Use drill definitions created, synced, or exported from Studio
+- Repo: <https://github.com/Voycepeh/CaliVision>
+
+## Main user flows
+
+### 1. Drill authoring flow
+
+Library -> open or create drill -> edit phases and poses in Studio -> save to library.
+
+### 2. Upload analysis flow
+
+Library or Upload Video -> choose drill -> upload video in browser -> run analysis -> review outputs and results.
+
+### 3. Live coaching flow
+
+Create and manage drill in Web Studio -> use, export, or sync drill to Android app -> start live coaching on device.
+
+### 4. Library flow
+
+Browse drills and drafts -> continue editing, analyze a video, or prepare for Android use.
+
+## System view
+
+```mermaid
+flowchart LR
+    U[User] --> WS[Web Studio]
+    WS --> DL[Drill Library and persistence]
+    WS --> UA[Upload Analysis]
+    DL --> AA[Android App]
+    U --> AA
+    AA --> LC[Live Coaching]
+```
+
+## Current product stance
+
+- Android is focused on live coaching.
+- Web Studio is the main place for drill creation and upload analysis.
+- As the web workflow matures, creation and upload responsibilities should live primarily on web.
 
 ## Current capabilities
 
-- create drill drafts,
-- edit metadata/phases,
-- upload phase image,
-- detect/refine pose,
-- preview animation,
-- export Android-compatible drill file,
-- process local upload videos in-browser and download:
-  - Pose Timeline (.json),
-  - Processing Summary (.json),
-  - Annotated Video export (WebM).
+### Web Studio today
 
-## Branding assets (homepage + app shell)
+- Drill authoring in Studio
+- Drill and draft management in Library
+- Browser-based Upload Video analysis
+- Export and compatibility workflows for runtime clients
 
-- Primary homepage and navbar logo asset: `public/brand/calivision-home-logo.svg`.
-- Temporary app icon placeholder for Next.js app router: `src/app/icon.svg`.
-- Current implementation intentionally reuses the same branding family while we prepare dedicated tiny-size icon artwork.
+### Android app today
 
-## Engineering note on drill files
+- On-device drill selection and live coaching runtime
+- Consumption of Studio-authored drill definitions
 
-The portable drill package/file format is still maintained for portability, Android compatibility, and future schema evolution/migration.
+See Android repo for runtime details: <https://github.com/Voycepeh/CaliVision>
 
-## Upload Video local-first constraints
-
-- processing runs on this browser/device,
-- no mandatory backend upload/storage/worker,
-- keep the tab open while jobs run,
-- closing/reloading interrupts jobs,
-- switching tabs can slow processing.
-
-## Quick start
+## Repo quick start
 
 ```bash
 npm install
@@ -58,28 +82,10 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-## Draft and My drills persistence (current)
+## Documentation notes
 
-Drill Studio autosaves working drafts to browser-local IndexedDB so edits survive refresh, tab close, and reopen on the same device/browser.
+For package specs, compatibility details, and low-level contract behavior, use the docs in `docs/`.
 
-- **Drafts** are work in progress.
-- **My drills** are saved drills.
-- Signed out: Drafts and My drills are stored on this browser/device.
-- Signed in: Drafts and My drills are account-hosted first, with browser-local safety fallback.
-- **Export drill**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
-- Library owns file-management actions (import/export/save copy/delete/open in Studio).
-- **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.
+## Scope discipline
 
-## Hosted drafts foundation (April 2026)
-
-CaliVision Studio now includes an initial Supabase-backed hosted slice for **auth + user-owned drafts/My drills + hosted asset groundwork** while preserving browser-local draft resilience.
-
-- Local IndexedDB drafts continue to autosave for resilience.
-- Hosted mode requires Google sign-in (Supabase) and environment configuration.
-- Hosted drafts/My drills are user-scoped private records, not public Drill Exchange listings.
-- Android runtime responsibilities remain in the companion client: https://github.com/Voycepeh/CaliVision.
-
-See:
-- `docs/supabase-setup.md`
-- `docs/local-vs-hosted-persistence.md`
-- `docs/hosted-drafts.md`
+This README is a product and user-flow map first. Keep detailed implementation and contract notes in `docs/`, schema files, compatibility docs, and samples unless those details are required to explain user flow.

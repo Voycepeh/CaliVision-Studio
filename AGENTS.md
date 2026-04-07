@@ -69,9 +69,27 @@ If you modify drill/package contracts, semantics, or payload examples, update al
 
 Update documentation whenever workflows, architecture boundaries, or roadmap assumptions change.
 
+### README stability rules (mandatory)
+
+Treat `README.md` as a product map and process-flow document.
+
+- README is not a changelog.
+- README is not a contract spec.
+- Do not update README for routine refactors, implementation details, styling changes, or low-level schema/contract changes.
+- Update README only when one of these changes:
+  1. the user-facing product flow,
+  2. the role split between Web Studio and Android,
+  3. the main navigation or journey,
+  4. the system diagram or repo purpose.
+
+Keep README stable unless process flow changes materially.
+
+### Where detailed changes belong
+
+Package/schema/contract changes should usually update docs and samples, not README.
+
 At minimum, validate and adjust as needed:
 
-- `README.md`
 - `docs/product-overview.md`
 - `docs/current-user-flows.md`
 - `docs/future-user-flows.md`
@@ -81,6 +99,13 @@ At minimum, validate and adjust as needed:
 - `docs/drill-exchange-vision.md`
 - `docs/roadmap.md`
 - `docs/pr-plan.md`
+- `docs/package-spec.md`
+- `docs/android-compatibility.md`
+- impacted payloads in `samples/`
+
+Preserve Android compatibility notes and links where relevant: <https://github.com/Voycepeh/CaliVision>.
+
+Avoid package-first language in user-facing docs unless needed to explain workflow.
 
 Document assumptions/non-goals explicitly in `docs/pr-plan.md`.
 
