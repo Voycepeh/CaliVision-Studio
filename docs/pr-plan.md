@@ -1,39 +1,41 @@
-# PR Plan — Documentation Rewrite for Product Story Alignment
+# PR Plan — Architecture and Cleanup Stabilization Pass
 
 ## Summary
 
-This PR rewrites repository documentation so CaliVision-Studio is presented as:
+This PR performs a focused cleanup pass to reduce structural ambiguity before feature expansion.
 
-- the web-first home for Drill Studio,
-- the future browser Upload Video surface,
-- the long-term source of truth for drill/package publishing,
-- the future Drill Exchange platform for shared/versioned package workflows.
+Primary goals:
+- simplify architecture/navigation,
+- reduce duplicate or dead placeholder pathways,
+- strengthen package-first boundaries,
+- make Studio easier for a solo developer and AI agents to extend.
 
 ## Assumptions
 
-- current implementation remains local-first for many persistence/sharing concerns,
-- hosted auth/storage/exchange are planned, not fully shipped,
-- Android/mobile runtime client remains a downstream consumer,
-- portable drill package compatibility is mandatory.
-
-Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+- Studio remains the web-first home for Drill Studio, Upload Video direction, and future Drill Exchange workflows.
+- Portable drill package compatibility remains mandatory.
+- Android/mobile runtime client remains downstream: <https://github.com/Voycepeh/CaliVision>.
+- Data posture stays local-first/mock unless explicitly changed by a later backend-focused PR.
 
 ## Non-goals
 
-- no core product feature rewrites,
-- no contract or runtime semantic changes,
-- no backend/auth implementation claims beyond planned direction.
+- no major new end-user feature buildout,
+- no backend/auth/cloud integration rollout,
+- no UI redesign,
+- no contract-breaking package changes.
 
-## Documentation architecture changes
+## Cleanup scope in this PR
 
-- rewritten root `README.md` with current-vs-planned split,
-- strengthened `AGENTS.md` engineering and documentation guardrails,
-- added/rewritten product/system/flow/lifecycle/boundary docs,
-- added Mermaid diagrams for ecosystem, current flow, future flow, boundary, and lifecycle.
+- consolidate shared route intro shell for non-Studio routes,
+- remove duplicate sample data pathways in favor of `src/lib/package/samples/*`,
+- decouple detector mapping from editor service helpers via pose-domain utility,
+- remove unused legacy contract/validation barrel paths that blurred canonical boundaries,
+- add lightweight tests for phase-selection fallback behavior in the Studio workspace,
+- refresh architecture/repo-structure docs to reflect current boundaries.
 
 ## Validation criteria
 
-- docs consistently use core terminology,
-- docs link Android repo when mobile runtime is discussed,
-- docs clearly separate available-now behavior vs planned features,
-- docs align with source-of-truth boundary (web authoring vs mobile runtime).
+- package import/export and bundle ingestion paths remain functional,
+- pose detection mapping still writes canonical pose data,
+- Studio route semantics stay intact with `/studio` as the primary workspace,
+- docs clearly distinguish foundational layers vs local-first placeholders.

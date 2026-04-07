@@ -1,5 +1,5 @@
 import { getCanonicalRenderCanvasSpec } from "@/lib/canvas/spec";
-import { createDefaultPose } from "@/lib/editor/package-editor";
+import { createDefaultPortablePose } from "@/lib/pose/portable-pose";
 import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
 import type { DetectionResult } from "@/lib/detection/types";
 import type { PortablePose, PortableViewType } from "@/lib/schema/contracts";
@@ -8,7 +8,7 @@ export function mapDetectionResultToPortablePose(
   detection: DetectionResult,
   options: { poseId: string; timestampMs?: number; view: PortableViewType }
 ): PortablePose {
-  const basePose = createDefaultPose(options.poseId, options.view, options.timestampMs ?? 0);
+  const basePose = createDefaultPortablePose(options.poseId, options.view, options.timestampMs ?? 0);
   const canvas = getCanonicalRenderCanvasSpec(options.view);
 
   const joints = CANONICAL_JOINT_NAMES.reduce<PortablePose["joints"]>((acc, jointName) => {

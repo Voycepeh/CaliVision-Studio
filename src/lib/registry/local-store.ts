@@ -1,5 +1,4 @@
-import { sampleDrillPackage } from "@/lib/mock/sample-package";
-import { createDerivedPackage, ensureVersioningMetadata } from "@/lib/package";
+import { createDerivedPackage, ensureVersioningMetadata, getPrimarySamplePackage } from "@/lib/package";
 import { createRegistryEntryFromPackage } from "@/lib/registry/catalog";
 import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "@/lib/registry/types";
 import type { DrillPackage, DrillPackageRelationType } from "@/lib/schema/contracts";
@@ -14,7 +13,7 @@ export function loadLocalRegistryEntries(): PackageRegistryEntry[] {
   if (typeof window === "undefined") {
     return [
       createRegistryEntryFromPackage({
-        packageJson: sampleDrillPackage,
+        packageJson: getPrimarySamplePackage(),
         sourceType: "authored-local",
         sourceLabel: "sample:reactive-defense"
       })
@@ -26,7 +25,7 @@ export function loadLocalRegistryEntries(): PackageRegistryEntry[] {
   if (!raw) {
     const seeded = [
       createRegistryEntryFromPackage({
-        packageJson: sampleDrillPackage,
+        packageJson: getPrimarySamplePackage(),
         sourceType: "authored-local",
         sourceLabel: "sample:reactive-defense"
       })

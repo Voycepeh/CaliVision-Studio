@@ -1,31 +1,29 @@
-# Portable Drill Package Spec (PR11 Versioning + Provenance)
+# Portable Drill Package Spec (Current Studio Baseline)
 
 ## Contract baseline
 
-Preserve Android-compatible portable package payloads while introducing local-first registry/catalog semantics around (not inside) the package artifact.
+Portable drill package payloads remain the canonical cross-client artifact for Studio authoring and downstream runtime consumption.
+
+Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+
+Canonical contract types live in:
+- `src/lib/schema/contracts.ts`
+
+Validation/parsing flows live in:
+- `src/lib/package/validation/validate-package.ts`
 
 ## Core portable contract types
 
-- `SchemaVersion` — contract baseline (`0.1.0`).
-- `DrillPackage` — top-level payload with `manifest`, `drills`, `assets`.
-- `DrillManifest` — package identity/version/compatibility metadata.
-- `DrillPackageVersioningMetadata` — explicit package/version identity + lineage/provenance.
-- `DrillPackagePublishingMetadata` — optional publish/discovery metadata placeholders.
-- `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`.
+- `SchemaVersion` (`0.1.0`)
+- `DrillPackage` (top-level payload)
+- `DrillManifest` (identity/version/compatibility metadata)
+- `DrillPackageVersioningMetadata` (lineage/provenance metadata)
+- `DrillPackagePublishingMetadata` (optional publish/discovery metadata)
+- `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`
 
-## PR11: versioning semantics in artifact + registry model separation
+## Versioning + provenance semantics
 
-PR11 keeps registry/catalog as a Studio concern (`src/lib/registry/*`) with types such as:
-- `PackageRegistryEntry`
-- `PackageSummary`
-- `PackageDetails`
-- `PackageOrigin`
-- `PackageSourceType`
-- `PackageListingQuery`
-
-These are Studio listing/discovery concepts that wrap the portable package contract.
-
-Package-level version/provenance now lives in `manifest.versioning` (additive and optional):
+`manifest.versioning` remains additive and optional:
 - `packageSlug`
 - `versionId` (`packageId@packageVersion`)
 - `lineageId`
@@ -36,26 +34,44 @@ Package-level version/provenance now lives in `manifest.versioning` (additive an
   - `parentPackageId`
   - optional `parentVersionId`, `parentEntryId`, `note`
 
-## Manifest publishing metadata (still additive)
+## Publishing metadata (additive)
 
-`manifest.publishing` remains optional and forward-compatible:
-- `title?`, `summary?`, `description?`
-- `authorDisplayName?`
-- `tags?`, `categories?`
-- `visibility?` (`private | unlisted | public`)
-- `publishStatus?` (`draft | published`)
-- `latestArtifactChecksumSha256?`, `lastPreparedAtIso?`
+`manifest.publishing` remains optional:
+- `title`, `summary`, `description`
+- `authorDisplayName`
+- `tags`, `categories`
+- `visibility` (`private | unlisted | public`)
+- `publishStatus` (`draft | published`)
+- `latestArtifactChecksumSha256`, `lastPreparedAtIso`
 
 Consumers that ignore this block remain compatible.
 
-## Validation posture
+## Studio wrapper model boundary
 
-- `validatePortableDrillPackage` continues protecting contract safety.
-- Registry/listing compatibility status in Library/Marketplace is a surfaced summary built from existing validation outcomes.
+Studio registry/listing concepts live outside the package payload in `src/lib/registry/*` and are intentionally separate from artifact schema.
 
-## PR11 intentional deferrals
+Examples:
+- `PackageRegistryEntry`
+- `PackageSummary`
+- `PackageDetails`
+- `PackageOrigin`
+- `PackageSourceType`
 
-- No hosted registry schema/API contract yet.
-- No auth identity in package metadata.
-- No social metadata in package payload.
-- No remote version graph conflict resolution.
+## Sample payloads and fixtures
+
+Canonical Studio sample fixtures used by runtime code:
+- `src/lib/package/samples/valid-sample-package.json`
+- `src/lib/package/samples/invalid-sample-package.json`
+
+Documentation/manual fixture copies:
+- `samples/sample-drill-package.json`
+- `samples/sample-invalid-drill-package.json`
+
+Keep these aligned whenever contract semantics change.
+
+## Intentional deferrals
+
+- no hosted registry schema/API contract,
+- no auth identity inside portable package metadata,
+- no backend conflict-resolution graph semantics,
+- no cloud storage references in core package schema.

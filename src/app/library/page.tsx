@@ -1,18 +1,13 @@
-import Link from "next/link";
+import { RoutePageIntro } from "@/components/layout/RoutePageIntro";
 import { LibraryOverview } from "@/components/library/LibraryOverview";
 
 export default function LibraryPage() {
   return (
-    <main className="page-shell">
-      <h1>Library</h1>
-      <p className="muted">
-        Main local package management surface for authored/imported/installed drill packages with local-first
-        registry-style browsing.
-      </p>
-      <Link href="/studio" style={{ color: "var(--accent)" }}>
-        Open Studio workspace
-      </Link>
+    <RoutePageIntro
+      title="Library"
+      description="Main local package management surface for authored/imported/installed portable drill packages with local-first registry-style browsing."
+    >
       <LibraryOverview />
-    </main>
+    </RoutePageIntro>
   );
 }

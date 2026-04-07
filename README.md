@@ -160,8 +160,11 @@ flowchart LR
 
 - **Studio authoring surface**: drill metadata, phase authoring, pose editing/refinement, preview.
 - **Portable package contract**: versioned schema for transport/import compatibility.
+- **Editor/package/detection boundaries**: Studio working-copy helpers, package IO/validation, and detector mapping are intentionally separated.
 - **Local-first registry patterns**: local package listing and mock-publish style workflows.
 - **Future hosted seams**: auth, storage, exchange indexing, sharing/version graph, collaboration.
+
+Repo responsibility map: [`docs/repo-structure.md`](docs/repo-structure.md).
 
 See full docs in [`docs/`](docs):
 
@@ -173,6 +176,7 @@ See full docs in [`docs/`](docs):
 - [`docs/package-lifecycle.md`](docs/package-lifecycle.md)
 - [`docs/drill-exchange-vision.md`](docs/drill-exchange-vision.md)
 - [`docs/package-spec.md`](docs/package-spec.md)
+- [`docs/repo-structure.md`](docs/repo-structure.md)
 - [`docs/android-compatibility.md`](docs/android-compatibility.md)
 - [`docs/roadmap.md`](docs/roadmap.md)
 - [`docs/pr-plan.md`](docs/pr-plan.md)
