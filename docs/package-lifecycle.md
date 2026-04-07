@@ -1,7 +1,7 @@
 # Package Lifecycle
 
-1. Start from Library home and open Drill Studio.
-2. Author/edit drill and phases.
+1. Start from Home and open Library.
+2. Enter Drill Studio from Library to author/edit drill and phases.
 3. (Optional) use Upload Video for local analysis and reference artifacts.
 4. Export a portable package artifact.
 5. Optionally mock-publish to local Drill Exchange listing.

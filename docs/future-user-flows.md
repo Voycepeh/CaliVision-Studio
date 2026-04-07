@@ -1,5 +1,11 @@
 # Future User Flows (Planned)
 
+## Home flow (next iterations)
+
+1. Personalize Home content based on recent Library and Upload activity.
+2. Surface Android runtime updates and direct release channel links.
+3. Add optional hosted sign-in entry while preserving local-first usability.
+
 ## Upload Video flow (next iterations)
 
 Current baseline is local browser processing. Future work may add:

@@ -8,10 +8,11 @@ Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/
 
 ## Product pillars
 
-1. **Library (home):** start work, manage authored/imported drills, open Exchange, route into Studio.
-2. **Drill Studio:** edit metadata/phases, image-assisted detection/refinement, animation preview, export.
-3. **Upload Video:** first-class local browser processing flow for queueing videos, MediaPipe pose analysis, overlay validation, and local artifact download.
-4. **Drill Exchange:** discovery/sharing/versioning direction (currently local/mock-backed).
+1. **Home:** brand-led landing page that introduces core flows and routes users into Library, Upload Video, or Android app download.
+2. **Library:** manage authored/imported drills, local drafts, and route into Studio.
+3. **Drill Studio:** edit metadata/phases, image-assisted detection/refinement, animation preview, export.
+4. **Upload Video:** first-class local browser processing flow for queueing videos, MediaPipe pose analysis, overlay validation, and local artifact download.
+5. **Drill Exchange:** discovery/sharing/versioning direction (currently local/mock-backed).
 
 ## Language model
 

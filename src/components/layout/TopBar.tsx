@@ -7,11 +7,13 @@ import { useStudioState } from "@/components/studio/StudioState";
 import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
+  { href: "/", label: "Home" },
   { href: "/library", label: "Library" },
   { href: "/studio", label: "Drill Studio" },
   { href: "/upload", label: "Upload Video" },
   { href: "/marketplace", label: "Exchange" },
-  { href: "/packages", label: "Package Tools" }
+  { href: "/packages", label: "Package Tools" },
+  { href: "/#android-app", label: "Download app" }
 ];
 
 export function TopBar() {
