@@ -31,3 +31,10 @@ This pass makes `/library` and top-level navigation explicitly drill-first while
 - bulk drill management actions,
 - stronger linking model between promoted drills and later diverged drafts,
 - automated migration for legacy mirrored draft/library records.
+
+
+## Follow-up implementation notes
+
+- `Save to library` now performs strict promotion: a draft is persisted into `My drills` and removed from IndexedDB draft listings so the same logical item is not shown in both sections.
+- `Import drill` from `/library` now opens a file picker and runs package validation/import before adding to `My drills`; it no longer routes users to a blank Drill Studio editing session.
+- Library layout spacing and controls were tightened for desktop/laptop/tablet/mobile workspace readability while preserving section order.
