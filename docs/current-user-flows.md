@@ -3,12 +3,12 @@
 ## Home and navigation flow
 
 1. User lands in **Library** (`/library`) as the primary start surface.
-2. User chooses a recent drill, creates a new draft via Studio, imports a drill package, or opens Exchange.
+2. User chooses a recent local draft, creates a new local draft, imports a drill package, or opens Drill Exchange as a secondary tool.
 3. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
 
 ## Current Drill Studio flow
 
-1. Create/open a drill.
+1. Create/open a local draft or open a saved drill.
 2. Edit drill metadata (title, slug, required drill type, difficulty, view).
 3. Create/edit/reorder phases.
 4. Upload a phase image.
@@ -40,3 +40,12 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 4. User exports a portable drill package when they need portability/import to Android runtime client: <https://github.com/Voycepeh/CaliVision>.
 
 Local draft state is browser/device scoped only.
+
+
+## Library draft/drill lifecycle flow (available now)
+
+1. `Create new drill` creates a **local draft only** (not a saved drill entry).
+2. `Continue editing` opens that draft in Drill Studio without automatic promotion.
+3. `Save to library` explicitly promotes the draft into **My drills**.
+4. `Delete draft` removes draft-only IndexedDB data for that draft.
+5. `Delete` in **My drills** removes the saved drill and cleans linked same-version drafts to avoid orphan records.

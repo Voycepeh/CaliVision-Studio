@@ -51,6 +51,17 @@ export function saveLocalRegistryEntries(entries: PackageRegistryEntry[]): void 
   window.localStorage.setItem(REGISTRY_STORAGE_KEY, JSON.stringify(payload));
 }
 
+export function deleteRegistryEntry(entryId: string): boolean {
+  const current = loadLocalRegistryEntries();
+  const next = current.filter((entry) => entry.entryId !== entryId);
+  if (next.length === current.length) {
+    return false;
+  }
+
+  saveLocalRegistryEntries(attachLineageEntryIds(next));
+  return true;
+}
+
 export function upsertRegistryEntryFromPackage(input: {
   packageJson: DrillPackage;
   sourceType: PackageSourceType;
