@@ -1,44 +1,43 @@
-# PR Plan — Drill Comparison Pipeline Skeleton (Phase Scoring + Smoothing + Events)
+# PR Plan — Persist Drill Analysis Sessions + Upload History Wiring
 
 ## Summary
 
-Add a deterministic, testable Drill Studio analysis runtime pipeline that scores sampled pose frames against authored drill phases, smooths temporal phase progression, extracts rep/hold events, and emits typed analysis session outputs for future persistence/replay work.
+Persist Drill Studio analysis sessions from Upload Video runs so structured outputs (frame samples, event logs, summary metrics, source linkage) survive beyond one computation and are inspectable in a local history/debug surface.
 
 ## Problem
 
-Studio now has drill/package analysis metadata but no runtime comparison layer to interpret sampled motion into actionable, structured analysis outputs.
+Upload Video can produce analysis artifacts but structured comparison output disappears after a run, making it hard to debug, compare attempts, and prepare for future replay overlays/export workflows.
 
 ## Assumptions
 
 - Studio remains the web-first source of truth for drill authoring and portable drill file/package semantics.
 - Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
 - Local-first behavior remains a hard requirement even as hosted foundations grow.
-- This PR is intentionally a baseline deterministic pipeline skeleton, not final biomechanics scoring quality.
+- Local-first persistence remains the default: analysis sessions are durable in browser IndexedDB.
+- Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
 
 ## Scope
 
-- Add modular analysis runtime stages:
-  - frame phase scoring,
-  - temporal smoothing/ordered transition enforcement,
-  - rep/hold event extraction,
-  - session-level analysis runner output.
-- Support ordered phase sequence semantics, bounded allowed skip transitions, confirmation frames, hold entry confirmation (`entryConfirmationFrames`), and exit grace handling.
-- Emit typed event logs and summary metrics from sampled frame analysis.
-- Phase scoring currently picks the best match from authored `phase.poseSequence` key poses as a deterministic baseline (not full sequence-progress modeling yet).
-- Add synthetic fixtures/tests for rep, hold, skip, cooldown, invalid transition, and low-confidence behavior.
+- Add a persistence model for analysis sessions (`AnalysisSessionRecord`) that includes:
+  - source linkage (`sourceKind`, `sourceId`, `sourceUri`, labels),
+  - drill linkage (`drillId`, optional `drillVersion`),
+  - status/timestamps,
+  - frame phase samples, event log, summary metrics, quality/debug metadata.
+- Add repository abstractions for save/get/list-by-drill/list-recent/delete plus JSON serializer/deserializer for round-trip export compatibility.
+- Wire Upload Video completion/failure flow to persist one session per attempt.
+- Add a minimal Upload Video history/debug inspection surface showing recent sessions, summary metrics, event log, and JSON debug payload.
+- Add tests for repository persistence behavior and upload-analysis persistence wiring.
 
 ## Non-goals
 
-- no production-grade biomechanical model,
-- no ML model integration,
-- no persistence wiring for analysis sessions,
-- no replay overlay rendering/burning into video,
-- no broad Upload Video UX overhaul.
+- no replay overlay rendering onto video preview,
+- no auth-first hosted analysis session sync in this PR,
+- no major Upload Video visual redesign,
+- no scoring model rewrite.
 
 ## Follow-up candidates (not included)
 
-- persist analysis sessions and query history in Studio,
-- connect analysis logs to replay overlay rendering,
-- refine scoring model (angles/velocity/domain weighting),
-- calibration and confidence tuning with real capture fixtures,
-- hybrid drill extraction expansion beyond baseline compatibility.
+- render persisted analysis overlays on replay/preview timeline,
+- add drill selection wiring so upload analysis runs against user-selected authored drill drafts,
+- add hosted synchronization abstraction for session history while retaining local-first fallback,
+- introduce richer comparison views across multiple persisted attempts.

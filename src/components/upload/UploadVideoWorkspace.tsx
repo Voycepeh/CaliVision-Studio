@@ -4,6 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import type { UploadJob } from "@/lib/upload/types";
+import { getPrimarySamplePackage } from "@/lib/package/samples";
+import {
+  createImportedAnalysisSessionCopy,
+  deserializeAnalysisSession,
+  getBrowserAnalysisSessionRepository,
+  persistCompletedUploadAnalysisSession,
+  persistFailedUploadAnalysisSession,
+  serializeAnalysisSession,
+  type AnalysisSessionRecord
+} from "@/lib/analysis";
 
 const DEFAULT_CADENCE_FPS = 12;
 
@@ -39,6 +49,10 @@ function createArtifactBaseName(fileName: string): string {
   return fileName.replace(/\.[^./\\]+$/, "");
 }
 
+function createUploadSourceUri(jobId: string, fileName: string): string {
+  return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
+}
+
 function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
   if (action.type === "add") {
     return [...state, ...action.jobs];
@@ -53,8 +67,12 @@ function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
 }
 
 export function UploadVideoWorkspace() {
+  const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
+  const referenceDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [recentSessions, setRecentSessions] = useState<AnalysisSessionRecord[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
@@ -64,8 +82,17 @@ export function UploadVideoWorkspace() {
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs.find((job) => job.status === "completed"), [jobs, selectedJobId]);
+  const selectedSession = useMemo(
+    () => recentSessions.find((session) => session.sessionId === selectedSessionId) ?? recentSessions[0],
+    [recentSessions, selectedSessionId]
+  );
 
   const dispatch = useCallback((action: JobAction) => setJobs((prev) => reducer(prev, action)), []);
+  const refreshRecentSessions = useCallback(async () => {
+    const sessions = await analysisRepository.listRecentSessions({ limit: 12 });
+    setRecentSessions(sessions);
+    setSelectedSessionId((previous) => previous ?? sessions[0]?.sessionId ?? null);
+  }, [analysisRepository]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
     const nextJobs: UploadJob[] = [];
@@ -140,9 +167,22 @@ export function UploadVideoWorkspace() {
           }
         }
       });
+      const persisted = await persistCompletedUploadAnalysisSession({
+        repository: analysisRepository,
+        drill: referenceDrill,
+        drillVersion: "sample-v1",
+        timeline,
+        sourceId: nextJob.id,
+        sourceLabel: nextJob.fileName,
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+      });
+      setSelectedSessionId(persisted.sessionId);
+      await refreshRecentSessions();
       setSelectedJobId(nextJob.id);
     } catch (error) {
       const cancelled = error instanceof DOMException && error.name === "AbortError";
+      const message = error instanceof Error ? error.message : "Upload processing failed";
       dispatch({
         type: "update",
         id: nextJob.id,
@@ -150,18 +190,34 @@ export function UploadVideoWorkspace() {
           status: cancelled ? "cancelled" : "failed",
           stageLabel: cancelled ? "Cancelled" : "Failed",
           errorMessage: cancelled ? "Processing was cancelled for this video." : "Processing failed. Retry to start a fresh local processing context.",
-          errorDetails: error instanceof Error ? error.message : "Upload processing failed"
+          errorDetails: message
         }
       });
+
+      if (!cancelled) {
+        await persistFailedUploadAnalysisSession({
+          repository: analysisRepository,
+          drill: referenceDrill,
+          drillVersion: "sample-v1",
+          sourceId: nextJob.id,
+          sourceLabel: nextJob.fileName,
+          sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+          errorMessage: message
+        });
+        await refreshRecentSessions();
+      }
     } finally {
       activeAbortRef.current = null;
       isRunningRef.current = false;
     }
-  }, [cadenceFps, dispatch, jobs]);
+  }, [analysisRepository, cadenceFps, dispatch, jobs, referenceDrill, refreshRecentSessions]);
 
   useEffect(() => {
     void runQueue();
   }, [jobs, runQueue]);
+  useEffect(() => {
+    void refreshRecentSessions();
+  }, [refreshRecentSessions]);
 
   useEffect(() => {
     if (!selectedJob) {
@@ -325,6 +381,95 @@ export function UploadVideoWorkspace() {
           </div>
         </section>
       ) : null}
+
+      <section className="card" style={{ margin: 0 }}>
+        <h3 style={{ marginTop: 0 }}>Recent analyses</h3>
+        {recentSessions.length === 0 ? <p className="muted">No persisted analysis sessions yet. Run Upload Video to create one.</p> : null}
+        <div style={{ display: "grid", gap: "0.4rem" }}>
+          {recentSessions.map((session) => (
+            <button
+              key={session.sessionId}
+              type="button"
+              className="pill"
+              style={{
+                textAlign: "left",
+                borderColor: selectedSession?.sessionId === session.sessionId ? "rgba(114,168,255,0.8)" : undefined,
+                background: selectedSession?.sessionId === session.sessionId ? "rgba(114,168,255,0.14)" : undefined
+              }}
+              onClick={() => setSelectedSessionId(session.sessionId)}
+            >
+              <strong>{session.drillTitle ?? session.drillId}</strong> • {new Date(session.createdAtIso).toLocaleString()} • {session.status} • reps{" "}
+              {session.summary.repCount ?? 0} • duration {formatDuration(session.summary.analyzedDurationMs)}
+            </button>
+          ))}
+        </div>
+        {selectedSession ? (
+          <article className="card" style={{ marginBottom: 0, marginTop: "0.75rem" }}>
+            <h4 style={{ marginTop: 0 }}>Session detail</h4>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Source: {selectedSession.sourceKind} / {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"} • Pipeline:{" "}
+              {selectedSession.pipelineVersion ?? "unknown"}
+            </p>
+            <p className="muted" style={{ marginTop: 0 }}>
+              Raw URI: {selectedSession.rawVideoUri ?? selectedSession.sourceUri ?? "n/a"} • Annotated URI: {selectedSession.annotatedVideoUri ?? "n/a"}
+            </p>
+            <ul className="muted" style={{ marginTop: "0.2rem" }}>
+              <li>Rep count: {selectedSession.summary.repCount ?? 0}</li>
+              <li>Hold duration: {formatDuration(selectedSession.summary.holdDurationMs)}</li>
+              <li>Analyzed duration: {formatDuration(selectedSession.summary.analyzedDurationMs)}</li>
+              <li>Frame samples: {selectedSession.frameSamples.length}</li>
+              <li>Events: {selectedSession.events.length}</li>
+            </ul>
+
+            <details>
+              <summary style={{ cursor: "pointer" }}>Event log</summary>
+              <ol className="muted">
+                {selectedSession.events.map((event) => (
+                  <li key={event.eventId}>
+                    {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
+                    {event.phaseId ? ` • phase=${event.phaseId}` : ""}
+                    {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                  </li>
+                ))}
+              </ol>
+            </details>
+
+            <details>
+              <summary style={{ cursor: "pointer" }}>JSON debug</summary>
+              <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{serializeAnalysisSession(selectedSession)}</pre>
+            </details>
+            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+              <button
+                type="button"
+                className="pill"
+                onClick={() =>
+                  downloadBlob(
+                    new Blob([serializeAnalysisSession(selectedSession)], { type: "application/json" }),
+                    `${selectedSession.sessionId}.analysis-session.json`
+                  )
+                }
+              >
+                Download Session JSON
+              </button>
+              <button
+                type="button"
+                className="pill"
+                onClick={async () => {
+                  const importedSession = createImportedAnalysisSessionCopy(
+                    deserializeAnalysisSession(serializeAnalysisSession(selectedSession)),
+                    { importedSessionId: crypto.randomUUID() }
+                  );
+                  await analysisRepository.saveSession(importedSession);
+                  await refreshRecentSessions();
+                  setSelectedSessionId(importedSession.sessionId);
+                }}
+              >
+                Import JSON as New Session
+              </button>
+            </div>
+          </article>
+        ) : null}
+      </section>
     </section>
   );
 }
