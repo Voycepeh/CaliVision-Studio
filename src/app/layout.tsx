@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CaliVision Studio",
-  description: "Library-first web home for Drill Studio, Upload Video, and Drill Exchange workflows"
+  description: "Brand-first web workspace for Drill Studio, Upload Video, and Drill Exchange workflows"
 };
 
 export default function RootLayout({

@@ -7,17 +7,18 @@ CaliVision Studio is the **web-first home** for:
 - **portable drill package** import/export/publishing,
 - future **Drill Exchange** discovery, sharing, and fork/remix flows.
 
-Library is the default home route (`/library`), with Drill Studio (`/studio`) as the focused editing workspace.
+`/` is now the brand-first landing page, while **Library** lives at `/library` as the primary workspace for drafts, saved drills, and Studio entry.
 
 Android/mobile runtime client (downstream consumer): <https://github.com/Voycepeh/CaliVision>.
 
 ## Product flow (current UX)
 
-1. Start in **Library** to continue local draft work, create a new drill draft, import drills, and manage saved drills.
-2. Use **Drill Studio** for editing metadata, phases, source images, detection/refinement, and animation preview.
-3. Use **Upload Video** to process one or more local videos in-browser with MediaPipe Pose Landmarker, preview overlays, and download local artifacts.
-4. Use **Drill Exchange** for discovery semantics (currently local/mock-backed).
-5. Use **Package Tools** for technical import/export portability workflows.
+1. Start on **Home** (`/`) to understand the product and choose a primary flow.
+2. Use **Library** to continue local drafts, create new drills, import drills, and enter Drill Studio.
+3. Use **Drill Studio** for editing metadata, phases, source images, detection/refinement, and animation preview.
+4. Use **Upload Video** to process one or more local videos in-browser with MediaPipe Pose Landmarker, preview overlays, and download local artifacts.
+5. Use **Drill Exchange** for discovery semantics (currently local/mock-backed).
+6. Use **Package Tools** for technical import/export portability workflows.
 
 ## Current capabilities
 

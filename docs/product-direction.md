@@ -2,7 +2,8 @@
 
 CaliVision Studio product direction is now organized around a clear IA:
 
-- **Library (`/library`)** is the home surface.
+- **Home (`/`)** is the brand-first landing route.
+- **Library (`/library`)** is the drill workspace for drafts/saved drill management and Studio entry.
 - **Drill Studio (`/studio`)** is the focused editing workspace.
 - **Upload Video (`/upload`)** is a first-class browser route for future analysis-to-draft workflows.
 - **Drill Exchange (`/marketplace`, user-facing label)** is discovery/sharing direction.

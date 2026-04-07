@@ -1,8 +1,8 @@
-# PR Plan — Library Workflow Cleanup + Draft/Drill Lifecycle Fix
+# PR Plan — Brand-First Home + Library IA Shift
 
 ## Summary
 
-This pass simplifies `/library` into a clear manage/resume flow and separates **local drafts** from **saved drills** so users do not get accidental dual registration.
+This pass introduces a dedicated `/` homepage for CaliVision Studio and moves Library into its intended role as a workflow workspace at `/library`.
 
 ## Assumptions
 
@@ -15,28 +15,20 @@ This pass simplifies `/library` into a clear manage/resume flow and separates **
 - no hosted backend sync/auth/storage,
 - no package contract/schema changes,
 - no Android runtime behavior changes,
-- no Drill Exchange backend implementation.
+- no Drill Exchange backend implementation,
+- no final app store/download URL integration yet.
 
 ## Scope
 
-- Remove redundant Library intro/hero duplication.
-- Keep Library IA focused on: header actions, recent local drafts, My drills, and secondary tools.
-- Add explicit `Save to library` promotion from local draft to drill library item.
-- Ensure drill duplication from Library creates a draft copy for editing.
-- Add explicit drill delete action in My drills.
-- Ensure drill deletion also removes linked draft records for the same package/version to avoid orphans.
-- Keep draft deletion isolated to draft persistence only.
+- Replace root-route redirect with a polished Home landing page.
+- Keep Library intact as drafts/saved-drills management and Studio entry surface.
+- Update top-level navigation to foreground Home, Library, Upload Video, Exchange, and app download CTA.
+- Add icon-led homepage sections for hero, 3 core flow cards, workflow overview, and Android download placeholder.
+- Keep copy product-facing (drill/library/upload/app), while preserving package terminology in deeper technical surfaces.
 
 ## Follow-up candidates (not included)
 
-- richer draft-to-drill promotion UX (rename/version prompts),
-- bulk drill management actions,
-- stronger linking model between promoted drills and later diverged drafts,
-- automated migration for legacy mirrored draft/library records.
-
-
-## Follow-up implementation notes
-
-- `Save to library` now performs strict promotion: a draft is persisted into `My drills` and removed from IndexedDB draft listings so the same logical item is not shown in both sections.
-- `Import drill` from `/library` now opens a file picker and runs package validation/import before adding to `My drills`; it no longer routes users to a blank Drill Studio editing session.
-- Library layout spacing and controls were tightened for desktop/laptop/tablet/mobile workspace readability while preserving section order.
+- wire final Android store URL and update CTA target,
+- add polished rendered visuals/screens when available,
+- add personalized/usage-aware homepage content,
+- introduce optional Exchange spotlight modules once backed by hosted data.

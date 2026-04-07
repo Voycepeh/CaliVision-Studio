@@ -7,7 +7,8 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 - user-facing Exchange UX exists,
 - powered by local/mock data only,
 - no real auth/hosted storage/community systems yet,
-- Upload Video local analysis remains device-local and separate from hosted exchange.
+- Upload Video local analysis remains device-local and separate from hosted exchange,
+- Home positioning introduces Exchange as a secondary exploration path, not the primary CTA.
 
 ## Future direction
 

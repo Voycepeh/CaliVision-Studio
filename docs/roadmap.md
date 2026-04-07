@@ -2,7 +2,8 @@
 
 ## Phase A (current)
 
-- Library-first product IA,
+- brand-first Home IA for product entry,
+- Library as workspace (not homepage),
 - polished Drill Studio authoring flow,
 - Upload Video local-first queue + MediaPipe processing + artifact download,
 - Drill Exchange naming/discovery clarity,

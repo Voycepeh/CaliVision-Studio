@@ -1,26 +1,22 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { PrimaryNav } from "@/components/layout/PrimaryNav";
 
 type RoutePageIntroProps = {
   title: string;
   description: string;
   children: ReactNode;
+  navActive?: "home" | "library" | "upload" | "exchange" | "packages";
 };
 
-export function RoutePageIntro({ title, description, children }: RoutePageIntroProps) {
+export function RoutePageIntro({ title, description, children, navActive }: RoutePageIntroProps) {
   return (
-    <main className="page-shell">
-      <h1>{title}</h1>
-      <p className="muted">{description}</p>
-      <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-        <Link href="/library" className="pill">
-          Back to Library
-        </Link>
-        <Link href="/studio" className="pill">
-          Open Drill Studio
-        </Link>
-      </div>
-      {children}
-    </main>
+    <>
+      <PrimaryNav active={navActive} />
+      <main className="page-shell">
+        <h1>{title}</h1>
+        <p className="muted">{description}</p>
+        {children}
+      </main>
+    </>
   );
 }

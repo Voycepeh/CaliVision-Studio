@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { HomeLandingPage } from "@/components/home/HomeLandingPage";
 
 export default function HomePage() {
-  redirect("/library");
+  return <HomeLandingPage />;
 }

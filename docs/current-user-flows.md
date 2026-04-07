@@ -2,9 +2,10 @@
 
 ## Home and navigation flow
 
-1. User lands in **Library** (`/library`) as the primary start surface.
-2. User chooses a recent local draft, creates a new local draft, imports a drill package, or opens Drill Exchange as a secondary tool.
-3. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
+1. User lands on **Home** (`/`) as the brand-first product entry.
+2. User picks one of three primary paths: **Open Library**, **Upload Video**, or **Download Android app**.
+3. From **Library** (`/library`), user creates/continues drafts, imports drill packages, or opens Drill Exchange as a secondary tool.
+4. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
 
 ## Current Drill Studio flow
 
@@ -40,7 +41,6 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 4. User exports a portable drill package when they need portability/import to Android runtime client: <https://github.com/Voycepeh/CaliVision>.
 
 Local draft state is browser/device scoped only.
-
 
 ## Library draft/drill lifecycle flow (available now)
 

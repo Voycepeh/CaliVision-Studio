@@ -1,12 +1,13 @@
 # Architecture
 
-CaliVision Studio remains package-first under the hood, while UX is now organized by product flow.
+CaliVision Studio remains package-first under the hood, while UX is organized by brand-led product flow.
 
 Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 ## Route-level IA
 
-- `/library`: user home and drill hub.
+- `/`: brand-first product landing page.
+- `/library`: drill workspace and management hub.
 - `/studio`: core editing workspace.
 - `/upload`: Upload Video workflow shell.
 - `/marketplace`: Drill Exchange discovery surface (local/mock for now).
