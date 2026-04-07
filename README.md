@@ -13,7 +13,7 @@ Android/mobile runtime client (downstream consumer): <https://github.com/Voycepe
 
 ## Product flow (current UX)
 
-1. Start in **Library** to continue work, create/open drills, import packages, and browse Exchange listings.
+1. Start in **Library** to continue local draft work, create a new drill draft, import drills, and manage saved drills.
 2. Use **Drill Studio** for editing metadata, phases, source images, detection/refinement, and animation preview.
 3. Use **Upload Video** to process one or more local videos in-browser with MediaPipe Pose Landmarker, preview overlays, and download local artifacts.
 4. Use **Drill Exchange** for discovery semantics (currently local/mock-backed).
@@ -53,6 +53,7 @@ Open <http://localhost:3000>.
 
 Drill Studio autosaves working drafts to browser-local IndexedDB so edits survive refresh, tab close, and reopen on the same device/browser.
 
-- **Local draft**: durable in this browser only.
+- **Local draft**: durable in this browser only, appears under `Recent local drafts`.
+- **Saved drill**: appears under `My drills` only after explicit Save to library/import/publish.
 - **Export package**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
 - **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.

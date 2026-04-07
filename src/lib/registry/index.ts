@@ -7,6 +7,7 @@ export {
 
 export {
   createDerivedRegistryEntry,
+  deleteRegistryEntry,
   installRegistryEntryToLibrary,
   loadLocalRegistryEntries,
   saveLocalRegistryEntries,

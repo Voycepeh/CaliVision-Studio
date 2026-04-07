@@ -35,7 +35,7 @@ import {
   type PublishReadinessResult,
   type PublishResult
 } from "@/lib/publishing";
-import { createDerivedRegistryEntry, loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
+import { loadLocalRegistryEntries, upsertRegistryEntryFromPackage } from "@/lib/registry";
 import {
   getLastOpenedDraft,
   loadDraft,
@@ -712,11 +712,6 @@ export function StudioStateProvider({
       message: `Loaded sample drill '${sample.label}'.`,
       issues: nextEntry.validation.issues
     });
-    upsertRegistryEntryFromPackage({
-      packageJson: nextEntry.workingPackage,
-      sourceType: "authored-local",
-      sourceLabel: `sample:${sample.id}`
-    });
     setDraftIdsByPackageKey((current) => ({ ...current, [nextEntry.packageKey]: nextDraftId }));
   }
 
@@ -1273,29 +1268,14 @@ export function StudioStateProvider({
     });
 
     const packageKey = `${relation}-${Date.now()}`;
-    const nextEntry = createEditablePackageEntry(packageKey, `${relation}:${source.packageKey}`, derivedPackage);
+    const sourceEntryId = selectedPackageEntryId();
+    const derivedSourceLabel = sourceEntryId ? `${relation}:${sourceEntryId}` : `${relation}:${source.packageKey}`;
+    const nextEntry = createEditablePackageEntry(packageKey, derivedSourceLabel, derivedPackage);
     const nextDraftId = toDraftIdFromPackage(nextEntry);
     setPackages((current) => [nextEntry, ...current.filter((entry) => entry.packageKey !== packageKey)]);
     setSelectedPackageKey(packageKey);
     setSelectedPhaseId(getSortedPhases(nextEntry.workingPackage)[0]?.phaseId ?? null);
     setSelectedJointName(null);
-
-    const sourceEntryId = selectedPackageEntryId();
-    if (sourceEntryId) {
-      try {
-        createDerivedRegistryEntry({
-          entryId: sourceEntryId,
-          relation: relation === "fork" ? "fork" : relation === "duplicate" ? "duplicate" : "new-version"
-        });
-      } catch {
-        upsertRegistryEntryFromPackage({
-          packageJson: nextEntry.workingPackage,
-          sourceType: "authored-local",
-          sourceLabel: `${relation}:${sourceEntryId}`,
-          parentEntryId: sourceEntryId
-        });
-      }
-    }
     setDraftIdsByPackageKey((current) => ({ ...current, [nextEntry.packageKey]: nextDraftId }));
   }
 

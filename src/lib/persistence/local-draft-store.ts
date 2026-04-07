@@ -261,6 +261,14 @@ export async function deleteDraft(draftId: string): Promise<void> {
   await transactionDone(tx);
 }
 
+
+export async function deleteDraftsForPackage(packageId: string, packageVersion: string): Promise<number> {
+  const summaries = await loadDraftList();
+  const matches = summaries.filter((draft) => draft.packageId === packageId && draft.packageVersion === packageVersion);
+  await Promise.all(matches.map((draft) => deleteDraft(draft.draftId)));
+  return matches.length;
+}
+
 export async function duplicateDraft(draftId: string): Promise<string> {
   const loaded = await loadDraft(draftId);
   if (!loaded) {

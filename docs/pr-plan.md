@@ -1,35 +1,35 @@
-# PR Plan — Upload Video Local-First Processing
+# PR Plan — Library Workflow Cleanup + Draft/Drill Lifecycle Fix
 
 ## Summary
 
-This pass implements Upload Video as a working browser-first local processing flow with queueing, MediaPipe pose extraction, overlay preview, and local artifact exports.
+This pass simplifies `/library` into a clear manage/resume flow and separates **local drafts** from **saved drills** so users do not get accidental dual registration.
 
 ## Assumptions
 
-- Studio is the web-first source of truth.
-- Mobile runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
-- No required backend video upload/storage/cloud compute in this pass.
+- Studio remains the web-first source of truth for drill authoring.
+- Mobile runtime responsibilities stay in Android: <https://github.com/Voycepeh/CaliVision>.
+- Local-first browser persistence (IndexedDB + localStorage) remains the active storage model.
 
 ## Non-goals
 
-- no cloud queue/worker,
-- no hosted artifact persistence or job history,
-- no browser live coaching runtime,
-- no contract-breaking package changes,
-- no unrelated architecture rewrite.
+- no hosted backend sync/auth/storage,
+- no package contract/schema changes,
+- no Android runtime behavior changes,
+- no Drill Exchange backend implementation.
 
 ## Scope
 
-- Upload Video top-level page with drag/drop + multi-select input.
-- Local queue state with queued/processing/completed/failed/cancelled status.
-- Browser MediaPipe Pose Landmarker video-mode processing.
-- Overlay preview player for completed jobs.
-- Local artifact export (pose timeline JSON, analysis JSON, annotated WebM).
-- Clear local-processing messaging (keep tab open, close/reload interrupts).
+- Remove redundant Library intro/hero duplication.
+- Keep Library IA focused on: header actions, recent local drafts, My drills, and secondary tools.
+- Add explicit `Save to library` promotion from local draft to drill library item.
+- Ensure drill duplication from Library creates a draft copy for editing.
+- Add explicit drill delete action in My drills.
+- Ensure drill deletion also removes linked draft records for the same package/version to avoid orphans.
+- Keep draft deletion isolated to draft persistence only.
 
 ## Follow-up candidates (not included)
 
-- optional cloud fallback execution,
-- optional backend blob storage + persistence,
-- optional Android handoff/import integration,
-- optional multi-concurrency controls.
+- richer draft-to-drill promotion UX (rename/version prompts),
+- bulk drill management actions,
+- stronger linking model between promoted drills and later diverged drafts,
+- automated migration for legacy mirrored draft/library records.
