@@ -60,3 +60,17 @@ Drill Studio autosaves working drafts to browser-local IndexedDB so edits surviv
 - **Saved drill**: appears under `My drills` only after explicit Save to library/import/publish.
 - **Export drill**: portable file for import/share and Android runtime client workflows: <https://github.com/Voycepeh/CaliVision>.
 - **Publish**: still local/mock for now; hosted sync/auth/storage is intentionally deferred.
+
+## Hosted drafts foundation (April 2026)
+
+CaliVision Studio now includes an initial Supabase-backed hosted slice for **auth + user-owned hosted drafts + hosted asset groundwork** while preserving browser-local draft persistence.
+
+- Local IndexedDB drafts continue to autosave for resilience.
+- Hosted saves require sign-in and Supabase configuration.
+- Hosted drafts are user-scoped private records, not public Drill Exchange listings.
+- Android runtime responsibilities remain in the companion client: https://github.com/Voycepeh/CaliVision.
+
+See:
+- `docs/supabase-setup.md`
+- `docs/hosted-drafts.md`
+- `docs/local-vs-hosted-persistence.md`

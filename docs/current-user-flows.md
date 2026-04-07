@@ -47,10 +47,19 @@ Local draft state is browser/device scoped only.
 
 ## Library draft/drill lifecycle flow (available now)
 
-1. `New drill` creates a **local draft only** (not a saved drill entry).
-2. User is immediately routed into Drill Studio with that draft id.
-3. `Continue editing` opens that draft in Drill Studio without automatic promotion.
-4. `Save to library` explicitly promotes the draft into **My drills** and removes that draft from `Recent local drafts`.
-5. `Import drill file` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
-6. `Delete draft` removes draft-only IndexedDB data for that draft.
-7. `Delete` in **My drills** removes the saved drill and cleans linked same-version drafts to avoid orphan records.
+1. `Create new drill` creates a **local draft only** (not a saved drill entry).
+2. `Continue editing` opens that draft in Drill Studio without automatic promotion.
+3. `Save to library` explicitly promotes the draft into **My drills** and removes that draft from `Recent local drafts`.
+4. `Import drill` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
+5. `Delete draft` removes draft-only IndexedDB data for that draft.
+6. `Delete` in **My drills** removes the saved drill and cleans linked same-version drafts to avoid orphan records.
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+

@@ -17,5 +17,7 @@ Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/
 ## Language model
 
 - user-facing: **drill**
-- in-progress local work: **draft**
-- technical portability boundary: **drill file**
+- technical portability: **package**
+- discovery/share: **Drill Exchange**
+
+> Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).

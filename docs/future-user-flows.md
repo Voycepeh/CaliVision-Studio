@@ -39,3 +39,13 @@ Current local draft autosave and Upload Video processing are intentionally brows
 - local browser draft and local video processing,
 - portable drill file export/import,
 - hosted account-owned draft sync/publish (future).
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+

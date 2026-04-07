@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { listMyHostedDrafts, upsertHostedDraft } from "@/lib/hosted/repository";
+import type { HostedDraftSummary } from "@/lib/hosted/types";
+import { isSupabaseConfigured } from "@/lib/supabase/public-env";
 import { getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
   DEFAULT_PACKAGE_LISTING_QUERY,
@@ -33,6 +37,8 @@ export function LibraryOverview() {
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const [localDrafts, setLocalDrafts] = useState<LocalDraftSummary[]>([]);
   const [message, setMessage] = useState("");
+  const [hostedDrafts, setHostedDrafts] = useState<HostedDraftSummary[]>([]);
+  const { session, userEmail } = useAuth();
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("success");
 
   const refreshDrafts = useCallback(async (): Promise<void> => {
@@ -43,10 +49,26 @@ export function LibraryOverview() {
     }
   }, []);
 
+  const refreshHostedDrafts = useCallback(async (): Promise<void> => {
+    if (!session || !isSupabaseConfigured()) {
+      setHostedDrafts([]);
+      return;
+    }
+
+    const result = await listMyHostedDrafts(session);
+    if (result.ok) {
+      setHostedDrafts(result.value);
+      return;
+    }
+
+    setFeedback(result.error, "error");
+  }, [session]);
+
   useEffect(() => {
     refreshLibrary();
     void refreshDrafts();
-  }, [refreshDrafts]);
+    void refreshHostedDrafts();
+  }, [refreshDrafts, refreshHostedDrafts]);
 
   function setFeedback(nextMessage: string, tone: FeedbackTone = "success"): void {
     setMessage(nextMessage);
@@ -186,6 +208,29 @@ export function LibraryOverview() {
     await refreshDrafts();
   }
 
+
+  async function onSaveDraftToHosted(draftId: string): Promise<void> {
+    if (!session) {
+      setFeedback("Sign in to save drafts to your account.", "error");
+      return;
+    }
+
+    const loaded = await loadDraft(draftId);
+    if (!loaded) {
+      setFeedback("Draft could not be loaded for hosted save.", "error");
+      return;
+    }
+
+    const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
+    if (!saved.ok) {
+      setFeedback(saved.error, "error");
+      return;
+    }
+
+    setFeedback(`Saved \"${saved.value.title}\" to your hosted drafts.`);
+    await refreshHostedDrafts();
+  }
+
   return (
     <section style={libraryLayoutStyle}>
       <section className="card" style={headerCardStyle}>
@@ -208,6 +253,40 @@ export function LibraryOverview() {
             Import drill file
           </button>
         </div>
+      </section>
+
+
+      <section className="card" style={sectionCardStyle}>
+        <div style={sectionHeadingStyle}>
+          <h3 style={{ margin: 0 }}>My hosted drafts</h3>
+          <p className="muted" style={{ margin: 0 }}>
+            Account-backed drafts that sync across sessions and devices.
+          </p>
+        </div>
+        {!isSupabaseConfigured() ? (
+          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>Supabase is not configured. Library is running in local-only mode.</p></article>
+        ) : !userEmail ? (
+          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>Sign in to load account-hosted drafts.</p></article>
+        ) : hostedDrafts.length === 0 ? (
+          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>No hosted drafts yet. Save one from Studio or a local draft.</p></article>
+        ) : (
+          <div style={listStackStyle}>
+            {hostedDrafts.map((draft) => (
+              <article key={draft.id} className="card" style={listCardStyle}>
+                <div style={rowTitleWrapStyle}>
+                  <strong>{draft.title}</strong>
+                  <p className="muted" style={{ margin: 0 }}>Hosted • {draft.status} • v{draft.packageVersion}</p>
+                </div>
+                <p className="muted" style={{ margin: 0 }}>Updated {new Date(draft.updatedAtIso).toLocaleString()}</p>
+                <div style={compactActionRowStyle}>
+                  <Link className="pill" href={`/studio?hostedDraftId=${encodeURIComponent(draft.id)}`}>
+                    Open hosted draft
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="card" style={sectionCardStyle}>
@@ -240,6 +319,9 @@ export function LibraryOverview() {
                   </Link>
                   <button type="button" style={chipStyle(true)} onClick={() => void onSaveDraftToLibrary(draft.draftId)}>
                     Save to library
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => void onSaveDraftToHosted(draft.draftId)} disabled={!userEmail || !isSupabaseConfigured()}>
+                    Save to account
                   </button>
                   <button type="button" style={chipStyle(false)} onClick={() => void onDuplicateDraft(draft.draftId)}>
                     Duplicate draft

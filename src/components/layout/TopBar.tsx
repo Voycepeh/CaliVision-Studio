@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef } from "react";
 import type { CSSProperties, ChangeEvent } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { summarizeProvenance } from "@/lib/package";
 
@@ -26,8 +27,11 @@ export function TopBar() {
     selectedPackage,
     duplicateSelectedPackage,
     forkSelectedPackage,
-    createSelectedPackageNewVersion
+    createSelectedPackageNewVersion,
+    saveSelectedToHosted,
+    hostedSaveStatusMessage
   } = useStudioState();
+  const { userEmail, isConfigured } = useAuth();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
   const selectedDrill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
   const draftHeader = selectedDrill?.title ?? "No drill selected";
@@ -64,7 +68,9 @@ export function TopBar() {
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
             Editing drill draft in CaliVision Studio
           </p>
-          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>{secondaryMeta}</p>
+          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
+            {isConfigured ? userEmail ? `Signed in: ${userEmail}` : "Not signed in (hosted save unavailable)" : "Supabase not configured: local-only mode"}
+          </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {navItems.map((item) => (
@@ -77,6 +83,7 @@ export function TopBar() {
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
         <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
+        <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>{hostedSaveStatusMessage}</span>
         <input
           ref={fileInputRef}
           type="file"
@@ -89,6 +96,9 @@ export function TopBar() {
         </button>
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
           Export drill
+        </button>
+        <button type="button" onClick={() => void saveSelectedToHosted()} style={actionButtonStyle} disabled={!selectedPackage || !userEmail || !isConfigured}>
+          Save to account
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
           Share to Exchange (Mock)

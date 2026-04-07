@@ -30,6 +30,17 @@ This pass reapplies the drill-first IA cleanup directly on top of current `main`
 
 ## Follow-up candidates (not included)
 
-- add guided first-run onboarding in Library,
-- add richer Exchange-to-Library fork shortcuts,
-- refine secondary advanced file/metadata panel grouping.
+- wire final Android store URL and update CTA target,
+- add polished rendered visuals/screens when available,
+- add personalized/usage-aware homepage content,
+- introduce optional Exchange spotlight modules once backed by hosted data.
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+

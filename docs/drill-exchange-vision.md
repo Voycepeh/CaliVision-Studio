@@ -17,4 +17,6 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 - fork/remix/version lineage,
 - Studio/mobile ecosystem continuity.
 
-Android runtime relationship: exported/published drill files/packages remain consumable by <https://github.com/Voycepeh/CaliVision>.
+Android runtime relationship: exported/published packages remain consumable by <https://github.com/Voycepeh/CaliVision>.
+
+> Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
   active?: "home" | "library" | "studio" | "upload" | "exchange";
@@ -13,6 +16,20 @@ const items = [
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
+  const { isConfigured, userEmail, signInWithEmail, signOut } = useAuth();
+
+  async function onAuthClick() {
+    if (userEmail) {
+      await signOut();
+      return;
+    }
+
+    const email = window.prompt("Enter your email for a magic-link sign in:");
+    if (!email) return;
+    const result = await signInWithEmail(email);
+    window.alert(result.ok ? "Magic link sent. Check your email." : result.error ?? "Sign-in failed.");
+  }
+
   return (
     <header className="site-header">
       <div className="site-header-inner">
@@ -27,9 +44,9 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
             </Link>
           ))}
         </nav>
-        <Link href="/#android-app" className="site-download-cta">
-          Download app
-        </Link>
+        <button type="button" className="site-download-cta" onClick={() => void onAuthClick()}>
+          {!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in"}
+        </button>
       </div>
     </header>
   );

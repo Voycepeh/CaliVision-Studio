@@ -27,3 +27,13 @@ Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision
 - Studio state orchestrates autosave/restore while keeping portable package contracts unchanged.
 - Library surfaces local drafts as first-class entries with clear local-only messaging.
 - Android/mobile runtime responsibilities remain downstream in <https://github.com/Voycepeh/CaliVision>.
+
+## Hosted drafts foundation (April 2026)
+
+Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
+
+- Hosted drafts are private and user-owned.
+- Public Drill Exchange retrieval/publishing remains deferred.
+- Package-first authoring remains the core workflow.
+- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
+
