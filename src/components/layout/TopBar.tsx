@@ -6,7 +6,6 @@ import type { CSSProperties, ChangeEvent } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
-import { summarizeProvenance } from "@/lib/package";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -35,9 +34,6 @@ export function TopBar() {
   const isDirty = saveStatusLabel.startsWith("Unsaved");
   const selectedDrill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
   const draftHeader = selectedDrill?.title ?? "No drill selected";
-  const secondaryMeta = selectedPackage
-    ? `Draft ${selectedPackage.isDirty ? "has unsaved changes" : "is saved locally"} • ${summarizeProvenance(selectedPackage.workingPackage)}`
-    : "Open a drill from Library to begin.";
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
