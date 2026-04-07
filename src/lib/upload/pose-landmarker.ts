@@ -18,17 +18,31 @@ async function createPoseLandmarker(): Promise<PoseLandmarkerLike> {
   const visionModule = await import(/* webpackIgnore: true */ `${TASKS_VISION_CDN}`);
   const fileset = await visionModule.FilesetResolver.forVisionTasks(`${TASKS_VISION_CDN}/wasm`);
 
-  return visionModule.PoseLandmarker.createFromOptions(fileset, {
-    baseOptions: {
-      modelAssetPath: MODEL_URL,
-      delegate: "GPU"
-    },
+  const baseOptions = {
     runningMode: "VIDEO",
     numPoses: 1,
     minPoseDetectionConfidence: 0.45,
     minPosePresenceConfidence: 0.45,
     minTrackingConfidence: 0.45
-  }) as Promise<PoseLandmarkerLike>;
+  } as const;
+
+  try {
+    return (await visionModule.PoseLandmarker.createFromOptions(fileset, {
+      ...baseOptions,
+      baseOptions: {
+        modelAssetPath: MODEL_URL,
+        delegate: "GPU"
+      }
+    })) as PoseLandmarkerLike;
+  } catch {
+    return (await visionModule.PoseLandmarker.createFromOptions(fileset, {
+      ...baseOptions,
+      baseOptions: {
+        modelAssetPath: MODEL_URL,
+        delegate: "CPU"
+      }
+    })) as PoseLandmarkerLike;
+  }
 }
 
 export async function getPoseLandmarker(): Promise<PoseLandmarkerLike> {

@@ -8,6 +8,9 @@ export type ProcessVideoOptions = {
   onProgress?: (progress: number, stageLabel: string) => void;
 };
 
+const SEEK_EPSILON_SECONDS = 0.001;
+const SEEK_TIMEOUT_MS = 2500;
+
 function createObjectUrl(file: File): string {
   return URL.createObjectURL(file);
 }
@@ -27,6 +30,39 @@ async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; 
   });
 
   return { video, objectUrl };
+}
+
+async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promise<void> {
+  if (Math.abs(video.currentTime - targetSeconds) <= SEEK_EPSILON_SECONDS) {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      reject(new Error("Video seek timed out during pose sampling."));
+    }, SEEK_TIMEOUT_MS);
+
+    const cleanup = () => {
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+      clearTimeout(timeoutId);
+    };
+
+    const onSeeked = () => {
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      cleanup();
+      reject(new Error("Video seek failed during pose sampling."));
+    };
+
+    video.addEventListener("seeked", onSeeked, { once: true });
+    video.addEventListener("error", onError, { once: true });
+    video.currentTime = targetSeconds;
+  });
 }
 
 export async function readVideoMetadata(file: File): Promise<{ durationMs?: number; width?: number; height?: number }> {
@@ -60,10 +96,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
         throw new DOMException("Processing cancelled", "AbortError");
       }
 
-      video.currentTime = timestampMs / 1000;
-      await new Promise<void>((resolve) => {
-        video.onseeked = () => resolve();
-      });
+      await seekVideo(video, timestampMs / 1000);
 
       const result = poseLandmarker.detectForVideo(video, timestampMs);
       const firstPose = result.landmarks?.[0];
