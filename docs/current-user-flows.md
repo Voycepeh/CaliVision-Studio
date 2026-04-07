@@ -63,3 +63,4 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
 - Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.
+- Sign-in local→hosted import is a **move**: each local draft is hosted first, then deleted locally only after hosted save succeeds (failed items remain local and can be retried).

@@ -401,24 +401,46 @@ export function LibraryOverview() {
       return;
     }
 
-    let imported = 0;
+    const importedDraftIds: string[] = [];
+    const failedDraftIds: string[] = [];
     for (const summary of meaningfulLocalDrafts) {
-      const loaded = await loadDraft(summary.draftId);
-      if (!loaded) continue;
-      const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-      if (saved.ok) {
-        imported += 1;
+      try {
+        const loaded = await loadDraft(summary.draftId);
+        if (!loaded) {
+          failedDraftIds.push(summary.draftId);
+          continue;
+        }
+
+        const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
+        if (!saved.ok) {
+          failedDraftIds.push(summary.draftId);
+          continue;
+        }
+
         await deleteDraft(summary.draftId);
+        importedDraftIds.push(summary.draftId);
+      } catch {
+        failedDraftIds.push(summary.draftId);
       }
     }
 
     const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
-    window.localStorage.setItem(dismissKey, "1");
-    setLocalImportDismissed(true);
+    const hasRemainingLocalDrafts = failedDraftIds.length > 0;
+    if (hasRemainingLocalDrafts) {
+      window.localStorage.removeItem(dismissKey);
+      setLocalImportDismissed(false);
+    } else {
+      window.localStorage.setItem(dismissKey, "1");
+      setLocalImportDismissed(true);
+    }
     setItemFeedback(
       "global:import-local",
-      imported > 0 ? `Imported ${imported} local draft(s) to your account.` : "Local drafts could not be imported.",
-      imported > 0 ? "success" : "error"
+      importedDraftIds.length > 0
+        ? failedDraftIds.length > 0
+          ? `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"}. ${failedDraftIds.length} local draft${failedDraftIds.length === 1 ? "" : "s"} could not be moved.`
+          : `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"} to your account and removed local ${importedDraftIds.length === 1 ? "copy" : "copies"}.`
+        : "Local drafts could not be moved.",
+      importedDraftIds.length > 0 ? "success" : "error"
     );
     await refreshDrafts();
     await refreshHostedDrafts();
