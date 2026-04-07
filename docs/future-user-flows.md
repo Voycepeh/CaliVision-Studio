@@ -1,12 +1,13 @@
 # Future User Flows (Planned)
 
-## Upload Video flow (planned next)
+## Upload Video flow (next iterations)
 
-1. Upload media in browser.
-2. Process/analyze poses over time.
-3. Review generated key phases and quality signals.
-4. Convert output into draft drill/reference.
-5. Continue refinement in Drill Studio.
+Current baseline is local browser processing. Future work may add:
+
+1. Optional cloud fallback when local processing is slow/unavailable.
+2. Optional hosted artifact persistence/history.
+3. Optional handoff of upload analysis artifacts into Drill Studio draft generation.
+4. Optional Android/mobile runtime interchange workflows.
 
 ## Drill Exchange flow (planned)
 
@@ -27,9 +28,8 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 ## Local-first to hosted-save progression (planned)
 
-Current local draft autosave is intentionally browser-scoped and acts as durability groundwork.
-Future hosted save/sync will be additive and must preserve clear distinctions:
+Current local draft autosave and Upload Video processing are intentionally browser-scoped. Future hosted save/sync should remain additive and preserve distinction between:
 
-- local draft persistence (today),
+- local browser draft and local video processing,
 - portable package export/import,
 - hosted account-owned draft sync/publish (future).

@@ -1,13 +1,13 @@
 import { RoutePageIntro } from "@/components/layout/RoutePageIntro";
-import { UploadVideoOverview } from "@/components/upload/UploadVideoOverview";
+import { UploadVideoWorkspace } from "@/components/upload/UploadVideoWorkspace";
 
 export default function UploadPage() {
   return (
     <RoutePageIntro
       title="Upload Video"
-      description="Browser-first Upload Video flow for building drill drafts and references. This route is structured for future processing while staying honest about current local-first limitations."
+      description="Upload one or more videos and run local browser-based MediaPipe pose analysis with downloadable overlays and JSON artifacts."
     >
-      <UploadVideoOverview />
+      <UploadVideoWorkspace />
     </RoutePageIntro>
   );
 }
