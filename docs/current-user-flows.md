@@ -1,38 +1,25 @@
 # Current User Flows (Available Now)
 
-This document describes the current target workflow in **Drill Studio**.
+## Home and navigation flow
 
-## Primary authoring flow
+1. User lands in **Library** (`/library`) as the primary start surface.
+2. User chooses a recent drill, creates a new draft via Studio, imports a drill package, or opens Exchange.
+3. User moves into **Drill Studio** for editing.
 
-1. Start in Drill info and set primary metadata in the authoring flow.
-2. Add, edit, duplicate, delete, and reorder drill phases.
-3. Upload a source image for the selected phase.
-4. Detect pose from the image.
-5. Map detection into canonical drill pose format.
-6. Manually refine pose points with joint nudge controls next to the canvas.
-7. Review animation and validation.
-8. Export package for Android/mobile import.
+## Current Drill Studio flow
 
-## Mermaid: current Studio workflow
+1. Create/open a drill.
+2. Edit drill metadata.
+3. Create/edit/reorder phases.
+4. Upload a phase image.
+5. Run detection and apply/refine pose.
+6. Preview animation.
+7. Export a portable drill package.
 
-```mermaid
-flowchart LR
-    A[Drill info] --> B[Phases]
-    B --> C[Upload source image]
-    C --> D[Detect pose]
-    D --> E[Map to canonical drill pose]
-    E --> F[Manual pose refinement + nudge]
-    F --> G[Review]
-    G --> H[Export portable drill package]
-    H --> I[Import into mobile runtime client]
-```
+## Current availability notes
 
-## Current operational notes
-
-- Workflow is local-first in current posture.
-- Contract compatibility with Android/mobile import must remain stable.
-- Package and drill internal IDs are system-managed and surfaced as read-only technical details.
-- Inspector is now secondary for debug/technical internals, not the primary authoring path.
-- Hosted account persistence and exchange sharing are future phases.
+- Upload Video route exists as first-class product shell, but heavy processing is deferred.
+- Drill Exchange discovery is local/mock-backed.
+- Hosted auth/storage/community services are deferred.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.

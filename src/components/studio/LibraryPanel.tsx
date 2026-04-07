@@ -10,13 +10,13 @@ export function LibraryPanel() {
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.55rem", alignContent: "start" }}>
-      <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Source</h2>
+      <h2 style={{ marginTop: 0, marginBottom: "0.2rem" }}>Drill source</h2>
       <p className="muted" style={{ marginTop: 0, marginBottom: "0.2rem" }}>
-        Samples, loaded drills, and import feedback.
+        Choose the drill you are editing, load starter samples, and review package import feedback.
       </p>
 
       <section className="card" style={{ padding: "0.6rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Sample drills</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Starter samples</h3>
         <div style={{ display: "grid", gap: "0.4rem" }}>
           {SAMPLE_PACKAGE_DEFINITIONS.map((sample) => (
             <button
@@ -44,7 +44,7 @@ export function LibraryPanel() {
       </section>
 
       <section className="card" style={{ padding: "0.6rem" }}>
-        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Loaded drills</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.45rem", fontSize: "0.92rem" }}>Available drills</h3>
         <div style={{ display: "grid", gap: "0.3rem" }}>
           {packages.map((entry) => {
             const drillCount = entry.workingPackage.drills.length;
@@ -71,19 +71,19 @@ export function LibraryPanel() {
                 }}
               >
                 <strong className="studio-library-item-title" style={{ display: "block" }}>
-                  {entry.workingPackage.manifest.packageId}
+                  {drill?.title ?? entry.workingPackage.manifest.packageId}
                 </strong>
                 <small className="muted studio-library-item-subline">
                   v{entry.workingPackage.manifest.packageVersion} • {drillCount} drill(s) • {phaseCount} phase(s)
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
-                  {drill?.title ?? "No drill"} • {entry.isDirty ? "unsaved" : "saved"}
+                  {entry.workingPackage.manifest.packageId} • {entry.isDirty ? "unsaved" : "saved"}
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
                   {summarizeProvenance(entry.workingPackage)}
                 </small>
                 <small className="muted studio-library-item-subline" style={{ display: "block" }}>
-                  Bundled assets: {bundledAssets.length} total • {phaseImages} phase images • {thumbnails} thumbnails
+                  Assets: {bundledAssets.length} total • {phaseImages} phase images • {thumbnails} thumbnails
                 </small>
               </button>
             );
@@ -95,7 +95,7 @@ export function LibraryPanel() {
         <h3 style={{ marginTop: 0, marginBottom: "0.35rem", fontSize: "0.92rem" }}>Import feedback</h3>
         {importFeedback.status === "idle" ? (
           <p className="muted" style={{ margin: 0 }}>
-            Import a JSON drill package or bundled .cvpkg.json file from the top bar to validate and load it.
+            Import a drill package JSON from the top bar. Studio validates it before adding it to your local library.
           </p>
         ) : (
           <>

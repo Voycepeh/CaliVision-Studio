@@ -20,12 +20,12 @@ export function StudioRightPanel() {
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
-      <h2 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Inspector</h2>
+      <h2 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Details & diagnostics</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Secondary technical details only: IDs, manifests, validation internals, and detection state.
+        Quick context for the selected drill and phase, plus technical diagnostics when needed.
       </p>
 
-      <StudioInspectorAccordion title="Internal IDs + dirty state" >
+      <StudioInspectorAccordion title="Drill identity and save state" >
         {selectedPackage && drill ? (
           <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
             <li>Package ID: {selectedPackage.workingPackage.manifest.packageId}</li>
@@ -35,11 +35,11 @@ export function StudioRightPanel() {
             <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
           </ul>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>Load a package to inspect technical metadata.</p>
+          <p className="muted" style={{ margin: 0 }}>Open a drill to view details.</p>
         )}
       </StudioInspectorAccordion>
 
-      <StudioInspectorAccordion title="Detection workflow state" >
+      <StudioInspectorAccordion title="Detection state" >
         {selectedPhase ? (
           <div style={{ display: "grid", gap: "0.35rem" }}>
             <p className="muted" style={{ margin: 0 }}>Status: {selectedPhaseDetection.status}</p>
@@ -51,7 +51,7 @@ export function StudioRightPanel() {
                 <li>Portable URI: {selectedPhaseSourceImage.portableUri}</li>
               </ul>
             ) : (
-              <p className="muted" style={{ margin: 0 }}>No source image loaded for the selected phase.</p>
+              <p className="muted" style={{ margin: 0 }}>No image is attached to the selected phase.</p>
             )}
           </div>
         ) : (

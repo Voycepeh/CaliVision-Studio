@@ -14,7 +14,12 @@ import {
   type PackageSourceType
 } from "@/lib/registry";
 
-const SOURCE_FILTERS: PackageSourceType[] = ["authored-local", "imported-local", "installed-local", "mock-published"];
+const SOURCE_FILTERS: Array<{ key: PackageSourceType; label: string }> = [
+  { key: "authored-local", label: "Authored" },
+  { key: "imported-local", label: "Imported" },
+  { key: "installed-local", label: "Installed" },
+  { key: "mock-published", label: "Published (Mock)" }
+];
 
 export function LibraryOverview() {
   const [entries, setEntries] = useState<PackageRegistryEntry[]>([]);
@@ -74,140 +79,180 @@ export function LibraryOverview() {
       const reloaded = loadLocalRegistryEntries();
       setEntries(reloaded);
       setSelectedEntryId(next.entryId);
-      setInstallMessage(`Created ${relation} package ${next.summary.entryId}.`);
+      setInstallMessage(`Created ${relation} drill package ${next.summary.entryId}.`);
     } catch (error) {
       setInstallMessage(error instanceof Error ? error.message : "Unable to create derived package.");
     }
   }
 
+  const authoredCount = entries.filter((entry) => entry.summary.sourceType === "authored-local").length;
+  const importedCount = entries.filter((entry) => entry.summary.sourceType === "imported-local").length;
+  const remixedCount = entries.filter((entry) => entry.summary.provenanceSummary.toLowerCase().includes("fork")).length;
+  const publishedCount = entries.filter((entry) => entry.summary.publishStatus === "published").length;
+
   return (
-    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
-      <h2 style={{ margin: 0 }}>Local Library Registry</h2>
-      <p className="muted" style={{ margin: 0 }}>
-        Library is your local package inventory (authored/imported/installed). It is local-first and designed to map to
-        future hosted registries without changing package contracts.
-      </p>
+    <section style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
+      <section className="card" style={{ display: "grid", gap: "0.7rem" }}>
+        <span className="pill" style={{ width: "fit-content" }}>Library Home</span>
+        <h2 style={{ margin: 0 }}>Start here</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          Continue editing recent drills, create new drafts in Drill Studio, import portable package files, explore Drill
+          Exchange listings, and prepare exports for the mobile runtime client.
+        </p>
 
-      <div className="field-grid" style={{ alignItems: "end" }}>
-        <label style={labelStyle}>
-          <span>Search title/package id</span>
-          <input value={searchText} onChange={(event) => setSearchText(event.target.value)} style={inputStyle} />
-        </label>
-        <label style={labelStyle}>
-          <span>Sort</span>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as PackageListingSort)} style={inputStyle}>
-            <option value="updated-desc">Recently Updated</option>
-            <option value="title-asc">Title A→Z</option>
-            <option value="publish-status">Publish Status</option>
-          </select>
-        </label>
-      </div>
+        <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+          <Link className="pill" href="/studio">Open Drill Studio</Link>
+          <Link className="pill" href="/upload">Upload Video</Link>
+          <Link className="pill" href="/marketplace">Browse Exchange</Link>
+          <Link className="pill" href="/packages">Import / Export package tools</Link>
+        </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-        {SOURCE_FILTERS.map((source) => (
-          <button key={source} type="button" style={chipStyle(sourceTypes.includes(source))} onClick={() => toggleSourceType(source)}>
-            {source}
-          </button>
-        ))}
-      </div>
+        <div className="field-grid">
+          <article className="card" style={{ margin: 0 }}>
+            <strong>{authoredCount}</strong>
+            <p className="muted" style={{ margin: "0.2rem 0 0" }}>Authored drills</p>
+          </article>
+          <article className="card" style={{ margin: 0 }}>
+            <strong>{importedCount}</strong>
+            <p className="muted" style={{ margin: "0.2rem 0 0" }}>Imported drills</p>
+          </article>
+          <article className="card" style={{ margin: 0 }}>
+            <strong>{remixedCount}</strong>
+            <p className="muted" style={{ margin: "0.2rem 0 0" }}>Forked / remixed drills</p>
+          </article>
+          <article className="card" style={{ margin: 0 }}>
+            <strong>{publishedCount}</strong>
+            <p className="muted" style={{ margin: "0.2rem 0 0" }}>Recent mock-published drills</p>
+          </article>
+        </div>
+      </section>
 
-      {availableTags.length > 0 ? (
+      <section className="card" style={{ display: "grid", gap: "0.65rem" }}>
+        <h3 style={{ margin: 0 }}>Drill Library</h3>
+        <div className="field-grid" style={{ alignItems: "end" }}>
+          <label style={labelStyle}>
+            <span>Search drills (title or package id)</span>
+            <input value={searchText} onChange={(event) => setSearchText(event.target.value)} style={inputStyle} />
+          </label>
+          <label style={labelStyle}>
+            <span>Sort</span>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as PackageListingSort)} style={inputStyle}>
+              <option value="updated-desc">Recently Updated</option>
+              <option value="title-asc">Title A→Z</option>
+              <option value="publish-status">Publish Status</option>
+            </select>
+          </label>
+        </div>
+
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-          {availableTags.map((tag) => (
-            <button key={tag} type="button" style={chipStyle(selectedTags.includes(tag))} onClick={() => toggleTag(tag)}>
-              #{tag}
+          {SOURCE_FILTERS.map((source) => (
+            <button key={source.key} type="button" style={chipStyle(sourceTypes.includes(source.key))} onClick={() => toggleSourceType(source.key)}>
+              {source.label}
             </button>
           ))}
         </div>
-      ) : null}
 
-      <div className="field-grid" style={{ alignItems: "start" }}>
-        <div className="card" style={{ margin: 0, maxHeight: "440px", overflow: "auto" }}>
-          <h3 style={{ marginTop: 0 }}>Packages ({catalog.totalCount})</h3>
-          <div style={{ display: "grid", gap: "0.45rem" }}>
-            {catalog.entries.map((entry) => (
-              <button
-                key={entry.entryId}
-                type="button"
-                onClick={() => setSelectedEntryId(entry.entryId)}
-                style={{
-                  ...rowButtonStyle,
-                  borderColor: selected?.entryId === entry.entryId ? "var(--accent)" : "var(--border)",
-                  background: selected?.entryId === entry.entryId ? "var(--accent-soft)" : "var(--panel-soft)"
-                }}
-              >
-                <strong>{entry.summary.title}</strong>
-                <span className="muted">
-                  {entry.summary.packageVersion} • {entry.summary.phaseCount} phases • {entry.summary.hasAssets ? "assets" : "no assets"}
-                </span>
-                <span className="muted">
-                  {entry.summary.authorDisplayName} • {entry.summary.sourceType} • {entry.summary.publishStatus} • {entry.summary.statusBadge}
-                </span>
-                <span className="muted">{entry.summary.provenanceSummary}</span>
+        {availableTags.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+            {availableTags.map((tag) => (
+              <button key={tag} type="button" style={chipStyle(selectedTags.includes(tag))} onClick={() => toggleTag(tag)}>
+                #{tag}
               </button>
             ))}
           </div>
-        </div>
+        ) : null}
 
-        <div className="card" style={{ margin: 0 }}>
-          <h3 style={{ marginTop: 0 }}>Package details</h3>
-          {!selected ? (
-            <p className="muted" style={{ marginBottom: 0 }}>
-              No packages match this query.
-            </p>
-          ) : (
-            <div style={{ display: "grid", gap: "0.5rem" }}>
-              <div>
-                <strong>{selected.summary.title}</strong>
-                <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                  {selected.summary.packageId} • v{selected.summary.packageVersion}
-                </p>
+        <div className="field-grid" style={{ alignItems: "start" }}>
+          <div className="card" style={{ margin: 0, maxHeight: "440px", overflow: "auto" }}>
+            <h4 style={{ marginTop: 0 }}>Drills ({catalog.totalCount})</h4>
+            {catalog.entries.length === 0 ? (
+              <p className="muted" style={{ margin: 0 }}>
+                No drills match your filters yet. Create one in Drill Studio or import a package from Package Tools.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "0.45rem" }}>
+                {catalog.entries.map((entry) => (
+                  <button
+                    key={entry.entryId}
+                    type="button"
+                    onClick={() => setSelectedEntryId(entry.entryId)}
+                    style={{
+                      ...rowButtonStyle,
+                      borderColor: selected?.entryId === entry.entryId ? "var(--accent)" : "var(--border)",
+                      background: selected?.entryId === entry.entryId ? "var(--accent-soft)" : "var(--panel-soft)"
+                    }}
+                  >
+                    <strong>{entry.summary.title}</strong>
+                    <span className="muted">
+                      v{entry.summary.packageVersion} • {entry.summary.phaseCount} phases • {entry.summary.hasAssets ? "has images/assets" : "no assets"}
+                    </span>
+                    <span className="muted">
+                      {entry.summary.authorDisplayName} • {entry.summary.sourceType} • {entry.summary.publishStatus}
+                    </span>
+                  </button>
+                ))}
               </div>
-              <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-                <li>Origin: {selected.details.origin.sourceType}</li>
-                <li>Source label: {selected.details.origin.sourceLabel}</li>
-                <li>Author: {selected.summary.authorDisplayName}</li>
-                <li>Schema: {selected.summary.schemaVersion}</li>
-                <li>Compatibility: {selected.summary.compatibilitySummary}</li>
-                <li>Version identity: {selected.summary.versionId ?? "—"}</li>
-                <li>Lineage: {selected.summary.lineageId ?? "—"} (rev {selected.summary.revision ?? 1})</li>
-                <li>Provenance: {selected.summary.provenanceSummary}</li>
-                <li>Updated: {new Date(selected.summary.updatedAtIso).toLocaleString()}</li>
-                <li>Published: {selected.summary.publishedAtIso ? new Date(selected.summary.publishedAtIso).toLocaleString() : "—"}</li>
-              </ul>
-              <p className="muted" style={{ margin: 0 }}>{selected.details.description}</p>
-              <div className="muted" style={{ fontSize: "0.85rem" }}>
-                Phases: {selected.details.phaseTitles.join(" • ") || "None"}
+            )}
+          </div>
+
+          <div className="card" style={{ margin: 0 }}>
+            <h4 style={{ marginTop: 0 }}>Selected drill</h4>
+            {!selected ? (
+              <p className="muted" style={{ marginBottom: 0 }}>
+                Pick a drill to inspect details and open it in Drill Studio.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "0.5rem" }}>
+                <div>
+                  <strong>{selected.summary.title}</strong>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                    {selected.summary.packageId} • v{selected.summary.packageVersion}
+                  </p>
+                </div>
+                <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+                  <li>Author: {selected.summary.authorDisplayName}</li>
+                  <li>Origin: {selected.details.origin.sourceType}</li>
+                  <li>Drill status: {selected.summary.statusBadge}</li>
+                  <li>Compatibility: {selected.summary.compatibilitySummary}</li>
+                  <li>Lineage: {selected.summary.lineageId ?? "—"} (rev {selected.summary.revision ?? 1})</li>
+                  <li>Updated: {new Date(selected.summary.updatedAtIso).toLocaleString()}</li>
+                </ul>
+                <p className="muted" style={{ margin: 0 }}>{selected.details.description}</p>
+                <div className="muted" style={{ fontSize: "0.85rem" }}>
+                  Phases: {selected.details.phaseTitles.join(" • ") || "None"}
+                </div>
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                  <Link className="pill" href={`/studio?packageId=${encodeURIComponent(selected.summary.packageId)}`}>
+                    Open in Drill Studio
+                  </Link>
+                  <button type="button" style={chipStyle(false)} onClick={() => onInstall(selected.entryId)}>
+                    Add to my Library
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "duplicate")}>
+                    Duplicate
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "fork")}>
+                    Fork / Remix
+                  </button>
+                  <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "new-version")}>
+                    New Version
+                  </button>
+                </div>
+                {installMessage ? (
+                  <p className="muted" style={{ margin: 0 }}>
+                    {installMessage}
+                  </p>
+                ) : null}
               </div>
-              <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-                <Link className="pill" href={`/studio?packageId=${encodeURIComponent(selected.summary.packageId)}`}>
-                  Open in Studio
-                </Link>
-                <Link className="pill" href="/packages">
-                  Export / Transport
-                </Link>
-                <button type="button" style={chipStyle(false)} onClick={() => onInstall(selected.entryId)}>
-                  Install to Library
-                </button>
-                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "duplicate")}>
-                  Duplicate
-                </button>
-                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "fork")}>
-                  Fork / Remix
-                </button>
-                <button type="button" style={chipStyle(false)} onClick={() => onCreateDerived(selected.entryId, "new-version")}>
-                  New Version
-                </button>
-              </div>
-              {installMessage ? (
-                <p className="muted" style={{ margin: 0 }}>
-                  {installMessage}
-                </p>
-              ) : null}
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </section>
+
+      <p className="muted" style={{ margin: 0 }}>
+        Studio is the authoring and publishing source of truth. Mobile runtime/live coaching is downstream in Android:
+        https://github.com/Voycepeh/CaliVision
+      </p>
     </section>
   );
 }

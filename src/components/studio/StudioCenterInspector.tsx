@@ -150,9 +150,9 @@ export function StudioCenterInspector() {
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
       <header>
-        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio workflow</h2>
+        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio editor workflow</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Follow the top-to-bottom flow: drill info, phase design, source image alignment, pose authoring, review, then export.
+          Work top-to-bottom: drill info, phases, source image, pose refinement, review, then export package.
         </p>
       </header>
 
@@ -173,14 +173,14 @@ export function StudioCenterInspector() {
 
           <WorkflowSection title="Phases" stepIndex={WORKFLOW_SECTION_IDS.phases} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phases)} onToggle={handleSectionToggle}>
             {!selectedPackage ? (
-              <p className="muted" style={{ margin: 0 }}>Load or import a drill package to manage phases.</p>
+              <p className="muted" style={{ margin: 0 }}>Open a drill to manage phases.</p>
             ) : (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
                   <p className="muted" style={{ margin: 0 }}>Select a phase, then reorder, duplicate, or delete as needed.</p>
                   <div style={{ display: "flex", gap: "0.35rem" }}>
                     <button type="button" onClick={() => addPhase()} style={smallButtonStyle}>Add phase</button>
-                    <button type="button" onClick={() => selectPhase(null)} style={smallButtonStyle}>Clear</button>
+                    <button type="button" onClick={() => selectPhase(null)} style={smallButtonStyle}>Clear selection</button>
                   </div>
                 </div>
                 <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.5rem" }}>
@@ -206,7 +206,7 @@ export function StudioCenterInspector() {
 
                 {selectedPhase ? (
                   <div className="card studio-selected-phase-basics">
-                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase basics</h4>
+                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase</h4>
                     <div className="field-grid">
                       <label style={labelStyle}>
                         <span>Phase name</span>
@@ -230,7 +230,7 @@ export function StudioCenterInspector() {
           </WorkflowSection>
 
           <WorkflowSection title="Source image" stepIndex={WORKFLOW_SECTION_IDS.sourceImage} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.sourceImage)} onToggle={handleSectionToggle}>
-            {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : <p className="muted" style={{ margin: 0 }}>Select a phase before uploading a source image.</p>}
+            {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : <p className="muted" style={{ margin: 0 }}>Select a phase to upload an image and run detection.</p>}
           </WorkflowSection>
         </div>
 
@@ -266,14 +266,14 @@ export function StudioCenterInspector() {
                   <label style={labelStyle}>
                     <span>Canvas size</span>
                     <button type="button" onClick={() => setIsPoseCanvasExpanded((current) => !current)} style={smallButtonStyle} aria-pressed={isPoseCanvasExpanded}>
-                      {isPoseCanvasExpanded ? "Use balanced canvas" : "Expand canvas"}
+                      {isPoseCanvasExpanded ? "Use standard canvas" : "Focus canvas"}
                     </button>
                   </label>
                 </section>
 
                 <PoseCanvas
                   pose={poseModel}
-                  title="Canonical pose editor"
+                  title="Phase pose editor"
                   subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.title}`}
                   selected
                   editable
@@ -299,7 +299,7 @@ export function StudioCenterInspector() {
                 />
 
                 <section className="card studio-selected-joint-controls">
-                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint controls</h4>
+                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint</h4>
                   {selectedJointName ? (
                     <>
                       <div className="field-grid">

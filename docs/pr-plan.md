@@ -1,41 +1,28 @@
-# PR Plan — Architecture and Cleanup Stabilization Pass
+# PR Plan — UX/Product-Flow Pass
 
 ## Summary
 
-This PR performs a focused cleanup pass to reduce structural ambiguity before feature expansion.
-
-Primary goals:
-- simplify architecture/navigation,
-- reduce duplicate or dead placeholder pathways,
-- strengthen package-first boundaries,
-- make Studio easier for a solo developer and AI agents to extend.
+This pass prioritizes product IA and UX clarity on top of the existing local-first package foundation.
 
 ## Assumptions
 
-- Studio remains the web-first home for Drill Studio, Upload Video direction, and future Drill Exchange workflows.
-- Portable drill package compatibility remains mandatory.
-- Android/mobile runtime client remains downstream: <https://github.com/Voycepeh/CaliVision>.
-- Data posture stays local-first/mock unless explicitly changed by a later backend-focused PR.
+- Studio is the web-first source of truth.
+- Mobile runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+- No real auth/backend/storage is added in this pass.
 
 ## Non-goals
 
-- no major new end-user feature buildout,
-- no backend/auth/cloud integration rollout,
-- no UI redesign,
+- no giant architecture rewrite,
+- no heavy video processing implementation,
+- no browser live coaching,
+- no social/community feature buildout,
 - no contract-breaking package changes.
 
-## Cleanup scope in this PR
+## Scope
 
-- consolidate shared route intro shell for non-Studio routes,
-- remove duplicate sample data pathways in favor of `src/lib/package/samples/*`,
-- decouple detector mapping from editor service helpers via pose-domain utility,
-- remove unused legacy contract/validation barrel paths that blurred canonical boundaries,
-- add lightweight tests for phase-selection fallback behavior in the Studio workspace,
-- refresh architecture/repo-structure docs to reflect current boundaries.
-
-## Validation criteria
-
-- package import/export and bundle ingestion paths remain functional,
-- pose detection mapping still writes canonical pose data,
-- Studio route semantics stay intact with `/studio` as the primary workspace,
-- docs clearly distinguish foundational layers vs local-first placeholders.
+- Library as default home UX.
+- Studio workflow wording/state clarity polish.
+- Upload Video first-class route shell.
+- Marketplace reframed as Drill Exchange in user-facing UX.
+- Terminology cleanup (drill-first wording; package where technical).
+- docs synchronized to current-vs-future product story.

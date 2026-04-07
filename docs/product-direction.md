@@ -1,11 +1,11 @@
 # Product Direction
 
-The canonical product direction now lives in:
+CaliVision Studio product direction is now organized around a clear IA:
 
-- [`product-overview.md`](./product-overview.md)
-- [`current-user-flows.md`](./current-user-flows.md)
-- [`future-user-flows.md`](./future-user-flows.md)
-- [`drill-exchange-vision.md`](./drill-exchange-vision.md)
-- [`roadmap.md`](./roadmap.md)
+- **Library (`/library`)** is the home surface.
+- **Drill Studio (`/studio`)** is the focused editing workspace.
+- **Upload Video (`/upload`)** is a first-class browser route for future analysis-to-draft workflows.
+- **Drill Exchange (`/marketplace`, user-facing label)** is discovery/sharing direction.
+- **Package Tools (`/packages`)** is the technical portability surface.
 
-These docs provide the current source-of-truth direction for Studio.
+Studio remains the source of truth for authoring/publishing. Mobile remains runtime/live coaching downstream: <https://github.com/Voycepeh/CaliVision>.
