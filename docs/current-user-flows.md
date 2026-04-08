@@ -22,15 +22,14 @@
 1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in).
 2. Briefly preview drill motion in a compact context card (drill name/type/view/phase count).
 3. Upload one local video (file picker or drag/drop) to start analysis immediately in-browser.
-4. Review the active run only (no session-history browser on this route), centered around:
-   - annotated video preview,
-   - concise summary chips (phase/reps/hold/duration/confidence/result),
-   - optional advanced diagnostics (collapsed by default).
-5. Download outputs in this simplified order:
-   - Annotated Video (`.webm`),
-   - Processing Summary (`.json`),
-   - Pose Timeline (`.json`).
-6. Leave or refresh `/upload` to intentionally start fresh.
+4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
+5. Review the result in the primary analysis area (annotated video preview + concise summary chips for phase/reps/hold/duration/confidence/result).
+6. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) only when troubleshooting is needed.
+7. Download outputs in this simplified order (shown once in UI):
+   - Annotated Video (`.webm`)
+   - Processing Summary (`.json`)
+   - Pose Timeline (`.json`)
+8. Leave or refresh `/upload` to intentionally start fresh.
 
 ## Current availability notes
 
