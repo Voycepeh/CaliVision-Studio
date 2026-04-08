@@ -65,7 +65,16 @@ export function getSessionOutcomeLabel(session: AnalysisSessionRecord): string {
     return "Events captured, structured frame detail missing";
   }
   if (session.frameSamples.length > 0 && session.events.length === 0) {
-    return "Structured frames available, event log incomplete";
+    if (session.debug?.noEventCause === "no_confirmed_phase_transitions") {
+      return "Structured frames available, no confirmed phase transitions";
+    }
+    if (session.debug?.noEventCause === "low_confidence_frames") {
+      return "Structured frames available, confidence too low for stable phase confirmation";
+    }
+    if (session.debug?.noEventCause === "no_valid_smoothed_phases") {
+      return "Structured frames available, temporal smoothing did not produce valid phases";
+    }
+    return "Structured frames available, event extraction produced no events";
   }
   if (!session.rawVideoUri) {
     return "Structured analysis available, source media URI missing";
@@ -98,6 +107,12 @@ export function summarizeSessionAvailability(session: AnalysisSessionRecord): st
   }
   if (session.events.length === 0) {
     notes.push("Event log unavailable");
+    if (session.debug?.noEventCause) {
+      notes.push(`Cause: ${session.debug.noEventCause}`);
+    }
+    if (session.debug?.noEventDetails?.[0]) {
+      notes.push(session.debug.noEventDetails[0]);
+    }
   }
   return notes;
 }

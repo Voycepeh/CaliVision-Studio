@@ -126,6 +126,9 @@ test("upload analysis path persists exactly one completed session", async () => 
   assert.equal(sessions[0]?.pipelineVersion, "drill-analysis-pipeline-v1");
   assert.equal(sessions[0]?.scorerVersion, "frame-phase-scorer-v1");
   assert.equal(sessions[0]?.annotatedVideoUri, "upload://local/upload-job-1/attempt.annotated-video.webm");
+  assert.equal(sessions[0]?.drillBinding?.drillId, "service-drill");
+  assert.equal(Array.isArray(sessions[0]?.debug?.smootherTransitions), true);
+  assert.equal(Array.isArray(sessions[0]?.debug?.smoothedFrames), true);
 });
 
 test("failed analysis attempts can be persisted truthfully", async () => {
@@ -147,6 +150,7 @@ test("failed analysis attempts can be persisted truthfully", async () => {
 
   const stored = await repository.getSessionById(failed.sessionId);
   assert.equal(stored?.debug?.errorMessage, "video decode failed");
+  assert.equal(stored?.drillBinding?.drillName, "Service Drill");
 });
 
 test("completed upload with no sampled frames is persisted as partial", async () => {
