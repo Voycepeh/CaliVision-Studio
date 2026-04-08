@@ -139,6 +139,7 @@ export function LibraryOverview() {
       return;
     }
 
+    // Delete is intentionally destructive-only: do not create drafts and do not navigate to Studio.
     await deleteDrill(drill.drillId, repositoryContext);
     setItemFeedback(`drill:${drill.drillId}`, "Deleted drill and all versions.");
     await refreshLibrary();
