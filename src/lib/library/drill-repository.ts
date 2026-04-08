@@ -334,6 +334,7 @@ export async function publishVersion(version: DrillVersionSnapshot, context?: Dr
 
   const pkg = ensureVersioningMetadata(structuredClone(version.packageJson));
   pkg.manifest.publishing = { ...(pkg.manifest.publishing ?? {}), publishStatus: "published" };
+  pkg.manifest.updatedAtIso = new Date().toISOString();
 
   const resolved = asContext(context);
   if (isCloudContext(resolved)) {
