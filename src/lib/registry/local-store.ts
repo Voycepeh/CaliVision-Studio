@@ -79,38 +79,46 @@ export function upsertRegistryEntryFromPackage(input: {
   sourceLabel: string;
   publishedAtIso?: string;
   parentEntryId?: string;
+  existingEntryId?: string;
 }): PackageRegistryEntry {
   const normalizedPackage = ensureVersioningMetadata(input.packageJson);
   const next = createRegistryEntryFromPackage({ ...input, packageJson: normalizedPackage });
   const current = loadLocalRegistryEntries();
-  const existingVersion = current.find(
-    (entry) => entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion
-  );
+  const targetEntry = input.existingEntryId ? current.find((entry) => entry.entryId === input.existingEntryId) : undefined;
+  if (targetEntry && (targetEntry.summary.packageId !== next.summary.packageId || targetEntry.summary.packageVersion !== next.summary.packageVersion)) {
+    throw new Error("Cannot update registry entry: entry identity does not match this drill version.");
+  }
 
-  const normalizedNext = existingVersion
-    ? {
-        ...next,
-        entryId: existingVersion.entryId,
-        summary: {
-          ...next.summary,
-          entryId: existingVersion.entryId
-        }
-      }
-    : next;
-  const normalizedDetailsEntry: PackageRegistryEntry = {
-    ...normalizedNext,
+  const duplicateVersion = current.find(
+    (entry) =>
+      entry.summary.packageId === next.summary.packageId &&
+      entry.summary.packageVersion === next.summary.packageVersion &&
+      entry.entryId !== (targetEntry?.entryId ?? next.entryId)
+  );
+  if (duplicateVersion) {
+    throw new Error(`Duplicate version conflict for ${next.summary.packageId}@${next.summary.packageVersion}.`);
+  }
+
+  const normalizedEntryId = targetEntry?.entryId ?? next.entryId;
+  const normalizedEntry: PackageRegistryEntry = {
+    ...next,
+    entryId: normalizedEntryId,
+    summary: {
+      ...next.summary,
+      entryId: normalizedEntryId
+    },
     details: {
-      ...normalizedNext.details,
-      summary: normalizedNext.summary
+      ...next.details,
+      summary: {
+        ...next.summary,
+        entryId: normalizedEntryId
+      }
     }
   };
 
-  const merged = attachLineageEntryIds([
-    normalizedDetailsEntry,
-    ...current.filter((entry) => entry.entryId !== normalizedDetailsEntry.entryId)
-  ]);
+  const merged = attachLineageEntryIds([normalizedEntry, ...current.filter((entry) => entry.entryId !== normalizedEntry.entryId)]);
   saveLocalRegistryEntries(merged);
-  return normalizedDetailsEntry;
+  return normalizedEntry;
 }
 
 export function createDerivedRegistryEntry(input: {
