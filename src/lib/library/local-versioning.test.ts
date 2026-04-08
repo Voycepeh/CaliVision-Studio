@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { reconcileLocalVersionSnapshots } from "./local-versioning.ts";
+import { normalizeReadyPackageFromDraft, reconcileLocalVersionSnapshots } from "./local-versioning.ts";
 import type { DrillPackage } from "../schema/contracts.ts";
 
 function makePackage(input: { packageId: string; packageVersion: string; versionId: string; revision: number; draftStatus: "draft" | "publish-ready" }): DrillPackage {
@@ -87,4 +87,18 @@ test("reconcileLocalVersionSnapshots normalizes legacy same-version draft to nex
 
   assert.ok(draft);
   assert.equal(draft?.versionNumber, 2);
+});
+
+test("normalizeReadyPackageFromDraft bumps package/version identity when draft collides", () => {
+  const draft = makePackage({ packageId: "drill-a", packageVersion: "0.1.0", versionId: "draft-a", revision: 1, draftStatus: "draft" });
+  const normalized = normalizeReadyPackageFromDraft({
+    draftPackage: draft,
+    maxReadyVersionNumber: 1,
+    maxReadyPackageVersion: "0.1.0"
+  });
+
+  assert.equal(normalized.manifest.packageVersion, "0.1.1");
+  assert.equal(normalized.manifest.versioning?.revision, 2);
+  assert.equal(normalized.manifest.versioning?.versionId, "drill-a@0.1.1");
+  assert.equal(normalized.manifest.versioning?.draftStatus, "publish-ready");
 });

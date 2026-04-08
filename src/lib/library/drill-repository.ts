@@ -4,7 +4,7 @@ import type { AuthSession } from "@/lib/auth/supabase-auth";
 import { deleteDraft, loadDraft, loadDraftList, saveDraft, type LocalDraftRecord, type LocalDraftSummary } from "@/lib/persistence/local-draft-store";
 import { deleteRegistryEntriesByPackageId, loadLocalRegistryEntries, upsertRegistryEntryFromPackage, type PackageRegistryEntry } from "@/lib/registry";
 import type { DrillPackage } from "@/lib/schema/contracts";
-import { reconcileLocalVersionSnapshots } from "./local-versioning";
+import { normalizeReadyPackageFromDraft, reconcileLocalVersionSnapshots } from "./local-versioning";
 import { decideDrillImportOutcome } from "./drill-import-logic";
 
 export type DrillVersionStatus = "draft" | "ready";
@@ -313,7 +313,7 @@ export async function listDrillsWithActiveVersion(context?: DrillRepositoryConte
     }
     const activeReadyVersion = drillVersions.find((version) => version.status === "ready") ?? null;
     const latestDraftVersion = drillVersions.find((version) => version.status === "draft") ?? null;
-    const displayCurrentVersion = latestDraftVersion ?? activeReadyVersion ?? currentVersion;
+    const displayCurrentVersion = activeReadyVersion ?? latestDraftVersion ?? currentVersion;
 
     return {
       drillId,
@@ -486,16 +486,12 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
 
     const versions = await listVersionsForDrill(loaded.drillId, resolved);
     const maxReady = versions.filter((version) => version.status === "ready").reduce((max, version) => Math.max(max, version.versionNumber), 0);
-    const pkg = ensureVersioningMetadata(structuredClone(loaded.packageJson));
-    pkg.manifest.versioning = {
-      ...(pkg.manifest.versioning ?? {}),
-      packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
-      versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
-      revision: Math.max(pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg), maxReady + 1),
-      lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
-      draftStatus: "publish-ready"
-    };
-    pkg.manifest.updatedAtIso = new Date().toISOString();
+    const sourceReady = versions.find((version) => version.status === "ready" && version.versionNumber === maxReady);
+    const pkg = normalizeReadyPackageFromDraft({
+      draftPackage: loaded.packageJson,
+      maxReadyVersionNumber: maxReady,
+      maxReadyPackageVersion: sourceReady?.packageJson.manifest.packageVersion
+    });
 
     const upserted = await upsertHostedLibraryItem(resolved.session, pkg);
     if (!upserted.ok) {
@@ -511,20 +507,12 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
 
   const versions = await listVersionsForDrill(loaded.record.packageJson.manifest.packageId, resolved);
   const maxReady = versions.filter((version) => version.status === "ready").reduce((max, version) => Math.max(max, version.versionNumber), 0);
-  const pkg = ensureVersioningMetadata(structuredClone(loaded.record.packageJson));
-  if (parseVersionNumber(pkg) <= maxReady) {
-    const sourceReady = versions.find((version) => version.status === "ready" && version.versionNumber === maxReady);
-    pkg.manifest.packageVersion = sourceReady ? bumpPatchVersion(sourceReady.packageJson.manifest.packageVersion) : bumpPatchVersion(pkg.manifest.packageVersion);
-  }
-  pkg.manifest.versioning = {
-    ...(pkg.manifest.versioning ?? {}),
-    packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
-    versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
-    revision: Math.max(pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg), maxReady + 1),
-    lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
-    draftStatus: "publish-ready"
-  };
-  pkg.manifest.updatedAtIso = new Date().toISOString();
+  const sourceReady = versions.find((version) => version.status === "ready" && version.versionNumber === maxReady);
+  const pkg = normalizeReadyPackageFromDraft({
+    draftPackage: loaded.record.packageJson,
+    maxReadyVersionNumber: maxReady,
+    maxReadyPackageVersion: sourceReady?.packageJson.manifest.packageVersion
+  });
 
   upsertRegistryEntryFromPackage({ packageJson: pkg, sourceType: "authored-local", sourceLabel: `ready-from:${draftVersionId}` });
   await deleteDraft(draftVersionId);
