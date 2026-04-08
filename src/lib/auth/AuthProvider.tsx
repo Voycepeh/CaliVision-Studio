@@ -5,6 +5,7 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { getActiveAuthSession, mapAuthSession, signInWithGoogle, signOutRemote, type AuthSession } from "@/lib/auth/supabase-auth";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
+import { resolveSessionPersistenceMode, type SessionPersistenceMode } from "@/lib/persistence/session-mode";
 
 type AuthContextValue = {
   isConfigured: boolean;
@@ -12,6 +13,7 @@ type AuthContextValue = {
   userEmail: string | null;
   signInWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   signOut: () => Promise<void>;
+  persistenceMode: SessionPersistenceMode;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -54,7 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signOut: async () => {
         await signOutRemote();
         setSession(null);
-      }
+      },
+      persistenceMode: resolveSessionPersistenceMode({ session, isSupabaseConfigured: isSupabaseConfigured() })
     }),
     [session]
   );

@@ -13,6 +13,7 @@ import {
   type HostedLibraryItem
 } from "@/lib/hosted/library-repository";
 import { isSupabaseConfigured } from "@/lib/supabase/public-env";
+import { promoteHostedDraftToHostedLibrary, promoteLocalDraftToLocalLibrary } from "@/lib/library/draft-promotion";
 import { buildBundleForExport, downloadPackageBundle, getPrimarySamplePackage, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import {
   DEFAULT_PACKAGE_LISTING_QUERY,
@@ -49,19 +50,13 @@ export function LibraryOverview() {
   const [localDrafts, setLocalDrafts] = useState<LocalDraftSummary[]>([]);
   const [hostedDrafts, setHostedDrafts] = useState<HostedDraftSummary[]>([]);
   const [hostedLibrary, setHostedLibrary] = useState<HostedLibraryItem[]>([]);
-  const [localImportDismissed, setLocalImportDismissed] = useState(false);
-  const { session, userEmail } = useAuth();
+  const { session, persistenceMode } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
     pendingActionByItemId: {},
     actionMessageByItemId: {},
     actionErrorByItemId: {}
   });
-  const signedInMode = Boolean(userEmail && isSupabaseConfigured() && session);
-  const meaningfulLocalDrafts = useMemo(
-    () => localDrafts.filter((draft) => !draft.sourceLabel.startsWith("hosted-library:")),
-    [localDrafts]
-  );
-
+  const signedInMode = persistenceMode === "cloud";
   const refreshDrafts = useCallback(async (): Promise<void> => {
     try {
       setLocalDrafts(await loadDraftList());
@@ -101,21 +96,20 @@ export function LibraryOverview() {
   }, [session]);
 
   useEffect(() => {
-    refreshLibrary();
-    void refreshDrafts();
-    void refreshHostedDrafts();
-    void refreshHostedLibrary();
-  }, [refreshDrafts, refreshHostedDrafts, refreshHostedLibrary]);
-
-  useEffect(() => {
-    if (!userEmail) {
-      setLocalImportDismissed(false);
+    if (signedInMode) {
+      setEntries([]);
+      setLocalDrafts([]);
+      void refreshHostedDrafts();
+      void refreshHostedLibrary();
       return;
     }
 
-    const key = `library-local-import-dismissed:${userEmail}`;
-    setLocalImportDismissed(window.localStorage.getItem(key) === "1");
-  }, [userEmail]);
+    setHostedDrafts([]);
+    setHostedLibrary([]);
+    refreshLibrary();
+    void refreshDrafts();
+  }, [refreshDrafts, refreshHostedDrafts, refreshHostedLibrary, signedInMode]);
+
 
   function setItemFeedback(itemId: string, nextMessage: string, tone: FeedbackTone = "success"): void {
     setItemActionState((current) => ({
@@ -233,13 +227,12 @@ export function LibraryOverview() {
   }
 
   async function onSaveDraftToLibrary(draftId: string): Promise<void> {
-    const loaded = await loadDraft(draftId);
-    if (!loaded) {
-      setItemFeedback(`draft:${draftId}`, "Draft could not be loaded.", "error");
-      return;
-    }
-
     if (signedInMode && session) {
+      const loaded = await loadDraft(draftId);
+      if (!loaded) {
+        setItemFeedback(`draft:${draftId}`, "Draft could not be loaded.", "error");
+        return;
+      }
       const saved = await upsertHostedLibraryItem(session, loaded.record.packageJson);
       if (!saved.ok) {
         setItemFeedback(`draft:${draftId}`, saved.error, "error");
@@ -251,13 +244,19 @@ export function LibraryOverview() {
     }
 
     try {
-      const saved = upsertRegistryEntryFromPackage({
-        packageJson: loaded.record.packageJson,
-        sourceType: "authored-local",
-        sourceLabel: `draft:${draftId}`
+      await promoteLocalDraftToLocalLibrary({
+        loadDraftPackage: async () => (await loadDraft(draftId))?.record.packageJson ?? null,
+        saveToMyDrills: async (packageJson) => {
+          const saved = upsertRegistryEntryFromPackage({
+            packageJson,
+            sourceType: "authored-local",
+            sourceLabel: `draft:${draftId}`
+          });
+          return { title: saved.summary.title };
+        },
+        deleteDraft: async () => deleteDraft(draftId)
       });
-      await deleteDraft(draftId);
-      setItemFeedback(`draft:${draftId}`, `Saved "${saved.summary.title}" to My drills and removed the draft.`);
+      setItemFeedback(`draft:${draftId}`, "Moved to My drills.");
       refreshLibrary();
       await refreshDrafts();
     } catch (error) {
@@ -397,62 +396,6 @@ export function LibraryOverview() {
     router.push(`/studio?hostedDraftId=${encodeURIComponent(hosted.value.id)}`);
   }
 
-  async function onImportLocalDraftsToAccount(): Promise<void> {
-    if (!session || !signedInMode) {
-      setItemFeedback("global:import-local", "Sign in to import local drafts.", "error");
-      return;
-    }
-
-    if (meaningfulLocalDrafts.length === 0) {
-      setItemFeedback("global:import-local", "No local drafts found on this browser.");
-      return;
-    }
-
-    const importedDraftIds: string[] = [];
-    const failedDraftIds: string[] = [];
-    for (const summary of meaningfulLocalDrafts) {
-      try {
-        const loaded = await loadDraft(summary.draftId);
-        if (!loaded) {
-          failedDraftIds.push(summary.draftId);
-          continue;
-        }
-
-        const saved = await upsertHostedDraft(session, { packageJson: loaded.record.packageJson });
-        if (!saved.ok) {
-          failedDraftIds.push(summary.draftId);
-          continue;
-        }
-
-        await deleteDraft(summary.draftId);
-        importedDraftIds.push(summary.draftId);
-      } catch {
-        failedDraftIds.push(summary.draftId);
-      }
-    }
-
-    const dismissKey = `library-local-import-dismissed:${userEmail ?? "user"}`;
-    const hasRemainingLocalDrafts = failedDraftIds.length > 0;
-    if (hasRemainingLocalDrafts) {
-      window.localStorage.removeItem(dismissKey);
-      setLocalImportDismissed(false);
-    } else {
-      window.localStorage.setItem(dismissKey, "1");
-      setLocalImportDismissed(true);
-    }
-    setItemFeedback(
-      "global:import-local",
-      importedDraftIds.length > 0
-        ? failedDraftIds.length > 0
-          ? `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"}. ${failedDraftIds.length} local draft${failedDraftIds.length === 1 ? "" : "s"} could not be moved.`
-          : `Imported ${importedDraftIds.length} draft${importedDraftIds.length === 1 ? "" : "s"} to your account and removed local ${importedDraftIds.length === 1 ? "copy" : "copies"}.`
-        : "Local drafts could not be moved.",
-      importedDraftIds.length > 0 ? "success" : "error"
-    );
-    await refreshDrafts();
-    await refreshHostedDrafts();
-  }
-
   async function onDeleteHostedDraft(draft: HostedDraftSummary): Promise<void> {
     if (!session) {
       setItemFeedback(`hosted-draft:${draft.id}`, "Sign in to manage Drafts.", "error");
@@ -476,19 +419,36 @@ export function LibraryOverview() {
       return;
     }
 
-    const loaded = await loadHostedDraft(session, draft.id);
-    if (!loaded.ok) {
-      setItemFeedback(`hosted-draft:${draft.id}`, loaded.error, "error");
+    try {
+      await promoteHostedDraftToHostedLibrary({
+        loadDraftPackage: async () => {
+          const loaded = await loadHostedDraft(session, draft.id);
+          if (!loaded.ok) {
+            throw new Error(loaded.error);
+          }
+          return loaded.value.content;
+        },
+        saveToMyDrills: async (packageJson) => {
+          const saved = await upsertHostedLibraryItem(session, packageJson);
+          if (!saved.ok) {
+            throw new Error(saved.error);
+          }
+          return { title: saved.value.title };
+        },
+        deleteDraft: async () => {
+          const removed = await deleteHostedDraft(session, draft.id);
+          if (!removed.ok) {
+            throw new Error(`Draft cleanup failed: ${removed.error}`);
+          }
+        }
+      });
+    } catch (error) {
+      setItemFeedback(`hosted-draft:${draft.id}`, error instanceof Error ? error.message : "Draft promotion failed.", "error");
       return;
     }
 
-    const saved = await upsertHostedLibraryItem(session, loaded.value.content);
-    if (!saved.ok) {
-      setItemFeedback(`hosted-draft:${draft.id}`, saved.error, "error");
-      return;
-    }
-
-    setItemFeedback(`hosted-draft:${draft.id}`, `Saved "${saved.value.title}" to My drills.`);
+    setItemFeedback(`hosted-draft:${draft.id}`, "Moved to My drills.");
+    await refreshHostedDrafts();
     await refreshHostedLibrary();
   }
 
@@ -498,6 +458,9 @@ export function LibraryOverview() {
         <h2 style={{ margin: 0 }}>Library</h2>
         <p className="muted" style={{ margin: 0 }}>
           Start a new drill, continue Drafts, open My drills, import drill files, or browse Exchange.
+        </p>
+        <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+          Storage mode: {signedInMode ? "Cloud workspace (account)" : "Browser workspace (local only)"}
         </p>
         <div style={compactActionRowStyle}>
           <button
@@ -522,29 +485,8 @@ export function LibraryOverview() {
       </section>
 
 
-      {signedInMode && !localImportDismissed && meaningfulLocalDrafts.length > 0 ? (
-        <section className="card" style={sectionCardStyle}>
-          <div style={sectionHeadingStyle}>
-            <h3 style={{ margin: 0 }}>Local drafts found on this device</h3>
-            <p className="muted" style={{ margin: 0 }}>
-              Import existing browser drafts into your account to keep everything together.
-            </p>
-          </div>
-          <div style={compactActionRowStyle}>
-            <button
-              type="button"
-              style={chipStyle(true)}
-              disabled={Boolean(pendingActionByItemId["global:import-local"])}
-              onClick={() => void runItemAction("global:import-local", "Importing drafts…", onImportLocalDraftsToAccount)}
-            >
-              Import local drafts to account
-            </button>
-          </div>
-          <InlineItemFeedback itemId="global:import-local" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
-        </section>
-      ) : null}
-
       <section className="card" style={sectionCardStyle}>
+
         <div style={sectionHeadingStyle}>
           <h3 style={{ margin: 0 }}>Drafts</h3>
           <p className="muted" style={{ margin: 0 }}>

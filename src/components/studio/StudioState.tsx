@@ -164,6 +164,7 @@ type StudioStateValue = {
   forkSelectedPackage: () => void;
   createSelectedPackageNewVersion: () => void;
   saveSelectedToHosted: () => Promise<void>;
+  persistenceMode: "local" | "cloud";
 };
 
 const StudioStateContext = createContext<StudioStateValue | undefined>(undefined);
@@ -338,7 +339,7 @@ export function StudioStateProvider({
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
   const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Cloud save is available when signed in.");
   const [hostedDraftIdsByPackageKey, setHostedDraftIdsByPackageKey] = useState<Record<string, string>>({});
-  const { session, isConfigured } = useAuth();
+  const { session, isConfigured, persistenceMode } = useAuth();
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const [hydrationComplete, setHydrationComplete] = useState(false);
   const hasLoadedDraftsRef = useRef(false);
@@ -371,6 +372,11 @@ export function StudioStateProvider({
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
 
   useEffect(() => {
+    if (persistenceMode !== "local") {
+      setHydrationComplete(true);
+      return;
+    }
+
     if (hasLoadedDraftsRef.current) {
       return;
     }
@@ -454,10 +460,10 @@ export function StudioStateProvider({
         setHydrationComplete(true);
       }
     })();
-  }, [initialDraftId]);
+  }, [initialDraftId, persistenceMode]);
 
   useEffect(() => {
-    if (!initialHostedDraftId || !session || !isConfigured) {
+    if (persistenceMode !== "cloud" || !initialHostedDraftId || !session || !isConfigured) {
       return;
     }
 
@@ -477,7 +483,7 @@ export function StudioStateProvider({
       setSelectedPhaseId(getSortedPhases(entry.workingPackage)[0]?.phaseId ?? null);
       setHostedSaveStatusMessage(`Opened draft: ${loaded.value.title}`);
     })();
-  }, [initialHostedDraftId, isConfigured, session]);
+  }, [initialHostedDraftId, isConfigured, persistenceMode, session]);
 
   useEffect(() => {
     if (!initialPackageId) {
@@ -503,7 +509,7 @@ export function StudioStateProvider({
   }, [initialPackageId, packages]);
 
   useEffect(() => {
-    if (!selectedPackageKey) {
+    if (persistenceMode !== "local" || !selectedPackageKey) {
       return;
     }
 
@@ -514,7 +520,7 @@ export function StudioStateProvider({
 
     const draftId = draftIdsByPackageKey[selectedPackageKey] ?? toDraftIdFromPackage(entry);
     void setLastOpenedDraft(draftId);
-  }, [draftIdsByPackageKey, packages, selectedPackageKey]);
+  }, [draftIdsByPackageKey, packages, persistenceMode, selectedPackageKey]);
 
   useEffect(() => {
     const previousIndexes = previousPhaseIndexesRef.current;
@@ -570,7 +576,7 @@ export function StudioStateProvider({
   }, [packages, selectedJointName, selectedPackageKey, selectedPhaseId]);
 
   useEffect(() => {
-    if (!hydrationComplete || packages.length === 0) {
+    if (persistenceMode !== "local" || !hydrationComplete || packages.length === 0) {
       return;
     }
 
@@ -600,11 +606,11 @@ export function StudioStateProvider({
     }, 700);
 
     return () => window.clearTimeout(timer);
-  }, [draftIdsByPackageKey, hydrationComplete, packageAssetBlobs, packages]);
+  }, [draftIdsByPackageKey, hydrationComplete, packageAssetBlobs, packages, persistenceMode]);
 
   useEffect(
     () => () => {
-      if (!hydrationComplete || packagesRef.current.length === 0) {
+      if (persistenceMode !== "local" || !hydrationComplete || packagesRef.current.length === 0) {
         return;
       }
 
@@ -622,17 +628,42 @@ export function StudioStateProvider({
         }
       })();
     },
-    [hydrationComplete]
+    [hydrationComplete, persistenceMode]
   );
 
+
+  useEffect(() => {
+    if (persistenceMode === "cloud") {
+      setDraftIdsByPackageKey({});
+      setLocalSaveState("idle");
+      setHydrationComplete(true);
+      setPackages((current) => current.filter((entry) => entry.packageKey.startsWith("hosted:")));
+      return;
+    }
+
+    setHostedDraftIdsByPackageKey({});
+    setHostedSaveState("idle");
+    setHostedSaveStatusMessage("Browser-local save mode active.");
+    setPackages((current) => current.filter((entry) => !entry.packageKey.startsWith("hosted:")));
+    hasLoadedDraftsRef.current = false;
+  }, [persistenceMode]);
+
   const saveStatusLabel = selectedPackage
-    ? localSaveState === "saving"
-      ? "Saving draft…"
-      : localSaveState === "error"
-        ? "Cloud save failed — edits are still safe on this device."
-        : selectedPackage.isDirty
-          ? "Unsaved changes"
-          : "Draft saved on this device"
+    ? persistenceMode === "cloud"
+      ? hostedSaveState === "saving"
+        ? "Saving draft to cloud…"
+        : hostedSaveState === "error"
+          ? "Cloud save failed"
+          : selectedPackage.isDirty
+            ? "Unsaved cloud changes"
+            : "Cloud draft ready"
+      : localSaveState === "saving"
+        ? "Saving draft on this browser…"
+        : localSaveState === "error"
+          ? "Local save failed on this browser."
+          : selectedPackage.isDirty
+            ? "Unsaved local changes"
+            : "Draft saved on this browser"
     : "No drill loaded";
 
 
@@ -642,7 +673,7 @@ export function StudioStateProvider({
     }
     if (!isConfigured || !session) {
       setHostedSaveState("error");
-      setHostedSaveStatusMessage("Sign in to save this draft to your account.");
+      setHostedSaveStatusMessage("Sign in to switch to cloud save.");
       return;
     }
 
@@ -1656,7 +1687,8 @@ export function StudioStateProvider({
     duplicateSelectedPackage,
     forkSelectedPackage,
     createSelectedPackageNewVersion,
-    saveSelectedToHosted
+    saveSelectedToHosted,
+    persistenceMode
   };
 
   return <StudioStateContext.Provider value={value}>{children}</StudioStateContext.Provider>;
