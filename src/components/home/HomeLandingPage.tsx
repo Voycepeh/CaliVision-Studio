@@ -9,38 +9,30 @@ type HomeCard = {
   title: string;
   description: string;
   href: string;
-  cta: string;
+  external?: boolean;
 };
 
 const cards: HomeCard[] = [
   {
-    icon: "upload",
-    title: "Upload Video",
-    description: "Analyze recorded attempts in-browser with clear pose overlays and downloadable results.",
-    href: "/upload",
-    cta: "Start upload"
+    icon: "studio",
+    title: "Drill Library",
+    description: "Create your own drills or start from shared ones.",
+    href: "/library"
   },
   {
-    icon: "studio",
-    title: "Drill Studio",
-    description: "Use Library to manage drills and versions, then jump into focused Studio editing.",
-    href: "/library",
-    cta: "Open Library"
+    icon: "upload",
+    title: "Upload Video",
+    description: "Count reps, track holds, and review movement from your attempt.",
+    href: "/upload"
   },
   {
     icon: "android",
-    title: "Android Live Coaching",
-    description: "Bring your drills to Android for on-device live coaching and practice sessions.",
-    href: "#android-app",
-    cta: "Download app"
+    title: "Android App",
+    description: "Train live on-device with the latest app release.",
+    href: "https://github.com/Voycepeh/CaliVision",
+    external: true
   }
 ];
-
-const flowSteps = [
-  "Manage drills in Library and Drill Studio",
-  "Analyze recorded attempts in Upload Video",
-  "Practice live with the Android app"
-] as const;
 
 function HomeIcon({ name }: { name: IconName }) {
   if (name === "upload") {
@@ -82,66 +74,28 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <p className="home-kicker">CaliVision Studio</p>
-          <h1>Train smarter with a premium browser workspace for drills and feedback.</h1>
+          <h1>CaliVision Studio</h1>
           <p className="home-subtitle">
-            Create and refine drills in Studio, analyze video attempts in-browser, and take your training live on Android.
+            Build your own drills or start from shared ones. Upload a video attempt to count reps, track holds, and review movement with
+            computer vision. Train live on Android with our app.
           </p>
-          <div className="home-hero-actions">
-            <Link href="/library" className="home-button home-button-primary">
-              Open Library
-            </Link>
-            <Link href="/upload" className="home-button home-button-secondary">
-              Upload video
-            </Link>
-            <Link href="#android-app" className="home-button home-button-tertiary">
-              Download Android app
-            </Link>
-          </div>
         </section>
 
         <section className="home-feature-grid" aria-label="Core entry points">
           {cards.map((card) => (
-            <article key={card.title} className="home-feature-card">
+            <Link
+              key={card.title}
+              href={card.href}
+              className="home-feature-card"
+              {...(card.external ? { target: "_blank", rel: "noreferrer" } : {})}
+            >
               <span className="home-feature-icon" aria-hidden>
                 <HomeIcon name={card.icon} />
               </span>
               <h2>{card.title}</h2>
               <p>{card.description}</p>
-              <Link href={card.href} className="home-feature-link">
-                {card.cta} →
-              </Link>
-            </article>
+            </Link>
           ))}
-        </section>
-
-        <section className="home-workflow" aria-label="Workflow overview">
-          <h2>One simple flow from planning to live coaching.</h2>
-          <div className="home-workflow-steps">
-            {flowSteps.map((step, index) => (
-              <div key={step} className="home-workflow-step">
-                <span>{index + 1}</span>
-                <p>{step}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="android-app" className="home-supporting">
-          <div>
-            <p className="home-supporting-eyebrow">Live coaching companion</p>
-            <h2>Android app</h2>
-            <p>
-              The Android app powers live coaching on device. Until the store listing is finalized, use the runtime repository for releases and
-              updates.
-            </p>
-          </div>
-          <div className="home-supporting-actions">
-            <a href="https://github.com/Voycepeh/CaliVision" target="_blank" rel="noreferrer" className="home-button home-button-primary">
-              View Android repo
-            </a>
-            <span className="home-coming-soon">Google Play link coming soon</span>
-          </div>
         </section>
       </main>
     </>
