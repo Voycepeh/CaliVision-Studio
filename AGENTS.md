@@ -2,16 +2,18 @@
 
 ## Repository purpose
 
-CaliVision Studio is the **web-first home** for:
+CaliVision Studio is the **cross-platform web-first main product surface** for:
 
 - Drill Studio authoring,
-- browser Upload Video analysis direction,
+- browser Upload Video analysis,
+- replay/review workflows,
 - Drill Exchange/community workflows,
-- portable drill file/package compatibility import/export.
+- portable drill file/package compatibility import/export,
+- future mobile browser camera capture.
 
 Studio is the long-term **source of truth** for drill definitions and publishing.
 
-The Android app is a downstream runtime/live-coaching client: <https://github.com/Voycepeh/CaliVision>.
+The Android app is an optional native specialization client for runtime/live-coaching workflows: <https://github.com/Voycepeh/CaliVision>.
 
 ## Product UX direction (current)
 
@@ -28,10 +30,19 @@ Prefer user-facing wording:
 - **Package** for internal contracts/technical portability only,
 - **Drill Exchange** for discovery/sharing semantics.
 
+## Product split guardrails (mandatory)
+
+Preserve this product split in documentation and product-positioning updates:
+
+- **Studio (this repo):** main cross-platform workflow across desktop and mobile browsers.
+- **Android/mobile runtime client:** optional native specialization for premium live coaching and hardware-specific workflows when meaningfully better than browser capabilities.
+
+Do not present Android as the default home of the full product.
+
 ## Ecosystem boundary
 
-- **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, drill-file export/publish, exchange workflows.
-- **Android/mobile runtime client:** import drill files/packages, run drill playback/live coaching, consume Studio-authored content.
+- **Studio (this repo):** author drills, edit phases, detect/refine pose, preview animation, analyze uploads/capture, replay/review, drill-file export/publish, exchange workflows.
+- **Android/mobile runtime client:** import drill files/packages, run optional native drill playback/live coaching, consume Studio-authored content.
 
 Do not move runtime/live coaching concerns into Studio unless explicitly requested.
 
@@ -76,6 +87,7 @@ Treat `README.md` as a product map and process-flow document.
 - README is not a changelog.
 - README is not a contract spec.
 - Do not update README for routine refactors, implementation details, styling changes, or low-level schema/contract changes.
+- Do not casually rewrite README or product-positioning language unless product flow or ownership actually changes.
 - Update README only when one of these changes:
   1. the user-facing product flow,
   2. the role split between Web Studio and Android,
