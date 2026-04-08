@@ -9,6 +9,7 @@ export function StudioActionBar() {
     saveStatusLabel,
     selectedPackage,
     saveSelectedToHosted,
+    markSelectedVersionReady,
     hostedSaveStatusMessage,
     persistenceMode
   } = useStudioState();
@@ -18,7 +19,7 @@ export function StudioActionBar() {
   return (
     <section className="card studio-action-bar" aria-label="Studio draft actions">
       <div className="studio-action-bar-status">
-        <strong>Draft actions</strong>
+        <strong>Drill version actions</strong>
         <span className="pill">{persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}</span>
         <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
         <span className="muted" style={{ fontSize: "0.78rem" }}>{hostedSaveStatusMessage}</span>
@@ -26,7 +27,10 @@ export function StudioActionBar() {
 
       <div className="studio-action-groups" role="group" aria-label="Editing actions">
         <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
-          {persistenceMode === "cloud" ? "Save draft to cloud" : "Cloud save (sign in)"}
+          {persistenceMode === "cloud" ? "Save draft" : "Cloud save (sign in)"}
+        </button>
+        <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "local"}>
+          Mark Ready
         </button>
         <Link href="/library" className="pill">
           Back to Library

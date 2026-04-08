@@ -4,7 +4,7 @@
 
 1. User lands on **Home** (`/`) as the brand-first product entry.
 2. User picks one of three primary paths: **Open Library**, **Upload Video**, or **Download Android app**.
-3. From **Library** (`/library`), user can create a new drill draft, continue Drafts, open My drills, import drill files, and open Drill Exchange.
+3. From **Library** (`/library`), user can create a new drill, edit existing drills, view version history, import drill files, and open Drill Exchange.
 4. User moves into **Drill Studio** for editing, or to **Upload Video** for local analysis workflows.
 
 ## Current Drill Studio flow
@@ -29,7 +29,7 @@
 3. Run MediaPipe Pose Landmarker in video mode locally.
 4. Persist one local analysis session per completed, partial, or failed attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
 5. Use the upload handoff card to open the latest result from the current upload when available.
-6. Review overlay preview for completed jobs.
+6. Review overlay preview for completed jobs (pose overlay in preview canvas).
 7. Use **Recent analyses** shortcuts to jump to:
    - latest result from current upload,
    - latest analysis for this drill,
@@ -44,7 +44,7 @@
    - collapsible debug/pipeline details,
    - optional raw JSON.
 9. Download local artifacts in clear user-facing order:
-   - Annotated Video,
+   - Annotated Video (pose + persisted drill-analysis overlays when available; graceful fallback to pose-only),
    - Processing Summary (.json),
    - Pose Timeline (.json),
    - Analysis Artifact (.json) export payload (versioned structured session export).
@@ -67,15 +67,15 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 Signed-out draft state is browser/device scoped only. Signed-in mode keeps hosted persistence as the primary source of truth.
 
-## Library draft/drill lifecycle flow (available now)
+## Library drill/version lifecycle flow (available now)
 
-1. `Create new drill` creates a **draft** (work in progress, not yet in My drills).
-2. `Continue editing` opens that draft in Drill Studio without automatic promotion.
-3. `Save to My drills` explicitly promotes the draft into **My drills**.
-4. `Import drill` in Library opens a file picker, validates supported `.json` / `.cvpkg.json`, and saves valid imports into **My drills** with inline success/error feedback.
-5. `Export drill file` from **My drills** downloads a portable drill file from Library.
-6. `Delete draft` removes draft data from the active persistence scope.
-7. `Delete` in **My drills** removes the saved drill from the active persistence scope.
+1. `Create new drill` creates one drill identity with an initial **Draft** version in **My drills**.
+2. `Edit` opens or resumes the drill's latest Draft version.
+3. If a drill only has a Ready/Published active version, `Edit` creates a new Draft version under the same drill identity.
+4. `Mark Ready` promotes a valid Draft version to Ready for upload analysis and publishing eligibility.
+5. `Publish` is gated to Ready versions only (Published remains a Ready snapshot with published flag).
+6. `Version history` shows per-version status/timestamps within a single drill row without duplicating top-level drill entries.
+7. `Import drill file` saves into **My drills** and participates in the same version-aware view.
 
 ## Hosted drafts foundation (April 2026)
 

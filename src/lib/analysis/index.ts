@@ -24,4 +24,10 @@ export {
 } from "./export-artifact.ts";
 export type { AnalysisSessionArtifact } from "./export-artifact.ts";
 
-export { deriveReplayMarkers, deriveReplaySessionOverview, deriveReplayStateAtTime, getReplayDurationMs } from "./replay-state.ts";
+export {
+  deriveReplayMarkers,
+  deriveReplayOverlayStateAtTime,
+  deriveReplaySessionOverview,
+  deriveReplayStateAtTime,
+  getReplayDurationMs
+} from "./replay-state.ts";

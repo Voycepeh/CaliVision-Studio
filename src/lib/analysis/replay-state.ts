@@ -18,6 +18,12 @@ export type ReplayDerivedState = {
   nearestEvent: AnalysisEvent | null;
 };
 
+export type ReplayOverlayState = ReplayDerivedState & {
+  phaseLabel: string | null;
+  showRepCount: boolean;
+  showHoldTimer: boolean;
+};
+
 export type ReplaySessionOverview = {
   durationMs: number;
   phaseCoverage: Array<{ phaseId: string; percent: number }>;
@@ -70,6 +76,14 @@ function getFramePhaseAtTime(frameSamples: AnalysisSessionRecord["frameSamples"]
     candidate = frame;
   }
   return candidate?.classifiedPhaseId ?? null;
+}
+
+function getPhaseEventAtTime(events: AnalysisSessionRecord["events"], timestampMs: number): string | null {
+  return (
+    events
+      .filter((event) => event.type === "phase_enter" && event.timestampMs <= timestampMs)
+      .at(-1)?.phaseId ?? null
+  );
 }
 
 function getRepCountAtTime(events: AnalysisSessionRecord["events"], timestampMs: number): number {
@@ -130,6 +144,35 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
     holdActive,
     holdElapsedMs,
     nearestEvent
+  };
+}
+
+export function deriveReplayOverlayStateAtTime(
+  session: AnalysisSessionRecord | null | undefined,
+  timestampMs: number
+): ReplayOverlayState {
+  const base = deriveReplayStateAtTime(session, timestampMs);
+  if (!session) {
+    return {
+      ...base,
+      phaseLabel: null,
+      showRepCount: false,
+      showHoldTimer: false
+    };
+  }
+
+  const sortedEvents = getSortedEvents(session);
+  const phaseFromEvents = getPhaseEventAtTime(sortedEvents, base.timestampMs);
+  const hasRepSignal = session.summary.repCount !== undefined || sortedEvents.some((event) => event.type === "rep_complete");
+  const hasHoldSignal =
+    session.summary.holdDurationMs !== undefined ||
+    sortedEvents.some((event) => event.type === "hold_start" || event.type === "hold_end");
+
+  return {
+    ...base,
+    phaseLabel: base.activePhaseId ?? phaseFromEvents,
+    showRepCount: hasRepSignal,
+    showHoldTimer: hasHoldSignal && base.holdActive
   };
 }
 
