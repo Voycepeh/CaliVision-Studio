@@ -1,0 +1,61 @@
+import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableDrill } from "../schema/contracts.ts";
+import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
+import type { PoseFrame, PoseTimeline } from "../upload/types.ts";
+
+export type LiveSessionStatus =
+  | "idle"
+  | "requesting-permission"
+  | "preview-ready"
+  | "live-session-running"
+  | "stopping-finalizing"
+  | "completed"
+  | "failed"
+  | "denied"
+  | "unsupported";
+
+export type LiveDrillSelection = {
+  mode: "freestyle" | "drill";
+  drill?: PortableDrill;
+  drillVersion?: string;
+  drillBindingLabel: string;
+  drillBindingSource: "freestyle" | "local" | "hosted";
+  sourceId?: string;
+};
+
+export type LiveTraceCapture = {
+  timestampMs: number;
+  frame: PoseFrame;
+  frameSample: FramePhaseSample;
+};
+
+export type LiveSessionTrace = {
+  schemaVersion: "live-session-trace-v1";
+  traceId: string;
+  startedAtIso: string;
+  completedAtIso: string;
+  sourceType: "browser-camera";
+  drillSelection: LiveDrillSelection;
+  cadenceFps: number;
+  video: {
+    durationMs: number;
+    width: number;
+    height: number;
+    mimeType: string;
+    sizeBytes: number;
+  };
+  captures: LiveTraceCapture[];
+  events: AnalysisEvent[];
+  summary: AnalysisSummaryMetrics;
+};
+
+export type FinalizedLiveSession = {
+  trace: LiveSessionTrace;
+  timeline: PoseTimeline;
+  analysisSession: AnalysisSessionRecord;
+  rawVideo: {
+    blob: Blob;
+    mimeType: string;
+    objectUrl: string;
+    fileName: string;
+  };
+};
