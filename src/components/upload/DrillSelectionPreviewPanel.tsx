@@ -7,6 +7,8 @@ import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-v
 import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
 
 const HOLD_LOOP_HOLD_RATIO = 0.7;
+const HOLD_ENTRY_EXIT_MIN_DURATION_MS = 300;
+const HOLD_PLATEAU_MIN_DURATION_MS = 900;
 
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
@@ -44,25 +46,32 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
     return phases;
   }
 
-  const entryPhase = phases[0];
+  const entrySource = phases[0];
+  const plateauSource = phases[1] ?? phases[0];
+  const entryPhase: PortablePhase = {
+    ...entrySource,
+    phaseId: `${entrySource.phaseId}_entry_preview`,
+    title: "Entry",
+    durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
+  };
+  const holdPlateauPhase: PortablePhase = {
+    ...plateauSource,
+    phaseId: `${plateauSource.phaseId}_hold_preview`,
+    title: plateauSource.title || "Hold",
+    durationMs: Math.max(HOLD_PLATEAU_MIN_DURATION_MS, Math.round(plateauSource.durationMs * HOLD_LOOP_HOLD_RATIO))
+  };
   const exitPhase: PortablePhase = {
-    ...entryPhase,
-    phaseId: `${entryPhase.phaseId}_exit_preview`,
+    ...entrySource,
+    phaseId: `${entrySource.phaseId}_exit_preview`,
     title: "Exit",
-    durationMs: Math.max(300, Math.round(entryPhase.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
+    durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
   };
 
-  return [
-    {
-      ...entryPhase,
-      durationMs: Math.max(300, Math.round(entryPhase.durationMs))
-    },
-    ...phases.slice(1).map((phase, index) => ({
-      ...phase,
-      durationMs: Math.max(600, Math.round(phase.durationMs * (index === 0 ? HOLD_LOOP_HOLD_RATIO : 1)))
-    })),
-    exitPhase
-  ];
+  if (phases.length === 1) {
+    return [entryPhase, holdPlateauPhase, exitPhase];
+  }
+
+  return [entryPhase, holdPlateauPhase, ...phases.slice(2), exitPhase];
 }
 
 export function buildDrillOptionLabel(drill: PortableDrill): string {
@@ -77,11 +86,26 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
 
   const loopPhases = useMemo(() => createLoopPhases(drill), [drill]);
   const timeline = useMemo(() => buildAnimationTimeline(loopPhases), [loopPhases]);
+  const previewResetKey = useMemo(
+    () =>
+      [
+        sourceKind ?? "seeded",
+        drill.drillId,
+        drill.drillType,
+        ...drill.phases
+          .map(
+            (phase) =>
+              `${phase.phaseId}:${phase.order}:${phase.durationMs}:${phase.poseSequence.length}:${phase.poseSequence.map((pose) => pose.poseId).join(",")}`
+          )
+          .sort()
+      ].join("|"),
+    [drill.drillId, drill.drillType, drill.phases, sourceKind]
+  );
 
   useEffect(() => {
     setElapsedMs(0);
     setIsPlaying(true);
-  }, [drill.drillId]);
+  }, [previewResetKey]);
 
   useEffect(() => {
     if (!isPlaying || timeline.totalDurationMs <= 0) {
