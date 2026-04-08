@@ -1,10 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import type { UploadJob } from "@/lib/upload/types";
-import { getPrimarySamplePackage } from "@/lib/package/samples";
+import { getPrimarySamplePackage, listSeededSampleDrills } from "@/lib/package/samples";
+import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
+import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import {
   createAnalysisArtifactFilename,
   createImportedAnalysisSessionCopy,
@@ -28,6 +32,16 @@ import {
 } from "@/lib/upload/analysis-session-ux";
 
 const DEFAULT_CADENCE_FPS = 12;
+const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
+
+type DrillSelectionOption = {
+  key: string;
+  label: string;
+  sourceKind: "seeded" | "local" | "hosted";
+  sourceId?: string;
+  packageVersion?: string;
+  drill: ReturnType<typeof getPrimarySamplePackage>["drills"][number];
+};
 
 type JobAction =
   | { type: "add"; jobs: UploadJob[] }
@@ -107,7 +121,8 @@ function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
 
 export function UploadVideoWorkspace() {
   const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
-  const referenceDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
+  const { session, isConfigured, persistenceMode } = useAuth();
+  const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<AnalysisSessionRecord[]>([]);
@@ -121,6 +136,9 @@ export function UploadVideoWorkspace() {
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const [isReplayPlaying, setIsReplayPlaying] = useState(false);
   const [replayElapsedMs, setReplayElapsedMs] = useState(0);
+  const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
+  const [selectedDrillKey, setSelectedDrillKey] = useState<string | null>(null);
+  const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs.find((job) => job.status === "completed"), [jobs, selectedJobId]);
   const selectedSession = useMemo(
@@ -131,9 +149,14 @@ export function UploadVideoWorkspace() {
     () => findLatestSessionForUpload(recentSessions, selectedJob?.id),
     [recentSessions, selectedJob?.id]
   );
+  const selectedDrill = useMemo(
+    () => drillOptions.find((option) => option.key === selectedDrillKey) ?? null,
+    [drillOptions, selectedDrillKey]
+  );
+  const activeSelectedDrill = useMemo(() => selectedDrill?.drill ?? fallbackDrill, [selectedDrill?.drill, fallbackDrill]);
   const drillSessions = useMemo(
-    () => recentSessions.filter((session) => session.drillId === referenceDrill.drillId),
-    [recentSessions, referenceDrill.drillId]
+    () => recentSessions.filter((session) => session.drillId === activeSelectedDrill.drillId),
+    [recentSessions, activeSelectedDrill.drillId]
   );
   const replayDurationMs = useMemo(() => getReplayDurationMs(selectedSession), [selectedSession]);
   const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
@@ -145,6 +168,60 @@ export function UploadVideoWorkspace() {
   );
 
   const dispatch = useCallback((action: JobAction) => setJobs((prev) => reducer(prev, action)), []);
+  const refreshDrillOptions = useCallback(async () => {
+    setDrillOptionsLoading(true);
+    const options: DrillSelectionOption[] = listSeededSampleDrills().map((entry) => ({
+      key: `seeded:${entry.drill.drillId}:${entry.packageVersion}`,
+      label: entry.drill.title,
+      sourceKind: "seeded",
+      sourceId: entry.packageId,
+      packageVersion: entry.packageVersion,
+      drill: entry.drill
+    }));
+
+    try {
+      const localSummaries = await loadDraftList();
+      for (const summary of localSummaries.slice(0, 20)) {
+        const loaded = await loadDraft(summary.draftId);
+        const drill = loaded?.record.packageJson.drills[0];
+        if (!drill) continue;
+        options.push({
+          key: `local:${summary.draftId}:${drill.drillId}`,
+          label: drill.title,
+          sourceKind: "local",
+          sourceId: summary.draftId,
+          packageVersion: loaded.record.packageJson.manifest.packageVersion,
+          drill
+        });
+      }
+    } catch {
+      // local drill list is optional
+    }
+
+    if (session && isConfigured) {
+      const hostedResult = await listHostedLibrary(session);
+      if (hostedResult.ok) {
+        for (const item of hostedResult.value) {
+          const drill = item.content.drills[0];
+          if (!drill) continue;
+          options.push({
+            key: `hosted:${item.id}:${drill.drillId}`,
+            label: drill.title,
+            sourceKind: "hosted",
+            sourceId: item.id,
+            packageVersion: item.packageVersion,
+            drill
+          });
+        }
+      }
+    }
+    setDrillOptions(options);
+    setSelectedDrillKey((current) => {
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem(SELECTED_DRILL_STORAGE_KEY) : null;
+      return resolveSelectedDrillKey(options, current, stored);
+    });
+    setDrillOptionsLoading(false);
+  }, [isConfigured, session]);
   const refreshRecentSessions = useCallback(async () => {
     const sessions = await analysisRepository.listRecentSessions({ limit: 12 });
     setRecentSessions(sessions);
@@ -167,7 +244,8 @@ export function UploadVideoWorkspace() {
         status: "queued",
         stageLabel: "Ready",
         progress: 0,
-        createdAtIso: new Date().toISOString()
+        createdAtIso: new Date().toISOString(),
+        drillSelection: createUploadJobDrillSelection({ fallbackDrill, selectedDrill })
       });
     }
 
@@ -175,7 +253,7 @@ export function UploadVideoWorkspace() {
       dispatch({ type: "add", jobs: nextJobs });
       setSelectedJobId(nextJobs[0].id);
     }
-  }, [dispatch]);
+  }, [dispatch, fallbackDrill, selectedDrill]);
 
   const runQueue = useCallback(async () => {
     if (isRunningRef.current) {
@@ -226,8 +304,9 @@ export function UploadVideoWorkspace() {
       });
       const persisted = await persistCompletedUploadAnalysisSession({
         repository: analysisRepository,
-        drill: referenceDrill,
-        drillVersion: "sample-v1",
+        drill: nextJob.drillSelection.drill,
+        drillVersion: nextJob.drillSelection.drillVersion,
+        drillBinding: nextJob.drillSelection.drillBinding,
         timeline,
         sourceId: nextJob.id,
         sourceLabel: nextJob.fileName,
@@ -254,8 +333,9 @@ export function UploadVideoWorkspace() {
       if (!cancelled) {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
-          drill: referenceDrill,
-          drillVersion: "sample-v1",
+          drill: nextJob.drillSelection.drill,
+          drillVersion: nextJob.drillSelection.drillVersion,
+          drillBinding: nextJob.drillSelection.drillBinding,
           sourceId: nextJob.id,
           sourceLabel: nextJob.fileName,
           sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
@@ -267,7 +347,7 @@ export function UploadVideoWorkspace() {
       activeAbortRef.current = null;
       isRunningRef.current = false;
     }
-  }, [analysisRepository, cadenceFps, dispatch, jobs, referenceDrill, refreshRecentSessions]);
+  }, [analysisRepository, cadenceFps, dispatch, jobs, refreshRecentSessions]);
 
   useEffect(() => {
     void runQueue();
@@ -275,6 +355,13 @@ export function UploadVideoWorkspace() {
   useEffect(() => {
     void refreshRecentSessions();
   }, [refreshRecentSessions]);
+  useEffect(() => {
+    void refreshDrillOptions();
+  }, [refreshDrillOptions]);
+  useEffect(() => {
+    if (!selectedDrillKey) return;
+    window.localStorage.setItem(SELECTED_DRILL_STORAGE_KEY, selectedDrillKey);
+  }, [selectedDrillKey]);
 
   useEffect(() => {
     setReplayElapsedMs(0);
@@ -451,17 +538,38 @@ export function UploadVideoWorkspace() {
         <p className="muted" style={{ margin: "0.4rem 0 0" }}>
           Upload Video runs on this device using MediaPipe in your browser. Keep this tab open while processing. Switching tabs can slow processing, and closing/reloading stops queued jobs.
         </p>
+        <p className="muted" style={{ margin: "0.4rem 0 0" }}>
+          Session mode: {persistenceMode === "cloud" ? "Signed-in cloud mode (with local fallback)." : "Browser-local mode."}
+        </p>
       </div>
 
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
         <button type="button" className="pill" onClick={() => fileInputRef.current?.click()}>Upload videos and analyze</button>
-        <span className="muted">Linked drill: {referenceDrill.title}</span>
+        <label className="muted" style={{ fontSize: "0.85rem" }}>
+          Select drill
+          <select
+            value={selectedDrillKey ?? ""}
+            onChange={(event) => setSelectedDrillKey(event.target.value)}
+            style={{ marginLeft: "0.35rem", minWidth: 240 }}
+            disabled={drillOptionsLoading || drillOptions.length === 0}
+          >
+            {drillOptions.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label} ({option.sourceKind})
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="muted" style={{ fontSize: "0.85rem" }}>
           Cadence FPS
           <input type="number" min={4} max={30} value={cadenceFps} onChange={(event) => setCadenceFps(Math.max(4, Math.min(30, Number(event.target.value) || DEFAULT_CADENCE_FPS)))} style={{ marginLeft: "0.35rem", width: 70 }} />
         </label>
         <input ref={fileInputRef} type="file" accept="video/*" multiple style={{ display: "none" }} onChange={(event) => event.target.files && enqueueFiles(event.target.files)} />
       </div>
+      <p className="muted" style={{ margin: 0 }}>
+        Selected drill: <strong>{activeSelectedDrill.title}</strong> • type {activeSelectedDrill.drillType} • source{" "}
+        {selectedDrill?.sourceKind ?? "seeded"} {selectedDrill?.sourceId ? `(${selectedDrill.sourceId})` : ""}
+      </p>
 
       <div
         onDragOver={(event) => event.preventDefault()}
@@ -502,6 +610,9 @@ export function UploadVideoWorkspace() {
                 <strong>{job.fileName}</strong>
                 <p className="muted" style={{ margin: "0.2rem 0 0" }}>
                   {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)} • {job.status}
+                </p>
+                <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                  Queued drill: {job.drillSelection.drillBinding.drillName} ({job.drillSelection.drillBinding.sourceKind})
                 </p>
                 <p className="muted" style={{ margin: "0.2rem 0 0" }}>{job.stageLabel}</p>
                 {job.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{job.errorMessage}</p> : null}
@@ -673,6 +784,77 @@ export function UploadVideoWorkspace() {
                 Availability notes: {summarizeSessionAvailability(selectedSession).join(" • ")}
               </p>
             ) : null}
+            <div className="card" style={{ margin: "0.55rem 0 0", background: "rgba(148,163,184,0.08)" }}>
+              <h5 style={{ margin: 0 }}>Drill linkage</h5>
+              <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                Drill: {selectedSession.drillBinding?.drillName ?? selectedSession.drillTitle ?? selectedSession.drillId} • id{" "}
+                {selectedSession.drillBinding?.drillId ?? selectedSession.drillId} • version{" "}
+                {selectedSession.drillBinding?.drillVersion ?? selectedSession.drillVersion ?? "n/a"} • source{" "}
+                {selectedSession.drillBinding?.sourceKind ?? "unknown"}
+              </p>
+            </div>
+            <details open style={{ marginTop: "0.6rem" }}>
+              <summary style={{ cursor: "pointer" }}>Analysis inspection</summary>
+              {selectedSession.debug?.noEventCause ? (
+                <p className="muted" style={{ marginTop: "0.45rem" }}>
+                  No-event cause: {selectedSession.debug.noEventCause}
+                  {selectedSession.debug.noEventDetails?.length
+                    ? ` • ${selectedSession.debug.noEventDetails.join(" • ")}`
+                    : ""}
+                </p>
+              ) : null}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.45rem" }}>
+                  <thead>
+                    <tr className="muted">
+                      <th style={{ textAlign: "left" }}>t(ms)</th>
+                      <th style={{ textAlign: "left" }}>best phase</th>
+                      <th style={{ textAlign: "left" }}>score</th>
+                      <th style={{ textAlign: "left" }}>alternate</th>
+                      <th style={{ textAlign: "left" }}>quality</th>
+                      <th style={{ textAlign: "left" }}>smoothed</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedSession.frameSamples.slice(0, 250).map((sample) => {
+                      const sortedCandidates = Object.entries(sample.perPhaseScores ?? {})
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 2)
+                        .map(([phaseId, score]) => `${phaseId}:${score.toFixed(2)}`);
+                      const smoothedFrame = selectedSession.debug?.smoothedFrames?.find((frame) => frame.timestampMs === sample.timestampMs);
+                      return (
+                        <tr key={`sample-${sample.timestampMs}`}>
+                          <td><button type="button" className="pill" onClick={() => handleReplaySeek(sample.timestampMs)}>{sample.timestampMs}</button></td>
+                          <td>{sample.classifiedPhaseId ?? "unknown"}</td>
+                          <td>{sample.confidence.toFixed(2)}</td>
+                          <td>{sortedCandidates.join(", ") || "n/a"}</td>
+                          <td>{sample.confidence < 0.35 ? "low-confidence" : "ok"}</td>
+                          <td>{smoothedFrame?.smoothedPhaseId ?? "unknown"} {smoothedFrame?.transitionAccepted ? "✓" : ""}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {selectedSession.frameSamples.length > 250 ? (
+                <p className="muted" style={{ marginBottom: 0 }}>Showing first 250 samples to keep inspection responsive.</p>
+              ) : null}
+            </details>
+
+            <details open style={{ marginTop: "0.6rem" }}>
+              <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
+              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
+                {(selectedSession.debug?.smootherTransitions ?? []).map((transition, index) => (
+                  <li key={`transition-${transition.timestampMs}-${index}`}>
+                    <button type="button" className="pill" onClick={() => handleReplaySeek(transition.timestampMs)}>
+                      {transition.type} @ {(transition.timestampMs / 1000).toFixed(2)}s • from {transition.fromPhaseId ?? "n/a"} • to{" "}
+                      {transition.toPhaseId ?? transition.phaseId ?? "n/a"}
+                      {transition.details?.["reason"] ? ` • reason=${String(transition.details["reason"])}` : ""}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </details>
             <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
               <h5 style={{ margin: 0 }}>Replay review</h5>
               <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>

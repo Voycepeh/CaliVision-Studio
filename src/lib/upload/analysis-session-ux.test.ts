@@ -20,6 +20,25 @@ function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
     stageLabel: "Ready",
     progress: 0,
     createdAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      drill: {
+        drillId: "drill-1",
+        slug: "drill-1",
+        title: "Drill 1",
+        drillType: "rep",
+        difficulty: "beginner",
+        tags: [],
+        defaultView: "side",
+        phases: []
+      },
+      drillVersion: "sample-v1",
+      drillBinding: {
+        drillId: "drill-1",
+        drillName: "Drill 1",
+        drillVersion: "sample-v1",
+        sourceKind: "seeded"
+      }
+    },
     ...overrides
   };
 }
@@ -71,4 +90,30 @@ test("session detail labels missing source media or structured analysis clearly"
 test("debug-oriented partial outcomes are called out", () => {
   const label = getSessionOutcomeLabel(buildSession({ status: "partial", frameSamples: [], events: [] }));
   assert.equal(label, "Partial analysis");
+});
+
+test("no-event sessions surface explicit known cause messaging", () => {
+  const label = getSessionOutcomeLabel(
+    buildSession({
+      events: [],
+      debug: { noEventCause: "no_confirmed_phase_transitions" }
+    })
+  );
+  assert.equal(label, "Structured frames available, no confirmed phase transitions");
+
+  const notes = summarizeSessionAvailability(
+    buildSession({
+      events: [],
+      rawVideoUri: "upload://local/attempt.mp4",
+      debug: {
+        noEventCause: "low_confidence_frames",
+        noEventDetails: ["All sampled frames were below the classification confidence threshold."]
+      }
+    })
+  );
+  assert.deepEqual(notes, [
+    "Event log unavailable",
+    "Cause: low_confidence_frames",
+    "All sampled frames were below the classification confidence threshold."
+  ]);
 });
