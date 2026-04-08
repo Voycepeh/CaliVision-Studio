@@ -968,17 +968,25 @@ main {
 }
 
 .upload-workflow-action-card {
-  border: 2px solid rgba(114, 168, 255, 0.95);
-  background: rgba(114, 168, 255, 0.12);
+  border: 1px solid rgba(128, 157, 192, 0.36);
+  background: rgba(114, 168, 255, 0.06);
 }
 
 .upload-workflow-dropzone {
   border-style: dashed;
-  border-width: 2px;
-  border-color: rgba(144, 190, 255, 0.85);
-  background: rgba(114, 168, 255, 0.06);
+  border-width: 1px;
+  border-color: rgba(144, 190, 255, 0.6);
+  background: rgba(114, 168, 255, 0.04);
   text-align: center;
   padding: 0.8rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.upload-workflow-dropzone:hover,
+.upload-workflow-dropzone:focus-visible {
+  border-color: rgba(168, 202, 255, 0.82);
+  background: rgba(114, 168, 255, 0.08);
 }
 
 @media (max-width: 980px) {
