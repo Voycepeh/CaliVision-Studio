@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   createDrill,
   createDraftVersion,
+  deleteDrill,
   listDrillsWithActiveVersion,
   listVersionsForDrill,
   markVersionReady,
@@ -119,19 +120,29 @@ export function LibraryOverview() {
     const created = await createDrill(repositoryContext);
     setItemFeedback("global:create", "Created a new drill draft.");
     await refreshLibrary();
-    router.push(`/studio?draftId=${encodeURIComponent(created.draftVersionId)}`);
+    router.push(`/studio?drillId=${encodeURIComponent(created.drillId)}`);
   }
 
   async function onOpenForEdit(drill: DrillLibraryItem): Promise<void> {
-    if (drill.latestDraftVersionId) {
-      router.push(`/studio?draftId=${encodeURIComponent(drill.latestDraftVersionId)}`);
+    if (!drill.latestDraftVersionId && drill.activeReadyVersion) {
+      const drafted = await createDraftVersion(drill.drillId, repositoryContext);
+      setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? "Resumed draft version." : "Created draft version from active Ready version.");
+      await refreshLibrary();
+    }
+
+    router.push(`/studio?drillId=${encodeURIComponent(drill.drillId)}`);
+  }
+
+  async function onDeleteDrill(drill: DrillLibraryItem): Promise<void> {
+    const confirmed = window.confirm(`Delete drill "${drill.title}" and all versions? This cannot be undone.`);
+    if (!confirmed) {
       return;
     }
 
-    const drafted = await createDraftVersion(drill.drillId, repositoryContext);
-    setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? "Resumed draft version." : "Created draft version from active Ready version.");
+    // Delete is intentionally destructive-only: do not create drafts and do not navigate to Studio.
+    await deleteDrill(drill.drillId, repositoryContext);
+    setItemFeedback(`drill:${drill.drillId}`, "Deleted drill and all versions.");
     await refreshLibrary();
-    router.push(`/studio?draftId=${encodeURIComponent(drafted.draftVersionId)}`);
   }
 
   async function onMarkReady(drill: DrillLibraryItem): Promise<void> {
@@ -249,6 +260,9 @@ export function LibraryOverview() {
                     </button>
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
                       Export drill file
+                    </button>
+                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`delete:${drill.drillId}`, "Deleting drill…", () => onDeleteDrill(drill))}>
+                      Delete
                     </button>
                   </div>
 

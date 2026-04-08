@@ -7,7 +7,7 @@ import { StudioExperience } from "@/components/studio/StudioExperience";
 export default async function StudioPage({
   searchParams
 }: {
-  searchParams: Promise<{ packageId?: string; draftId?: string; hostedDraftId?: string }>;
+  searchParams: Promise<{ packageId?: string; draftId?: string; drillId?: string; versionId?: string; hostedDraftId?: string }>;
 }) {
   const params = await searchParams;
   return (
@@ -16,7 +16,13 @@ export default async function StudioPage({
       title="Drill Studio"
       description="Edit the currently selected drill draft top-to-bottom, from drill info and phase pose authoring through review."
     >
-      <StudioExperience initialPackageId={params.packageId} initialDraftId={params.draftId} initialHostedDraftId={params.hostedDraftId} />
+      <StudioExperience
+        initialPackageId={params.packageId}
+        initialDraftId={params.draftId}
+        initialDrillId={params.drillId}
+        initialVersionId={params.versionId}
+        initialHostedDraftId={params.hostedDraftId}
+      />
     </RoutePageIntro>
   );
 }

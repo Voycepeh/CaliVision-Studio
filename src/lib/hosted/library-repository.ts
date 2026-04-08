@@ -9,6 +9,7 @@ export type HostedLibraryItem = {
   title: string;
   summary: string;
   content: DrillPackage;
+  createdAtIso: string;
   updatedAtIso: string;
 };
 
@@ -20,6 +21,7 @@ type HostedLibraryRow = {
   title: string;
   summary: string;
   content: DrillPackage;
+  created_at: string;
   updated_at: string;
 };
 
@@ -42,6 +44,7 @@ function mapRow(row: HostedLibraryRow): HostedLibraryItem {
     title: row.title,
     summary: row.summary,
     content: row.content,
+    createdAtIso: row.created_at,
     updatedAtIso: row.updated_at
   };
 }

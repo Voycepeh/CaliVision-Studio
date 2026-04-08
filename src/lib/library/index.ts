@@ -1,9 +1,12 @@
 export {
   createDraftVersion,
   createDrill,
+  deleteDrill,
   listDrillsWithActiveVersion,
   listReadyDrillsForUpload,
   listVersionsForDrill,
+  loadEditableVersionForDrill,
+  loadVersionById,
   markVersionReady,
   publishVersion,
   type DrillLibraryItem,
