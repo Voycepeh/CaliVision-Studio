@@ -145,12 +145,12 @@ test("reviewable session detection accepts meaningful analysis without media uri
   assert.equal(isReviewableSession(session), true);
 });
 
-test("reviewable session detection rejects empty failed attempts", () => {
+test("reviewable session detection rejects empty failed attempts even with source uri", () => {
   const session = buildSession({
     status: "failed",
     rawVideoUri: undefined,
     annotatedVideoUri: undefined,
-    sourceUri: undefined,
+    sourceUri: "upload://local/upload-job-failed/attempt.mp4",
     frameSamples: [],
     events: [],
     summary: { repCount: 0, analyzedDurationMs: 0, holdDurationMs: 0 }

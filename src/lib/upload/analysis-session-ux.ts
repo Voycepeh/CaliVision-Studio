@@ -98,7 +98,7 @@ export function findLatestSessionForUpload(sessions: AnalysisSessionRecord[], so
 }
 
 export function hasPlayableMediaSource(session: AnalysisSessionRecord): boolean {
-  return Boolean(session.rawVideoUri || session.annotatedVideoUri || session.sourceUri);
+  return Boolean(session.rawVideoUri || session.annotatedVideoUri);
 }
 
 export function hasMeaningfulAnalysisOutput(session: AnalysisSessionRecord): boolean {
