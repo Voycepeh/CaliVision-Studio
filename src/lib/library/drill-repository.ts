@@ -1,0 +1,369 @@
+import { ensureVersioningMetadata, getPrimarySamplePackage } from "@/lib/package";
+import { deleteHostedDraft, listMyHostedDrafts, loadHostedDraft, upsertHostedDraft } from "@/lib/hosted/repository";
+import { listHostedLibrary, upsertHostedLibraryItem } from "@/lib/hosted/library-repository";
+import type { AuthSession } from "@/lib/auth/supabase-auth";
+import { deleteDraft, loadDraft, loadDraftList, saveDraft, type LocalDraftRecord, type LocalDraftSummary } from "@/lib/persistence/local-draft-store";
+import { loadLocalRegistryEntries, upsertRegistryEntryFromPackage, type PackageRegistryEntry } from "@/lib/registry";
+import type { DrillPackage } from "@/lib/schema/contracts";
+
+export type DrillVersionStatus = "draft" | "ready";
+
+export type DrillRepositoryContext = {
+  mode: "local" | "cloud";
+  session?: AuthSession | null;
+};
+
+export type DrillVersionSnapshot = {
+  versionId: string;
+  drillId: string;
+  versionNumber: number;
+  status: DrillVersionStatus;
+  isPublished: boolean;
+  createdAtIso: string;
+  updatedAtIso: string;
+  title: string;
+  packageJson: DrillPackage;
+  source: "draft" | "library";
+  sourceId: string;
+};
+
+export type DrillLibraryItem = {
+  drillId: string;
+  title: string;
+  currentVersionId: string;
+  activeReadyVersionId: string | null;
+  latestDraftVersionId: string | null;
+  currentVersion: DrillVersionSnapshot;
+  activeReadyVersion: DrillVersionSnapshot | null;
+  updatedAtIso: string;
+};
+
+const LOCAL_CONTEXT: DrillRepositoryContext = { mode: "local" };
+
+function asContext(context?: DrillRepositoryContext): DrillRepositoryContext {
+  return context ?? LOCAL_CONTEXT;
+}
+
+function isCloudContext(context: DrillRepositoryContext): context is DrillRepositoryContext & { mode: "cloud"; session: AuthSession } {
+  return context.mode === "cloud" && Boolean(context.session);
+}
+
+function parseVersionNumber(pkg: DrillPackage): number {
+  const revision = pkg.manifest.versioning?.revision;
+  if (typeof revision === "number" && Number.isFinite(revision) && revision > 0) return Math.floor(revision);
+  const parsed = Number.parseInt(pkg.manifest.packageVersion.split(".").at(-1) ?? "1", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function toDraftVersion(summary: LocalDraftSummary, record: LocalDraftRecord): DrillVersionSnapshot {
+  const pkg = ensureVersioningMetadata(record.packageJson);
+  return {
+    versionId: summary.draftId,
+    drillId: summary.packageId,
+    versionNumber: parseVersionNumber(pkg),
+    status: "draft",
+    isPublished: false,
+    createdAtIso: summary.createdAtIso,
+    updatedAtIso: summary.updatedAtIso,
+    title: summary.title,
+    packageJson: pkg,
+    source: "draft",
+    sourceId: summary.draftId
+  };
+}
+
+function toReadyVersion(entry: PackageRegistryEntry): DrillVersionSnapshot {
+  const pkg = ensureVersioningMetadata(entry.details.packageJson);
+  return {
+    versionId: entry.entryId,
+    drillId: entry.summary.packageId,
+    versionNumber: parseVersionNumber(pkg),
+    status: "ready",
+    isPublished: entry.summary.publishStatus === "published",
+    createdAtIso: pkg.manifest.createdAtIso,
+    updatedAtIso: entry.summary.updatedAtIso,
+    title: entry.summary.title,
+    packageJson: pkg,
+    source: "library",
+    sourceId: entry.entryId
+  };
+}
+
+async function listLocalVersions(): Promise<DrillVersionSnapshot[]> {
+  const [drafts, entries] = await Promise.all([loadDraftList(), Promise.resolve(loadLocalRegistryEntries())]);
+  const draftVersions = await Promise.all(
+    drafts.map(async (draft) => {
+      const loaded = await loadDraft(draft.draftId);
+      return loaded ? toDraftVersion(draft, loaded.record) : null;
+    })
+  );
+  const readyVersions = entries.map(toReadyVersion);
+  return [...readyVersions, ...draftVersions.filter((v): v is DrillVersionSnapshot => Boolean(v))].sort(
+    (a, b) => new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime()
+  );
+}
+
+async function listCloudVersions(session: AuthSession): Promise<DrillVersionSnapshot[]> {
+  const [draftsResult, libraryResult] = await Promise.all([listMyHostedDrafts(session), listHostedLibrary(session)]);
+  if (!draftsResult.ok) {
+    throw new Error(draftsResult.error);
+  }
+  if (!libraryResult.ok) {
+    throw new Error(libraryResult.error);
+  }
+
+  const loadedDrafts = (await Promise.all(
+    draftsResult.value.map(async (draft) => {
+      const loaded = await loadHostedDraft(session, draft.id);
+      if (!loaded.ok) {
+        return null;
+      }
+      const pkg = ensureVersioningMetadata(loaded.value.content);
+      return {
+        versionId: draft.id,
+        drillId: draft.packageId,
+        versionNumber: parseVersionNumber(pkg),
+        status: "draft" as const,
+        isPublished: false,
+        createdAtIso: pkg.manifest.createdAtIso,
+        updatedAtIso: draft.updatedAtIso,
+        title: draft.title,
+        packageJson: pkg,
+        source: "draft" as const,
+        sourceId: draft.id
+      };
+    })
+  )) as Array<DrillVersionSnapshot | null>;
+
+  const readyVersions = libraryResult.value.map((item) => {
+    const pkg = ensureVersioningMetadata(item.content);
+    return {
+      versionId: item.id,
+      drillId: item.packageId,
+      versionNumber: parseVersionNumber(pkg),
+      status: "ready" as const,
+      isPublished: pkg.manifest.publishing?.publishStatus === "published",
+      createdAtIso: pkg.manifest.createdAtIso,
+      updatedAtIso: item.updatedAtIso,
+      title: item.title,
+      packageJson: pkg,
+      source: "library" as const,
+      sourceId: item.id
+    };
+  });
+
+  return [...readyVersions, ...loadedDrafts.filter((v): v is NonNullable<typeof v> => v !== null)].sort(
+    (a, b) => new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime()
+  );
+}
+
+async function listAllVersions(context?: DrillRepositoryContext): Promise<DrillVersionSnapshot[]> {
+  const resolved = asContext(context);
+  if (isCloudContext(resolved)) {
+    return listCloudVersions(resolved.session);
+  }
+  return listLocalVersions();
+}
+
+export async function listVersionsForDrill(drillId: string, context?: DrillRepositoryContext): Promise<DrillVersionSnapshot[]> {
+  const versions = await listAllVersions(context);
+  return versions.filter((version) => version.drillId === drillId);
+}
+
+export async function listDrillsWithActiveVersion(context?: DrillRepositoryContext): Promise<DrillLibraryItem[]> {
+  const versions = await listAllVersions(context);
+  const drillIds = new Set(versions.map((version) => version.drillId));
+
+  const drills = Array.from(drillIds).map((drillId) => {
+    const drillVersions = versions.filter((version) => version.drillId === drillId);
+    const currentVersion = drillVersions[0];
+    if (!currentVersion) {
+      return null;
+    }
+    const activeReadyVersion = drillVersions.find((version) => version.status === "ready") ?? null;
+    const latestDraftVersion = drillVersions.find((version) => version.status === "draft") ?? null;
+
+    return {
+      drillId,
+      title: currentVersion.title,
+      currentVersionId: currentVersion.versionId,
+      activeReadyVersionId: activeReadyVersion?.versionId ?? null,
+      latestDraftVersionId: latestDraftVersion?.versionId ?? null,
+      currentVersion,
+      activeReadyVersion,
+      updatedAtIso: currentVersion.updatedAtIso
+    } satisfies DrillLibraryItem;
+  });
+
+  return drills.filter((item): item is DrillLibraryItem => item !== null).sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
+}
+
+export async function createDrill(context?: DrillRepositoryContext): Promise<{ drillId: string; draftVersionId: string }> {
+  const resolved = asContext(context);
+  const now = new Date().toISOString();
+  const draftId = `draft-${Date.now()}`;
+  const drillId = `drill-${Date.now()}`;
+  const pkg = ensureVersioningMetadata(structuredClone(getPrimarySamplePackage()));
+  pkg.manifest.packageId = drillId;
+  pkg.manifest.packageVersion = "0.1.0";
+  pkg.manifest.createdAtIso = now;
+  pkg.manifest.updatedAtIso = now;
+  pkg.manifest.versioning = {
+    ...(pkg.manifest.versioning ?? {}),
+    packageSlug: pkg.manifest.versioning?.packageSlug ?? drillId,
+    lineageId: drillId,
+    versionId: draftId,
+    revision: 1,
+    draftStatus: "draft"
+  };
+  if (pkg.drills[0]) {
+    pkg.drills[0].drillId = drillId;
+    pkg.drills[0].title = "New drill";
+  }
+
+  if (isCloudContext(resolved)) {
+    const saved = await upsertHostedDraft(resolved.session, { packageJson: pkg });
+    if (!saved.ok) {
+      throw new Error(saved.error);
+    }
+    return { drillId, draftVersionId: saved.value.id };
+  }
+
+  await saveDraft({ draftId, sourceLabel: "authored-local", packageJson: pkg, assetsById: {} });
+  return { drillId, draftVersionId: draftId };
+}
+
+export async function createDraftVersion(drillId: string, context?: DrillRepositoryContext): Promise<{ draftVersionId: string; resumed: boolean }> {
+  const versions = await listVersionsForDrill(drillId, context);
+  const existingDraft = versions.find((version) => version.status === "draft");
+  if (existingDraft) {
+    return { draftVersionId: existingDraft.versionId, resumed: true };
+  }
+
+  const activeReady = versions.find((version) => version.status === "ready");
+  if (!activeReady) {
+    throw new Error("No base ready version exists for this drill yet.");
+  }
+
+  const nextDraftId = `draft-${Date.now()}`;
+  const next = ensureVersioningMetadata(structuredClone(activeReady.packageJson));
+  next.manifest.updatedAtIso = new Date().toISOString();
+  next.manifest.versioning = {
+    ...(next.manifest.versioning ?? {}),
+    packageSlug: next.manifest.versioning?.packageSlug ?? next.manifest.packageId,
+    versionId: nextDraftId,
+    revision: (next.manifest.versioning?.revision ?? parseVersionNumber(next)) + 1,
+    lineageId: next.manifest.versioning?.lineageId ?? next.manifest.packageId,
+    draftStatus: "draft",
+    derivedFrom: {
+      relation: "new-version",
+      parentPackageId: activeReady.packageJson.manifest.packageId,
+      parentVersionId: activeReady.packageJson.manifest.versioning?.versionId ?? activeReady.packageJson.manifest.packageVersion,
+      note: activeReady.isPublished ? "Derived from published ready version." : "Derived from ready version."
+    }
+  };
+
+  const resolved = asContext(context);
+  if (isCloudContext(resolved)) {
+    const saved = await upsertHostedDraft(resolved.session, { packageJson: next });
+    if (!saved.ok) {
+      throw new Error(saved.error);
+    }
+    return { draftVersionId: saved.value.id, resumed: false };
+  }
+
+  await saveDraft({ draftId: nextDraftId, sourceLabel: `new-version:${activeReady.versionId}`, packageJson: next, assetsById: {} });
+  return { draftVersionId: nextDraftId, resumed: false };
+}
+
+export async function markVersionReady(draftVersionId: string, context?: DrillRepositoryContext): Promise<void> {
+  const resolved = asContext(context);
+
+  if (isCloudContext(resolved)) {
+    const loaded = await loadHostedDraft(resolved.session, draftVersionId);
+    if (!loaded.ok) {
+      throw new Error(loaded.error);
+    }
+    const pkg = ensureVersioningMetadata(structuredClone(loaded.value.content));
+    pkg.manifest.versioning = {
+      ...(pkg.manifest.versioning ?? {}),
+      packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
+      versionId: pkg.manifest.versioning?.versionId ?? draftVersionId,
+      revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
+      lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
+      draftStatus: "publish-ready"
+    };
+    pkg.manifest.updatedAtIso = new Date().toISOString();
+
+    const upserted = await upsertHostedLibraryItem(resolved.session, pkg);
+    if (!upserted.ok) {
+      throw new Error(upserted.error);
+    }
+
+    const removed = await deleteHostedDraft(resolved.session, draftVersionId);
+    if (!removed.ok) {
+      throw new Error(removed.error);
+    }
+    return;
+  }
+
+  const loaded = await loadDraft(draftVersionId);
+  if (!loaded) {
+    throw new Error("Draft version could not be loaded.");
+  }
+
+  const pkg = ensureVersioningMetadata(structuredClone(loaded.record.packageJson));
+  pkg.manifest.versioning = {
+    ...(pkg.manifest.versioning ?? {}),
+    packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
+    versionId: pkg.manifest.versioning?.versionId ?? draftVersionId,
+    revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
+    lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
+    draftStatus: "publish-ready"
+  };
+  pkg.manifest.updatedAtIso = new Date().toISOString();
+
+  upsertRegistryEntryFromPackage({ packageJson: pkg, sourceType: "authored-local", sourceLabel: `ready-from:${draftVersionId}` });
+  await deleteDraft(draftVersionId);
+}
+
+export async function publishVersion(version: DrillVersionSnapshot, context?: DrillRepositoryContext): Promise<void> {
+  if (version.status !== "ready") {
+    throw new Error("Only Ready versions can be published.");
+  }
+
+  const pkg = ensureVersioningMetadata(structuredClone(version.packageJson));
+  pkg.manifest.publishing = { ...(pkg.manifest.publishing ?? {}), publishStatus: "published" };
+  pkg.manifest.updatedAtIso = new Date().toISOString();
+
+  const resolved = asContext(context);
+  if (isCloudContext(resolved)) {
+    const upserted = await upsertHostedLibraryItem(resolved.session, pkg);
+    if (!upserted.ok) {
+      throw new Error(upserted.error);
+    }
+    return;
+  }
+
+  upsertRegistryEntryFromPackage({
+    packageJson: pkg,
+    sourceType: "mock-published",
+    sourceLabel: `published-from:${version.versionId}`,
+    publishedAtIso: new Date().toISOString()
+  });
+}
+
+export async function listReadyDrillsForUpload(
+  context?: DrillRepositoryContext
+): Promise<Array<{ drillId: string; title: string; versionId: string; packageJson: DrillPackage; isPublished: boolean }>> {
+  const drills = await listDrillsWithActiveVersion(context);
+  return drills
+    .filter((drill) => Boolean(drill.activeReadyVersion))
+    .map((drill) => ({
+      drillId: drill.drillId,
+      title: drill.title,
+      versionId: drill.activeReadyVersion?.versionId ?? drill.currentVersionId,
+      packageJson: drill.activeReadyVersion?.packageJson ?? drill.currentVersion.packageJson,
+      isPublished: Boolean(drill.activeReadyVersion?.isPublished)
+    }));
+}
