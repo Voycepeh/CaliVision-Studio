@@ -124,7 +124,7 @@ type ReadyUploadDrill = Awaited<ReturnType<typeof listReadyDrillsForUpload>>[num
 export function UploadVideoWorkspace() {
   const { persistenceMode, session } = useAuth();
   const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
-  const { session, isConfigured } = useAuth();
+  const { session, isConfigured, persistenceMode } = useAuth();
   const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -558,6 +558,9 @@ export function UploadVideoWorkspace() {
         <strong>Local processing notice</strong>
         <p className="muted" style={{ margin: "0.4rem 0 0" }}>
           Upload Video runs on this device using MediaPipe in your browser. Keep this tab open while processing. Switching tabs can slow processing, and closing/reloading stops queued jobs.
+        </p>
+        <p className="muted" style={{ margin: "0.4rem 0 0" }}>
+          Session mode: {persistenceMode === "cloud" ? "Signed-in cloud mode (with local fallback)." : "Browser-local mode."}
         </p>
       </div>
 
