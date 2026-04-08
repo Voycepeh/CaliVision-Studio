@@ -32,10 +32,12 @@ export type DrillLibraryItem = {
   drillId: string;
   title: string;
   currentVersionId: string;
+  openDraftVersionId: string | null;
   activeReadyVersionId: string | null;
   latestDraftVersionId: string | null;
   currentVersion: DrillVersionSnapshot;
   activeReadyVersion: DrillVersionSnapshot | null;
+  openDraftVersion: DrillVersionSnapshot | null;
   updatedAtIso: string;
 };
 
@@ -101,6 +103,37 @@ function statusFromPackage(pkg: DrillPackage): DrillVersionStatus {
   return pkg.manifest.versioning?.draftStatus === "draft" ? "draft" : "ready";
 }
 
+function toReleasedPackage(pkg: DrillPackage): DrillPackage {
+  const next = ensureVersioningMetadata(structuredClone(pkg));
+  next.manifest.versioning = {
+    ...(next.manifest.versioning ?? {}),
+    packageSlug: next.manifest.versioning?.packageSlug ?? next.manifest.packageId,
+    versionId: next.manifest.versioning?.versionId ?? `${next.manifest.packageId}@${next.manifest.packageVersion}`,
+    revision: next.manifest.versioning?.revision ?? parseVersionNumber(next),
+    lineageId: next.manifest.versioning?.lineageId ?? next.manifest.packageId,
+    draftStatus: "publish-ready"
+  };
+  return next;
+}
+
+function toImportedLocalPackage(pkg: DrillPackage): DrillPackage {
+  const next = toReleasedPackage(pkg);
+  const versioning = next.manifest.versioning;
+  next.manifest.versioning = {
+    packageSlug: versioning?.packageSlug ?? next.manifest.packageId,
+    versionId: versioning?.versionId ?? `${next.manifest.packageId}@${next.manifest.packageVersion}`,
+    revision: versioning?.revision ?? parseVersionNumber(next),
+    lineageId: versioning?.lineageId ?? next.manifest.packageId,
+    draftStatus: "publish-ready",
+    derivedFrom: versioning?.derivedFrom ?? {
+      relation: "import",
+      parentPackageId: pkg.manifest.packageId,
+      parentVersionId: pkg.manifest.versioning?.versionId ?? `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`
+    }
+  };
+  return next;
+}
+
 function toDraftVersion(summary: LocalDraftSummary, record: LocalDraftRecord): DrillVersionSnapshot {
   const pkg = ensureVersioningMetadata(record.packageJson);
   return {
@@ -119,18 +152,18 @@ function toDraftVersion(summary: LocalDraftSummary, record: LocalDraftRecord): D
 }
 
 function toReadyVersion(entry: PackageRegistryEntry): DrillVersionSnapshot {
-  const pkg = ensureVersioningMetadata(entry.details.packageJson);
+  const pkg = toReleasedPackage(entry.details.packageJson);
   return {
     versionId: entry.summary.versionId ?? entry.entryId,
     drillId: entry.summary.packageId,
     versionNumber: parseVersionNumber(pkg),
-    status: statusFromPackage(pkg),
+    status: "ready",
     isPublished: entry.summary.publishStatus === "published",
     createdAtIso: pkg.manifest.createdAtIso,
     updatedAtIso: entry.summary.updatedAtIso,
     title: entry.summary.title,
     packageJson: pkg,
-    source: entry.summary.publishStatus === "draft" ? "draft" : "library",
+    source: "library",
     sourceId: entry.entryId
   };
 }
@@ -222,7 +255,7 @@ export async function importDrillPackage(
       otherWorkspacePackages: localVersions.map((version) => version.packageJson)
     });
     if (decision.status !== "duplicate") {
-      await dependencies.saveCloudPackage(resolved.session, pkg);
+      await dependencies.saveCloudPackage(resolved.session, toImportedLocalPackage(pkg));
     }
 
     return decision;
@@ -235,7 +268,7 @@ export async function importDrillPackage(
     targetWorkspacePackages: localVersions.map((version) => version.packageJson)
   });
   if (decision.status !== "duplicate") {
-    dependencies.saveLocalPackage(pkg, input.sourceLabel);
+    dependencies.saveLocalPackage(toImportedLocalPackage(pkg), input.sourceLabel);
   }
 
   return decision;
@@ -280,16 +313,19 @@ export async function listDrillsWithActiveVersion(context?: DrillRepositoryConte
     }
     const activeReadyVersion = drillVersions.find((version) => version.status === "ready") ?? null;
     const latestDraftVersion = drillVersions.find((version) => version.status === "draft") ?? null;
+    const displayCurrentVersion = latestDraftVersion ?? activeReadyVersion ?? currentVersion;
 
     return {
       drillId,
-      title: currentVersion.title,
-      currentVersionId: currentVersion.versionId,
+      title: displayCurrentVersion.title,
+      currentVersionId: displayCurrentVersion.versionId,
+      openDraftVersionId: latestDraftVersion?.versionId ?? null,
       activeReadyVersionId: activeReadyVersion?.versionId ?? null,
       latestDraftVersionId: latestDraftVersion?.versionId ?? null,
-      currentVersion,
+      currentVersion: displayCurrentVersion,
       activeReadyVersion,
-      updatedAtIso: currentVersion.updatedAtIso
+      openDraftVersion: latestDraftVersion,
+      updatedAtIso: displayCurrentVersion.updatedAtIso
     } satisfies DrillLibraryItem;
   });
 
@@ -338,11 +374,45 @@ export async function createDrill(context?: DrillRepositoryContext): Promise<{ d
 export async function createDraftVersion(drillId: string, context?: DrillRepositoryContext): Promise<{ draftVersionId: string; resumed: boolean }> {
   const versions = await listVersionsForDrill(drillId, context);
   const existingDraft = versions.find((version) => version.status === "draft");
+  const activeReady = versions.find((version) => version.status === "ready");
+  const expectedNextVersion = (activeReady?.versionNumber ?? 0) + 1;
   if (existingDraft) {
+    if (existingDraft.versionNumber <= (activeReady?.versionNumber ?? 0) && activeReady) {
+      const updatedDraft = ensureVersioningMetadata(structuredClone(existingDraft.packageJson));
+      updatedDraft.manifest.packageVersion = bumpPatchVersion(activeReady.packageJson.manifest.packageVersion);
+      updatedDraft.manifest.updatedAtIso = new Date().toISOString();
+      updatedDraft.manifest.versioning = {
+        ...(updatedDraft.manifest.versioning ?? {}),
+        packageSlug: updatedDraft.manifest.versioning?.packageSlug ?? updatedDraft.manifest.packageId,
+        versionId: existingDraft.versionId,
+        revision: expectedNextVersion,
+        lineageId: updatedDraft.manifest.versioning?.lineageId ?? updatedDraft.manifest.packageId,
+        draftStatus: "draft",
+        derivedFrom: {
+          relation: "new-version",
+          parentPackageId: activeReady.packageJson.manifest.packageId,
+          parentVersionId: activeReady.packageJson.manifest.versioning?.versionId ?? activeReady.packageJson.manifest.packageVersion,
+          note: "Normalized legacy draft to next version."
+        }
+      };
+
+      const resolved = asContext(context);
+      if (isCloudContext(resolved)) {
+        const saved = await upsertHostedLibraryItem(resolved.session, updatedDraft);
+        if (!saved.ok) throw new Error(saved.error);
+      } else {
+        const currentDraft = await loadDraft(existingDraft.versionId);
+        await saveDraft({
+          draftId: existingDraft.versionId,
+          sourceLabel: currentDraft?.record.sourceLabel ?? `normalized:${existingDraft.versionId}`,
+          packageJson: updatedDraft,
+          assetsById: currentDraft?.assetsById ?? {}
+        });
+      }
+    }
     return { draftVersionId: existingDraft.versionId, resumed: true };
   }
 
-  const activeReady = versions.find((version) => version.status === "ready");
   if (!activeReady) {
     throw new Error("No base ready version exists for this drill yet.");
   }
@@ -414,12 +484,14 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
       throw new Error("Draft version could not be loaded.");
     }
 
+    const versions = await listVersionsForDrill(loaded.drillId, resolved);
+    const maxReady = versions.filter((version) => version.status === "ready").reduce((max, version) => Math.max(max, version.versionNumber), 0);
     const pkg = ensureVersioningMetadata(structuredClone(loaded.packageJson));
     pkg.manifest.versioning = {
       ...(pkg.manifest.versioning ?? {}),
       packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
       versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
-      revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
+      revision: Math.max(pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg), maxReady + 1),
       lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
       draftStatus: "publish-ready"
     };
@@ -437,12 +509,18 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
     throw new Error("Draft version could not be loaded.");
   }
 
+  const versions = await listVersionsForDrill(loaded.record.packageJson.manifest.packageId, resolved);
+  const maxReady = versions.filter((version) => version.status === "ready").reduce((max, version) => Math.max(max, version.versionNumber), 0);
   const pkg = ensureVersioningMetadata(structuredClone(loaded.record.packageJson));
+  if (parseVersionNumber(pkg) <= maxReady) {
+    const sourceReady = versions.find((version) => version.status === "ready" && version.versionNumber === maxReady);
+    pkg.manifest.packageVersion = sourceReady ? bumpPatchVersion(sourceReady.packageJson.manifest.packageVersion) : bumpPatchVersion(pkg.manifest.packageVersion);
+  }
   pkg.manifest.versioning = {
     ...(pkg.manifest.versioning ?? {}),
     packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
     versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
-    revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
+    revision: Math.max(pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg), maxReady + 1),
     lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
     draftStatus: "publish-ready"
   };

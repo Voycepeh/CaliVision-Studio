@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { upsertHostedLibraryItem } from "@/lib/hosted/library-repository";
 import {
@@ -119,6 +120,7 @@ type StudioStateValue = {
   localSaveState: LocalSaveState;
   hostedSaveState: HostedSaveState;
   hostedSaveStatusMessage: string;
+  draftVersionLabel: string;
   selectedPackage: EditablePackageEntry | null;
   selectedPhaseSourceImage: PhaseSourceImage | null;
   selectedPhaseDetection: DetectionWorkflowState;
@@ -345,6 +347,7 @@ export function StudioStateProvider({
   const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Cloud save is available when signed in.");
   const [, setHostedVersionIdsByPackageKey] = useState<Record<string, string>>({});
   const { session, isConfigured, persistenceMode } = useAuth();
+  const router = useRouter();
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const [hydrationComplete, setHydrationComplete] = useState(false);
   const hasLoadedDraftsRef = useRef(false);
@@ -722,6 +725,10 @@ export function StudioStateProvider({
             : "Draft saved on this browser"
     : "No drill loaded";
 
+  const draftVersionLabel = selectedPackage
+    ? `Editing draft for v${selectedPackage.workingPackage.manifest.versioning?.revision ?? 1}`
+    : "No draft selected";
+
 
   async function saveSelectedToHosted(): Promise<void> {
     if (!selectedPackage) {
@@ -772,12 +779,26 @@ export function StudioStateProvider({
       return;
     }
 
-    await markVersionReady(versionId, persistenceMode === "cloud" && session ? { mode: "cloud", session } : { mode: "local" });
-    setImportFeedback({
-      status: "success",
-      message: "Draft version marked Ready and available for Upload Video / Publish.",
-      issues: []
-    });
+    setImportFeedback({ status: "warning", message: "Marking draft ready…", issues: [] });
+
+    try {
+      await markVersionReady(versionId, persistenceMode === "cloud" && session ? { mode: "cloud", session } : { mode: "local" });
+      const readyRevision = selectedPackage.workingPackage.manifest.versioning?.revision ?? 1;
+      setImportFeedback({
+        status: "success",
+        message: `Draft marked ready as v${readyRevision}. Returning to Library…`,
+        issues: []
+      });
+      window.setTimeout(() => {
+        router.push("/library");
+      }, 350);
+    } catch {
+      setImportFeedback({
+        status: "error",
+        message: "Could not mark this draft ready. Make sure you are editing an open draft, then try again.",
+        issues: []
+      });
+    }
   }
 
   async function importFromFile(file: File): Promise<void> {
@@ -1736,6 +1757,7 @@ export function StudioStateProvider({
     localSaveState,
     hostedSaveState,
     hostedSaveStatusMessage,
+    draftVersionLabel,
     selectedPackage,
     selectedPhaseSourceImage,
     selectedPhaseDetection,

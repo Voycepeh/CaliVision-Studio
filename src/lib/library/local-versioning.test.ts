@@ -77,3 +77,14 @@ test("reconcileLocalVersionSnapshots preserves editable draft and ready lineage"
   assert.ok(reconciled.find((item) => item.status === "draft" && item.versionId === "draft-v3"));
   assert.ok(reconciled.find((item) => item.status === "ready" && item.versionId === "ready-v2"));
 });
+
+test("reconcileLocalVersionSnapshots normalizes legacy same-version draft to next version", () => {
+  const ready = makeSnapshot({ drillId: "drill-3", versionId: "ready-v1", versionNumber: 1, status: "ready", updatedAtIso: "2026-04-08T03:00:00.000Z" });
+  const legacyDraft = makeSnapshot({ drillId: "drill-3", versionId: "draft-v1", versionNumber: 1, status: "draft", updatedAtIso: "2026-04-08T04:00:00.000Z" });
+
+  const reconciled = reconcileLocalVersionSnapshots([ready, legacyDraft]);
+  const draft = reconciled.find((item) => item.status === "draft");
+
+  assert.ok(draft);
+  assert.equal(draft?.versionNumber, 2);
+});

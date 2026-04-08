@@ -5,8 +5,10 @@ As of April 8, 2026, **normal Studio edit/save/load lifecycle no longer uses `ho
 ## Active model
 
 - `hosted_library` is the hosted source of truth for drill versions.
-- Draft vs Ready is represented by version metadata (`manifest.versioning.draftStatus`), not by separate tables in UI flow.
+- Draft vs released version is represented by metadata (`manifest.versioning.draftStatus`), but UI semantics treat drafts separately from released version history.
 - Library and Studio both target the same drill identity (`packageId`) and version identity (`versionId`).
+- At most one open draft is allowed per drill identity; released versions remain immutable history (`v1`, `v2`, `v3`).
+- Mark Ready finalizes the open draft into the next released version and closes draft state.
 
 ## Why `hosted_drafts` still exists
 
