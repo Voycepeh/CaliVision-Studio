@@ -13,3 +13,5 @@ export {
 } from "./session-repository.ts";
 export type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
 export { persistCompletedUploadAnalysisSession, persistFailedUploadAnalysisSession } from "./session-service.ts";
+
+export { deriveReplayMarkers, deriveReplaySessionOverview, deriveReplayStateAtTime, getReplayDurationMs } from "./replay-state.ts";

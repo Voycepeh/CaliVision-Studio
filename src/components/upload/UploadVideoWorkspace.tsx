@@ -8,7 +8,11 @@ import { getPrimarySamplePackage } from "@/lib/package/samples";
 import {
   createImportedAnalysisSessionCopy,
   deserializeAnalysisSession,
+  deriveReplayMarkers,
+  deriveReplaySessionOverview,
+  deriveReplayStateAtTime,
   getBrowserAnalysisSessionRepository,
+  getReplayDurationMs,
   persistCompletedUploadAnalysisSession,
   persistFailedUploadAnalysisSession,
   serializeAnalysisSession,
@@ -34,6 +38,20 @@ function formatDuration(durationMs?: number): string {
     return "Unknown";
   }
   return `${(durationMs / 1000).toFixed(1)}s`;
+}
+
+function formatClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function markerColor(type: string): string {
+  if (type === "rep_complete") return "#89f0a5";
+  if (type === "hold_start" || type === "hold_end") return "#f5c77a";
+  if (type === "invalid_transition" || type === "partial_attempt") return "#f09c9c";
+  return "#7fb6ff";
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -80,11 +98,21 @@ export function UploadVideoWorkspace() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [isReplayPlaying, setIsReplayPlaying] = useState(false);
+  const [replayElapsedMs, setReplayElapsedMs] = useState(0);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs.find((job) => job.status === "completed"), [jobs, selectedJobId]);
   const selectedSession = useMemo(
     () => recentSessions.find((session) => session.sessionId === selectedSessionId) ?? recentSessions[0],
     [recentSessions, selectedSessionId]
+  );
+  const replayDurationMs = useMemo(() => getReplayDurationMs(selectedSession), [selectedSession]);
+  const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
+  const replayMarkers = useMemo(() => deriveReplayMarkers(selectedSession), [selectedSession]);
+  const replayOverview = useMemo(() => deriveReplaySessionOverview(selectedSession), [selectedSession]);
+  const isReplayBoundToPreview = useMemo(
+    () => Boolean(selectedSession && selectedJob?.artefacts && selectedSession.sourceId === selectedJob.id),
+    [selectedSession, selectedJob]
   );
 
   const dispatch = useCallback((action: JobAction) => setJobs((prev) => reducer(prev, action)), []);
@@ -220,6 +248,78 @@ export function UploadVideoWorkspace() {
   }, [refreshRecentSessions]);
 
   useEffect(() => {
+    setReplayElapsedMs(0);
+    setIsReplayPlaying(false);
+  }, [selectedSession?.sessionId]);
+
+  useEffect(() => {
+    if (!isReplayBoundToPreview) {
+      return;
+    }
+    const video = previewVideoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const syncElapsed = () => {
+      setReplayElapsedMs(video.currentTime * 1000);
+      setIsReplayPlaying(!video.paused && !video.ended);
+    };
+    const handlePlay = () => setIsReplayPlaying(true);
+    const handlePause = () => setIsReplayPlaying(false);
+    const handleEnded = () => {
+      setIsReplayPlaying(false);
+      setReplayElapsedMs(replayDurationMs);
+    };
+
+    syncElapsed();
+    video.addEventListener("timeupdate", syncElapsed);
+    video.addEventListener("seeked", syncElapsed);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("ended", handleEnded);
+
+    return () => {
+      video.removeEventListener("timeupdate", syncElapsed);
+      video.removeEventListener("seeked", syncElapsed);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, [isReplayBoundToPreview, replayDurationMs]);
+
+  useEffect(() => {
+    if (!isReplayBoundToPreview) {
+      return;
+    }
+    const video = previewVideoRef.current;
+    if (!video) {
+      return;
+    }
+    const targetSeconds = replayElapsedMs / 1000;
+    if (Math.abs(video.currentTime - targetSeconds) > 0.12) {
+      video.currentTime = targetSeconds;
+    }
+  }, [isReplayBoundToPreview, replayElapsedMs]);
+
+  useEffect(() => {
+    if (!isReplayPlaying || replayDurationMs <= 0 || isReplayBoundToPreview) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setReplayElapsedMs((current) => {
+        const next = current + 100;
+        if (next >= replayDurationMs) {
+          setIsReplayPlaying(false);
+          return replayDurationMs;
+        }
+        return next;
+      });
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [isReplayBoundToPreview, isReplayPlaying, replayDurationMs]);
+
+  useEffect(() => {
     if (!selectedJob) {
       setPreviewObjectUrl((previous) => {
         if (previous) {
@@ -269,6 +369,51 @@ export function UploadVideoWorkspace() {
     draw();
     return () => cancelAnimationFrame(raf);
   }, [previewObjectUrl, selectedJob]);
+
+  const handleReplayPlayPause = useCallback(() => {
+    if (replayDurationMs <= 0) {
+      return;
+    }
+    if (isReplayBoundToPreview) {
+      const video = previewVideoRef.current;
+      if (!video) {
+        return;
+      }
+      if (video.paused || video.ended) {
+        void video.play();
+      } else {
+        video.pause();
+      }
+      return;
+    }
+    setIsReplayPlaying((current) => !current);
+  }, [isReplayBoundToPreview, replayDurationMs]);
+
+  const handleReplayReset = useCallback(() => {
+    if (isReplayBoundToPreview) {
+      const video = previewVideoRef.current;
+      if (video) {
+        video.currentTime = 0;
+        video.pause();
+      }
+    }
+    setReplayElapsedMs(0);
+    setIsReplayPlaying(false);
+  }, [isReplayBoundToPreview]);
+
+  const handleReplaySeek = useCallback(
+    (nextMs: number) => {
+      const clampedMs = Math.max(0, Math.min(nextMs, replayDurationMs));
+      if (isReplayBoundToPreview) {
+        const video = previewVideoRef.current;
+        if (video) {
+          video.currentTime = clampedMs / 1000;
+        }
+      }
+      setReplayElapsedMs(clampedMs);
+    },
+    [isReplayBoundToPreview, replayDurationMs]
+  );
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
@@ -420,15 +565,98 @@ export function UploadVideoWorkspace() {
               <li>Frame samples: {selectedSession.frameSamples.length}</li>
               <li>Events: {selectedSession.events.length}</li>
             </ul>
+            <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
+              <h5 style={{ margin: 0 }}>Replay review</h5>
+              <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
+                {selectedSession.drillTitle ?? selectedSession.drillId} • {new Date(selectedSession.createdAtIso).toLocaleString()} • quality {replayOverview.qualityLabel}
+              </p>
+              <p className="muted" style={{ margin: "0 0 0.45rem" }}>
+                {isReplayBoundToPreview
+                  ? "Replay controls are synced to the visible preview video."
+                  : "Replay controls are using persisted session timing only (no matching preview video selected)."}
+              </p>
+              <div
+                style={{
+                  position: "relative",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  padding: "0.6rem",
+                  background: "rgba(15,23,42,0.5)",
+                  marginBottom: "0.6rem"
+                }}
+              >
+                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="pill">Phase: {replayState.activePhaseId ?? "n/a"}</span>
+                  {selectedSession.summary.repCount !== undefined ? <span className="pill">Reps: {replayState.repCount}</span> : null}
+                  {selectedSession.summary.holdDurationMs !== undefined ? (
+                    <span className="pill">
+                      Hold: {replayState.holdActive ? formatDuration(replayState.holdElapsedMs) : "inactive"}
+                    </span>
+                  ) : null}
+                  <span className="pill">Status: {selectedSession.status}</span>
+                </div>
+                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
+                  {formatClock(replayState.timestampMs)} / {formatClock(replayDurationMs)} • nearest event: {replayState.nearestEvent?.type ?? "none"}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.4rem" }}>
+                <button type="button" className="pill" onClick={handleReplayPlayPause} disabled={replayDurationMs <= 0}>
+                  {isReplayPlaying ? "Pause" : "Play"}
+                </button>
+                <button type="button" className="pill" onClick={handleReplayReset} disabled={replayDurationMs <= 0}>Reset</button>
+              </div>
+              <div style={{ position: "relative", paddingTop: "0.65rem" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(1, replayDurationMs)}
+                  value={Math.min(replayElapsedMs, replayDurationMs)}
+                  onChange={(event) => handleReplaySeek(Number(event.target.value))}
+                  style={{ width: "100%" }}
+                  disabled={replayDurationMs <= 0}
+                />
+                <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 8, pointerEvents: "none" }}>
+                  {replayMarkers.map((marker) => (
+                    <span
+                      key={marker.eventId}
+                      title={`${marker.type} @ ${(marker.timestampMs / 1000).toFixed(2)}s`}
+                      style={{
+                        position: "absolute",
+                        left: `${replayDurationMs > 0 ? (marker.timestampMs / replayDurationMs) * 100 : 0}%`,
+                        width: 2,
+                        height: "100%",
+                        borderRadius: 999,
+                        background: markerColor(marker.type),
+                        opacity: 0.85
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              {replayOverview.phaseCoverage.length > 0 ? (
+                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
+                  Phase coverage:{" "}
+                  {replayOverview.phaseCoverage
+                    .slice(0, 4)
+                    .map((entry) => `${entry.phaseId} ${entry.percent.toFixed(0)}%`)
+                    .join(" • ")}
+                </p>
+              ) : null}
+            </div>
 
             <details>
               <summary style={{ cursor: "pointer" }}>Event log</summary>
               <ol className="muted">
                 {selectedSession.events.map((event) => (
-                  <li key={event.eventId}>
-                    {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
-                    {event.phaseId ? ` • phase=${event.phaseId}` : ""}
-                    {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                  <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
+                    <button type="button" className="pill" onClick={() => handleReplaySeek(event.timestampMs)}>
+                      {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
+                      {event.phaseId ? ` • phase=${event.phaseId}` : ""}
+                      {event.repIndex ? ` • rep=${event.repIndex}` : ""}
+                      {typeof event.details?.["holdDurationMs"] === "number" ? ` • hold=${formatDuration(Number(event.details?.["holdDurationMs"]))}` : ""}
+                      {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                    </button>
                   </li>
                 ))}
               </ol>
