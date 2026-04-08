@@ -110,6 +110,10 @@ export function UploadVideoWorkspace() {
   const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
   const replayMarkers = useMemo(() => deriveReplayMarkers(selectedSession), [selectedSession]);
   const replayOverview = useMemo(() => deriveReplaySessionOverview(selectedSession), [selectedSession]);
+  const isReplayBoundToPreview = useMemo(
+    () => Boolean(selectedSession && selectedJob?.artefacts && selectedSession.sourceId === selectedJob.id),
+    [selectedSession, selectedJob]
+  );
 
   const dispatch = useCallback((action: JobAction) => setJobs((prev) => reducer(prev, action)), []);
   const refreshRecentSessions = useCallback(async () => {
@@ -249,7 +253,57 @@ export function UploadVideoWorkspace() {
   }, [selectedSession?.sessionId]);
 
   useEffect(() => {
-    if (!isReplayPlaying || replayDurationMs <= 0) {
+    if (!isReplayBoundToPreview) {
+      return;
+    }
+    const video = previewVideoRef.current;
+    if (!video) {
+      return;
+    }
+
+    const syncElapsed = () => {
+      setReplayElapsedMs(video.currentTime * 1000);
+      setIsReplayPlaying(!video.paused && !video.ended);
+    };
+    const handlePlay = () => setIsReplayPlaying(true);
+    const handlePause = () => setIsReplayPlaying(false);
+    const handleEnded = () => {
+      setIsReplayPlaying(false);
+      setReplayElapsedMs(replayDurationMs);
+    };
+
+    syncElapsed();
+    video.addEventListener("timeupdate", syncElapsed);
+    video.addEventListener("seeked", syncElapsed);
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("ended", handleEnded);
+
+    return () => {
+      video.removeEventListener("timeupdate", syncElapsed);
+      video.removeEventListener("seeked", syncElapsed);
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, [isReplayBoundToPreview, replayDurationMs]);
+
+  useEffect(() => {
+    if (!isReplayBoundToPreview) {
+      return;
+    }
+    const video = previewVideoRef.current;
+    if (!video) {
+      return;
+    }
+    const targetSeconds = replayElapsedMs / 1000;
+    if (Math.abs(video.currentTime - targetSeconds) > 0.12) {
+      video.currentTime = targetSeconds;
+    }
+  }, [isReplayBoundToPreview, replayElapsedMs]);
+
+  useEffect(() => {
+    if (!isReplayPlaying || replayDurationMs <= 0 || isReplayBoundToPreview) {
       return;
     }
     const timer = window.setInterval(() => {
@@ -263,7 +317,7 @@ export function UploadVideoWorkspace() {
       });
     }, 100);
     return () => window.clearInterval(timer);
-  }, [isReplayPlaying, replayDurationMs]);
+  }, [isReplayBoundToPreview, isReplayPlaying, replayDurationMs]);
 
   useEffect(() => {
     if (!selectedJob) {
@@ -315,6 +369,51 @@ export function UploadVideoWorkspace() {
     draw();
     return () => cancelAnimationFrame(raf);
   }, [previewObjectUrl, selectedJob]);
+
+  const handleReplayPlayPause = useCallback(() => {
+    if (replayDurationMs <= 0) {
+      return;
+    }
+    if (isReplayBoundToPreview) {
+      const video = previewVideoRef.current;
+      if (!video) {
+        return;
+      }
+      if (video.paused || video.ended) {
+        void video.play();
+      } else {
+        video.pause();
+      }
+      return;
+    }
+    setIsReplayPlaying((current) => !current);
+  }, [isReplayBoundToPreview, replayDurationMs]);
+
+  const handleReplayReset = useCallback(() => {
+    if (isReplayBoundToPreview) {
+      const video = previewVideoRef.current;
+      if (video) {
+        video.currentTime = 0;
+        video.pause();
+      }
+    }
+    setReplayElapsedMs(0);
+    setIsReplayPlaying(false);
+  }, [isReplayBoundToPreview]);
+
+  const handleReplaySeek = useCallback(
+    (nextMs: number) => {
+      const clampedMs = Math.max(0, Math.min(nextMs, replayDurationMs));
+      if (isReplayBoundToPreview) {
+        const video = previewVideoRef.current;
+        if (video) {
+          video.currentTime = clampedMs / 1000;
+        }
+      }
+      setReplayElapsedMs(clampedMs);
+    },
+    [isReplayBoundToPreview, replayDurationMs]
+  );
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
@@ -471,6 +570,11 @@ export function UploadVideoWorkspace() {
               <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
                 {selectedSession.drillTitle ?? selectedSession.drillId} • {new Date(selectedSession.createdAtIso).toLocaleString()} • quality {replayOverview.qualityLabel}
               </p>
+              <p className="muted" style={{ margin: "0 0 0.45rem" }}>
+                {isReplayBoundToPreview
+                  ? "Replay controls are synced to the visible preview video."
+                  : "Replay controls are using persisted session timing only (no matching preview video selected)."}
+              </p>
               <div
                 style={{
                   position: "relative",
@@ -497,10 +601,10 @@ export function UploadVideoWorkspace() {
               </div>
 
               <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.4rem" }}>
-                <button type="button" className="pill" onClick={() => setIsReplayPlaying((current) => !current)} disabled={replayDurationMs <= 0}>
+                <button type="button" className="pill" onClick={handleReplayPlayPause} disabled={replayDurationMs <= 0}>
                   {isReplayPlaying ? "Pause" : "Play"}
                 </button>
-                <button type="button" className="pill" onClick={() => setReplayElapsedMs(0)} disabled={replayDurationMs <= 0}>Reset</button>
+                <button type="button" className="pill" onClick={handleReplayReset} disabled={replayDurationMs <= 0}>Reset</button>
               </div>
               <div style={{ position: "relative", paddingTop: "0.65rem" }}>
                 <input
@@ -508,7 +612,7 @@ export function UploadVideoWorkspace() {
                   min={0}
                   max={Math.max(1, replayDurationMs)}
                   value={Math.min(replayElapsedMs, replayDurationMs)}
-                  onChange={(event) => setReplayElapsedMs(Number(event.target.value))}
+                  onChange={(event) => handleReplaySeek(Number(event.target.value))}
                   style={{ width: "100%" }}
                   disabled={replayDurationMs <= 0}
                 />
@@ -546,7 +650,7 @@ export function UploadVideoWorkspace() {
               <ol className="muted">
                 {selectedSession.events.map((event) => (
                   <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
-                    <button type="button" className="pill" onClick={() => setReplayElapsedMs(event.timestampMs)}>
+                    <button type="button" className="pill" onClick={() => handleReplaySeek(event.timestampMs)}>
                       {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
                       {event.phaseId ? ` • phase=${event.phaseId}` : ""}
                       {event.repIndex ? ` • rep=${event.repIndex}` : ""}
