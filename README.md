@@ -1,9 +1,12 @@
 # CaliVision
+https://cali-vision-studio.vercel.app
 
 CaliVision is the primary product surface across desktop and mobile browsers.
 
-CaliVision also includes a separate Android app for optional native specialization workflows:
+CaliVision has evolved from the original Android app (built on kotlin/ml kit pose) 
 <https://github.com/Voycepeh/CaliVision>
+Into todays cross platform webapp (built on typescript, mediapipe, hosted on vercel, with supabase backend and google cloud oauth) 
+
 
 ## Product direction
 
@@ -27,7 +30,7 @@ CaliVision started Android-first because on-device live coaching was the initial
 
 As the end-to-end workflow expanded (authoring, library management, upload analysis, and review), Android-first ownership no longer fit the broader product journey.
 
-The web app is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android remains a focused optional native specialization path.
+The web app is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android should be described as legacy and no longer as the main product
 
 ## How CaliVision is split
 
