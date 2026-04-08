@@ -16,6 +16,10 @@ import type { UploadJob } from "./types.ts";
 function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
   return {
     id: "job-1",
+    mediaSource: {
+      sourceType: "file",
+      sourceLabel: "Uploaded file"
+    },
     file: new File(["video"], "attempt.mp4", { type: "video/mp4" }),
     fileName: "attempt.mp4",
     fileSizeBytes: 1024,

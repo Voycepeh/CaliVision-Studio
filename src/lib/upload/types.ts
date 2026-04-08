@@ -18,6 +18,10 @@ export type UploadJobStatus = "queued" | "processing" | "completed" | "failed" |
 
 export type UploadJob = {
   id: string;
+  mediaSource: {
+    sourceType: "file" | "browser-recording" | "stream";
+    sourceLabel: string;
+  };
   file: File;
   fileName: string;
   fileSizeBytes: number;

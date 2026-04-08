@@ -7,12 +7,14 @@ import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import type { UploadJob } from "@/lib/upload/types";
+import { createUploadMediaIntake, type UploadMediaSource } from "@/lib/upload/media-intake";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { UploadCameraCaptureCard } from "@/components/upload/UploadCameraCaptureCard";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -65,8 +67,8 @@ function createArtifactBaseName(fileName: string): string {
   return fileName.replace(/\.[^./\\]+$/, "");
 }
 
-function createUploadSourceUri(jobId: string, fileName: string): string {
-  return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
+function createUploadSourceUri(jobId: string, fileName: string, sourceType: UploadMediaSource["sourceType"]): string {
+  return `upload://local/${sourceType}/${jobId}/${encodeURIComponent(fileName)}`;
 }
 
 function summarizeTrace(session: AnalysisSessionRecord, stepMs: number): Array<{ timestampMs: number; phase: string; confidence: number; repCount: number }> {
@@ -240,14 +242,19 @@ export function UploadVideoWorkspace() {
     return () => cancelAnimationFrame(raf);
   }, [activeJob, activeSession, previewObjectUrl]);
 
-  const startSingleRun = useCallback(async (file: File) => {
-    const metadata = await readVideoMetadata(file);
+  const startSingleRun = useCallback(async (source: UploadMediaSource) => {
+    const intake = createUploadMediaIntake(source);
+    const metadata = await readVideoMetadata(intake.file);
     const jobId = crypto.randomUUID();
     const nextJob: UploadJob = {
       id: jobId,
-      file,
-      fileName: file.name,
-      fileSizeBytes: file.size,
+      mediaSource: {
+        sourceType: intake.sourceType,
+        sourceLabel: intake.sourceLabel
+      },
+      file: intake.file,
+      fileName: intake.fileName,
+      fileSizeBytes: intake.fileSizeBytes,
       durationMs: metadata.durationMs,
       status: "processing",
       stageLabel: "Initializing MediaPipe Pose Landmarker",
@@ -285,8 +292,8 @@ export function UploadVideoWorkspace() {
             timeline,
             sourceId: nextJob.id,
             sourceLabel: nextJob.fileName,
-            sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+            sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName, nextJob.mediaSource.sourceType),
+            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`, nextJob.mediaSource.sourceType)
           })
         : null;
 
@@ -342,7 +349,7 @@ export function UploadVideoWorkspace() {
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
     const firstVideo = Array.from(files).find((file) => file.type.startsWith("video/"));
     if (!firstVideo) return;
-    await startSingleRun(firstVideo);
+    await startSingleRun({ sourceType: "file", file: firstVideo });
   }, [startSingleRun]);
 
   const traceRows = useMemo(() => {
@@ -428,6 +435,7 @@ export function UploadVideoWorkspace() {
               <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
                 Freestyle mode is the default for reliable overlay output. Choose a drill only when you want rep/phase metrics.
               </p>
+              <UploadCameraCaptureCard onAnalyzeCapture={async (file) => startSingleRun({ sourceType: "browser-recording", file })} disabled={activeJob?.status === "processing"} />
               <input
                 ref={fileInputRef}
                 type="file"
@@ -463,6 +471,9 @@ export function UploadVideoWorkspace() {
                 {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
               </p>
               <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                Source: {activeJob.mediaSource.sourceLabel}
+              </p>
+              <p className="muted" style={{ margin: "0.2rem 0 0" }}>
                 Mode: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
               </p>
               <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
@@ -477,7 +488,7 @@ export function UploadVideoWorkspace() {
             <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
               {activeJob.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
               {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
-                <button type="button" className="pill" onClick={() => void startSingleRun(activeJob.file)}>Retry</button>
+                <button type="button" className="pill" onClick={() => void startSingleRun({ sourceType: activeJob.mediaSource.sourceType, file: activeJob.file, sourceLabel: activeJob.mediaSource.sourceLabel })}>Retry</button>
               ) : null}
               <button type="button" className="pill" onClick={() => { setActiveJob(null); setActiveSession(null); }}>Start fresh</button>
             </div>

@@ -6,7 +6,7 @@ export default function UploadPage() {
     <RoutePageIntro
       navActive="upload"
       title="Upload Video"
-      description="Upload one or more videos and run local browser-based MediaPipe pose analysis with downloadable overlays and JSON artifacts."
+      description="Upload a video or capture from your browser camera, then run local MediaPipe pose analysis with annotated replay and downloadable artifacts."
     >
       <UploadVideoWorkspace />
     </RoutePageIntro>

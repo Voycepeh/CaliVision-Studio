@@ -12,6 +12,7 @@
 ## Phase B (next)
 
 - Upload Video optional cloud fallback,
+- Upload Video mobile-browser camera capture v1 shipped as record-then-analyze (no live coaching session),
 - generated drill draft handoff automation,
 - optional hosted history/artifact persistence.
 - finish account-first Library polish so Drafts + My drills stay storage-agnostic for normal users.

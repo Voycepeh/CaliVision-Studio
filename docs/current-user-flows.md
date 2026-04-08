@@ -21,7 +21,7 @@
 
 1. Upload Video opens in **No drill · Freestyle overlay** mode by default.
 2. User may optionally select a real drill from local drafts or hosted drills (when signed in) for rep/phase/hold analysis.
-3. Upload one local video (file picker or drag/drop) to start processing immediately in-browser.
+3. Upload one local video (file picker or drag/drop) **or** use mobile-browser camera capture (permission → preview → record → stop/retake).
 4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
 5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
 6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
@@ -32,6 +32,12 @@
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
 10. Leave or refresh `/upload` to intentionally start fresh.
+
+### Upload camera capture boundaries (v1)
+
+- Camera capture is capture-after-recording only; Studio does not provide full real-time browser live coaching in this flow.
+- Captured videos and uploaded files share one analysis intake path and one results/export flow.
+- Android runtime/live coaching responsibilities remain in the separate mobile runtime client: <https://github.com/Voycepeh/CaliVision>.
 
 ## Current availability notes
 

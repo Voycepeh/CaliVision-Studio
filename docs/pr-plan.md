@@ -38,3 +38,10 @@ The split between top-level Drafts and My drills creates duplicate entries, conf
 - Large Studio layout redesign.
 
 Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+
+## Additional assumptions/non-goals for Upload Video camera capture v1 (April 8, 2026)
+
+- Scope is mobile-browser camera capture with record-then-analyze workflow inside `/upload`.
+- No full browser live coaching, no real-time in-motion overlays, and no background recording pipeline in this phase.
+- No backend media upload/storage changes are introduced; local browser analysis remains the default behavior.
+- Android runtime/live coaching remains in the dedicated mobile client: <https://github.com/Voycepeh/CaliVision>.
