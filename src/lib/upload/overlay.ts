@@ -175,7 +175,7 @@ export function drawAnalysisOverlay(
   }
 
   if (replayOverlayState.showHoldTimer) {
-    rightLines.push(`Hold: ${formatOverlayDuration(replayOverlayState.holdElapsedMs)}`);
+    rightLines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`);
   }
 
   drawOverlayBlock(ctx, sidePadding, topPadding, leftLines, "left");
