@@ -11,8 +11,11 @@ export type ProcessVideoOptions = {
 };
 
 const SEEK_EPSILON_SECONDS = 0.001;
-const SEEK_TIMEOUT_MS = 2500;
+// Mobile browsers (especially Android Chrome) can need longer seek/decode settle time.
+const SEEK_TIMEOUT_MS = 8000;
+const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
+const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 function createObjectUrl(file: File): string {
   return URL.createObjectURL(file);
@@ -32,6 +35,43 @@ async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; 
     video.onerror = () => reject(new Error("Unable to read uploaded video metadata."));
   });
 
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    const readyStart = performance.now();
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        const waitedMs = Math.round(performance.now() - readyStart);
+        console.debug(
+          `${UPLOAD_DIAGNOSTICS_PREFIX} Initial video readiness wait timed out after ${waitedMs}ms (timeout=${INITIAL_READY_TIMEOUT_MS}ms). Continuing with seek sampling.`
+        );
+        resolve();
+      }, INITIAL_READY_TIMEOUT_MS);
+
+      const cleanup = () => {
+        video.removeEventListener("canplay", onCanPlay);
+        video.removeEventListener("error", onError);
+        clearTimeout(timeoutId);
+      };
+
+      const onCanPlay = () => {
+        cleanup();
+        const waitedMs = Math.round(performance.now() - readyStart);
+        console.debug(
+          `${UPLOAD_DIAGNOSTICS_PREFIX} Initial video readiness reached canplay in ${waitedMs}ms (timeout=${INITIAL_READY_TIMEOUT_MS}ms).`
+        );
+        resolve();
+      };
+
+      const onError = () => {
+        cleanup();
+        reject(new Error("Unable to prepare uploaded video for sampling."));
+      };
+
+      video.addEventListener("canplay", onCanPlay, { once: true });
+      video.addEventListener("error", onError, { once: true });
+    });
+  }
+
   return { video, objectUrl };
 }
 
@@ -41,8 +81,13 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
   }
 
   await new Promise<void>((resolve, reject) => {
+    const seekStartedAt = performance.now();
     const timeoutId = setTimeout(() => {
       cleanup();
+      const waitedMs = Math.round(performance.now() - seekStartedAt);
+      console.debug(
+        `${UPLOAD_DIAGNOSTICS_PREFIX} Seek timeout at ${targetSeconds.toFixed(3)}s after ${waitedMs}ms (timeout=${SEEK_TIMEOUT_MS}ms).`
+      );
       reject(new Error("Video seek timed out during pose sampling."));
     }, SEEK_TIMEOUT_MS);
 
@@ -54,6 +99,10 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
 
     const onSeeked = () => {
       cleanup();
+      const waitedMs = Math.round(performance.now() - seekStartedAt);
+      console.debug(
+        `${UPLOAD_DIAGNOSTICS_PREFIX} Seek completed at ${targetSeconds.toFixed(3)}s in ${waitedMs}ms (timeout=${SEEK_TIMEOUT_MS}ms).`
+      );
       resolve();
     };
 
