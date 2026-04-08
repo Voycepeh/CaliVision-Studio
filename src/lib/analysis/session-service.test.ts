@@ -148,3 +148,38 @@ test("failed analysis attempts can be persisted truthfully", async () => {
   const stored = await repository.getSessionById(failed.sessionId);
   assert.equal(stored?.debug?.errorMessage, "video decode failed");
 });
+
+test("completed upload with no sampled frames is persisted as partial", async () => {
+  const repository = new InMemoryAnalysisSessionRepository();
+  const drill = buildDrill();
+  const timeline = createTimeline();
+  timeline.frames = [];
+
+  const session = await persistCompletedUploadAnalysisSession({
+    repository,
+    drill,
+    timeline,
+    sourceId: "upload-empty"
+  });
+
+  assert.equal(session.status, "partial");
+  assert.equal(session.frameSamples.length, 0);
+});
+
+test("completed upload with zero analyzed duration is persisted as partial", async () => {
+  const repository = new InMemoryAnalysisSessionRepository();
+  const drill = buildDrill();
+  const timeline = createTimeline();
+  timeline.frames = [timeline.frames[0]!];
+
+  const session = await persistCompletedUploadAnalysisSession({
+    repository,
+    drill,
+    timeline,
+    sourceId: "upload-zero-duration"
+  });
+
+  assert.equal(session.frameSamples.length > 0, true);
+  assert.equal(session.summary.analyzedDurationMs, 0);
+  assert.equal(session.status, "partial");
+});

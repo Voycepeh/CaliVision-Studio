@@ -1,7 +1,7 @@
 import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample } from "../schema/contracts.ts";
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
-export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled";
+export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
 
 export type AnalysisSessionRecord = {
   sessionId: string;

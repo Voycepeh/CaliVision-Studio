@@ -49,6 +49,8 @@ From **Upload Video → Recent analyses → Session detail**, users can download
 - Filename is deterministic and readable: drill + timestamp + session id.
 - Export reads from persisted session data (IndexedDB-backed session source of truth).
 - Missing optional fields (for example absent frame samples or source URIs) are handled safely.
+- Session detail keeps debug data collapsible (session IDs, drill IDs, pipeline metadata, source linkage) so normal review stays clean while technical inspection remains accessible.
+- Failed/partial analyses remain truthfully labeled; export still works for available structured data.
 
 ## Structured export vs future annotated replay export
 

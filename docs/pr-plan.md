@@ -1,42 +1,49 @@
-# PR Plan — Analysis Artifact Export for Persisted Drill Analysis Sessions
+# PR Plan — Polish Upload Analysis Flow and Results/Debug UX
 
 ## Summary
 
-Add a portable, versioned analysis artifact export for persisted Upload Video analysis sessions so users/developers can download, inspect, share, and reuse structured results outside a single runtime session.
+Improve Upload Video product wiring so the local analysis workflow feels coherent end to end:
+`upload -> analyze -> review -> export -> revisit`.
 
 ## Problem
 
-Studio already persists analysis sessions and supports in-app review, but there is no explicit export artifact contract for portability, QA/debug handoff, dataset iteration, or future hosted sync/import workflows.
+Core analysis pieces already exist (schema, pipeline skeleton, persisted sessions, replay, export), but users can still get lost when status is vague, failures are unclear, recent sessions are disconnected, or debug data is hidden/scattered.
 
-## Assumptions
+## UX/workflow improvements in scope
 
-- Studio remains web-first and local-first for current Upload Video analysis workflows.
-- Persisted analysis sessions remain IndexedDB-backed source of truth for export in this phase.
-- Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
-- Export contract evolution should be additive and versioned from day one.
+- Clarify upload entry and analysis lifecycle text with truthful state labels.
+- Add tighter handoff from selected upload to latest linked analysis session.
+- Improve recent-analysis discoverability with direct shortcuts for current upload + drill context.
+- Re-structure session detail for summary-first review, replay focus, event visibility, and tucked debug data.
+- Surface partial/missing-data situations explicitly (for example missing source media URI or missing structured samples).
+- Keep export actions prominent in session detail.
 
-## Scope
+## Status/error handling expectations
 
-- Define a versioned analysis artifact payload contract.
-- Add serializer + safe deserializer utilities for artifact JSON.
-- Preserve and export pipeline/scoring version metadata.
-- Add a minimal download action from Upload Video analysis session detail.
-- Provide filename generation utility for deterministic, readable artifact names.
-- Add derived-media placeholder metadata for future annotated replay export references.
-- Add tests for contract shape, version metadata, filename generation, optional field handling, and parse/round-trip behavior.
-- Update docs describing export purpose, scope, and non-goals.
+- Do not simulate fake precision or fake progress.
+- Distinguish complete, failed, cancelled, and partial analysis outcomes.
+- Preserve debug context for failures/partial results.
+
+## Debug affordances
+
+- Collapsible debug section with session/drill IDs, pipeline/scorer versions, detector/cadence metadata, and source URIs.
+- Raw JSON remains optional and hidden by default.
 
 ## Non-goals
 
-- full annotated video rendering/export pipeline,
-- polished import UX,
-- backend artifact sharing,
-- cross-device sync,
-- large Upload Video UI redesign.
+- hosted sync / backend dependence,
+- full production analytics dashboarding,
+- scoring heuristic rewrites,
+- cross-attempt comparison engine,
+- top-level navigation redesign.
 
-## Follow-up candidates (not included)
+Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
 
-- richer Upload Video results browsing and timeline/event inspection UX,
-- internal/import UX to rehydrate artifacts into persisted sessions,
-- hosted artifact storage/sync with local-first fallback,
-- annotated replay/media packaging built on `derivedMedia` hooks.
+## Follow-up candidates (next PR)
+
+- Improve phase scoring quality and confidence modeling:
+  - stronger pose similarity logic,
+  - tolerance profiles,
+  - visibility/quality gating,
+  - phase match confidence calibration,
+  - analysis/scorer versioning discipline as scoring evolves.
