@@ -20,17 +20,32 @@
 ## Current Upload Video flow
 
 1. Select multiple local videos (file picker or drag/drop).
-2. Queue jobs in-browser (default single active processing job).
+2. Queue jobs in-browser (default single active processing job) with explicit lifecycle labels:
+   - ready to analyze,
+   - analyzing,
+   - analysis completed / failed / cancelled,
+   - results available,
+   - no structured result available yet.
 3. Run MediaPipe Pose Landmarker in video mode locally.
-4. Persist one local analysis session per completed (or failed) attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
-5. Review overlay preview for completed jobs.
-6. Inspect **Recent analyses** in Upload Video to reopen session summaries, event logs, URI linkage, and JSON debug payload.
-7. Download local artifacts in clear user-facing order:
+4. Persist one local analysis session per completed, partial, or failed attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
+5. Use the upload handoff card to open the latest result from the current upload when available.
+6. Review overlay preview for completed jobs.
+7. Use **Recent analyses** shortcuts to jump to:
+   - latest result from current upload,
+   - latest analysis for this drill,
+   - any previous session detail.
+8. In session detail, inspect:
+   - summary + key metrics first,
+   - replay/timeline review,
+   - event log,
+   - collapsible debug/pipeline details,
+   - optional raw JSON.
+9. Download local artifacts in clear user-facing order:
    - Annotated Video,
    - Processing Summary (.json),
    - Pose Timeline (.json),
    - Analysis Artifact (.json) export payload (versioned structured session export).
-8. Export contract details are documented in `docs/analysis-artifact-export.md`.
+10. Export contract details are documented in `docs/analysis-artifact-export.md`.
 
 ## Current availability notes
 

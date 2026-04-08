@@ -6,6 +6,16 @@ import type { PoseTimeline } from "../upload/types.ts";
 const PIPELINE_VERSION = "drill-analysis-pipeline-v1";
 const SCORER_VERSION = "frame-phase-scorer-v1";
 
+function inferUploadSessionStatus(output: ReturnType<typeof runDrillAnalysisPipeline>["session"]): AnalysisSessionRecord["status"] {
+  if (output.frameSamples.length === 0) {
+    return "partial";
+  }
+  if ((output.summary.analyzedDurationMs ?? 0) <= 0) {
+    return "partial";
+  }
+  return "completed";
+}
+
 type PersistUploadInput = {
   repository: AnalysisSessionRepository;
   drill: PortableDrill;
@@ -36,7 +46,7 @@ export async function persistCompletedUploadAnalysisSession(input: PersistUpload
     sourceId: input.sourceId,
     sourceUri: input.sourceUri,
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName,
-    status: "completed",
+    status: inferUploadSessionStatus(output.session),
     createdAtIso: output.session.startedAtIso,
     completedAtIso: output.session.completedAtIso,
     rawVideoUri: input.sourceUri,

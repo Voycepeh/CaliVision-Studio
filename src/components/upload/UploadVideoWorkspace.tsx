@@ -18,6 +18,14 @@ import {
   serializeAnalysisSessionArtifact,
   type AnalysisSessionRecord
 } from "@/lib/analysis";
+import {
+  findLatestSessionForUpload,
+  getLifecycleLabel,
+  getSessionOutcomeLabel,
+  getSessionStatusTone,
+  getUploadLifecycleState,
+  summarizeSessionAvailability
+} from "@/lib/upload/analysis-session-ux";
 
 const DEFAULT_CADENCE_FPS = 12;
 
@@ -52,6 +60,19 @@ function markerColor(type: string): string {
   if (type === "hold_start" || type === "hold_end") return "#f5c77a";
   if (type === "invalid_transition" || type === "partial_attempt") return "#f09c9c";
   return "#7fb6ff";
+}
+
+function toneStyles(tone: "good" | "warn" | "bad" | "neutral"): { border: string; background: string } {
+  if (tone === "good") {
+    return { border: "rgba(121, 216, 152, 0.65)", background: "rgba(34, 92, 55, 0.35)" };
+  }
+  if (tone === "warn") {
+    return { border: "rgba(244, 191, 88, 0.7)", background: "rgba(110, 74, 20, 0.33)" };
+  }
+  if (tone === "bad") {
+    return { border: "rgba(248, 113, 113, 0.7)", background: "rgba(120, 35, 40, 0.33)" };
+  }
+  return { border: "rgba(148,163,184,0.45)", background: "rgba(15,23,42,0.35)" };
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -105,6 +126,14 @@ export function UploadVideoWorkspace() {
   const selectedSession = useMemo(
     () => recentSessions.find((session) => session.sessionId === selectedSessionId) ?? recentSessions[0],
     [recentSessions, selectedSessionId]
+  );
+  const selectedJobLinkedSession = useMemo(
+    () => findLatestSessionForUpload(recentSessions, selectedJob?.id),
+    [recentSessions, selectedJob?.id]
+  );
+  const drillSessions = useMemo(
+    () => recentSessions.filter((session) => session.drillId === referenceDrill.drillId),
+    [recentSessions, referenceDrill.drillId]
   );
   const replayDurationMs = useMemo(() => getReplayDurationMs(selectedSession), [selectedSession]);
   const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
@@ -425,7 +454,8 @@ export function UploadVideoWorkspace() {
       </div>
 
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
-        <button type="button" className="pill" onClick={() => fileInputRef.current?.click()}>Select video files</button>
+        <button type="button" className="pill" onClick={() => fileInputRef.current?.click()}>Upload videos and analyze</button>
+        <span className="muted">Linked drill: {referenceDrill.title}</span>
         <label className="muted" style={{ fontSize: "0.85rem" }}>
           Cadence FPS
           <input type="number" min={4} max={30} value={cadenceFps} onChange={(event) => setCadenceFps(Math.max(4, Math.min(30, Number(event.target.value) || DEFAULT_CADENCE_FPS)))} style={{ marginLeft: "0.35rem", width: 70 }} />
@@ -448,6 +478,25 @@ export function UploadVideoWorkspace() {
       <div style={{ display: "grid", gap: "0.5rem" }}>
         {jobs.map((job) => (
           <article key={job.id} className="card" style={{ margin: 0 }}>
+            {(() => {
+              const linkedSession = findLatestSessionForUpload(recentSessions, job.id);
+              const lifecycleState = getUploadLifecycleState(job, Boolean(linkedSession));
+              const lifecycleLabel = getLifecycleLabel(lifecycleState);
+              const lifecycleTone = toneStyles(
+                lifecycleState === "analysis_failed"
+                  ? "bad"
+                  : lifecycleState === "results_available" || lifecycleState === "analysis_completed"
+                    ? "good"
+                    : lifecycleState === "no_structured_result_yet"
+                      ? "warn"
+                      : "neutral"
+              );
+              return (
+                <div style={{ marginBottom: "0.55rem" }}>
+                  <span className="pill" style={{ borderColor: lifecycleTone.border, background: lifecycleTone.background }}>{lifecycleLabel}</span>
+                </div>
+              );
+            })()}
             <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
               <div>
                 <strong>{job.fileName}</strong>
@@ -465,6 +514,15 @@ export function UploadVideoWorkspace() {
               </div>
               <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
                 <button type="button" className="pill" onClick={() => setSelectedJobId(job.id)}>Preview</button>
+                {findLatestSessionForUpload(recentSessions, job.id) ? (
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => setSelectedSessionId(findLatestSessionForUpload(recentSessions, job.id)!.sessionId)}
+                  >
+                    View analysis
+                  </button>
+                ) : null}
                 {job.status === "queued" ? <button type="button" className="pill" onClick={() => dispatch({ type: "remove", id: job.id })}>Remove</button> : null}
                 {job.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
                 {job.status === "failed" || job.status === "cancelled" ? (
@@ -486,6 +544,27 @@ export function UploadVideoWorkspace() {
           </article>
         ))}
       </div>
+
+      {selectedJob ? (
+        <section className="card" style={{ margin: 0, background: "rgba(114,168,255,0.08)" }}>
+          <h3 style={{ marginTop: 0 }}>Current upload handoff</h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            Upload: <strong>{selectedJob.fileName}</strong> • Status: {getLifecycleLabel(getUploadLifecycleState(selectedJob, Boolean(selectedJobLinkedSession)))}
+          </p>
+          {selectedJobLinkedSession ? (
+            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+              <button type="button" className="pill" onClick={() => setSelectedSessionId(selectedJobLinkedSession.sessionId)}>
+                Open latest analysis session
+              </button>
+              <span className="muted">Session: {selectedJobLinkedSession.sessionId}</span>
+            </div>
+          ) : (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              Structured results are not available for this upload yet.
+            </p>
+          )}
+        </section>
+      ) : null}
 
       {selectedJob?.artefacts ? (
         <section className="card" style={{ margin: 0 }}>
@@ -529,6 +608,21 @@ export function UploadVideoWorkspace() {
 
       <section className="card" style={{ margin: 0 }}>
         <h3 style={{ marginTop: 0 }}>Recent analyses</h3>
+        <p className="muted" style={{ marginTop: 0 }}>
+          Jump back into the latest session, drill-linked history, or a result tied to the current upload.
+        </p>
+        <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.55rem" }}>
+          {selectedJobLinkedSession ? (
+            <button type="button" className="pill" onClick={() => setSelectedSessionId(selectedJobLinkedSession.sessionId)}>
+              Latest result from current upload
+            </button>
+          ) : null}
+          {drillSessions[0] ? (
+            <button type="button" className="pill" onClick={() => setSelectedSessionId(drillSessions[0].sessionId)}>
+              Latest analysis for this drill
+            </button>
+          ) : null}
+        </div>
         {recentSessions.length === 0 ? <p className="muted">No persisted analysis sessions yet. Run Upload Video to create one.</p> : null}
         <div style={{ display: "grid", gap: "0.4rem" }}>
           {recentSessions.map((session) => (
@@ -543,7 +637,7 @@ export function UploadVideoWorkspace() {
               }}
               onClick={() => setSelectedSessionId(session.sessionId)}
             >
-              <strong>{session.drillTitle ?? session.drillId}</strong> • {new Date(session.createdAtIso).toLocaleString()} • {session.status} • reps{" "}
+              <strong>{session.drillTitle ?? session.drillId}</strong> • {new Date(session.createdAtIso).toLocaleString()} • {getSessionOutcomeLabel(session)} • reps{" "}
               {session.summary.repCount ?? 0} • duration {formatDuration(session.summary.analyzedDurationMs)}
             </button>
           ))}
@@ -551,20 +645,34 @@ export function UploadVideoWorkspace() {
         {selectedSession ? (
           <article className="card" style={{ marginBottom: 0, marginTop: "0.75rem" }}>
             <h4 style={{ marginTop: 0 }}>Session detail</h4>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Source: {selectedSession.sourceKind} / {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"} • Pipeline:{" "}
-              {selectedSession.pipelineVersion ?? "unknown"}
-            </p>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Raw URI: {selectedSession.rawVideoUri ?? selectedSession.sourceUri ?? "n/a"} • Annotated URI: {selectedSession.annotatedVideoUri ?? "n/a"}
-            </p>
-            <ul className="muted" style={{ marginTop: "0.2rem" }}>
-              <li>Rep count: {selectedSession.summary.repCount ?? 0}</li>
-              <li>Hold duration: {formatDuration(selectedSession.summary.holdDurationMs)}</li>
-              <li>Analyzed duration: {formatDuration(selectedSession.summary.analyzedDurationMs)}</li>
-              <li>Frame samples: {selectedSession.frameSamples.length}</li>
-              <li>Events: {selectedSession.events.length}</li>
-            </ul>
+            <div
+              style={{
+                border: `1px solid ${toneStyles(getSessionStatusTone(selectedSession.status)).border}`,
+                background: toneStyles(getSessionStatusTone(selectedSession.status)).background,
+                borderRadius: "0.6rem",
+                padding: "0.6rem",
+                marginBottom: "0.55rem"
+              }}
+            >
+              <p style={{ margin: 0 }}>
+                <strong>{getSessionOutcomeLabel(selectedSession)}</strong> • {new Date(selectedSession.createdAtIso).toLocaleString()}
+              </p>
+              <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                Source upload: {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"} • Session ID: {selectedSession.sessionId}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.45rem" }}>
+              <span className="pill">Reps: {selectedSession.summary.repCount ?? 0}</span>
+              <span className="pill">Hold duration: {formatDuration(selectedSession.summary.holdDurationMs)}</span>
+              <span className="pill">Analyzed duration: {formatDuration(selectedSession.summary.analyzedDurationMs)}</span>
+              <span className="pill">Frame samples: {selectedSession.frameSamples.length}</span>
+              <span className="pill">Events: {selectedSession.events.length}</span>
+            </div>
+            {summarizeSessionAvailability(selectedSession).length > 0 ? (
+              <p className="muted" style={{ marginTop: 0 }}>
+                Availability notes: {summarizeSessionAvailability(selectedSession).join(" • ")}
+              </p>
+            ) : null}
             <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
               <h5 style={{ margin: 0 }}>Replay review</h5>
               <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
@@ -645,8 +753,8 @@ export function UploadVideoWorkspace() {
               ) : null}
             </div>
 
-            <details>
-              <summary style={{ cursor: "pointer" }}>Event log</summary>
+            <details open>
+              <summary style={{ cursor: "pointer" }}>Events</summary>
               <ol className="muted">
                 {selectedSession.events.map((event) => (
                   <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
@@ -663,7 +771,22 @@ export function UploadVideoWorkspace() {
             </details>
 
             <details>
-              <summary style={{ cursor: "pointer" }}>JSON debug</summary>
+              <summary style={{ cursor: "pointer" }}>Debug and pipeline details</summary>
+              <ul className="muted" style={{ marginBottom: "0.45rem" }}>
+                <li>Session ID: {selectedSession.sessionId}</li>
+                <li>Drill ID: {selectedSession.drillId}</li>
+                <li>Pipeline version: {selectedSession.pipelineVersion ?? "unknown"}</li>
+                <li>Scorer version: {selectedSession.scorerVersion ?? "unknown"}</li>
+                <li>Cadence FPS: {selectedSession.debug?.cadenceFps ?? "n/a"}</li>
+                <li>Detector: {selectedSession.debug?.detector ?? "n/a"}</li>
+                <li>Source URI: {selectedSession.rawVideoUri ?? selectedSession.sourceUri ?? "n/a"}</li>
+                <li>Annotated URI: {selectedSession.annotatedVideoUri ?? "n/a"}</li>
+                {selectedSession.debug?.errorMessage ? <li>Error context: {selectedSession.debug.errorMessage}</li> : null}
+              </ul>
+            </details>
+
+            <details>
+              <summary style={{ cursor: "pointer" }}>Raw JSON (optional)</summary>
               <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{serializeAnalysisSessionArtifact(selectedSession)}</pre>
             </details>
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
