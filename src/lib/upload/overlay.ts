@@ -1,5 +1,6 @@
 import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, getPreviewJointRole } from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
+import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
@@ -90,4 +91,81 @@ export function getNearestPoseFrame(frames: PoseFrame[], currentMs: number): Pos
   }
 
   return frames[Math.max(0, Math.min(frames.length - 1, low))];
+}
+
+function formatOverlayDuration(durationMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, lines: string[], align: CanvasTextAlign): void {
+  if (lines.length === 0) {
+    return;
+  }
+
+  const fontSize = 18;
+  const lineHeight = 24;
+  ctx.save();
+  ctx.font = `600 ${fontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+  ctx.textAlign = align;
+  ctx.textBaseline = "top";
+  const widest = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
+  const paddingX = 12;
+  const paddingY = 10;
+  const boxWidth = widest + paddingX * 2;
+  const boxHeight = lines.length * lineHeight + paddingY * 2;
+  const left = align === "left" ? x : x - boxWidth;
+  ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.66)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(left, y, boxWidth, boxHeight, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(248, 250, 252, 0.95)";
+  lines.forEach((line, index) => {
+    const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
+    ctx.fillText(line, textX, y + paddingY + index * lineHeight);
+  });
+  ctx.restore();
+}
+
+export function drawAnalysisOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  _height: number,
+  replayOverlayState?: ReplayOverlayState | null,
+  options?: { drillLabel?: string }
+): void {
+  if (!replayOverlayState) {
+    return;
+  }
+
+  const topPadding = Math.max(10, width * 0.01);
+  const sidePadding = Math.max(10, width * 0.015);
+  const leftLines: string[] = [];
+  const rightLines: string[] = [];
+
+  if (options?.drillLabel) {
+    leftLines.push(options.drillLabel);
+  }
+
+  if (replayOverlayState.phaseLabel) {
+    leftLines.push(`Phase: ${replayOverlayState.phaseLabel}`);
+  } else {
+    leftLines.push("Phase: n/a");
+  }
+
+  if (replayOverlayState.showRepCount) {
+    rightLines.push(`Reps: ${replayOverlayState.repCount}`);
+  }
+
+  if (replayOverlayState.showHoldTimer) {
+    rightLines.push(`Hold: ${formatOverlayDuration(replayOverlayState.holdElapsedMs)}`);
+  }
+
+  drawOverlayBlock(ctx, sidePadding, topPadding, leftLines, "left");
+  drawOverlayBlock(ctx, width - sidePadding, topPadding, rightLines, "right");
 }

@@ -213,14 +213,28 @@ export function UploadVideoWorkspace() {
       patch: { status: "processing", stageLabel: "Initializing MediaPipe Pose Landmarker", startedAtIso: new Date().toISOString() }
     });
 
+    let persistedSession: AnalysisSessionRecord | null = null;
+
     try {
       const timeline = await processVideoFile(nextJob.file, {
         cadenceFps,
         signal: controller.signal,
         onProgress: (progress, stageLabel) => dispatch({ type: "update", id: nextJob.id, patch: { progress, stageLabel } })
       });
+      const annotatedVideoUri = createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`);
+      persistedSession = await persistCompletedUploadAnalysisSession({
+        repository: analysisRepository,
+        drill: referenceDrill,
+        drillVersion: "sample-v1",
+        timeline,
+        sourceId: nextJob.id,
+        sourceLabel: nextJob.fileName,
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName)
+      });
       dispatch({ type: "update", id: nextJob.id, patch: { stageLabel: "Rendering annotated video", progress: 0.97 } });
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline);
+      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { analysisSession: persistedSession, includeAnalysisOverlay: true });
+      const linkedSession: AnalysisSessionRecord = { ...persistedSession, annotatedVideoUri };
+      await analysisRepository.saveSession(linkedSession);
 
       dispatch({
         type: "update",
@@ -267,7 +281,7 @@ export function UploadVideoWorkspace() {
         }
       });
 
-      if (!cancelled) {
+      if (!cancelled && !persistedSession) {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
           drill: referenceDrill,
@@ -277,8 +291,8 @@ export function UploadVideoWorkspace() {
           sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
           errorMessage: message
         });
-        await refreshRecentSessions();
       }
+      await refreshRecentSessions();
     } finally {
       activeAbortRef.current = null;
       isRunningRef.current = false;
@@ -643,7 +657,7 @@ export function UploadVideoWorkspace() {
             </button>
           </div>
           <div className="muted" style={{ marginTop: "0.45rem", display: "grid", gap: "0.2rem" }}>
-            <span><strong>Annotated Video:</strong> video preview with pose overlay styling for playback/export.</span>
+            <span><strong>Annotated Video:</strong> exported replay includes pose + persisted drill-analysis overlays when available.</span>
             <span><strong>Processing Summary (.json):</strong> lightweight summary metadata about this run.</span>
             <span><strong>Pose Timeline (.json):</strong> frame-by-frame pose keypoints and timestamps.</span>
           </div>
