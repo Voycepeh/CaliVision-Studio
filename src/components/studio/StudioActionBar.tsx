@@ -7,6 +7,7 @@ import Link from "next/link";
 export function StudioActionBar() {
   const {
     saveStatusLabel,
+    draftVersionLabel,
     selectedPackage,
     saveSelectedToHosted,
     markSelectedVersionReady,
@@ -21,6 +22,7 @@ export function StudioActionBar() {
       <div className="studio-action-bar-status">
         <strong>Drill version actions</strong>
         <span className="pill">{persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}</span>
+        <span className="muted" style={{ fontSize: "0.8rem" }}>{draftVersionLabel}</span>
         <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
         <span className="muted" style={{ fontSize: "0.78rem" }}>{hostedSaveStatusMessage}</span>
       </div>

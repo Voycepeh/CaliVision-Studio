@@ -50,12 +50,12 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 
 ## Library drill/version lifecycle flow (available now)
 
-1. `Create new drill` creates one drill identity with an initial **Draft** version in **My drills**.
-2. `Edit` opens or resumes the drill's latest Draft version.
-3. If a drill only has a Ready/Published active version, `Edit` creates a new Draft version under the same drill identity.
-4. `Mark Ready` promotes a valid Draft version to Ready for upload analysis and publishing eligibility.
-5. `Publish` is gated to Ready versions only (Published remains a Ready snapshot with published flag).
-6. `Version history` shows per-version status/timestamps within a single drill row without duplicating top-level drill entries.
+1. `Create new drill` creates one drill identity with one open **working draft** (no released version yet).
+2. Version numbers belong to released revisions only (`v1`, `v2`, `v3`).
+3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
+4. `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
+5. `Publish` updates publish status on the current released version and does not create duplicate version rows.
+6. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
 7. `Import drill file` writes to the active workspace only:
    - signed out → **Browser workspace** (local storage),
    - signed in → **Cloud workspace** (hosted storage).

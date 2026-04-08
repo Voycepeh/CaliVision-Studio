@@ -142,7 +142,8 @@ export function LibraryOverview() {
   async function onOpenForEdit(drill: DrillLibraryItem): Promise<void> {
     if (!drill.latestDraftVersionId && drill.activeReadyVersion) {
       const drafted = await createDraftVersion(drill.drillId, repositoryContext);
-      setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? "Resumed draft version." : "Created draft version from active Ready version.");
+      const nextVersion = (drill.activeReadyVersion.versionNumber ?? 0) + 1;
+      setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? `Resumed open draft for v${nextVersion}.` : `Opened new draft for v${nextVersion}.`);
       await refreshLibrary();
     }
 
@@ -271,9 +272,10 @@ export function LibraryOverview() {
                   <div style={rowTitleWrapStyle}>
                     <strong>{drill.title}</strong>
                     <p className="muted" style={{ margin: 0 }}>
-                      Current v{drill.currentVersion.versionNumber} • {drill.currentVersion.status === "ready" ? "Ready" : "Draft"}
-                      {drill.currentVersion.isPublished ? " • Published" : ""}
+                      Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
+                      {drill.activeReadyVersion?.isPublished ? " • Published" : ""}
                     </p>
+                    {drill.openDraftVersion ? <p className="muted" style={{ margin: 0 }}>Open draft for v{drill.openDraftVersion.versionNumber}</p> : null}
                   </div>
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
                   <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
@@ -299,11 +301,12 @@ export function LibraryOverview() {
                   <details>
                     <summary style={{ cursor: "pointer" }}>Version history</summary>
                     <div style={{ display: "grid", gap: "0.28rem", marginTop: "0.35rem" }}>
-                      {versions.map((version) => (
+                      {versions
+                        .filter((version) => version.status === "ready")
+                        .map((version) => (
                         <div key={version.versionId} style={{ border: "1px solid var(--border)", borderRadius: "0.45rem", padding: "0.3rem 0.4rem" }}>
                           <p className="muted" style={{ margin: 0 }}>
-                            v{version.versionNumber} • {version.status === "ready" ? "Ready" : "Draft"}
-                            {version.isPublished ? " • Published" : ""} • {new Date(version.updatedAtIso).toLocaleString()}
+                            v{version.versionNumber} • Ready{version.isPublished ? " • Published" : ""} • {new Date(version.updatedAtIso).toLocaleString()}
                           </p>
                         </div>
                       ))}
