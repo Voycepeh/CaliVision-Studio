@@ -26,6 +26,21 @@ type ItemActionState = {
   actionErrorByItemId: Record<string, string>;
 };
 
+function toHumanErrorMessage(error: unknown): string {
+  const fallback = "Action failed. Please try again.";
+  const message = error instanceof Error ? error.message : fallback;
+  if (/Duplicate version conflict/i.test(message)) {
+    return "This drill version already exists. Refresh and continue editing the existing version.";
+  }
+  if (/Failed to save hosted drill/i.test(message)) {
+    return "Could not save this drill right now. Please retry in a moment.";
+  }
+  if (/Local browser save failed/i.test(message)) {
+    return "Could not save this drill locally. Reload and try again.";
+  }
+  return message;
+}
+
 export function LibraryOverview() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -93,7 +108,7 @@ export function LibraryOverview() {
     try {
       await run();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Action failed. Please try again.";
+      const message = toHumanErrorMessage(error);
       setItemFeedback(itemId, message, "error");
     } finally {
       setItemActionState((current) => {
@@ -225,7 +240,7 @@ export function LibraryOverview() {
           <button type="button" style={chipStyle(false)} onClick={() => fileInputRef.current?.click()}>
             Import drill file
           </button>
-          <Link className="pill" href="/marketplace">Browse Drill Exchange</Link>
+          <Link href="/marketplace" style={tertiaryLinkStyle}>Browse Drill Exchange</Link>
         </div>
       </section>
 
@@ -283,9 +298,9 @@ export function LibraryOverview() {
 
                   <details>
                     <summary style={{ cursor: "pointer" }}>Version history</summary>
-                    <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.5rem" }}>
+                    <div style={{ display: "grid", gap: "0.28rem", marginTop: "0.35rem" }}>
                       {versions.map((version) => (
-                        <div key={version.versionId} style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.45rem" }}>
+                        <div key={version.versionId} style={{ border: "1px solid var(--border)", borderRadius: "0.45rem", padding: "0.3rem 0.4rem" }}>
                           <p className="muted" style={{ margin: 0 }}>
                             v{version.versionNumber} • {version.status === "ready" ? "Ready" : "Draft"}
                             {version.isPublished ? " • Published" : ""} • {new Date(version.updatedAtIso).toLocaleString()}
@@ -313,26 +328,30 @@ export function LibraryOverview() {
   );
 }
 
-const libraryLayoutStyle: CSSProperties = { marginTop: "0.8rem", display: "grid", gap: "0.65rem" };
-const headerCardStyle: CSSProperties = { display: "grid", gap: "0.55rem", padding: "0.85rem" };
-const sectionCardStyle: CSSProperties = { display: "grid", gap: "0.55rem", padding: "0.8rem" };
+const libraryLayoutStyle: CSSProperties = { marginTop: "0.45rem", display: "grid", gap: "0.5rem", width: "min(100%, 980px)", marginInline: "auto" };
+const headerCardStyle: CSSProperties = { display: "grid", gap: "0.45rem", padding: "0.65rem 0.75rem" };
+const sectionCardStyle: CSSProperties = { display: "grid", gap: "0.5rem", padding: "0.65rem 0.75rem" };
 
 function InlineItemFeedback({ itemId, pending, success, error }: { itemId: string; pending: Record<string, string>; success: Record<string, string>; error: Record<string, string> }) {
-  if (pending[itemId]) return <p className="muted" style={{ margin: 0 }}>{pending[itemId]}</p>;
-  if (error[itemId]) return <p className="muted" style={{ margin: 0, color: "#f2bbbb" }}>{error[itemId]}</p>;
-  if (success[itemId]) return <p className="muted" style={{ margin: 0, color: "var(--success)" }}>{success[itemId]}</p>;
+  if (pending[itemId]) return <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>{pending[itemId]}</p>;
+  if (error[itemId]) return <p role="alert" style={errorNoticeStyle}>{error[itemId]}</p>;
+  if (success[itemId]) return <p style={successNoticeStyle}>{success[itemId]}</p>;
   return null;
 }
 
-const listStackStyle: CSSProperties = { display: "grid", gap: "0.4rem" };
-const listCardStyle: CSSProperties = { margin: 0, padding: "0.6rem", display: "grid", gap: "0.4rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
-const rowTitleWrapStyle: CSSProperties = { display: "grid", gap: "0.2rem" };
-const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.65rem", background: "rgba(19, 28, 42, 0.45)" };
-const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" };
-const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.55rem", alignItems: "end", flexWrap: "wrap" };
-const labelStyle: CSSProperties = { display: "grid", gap: "0.23rem", color: "var(--muted)", fontSize: "0.82rem" };
-const inputStyle: CSSProperties = { border: "1px solid var(--border)", borderRadius: "0.58rem", padding: "0.42rem 0.52rem", background: "var(--panel-soft)", color: "var(--text)", width: "100%" };
-const primaryButtonStyle: CSSProperties = { ...chipStyle(true), color: "var(--text)", borderColor: "rgba(114, 168, 255, 0.65)", background: "var(--accent-soft)" };
+const listStackStyle: CSSProperties = { display: "grid", gap: "0.35rem" };
+const listCardStyle: CSSProperties = { margin: 0, padding: "0.55rem", display: "grid", gap: "0.32rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
+const rowTitleWrapStyle: CSSProperties = { display: "grid", gap: "0.15rem" };
+const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.55rem", background: "rgba(19, 28, 42, 0.45)" };
+const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" };
+const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.45rem", alignItems: "end", flexWrap: "wrap" };
+const labelStyle: CSSProperties = { display: "grid", gap: "0.18rem", color: "var(--muted)", fontSize: "0.8rem" };
+const inputStyle: CSSProperties = { border: "1px solid var(--border)", borderRadius: "0.52rem", padding: "0.38rem 0.5rem", background: "var(--panel-soft)", color: "var(--text)", width: "100%" };
+const primaryButtonStyle: CSSProperties = { ...chipStyle(true), color: "var(--text)", borderColor: "rgba(114, 168, 255, 0.65)", background: "var(--accent-soft)", fontWeight: 600 };
+const tertiaryLinkStyle: CSSProperties = { color: "var(--muted)", textDecoration: "none", fontSize: "0.78rem", paddingInline: "0.2rem" };
+const noticeBaseStyle: CSSProperties = { margin: 0, fontSize: "0.76rem", borderRadius: "0.45rem", padding: "0.3rem 0.4rem", border: "1px solid" };
+const errorNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#f6cbcb", borderColor: "rgba(255, 120, 120, 0.55)", background: "rgba(120, 23, 23, 0.3)" };
+const successNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#d2f5da", borderColor: "rgba(100, 198, 132, 0.55)", background: "rgba(28, 72, 36, 0.33)" };
 function chipStyle(active: boolean): CSSProperties {
-  return { border: `1px solid ${active ? "rgba(114, 168, 255, 0.55)" : "var(--border)"}`, borderRadius: "999px", padding: "0.28rem 0.62rem", fontSize: "0.78rem", color: active ? "var(--text)" : "var(--muted)", background: active ? "rgba(114, 168, 255, 0.12)" : "var(--panel-soft)", cursor: "pointer" };
+  return { border: `1px solid ${active ? "rgba(114, 168, 255, 0.55)" : "var(--border)"}`, borderRadius: "999px", padding: "0.24rem 0.55rem", fontSize: "0.76rem", color: active ? "var(--text)" : "var(--muted)", background: active ? "rgba(114, 168, 255, 0.12)" : "var(--panel-soft)", cursor: "pointer" };
 }

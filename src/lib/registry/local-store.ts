@@ -79,20 +79,46 @@ export function upsertRegistryEntryFromPackage(input: {
   sourceLabel: string;
   publishedAtIso?: string;
   parentEntryId?: string;
+  existingEntryId?: string;
 }): PackageRegistryEntry {
   const normalizedPackage = ensureVersioningMetadata(input.packageJson);
   const next = createRegistryEntryFromPackage({ ...input, packageJson: normalizedPackage });
   const current = loadLocalRegistryEntries();
+  const targetEntry = input.existingEntryId ? current.find((entry) => entry.entryId === input.existingEntryId) : undefined;
+  if (targetEntry && (targetEntry.summary.packageId !== next.summary.packageId || targetEntry.summary.packageVersion !== next.summary.packageVersion)) {
+    throw new Error("Cannot update registry entry: entry identity does not match this drill version.");
+  }
+
   const duplicateVersion = current.find(
     (entry) =>
-      entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion && entry.entryId !== next.entryId
+      entry.summary.packageId === next.summary.packageId &&
+      entry.summary.packageVersion === next.summary.packageVersion &&
+      entry.entryId !== (targetEntry?.entryId ?? next.entryId)
   );
   if (duplicateVersion) {
     throw new Error(`Duplicate version conflict for ${next.summary.packageId}@${next.summary.packageVersion}.`);
   }
-  const merged = attachLineageEntryIds([next, ...current.filter((entry) => entry.entryId !== next.entryId)]);
+
+  const normalizedEntryId = targetEntry?.entryId ?? next.entryId;
+  const normalizedEntry: PackageRegistryEntry = {
+    ...next,
+    entryId: normalizedEntryId,
+    summary: {
+      ...next.summary,
+      entryId: normalizedEntryId
+    },
+    details: {
+      ...next.details,
+      summary: {
+        ...next.summary,
+        entryId: normalizedEntryId
+      }
+    }
+  };
+
+  const merged = attachLineageEntryIds([normalizedEntry, ...current.filter((entry) => entry.entryId !== normalizedEntry.entryId)]);
   saveLocalRegistryEntries(merged);
-  return next;
+  return normalizedEntry;
 }
 
 export function createDerivedRegistryEntry(input: {

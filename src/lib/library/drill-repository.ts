@@ -71,6 +71,17 @@ function parseVersionNumber(pkg: DrillPackage): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+function bumpPatchVersion(version: string): string {
+  const [majorRaw, minorRaw, patchRaw] = version.split(".");
+  const major = Number.parseInt(majorRaw ?? "0", 10);
+  const minor = Number.parseInt(minorRaw ?? "1", 10);
+  const patch = Number.parseInt(patchRaw ?? "0", 10);
+  if (!Number.isFinite(major) || !Number.isFinite(minor) || !Number.isFinite(patch)) {
+    return "0.1.0";
+  }
+  return `${major}.${minor}.${patch + 1}`;
+}
+
 function createUniqueId(prefix: "draft" | "drill"): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return `${prefix}-${crypto.randomUUID()}`;
@@ -338,6 +349,7 @@ export async function createDraftVersion(drillId: string, context?: DrillReposit
 
   const nextDraftId = createUniqueId("draft");
   const next = ensureVersioningMetadata(structuredClone(activeReady.packageJson));
+  next.manifest.packageVersion = bumpPatchVersion(activeReady.packageJson.manifest.packageVersion);
   next.manifest.updatedAtIso = new Date().toISOString();
   next.manifest.versioning = {
     ...(next.manifest.versioning ?? {}),
@@ -406,7 +418,7 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
     pkg.manifest.versioning = {
       ...(pkg.manifest.versioning ?? {}),
       packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
-      versionId: pkg.manifest.versioning?.versionId ?? draftVersionId,
+      versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
       revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
       lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
       draftStatus: "publish-ready"
@@ -429,7 +441,7 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
   pkg.manifest.versioning = {
     ...(pkg.manifest.versioning ?? {}),
     packageSlug: pkg.manifest.versioning?.packageSlug ?? pkg.manifest.packageId,
-    versionId: pkg.manifest.versioning?.versionId ?? draftVersionId,
+    versionId: `${pkg.manifest.packageId}@${pkg.manifest.packageVersion}`,
     revision: pkg.manifest.versioning?.revision ?? parseVersionNumber(pkg),
     lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
     draftStatus: "publish-ready"
@@ -462,7 +474,8 @@ export async function publishVersion(version: DrillVersionSnapshot, context?: Dr
     packageJson: pkg,
     sourceType: "mock-published",
     sourceLabel: `published-from:${version.versionId}`,
-    publishedAtIso: new Date().toISOString()
+    publishedAtIso: new Date().toISOString(),
+    existingEntryId: version.source === "library" ? version.sourceId : undefined
   });
 }
 
