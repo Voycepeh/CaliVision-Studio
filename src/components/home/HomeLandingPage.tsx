@@ -23,7 +23,7 @@ const cards: HomeCard[] = [
   {
     icon: "studio",
     title: "Drill Studio",
-    description: "Use Library to manage drafts and drills, then jump into focused Studio editing.",
+    description: "Use Library to manage drills and versions, then jump into focused Studio editing.",
     href: "/library",
     cta: "Open Library"
   },

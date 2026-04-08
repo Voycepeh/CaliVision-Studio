@@ -1,49 +1,40 @@
-# PR Plan — Polish Upload Analysis Flow and Results/Debug UX
+# PR Plan — Unify My drills with Version-Aware Lifecycle Foundations
 
 ## Summary
 
-Improve Upload Video product wiring so the local analysis workflow feels coherent end to end:
-`upload -> analyze -> review -> export -> revisit`.
+Refactor drill persistence and library UX from separate Drafts/My drills buckets to a single **My drills** library with a stable drill identity and version-aware lifecycle.
 
 ## Problem
 
-Core analysis pieces already exist (schema, pipeline skeleton, persisted sessions, replay, export), but users can still get lost when status is vague, failures are unclear, recent sessions are disconnected, or debug data is hidden/scattered.
+The split between top-level Drafts and My drills creates duplicate entries, confusing promotion behavior, and broken edit flows where editing Ready/Published content can create unrelated drill records.
 
-## UX/workflow improvements in scope
+## Scope in this PR
 
-- Clarify upload entry and analysis lifecycle text with truthful state labels.
-- Add tighter handoff from selected upload to latest linked analysis session.
-- Improve recent-analysis discoverability with direct shortcuts for current upload + drill context.
-- Re-structure session detail for summary-first review, replay focus, event visibility, and tucked debug data.
-- Surface partial/missing-data situations explicitly (for example missing source media URI or missing structured samples).
-- Keep export actions prominent in session detail.
+- Single top-level **My drills** view for local library workflows.
+- Drill identity + version snapshot repository seam (`drillId` + version records).
+- Version status foundation (`draft` | `ready`) plus publish flag (`isPublished`).
+- Edit flow foundation:
+  - editing Ready/Published creates or resumes a Draft version under the same drill identity.
+- Upload Video selection gate:
+  - only Ready/Published-capable drills are selectable.
+- Publish gate foundation:
+  - only Ready versions are publishable.
+- Version history foundation:
+  - list version number/status/published/timestamp per drill.
+- Readiness validator foundation:
+  - title, drill type, phase presence, and pose data checks.
 
-## Status/error handling expectations
+## Compatibility / migration posture
 
-- Do not simulate fake precision or fake progress.
-- Distinguish complete, failed, cancelled, and partial analysis outcomes.
-- Preserve debug context for failures/partial results.
-
-## Debug affordances
-
-- Collapsible debug section with session/drill IDs, pipeline/scorer versions, detector/cadence metadata, and source URIs.
-- Raw JSON remains optional and hidden by default.
+- This PR uses a compatibility adapter approach over existing local persistence seams (`draft` + registry storage), minimizing migration risk.
+- Existing locally saved data remains accessible through the unified drill/version projection.
+- Hosted persistence remains in compatibility mode while unified hosted drill/version tables land.
 
 ## Non-goals
 
-- hosted sync / backend dependence,
-- full production analytics dashboarding,
-- scoring heuristic rewrites,
-- cross-attempt comparison engine,
-- top-level navigation redesign.
+- Full visual diff/comparison UI for versions.
+- Full backend Exchange publishing redesign.
+- Pose/scoring algorithm changes.
+- Large Studio layout redesign.
 
 Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
-
-## Follow-up candidates (next PR)
-
-- Improve phase scoring quality and confidence modeling:
-  - stronger pose similarity logic,
-  - tolerance profiles,
-  - visibility/quality gating,
-  - phase match confidence calibration,
-  - analysis/scorer versioning discipline as scoring evolves.
