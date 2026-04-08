@@ -17,13 +17,6 @@ After further consideration, CaliVision is moving toward a cross-platform web-fi
 - Android is no longer presented as the primary surface for the whole product.
 - Android remains an optional native path for premium live coaching or hardware-specific workflows when it proves meaningfully better than the browser.
 
-## Current near-term focus
-
-1. Choose a drill or freestyle mode.
-2. Upload a video or capture from a mobile browser camera.
-3. Analyze in CaliVision.
-4. Review counts, holds, events, and annotated replay.
-
 ## A short history of the product
 
 CaliVision started Android-first because on-device live coaching was the initial center of effort.
@@ -31,23 +24,6 @@ CaliVision started Android-first because on-device live coaching was the initial
 As the end-to-end workflow expanded (authoring, library management, upload analysis, and review), Android-first ownership no longer fit the broader product journey.
 
 The web app is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android should be described as legacy and no longer as the main product
-
-## How CaliVision is split
-
-### CaliVision web app (main surface)
-
-- Create and edit drills in Drill Studio
-- Manage drafts and saved drills in Library
-- Run Upload Video analysis in the browser
-- Review replay outputs and analysis details
-- Expand to mobile-browser camera capture
-- Produce drill definitions used by runtime clients
-
-### Android app (optional native specialization)
-
-- Optional native runtime for live coaching and specialized device capabilities
-- Consumption of Studio-authored drill definitions
-- Repo: <https://github.com/Voycepeh/CaliVision>
 
 ## Main user flows
 
@@ -82,20 +58,11 @@ flowchart LR
 
 ## Current capabilities
 
-### CaliVision web app today
-
 - Drill authoring in Studio
 - Drill and draft management in Library
 - Browser-based Upload Video analysis
 - Review and replay outputs in browser workflows
 - Export and compatibility workflows for runtime clients
-
-### Android app today
-
-- Optional on-device live coaching runtime
-- Consumption of Studio-authored drill definitions
-
-See Android repo for runtime details: <https://github.com/Voycepeh/CaliVision>
 
 ## Repo quick start
 
