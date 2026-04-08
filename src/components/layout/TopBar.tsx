@@ -64,11 +64,11 @@ export function TopBar() {
         <div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", marginBottom: "0.35rem" }}>
             <CaliVisionLogo size="compact" className="topbar-brand-logo" />
-            <span style={{ fontSize: "0.82rem", color: "var(--muted)", letterSpacing: "0.02em" }}>CaliVision Studio</span>
+            <span style={{ fontSize: "0.82rem", color: "var(--muted)", letterSpacing: "0.02em" }}>CaliVision</span>
           </div>
           <strong>{draftHeader}</strong>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.8rem" }}>
-            Editing drill draft in CaliVision Studio
+            Editing drill draft in CaliVision
           </p>
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
             {isConfigured ? userEmail ? `Signed in: ${userEmail}` : "Not signed in (hosted save unavailable)" : "Supabase not configured: local-only mode"}

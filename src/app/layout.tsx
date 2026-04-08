@@ -3,7 +3,7 @@ import "./globals.css";
 import { AppProviders } from "@/components/layout/AppProviders";
 
 export const metadata: Metadata = {
-  title: "CaliVision Studio",
+  title: "CaliVision",
   description: "Brand-first web workspace for Drill Studio, Upload Video, and Drill Exchange workflows"
 };
 

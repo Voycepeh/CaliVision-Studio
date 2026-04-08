@@ -74,7 +74,7 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <h1>CaliVision Studio</h1>
+          <h1>CaliVision</h1>
           <p className="home-subtitle">
             Build your own drills or start from shared ones. Upload a video attempt to count reps, track holds, and review movement with
             computer vision. Train live on Android with our app.

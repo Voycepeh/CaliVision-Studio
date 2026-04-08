@@ -42,7 +42,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
       <div className="site-header-inner">
         <Link href="/library" className="site-brand">
           <CaliVisionLogo size="nav" className="site-brand-logo" />
-          <span className="site-brand-text">CaliVision Studio</span>
+          <span className="site-brand-text">CaliVision</span>
         </Link>
         <nav className="site-nav" aria-label="Primary">
           {items.map((item) => (

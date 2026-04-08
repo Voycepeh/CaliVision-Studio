@@ -1,6 +1,6 @@
-# CaliVision Studio
+# CaliVision
 
-CaliVision Studio is the primary product surface for CaliVision across desktop and mobile browsers.
+CaliVision is the primary product surface across desktop and mobile browsers.
 
 CaliVision also includes a separate Android app for optional native specialization workflows:
 <https://github.com/Voycepeh/CaliVision>
@@ -18,7 +18,7 @@ After further consideration, CaliVision is moving toward a cross-platform web-fi
 
 1. Choose a drill or freestyle mode.
 2. Upload a video or capture from a mobile browser camera.
-3. Analyze in Studio.
+3. Analyze in CaliVision.
 4. Review counts, holds, events, and annotated replay.
 
 ## A short history of the product
@@ -27,11 +27,11 @@ CaliVision started Android-first because on-device live coaching was the initial
 
 As the end-to-end workflow expanded (authoring, library management, upload analysis, and review), Android-first ownership no longer fit the broader product journey.
 
-The web Studio is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android remains a focused optional native specialization path.
+The web app is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android remains a focused optional native specialization path.
 
 ## How CaliVision is split
 
-### Web Studio (main surface)
+### CaliVision web app (main surface)
 
 - Create and edit drills in Drill Studio
 - Manage drafts and saved drills in Library
@@ -50,15 +50,15 @@ The web Studio is now the better center of gravity because it provides one cross
 
 ### 1. Drill authoring flow
 
-Library -> open or create drill -> edit phases and poses in Studio -> save to library.
+Library -> open or create drill -> edit phases and poses in CaliVision -> save to library.
 
 ### 2. Upload and capture analysis flow
 
-Library or Upload Video -> choose drill or freestyle -> upload video or capture from mobile browser camera -> run analysis in Studio -> review outputs, replay, and results.
+Library or Upload Video -> choose drill or freestyle -> upload video or capture from mobile browser camera -> run analysis in CaliVision -> review outputs, replay, and results.
 
 ### 3. Optional Android runtime flow
 
-Create and manage drill in Web Studio -> use, export, or sync drill to Android app -> start optional live coaching session on device.
+Create and manage drill in CaliVision -> use, export, or sync drill to Android app -> start optional live coaching session on device.
 
 ### 4. Library and review flow
 
@@ -68,7 +68,7 @@ Browse drills and drafts -> continue editing, run analysis, or review annotated 
 
 ```mermaid
 flowchart LR
-    U[User] --> WS[Web Studio (Desktop + Mobile Browser)]
+    U[User] --> WS[CaliVision Web (Desktop + Mobile Browser)]
     WS --> DL[Drill Library and persistence]
     WS --> UA[Upload/Capture Analysis + Replay/Review]
     DL --> AA[Android App (Optional Native)]
@@ -78,7 +78,7 @@ flowchart LR
 
 ## Current capabilities
 
-### Web Studio today
+### CaliVision web app today
 
 - Drill authoring in Studio
 - Drill and draft management in Library

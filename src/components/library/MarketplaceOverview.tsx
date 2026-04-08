@@ -25,7 +25,7 @@ export function MarketplaceOverview() {
   function forkRemix(entryId: string) {
     const next = createDerivedRegistryEntry({ entryId, relation: "fork" });
     setEntries(loadLocalRegistryEntries());
-    setMessage(`Forked ${next.summary.title}. Open it from Library or Drill Studio to continue editing.`);
+    setMessage(`Forked ${next.summary.title}. Open it from Library or the editor to continue editing.`);
   }
 
   return (
@@ -60,7 +60,7 @@ export function MarketplaceOverview() {
               <p className="muted" style={{ margin: 0 }}>{entry.details.description}</p>
               <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                 <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                  Open in Studio
+                  Open in Editor
                 </Link>
                 <Link className="pill" href="/library">
                   Import via Library
