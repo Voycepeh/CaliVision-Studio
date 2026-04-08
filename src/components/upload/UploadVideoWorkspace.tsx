@@ -6,8 +6,8 @@ import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideo
 import type { UploadJob } from "@/lib/upload/types";
 import { getPrimarySamplePackage } from "@/lib/package/samples";
 import {
+  createAnalysisArtifactFilename,
   createImportedAnalysisSessionCopy,
-  deserializeAnalysisSession,
   deriveReplayMarkers,
   deriveReplaySessionOverview,
   deriveReplayStateAtTime,
@@ -15,7 +15,7 @@ import {
   getReplayDurationMs,
   persistCompletedUploadAnalysisSession,
   persistFailedUploadAnalysisSession,
-  serializeAnalysisSession,
+  serializeAnalysisSessionArtifact,
   type AnalysisSessionRecord
 } from "@/lib/analysis";
 
@@ -664,7 +664,7 @@ export function UploadVideoWorkspace() {
 
             <details>
               <summary style={{ cursor: "pointer" }}>JSON debug</summary>
-              <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{serializeAnalysisSession(selectedSession)}</pre>
+              <pre className="muted" style={{ whiteSpace: "pre-wrap" }}>{serializeAnalysisSessionArtifact(selectedSession)}</pre>
             </details>
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
               <button
@@ -672,21 +672,20 @@ export function UploadVideoWorkspace() {
                 className="pill"
                 onClick={() =>
                   downloadBlob(
-                    new Blob([serializeAnalysisSession(selectedSession)], { type: "application/json" }),
-                    `${selectedSession.sessionId}.analysis-session.json`
+                    new Blob([serializeAnalysisSessionArtifact(selectedSession)], { type: "application/json" }),
+                    createAnalysisArtifactFilename(selectedSession)
                   )
                 }
               >
-                Download Session JSON
+                Download Analysis Artifact (.json)
               </button>
               <button
                 type="button"
                 className="pill"
                 onClick={async () => {
-                  const importedSession = createImportedAnalysisSessionCopy(
-                    deserializeAnalysisSession(serializeAnalysisSession(selectedSession)),
-                    { importedSessionId: crypto.randomUUID() }
-                  );
+                  const importedSession = createImportedAnalysisSessionCopy(selectedSession, {
+                    importedSessionId: crypto.randomUUID()
+                  });
                   await analysisRepository.saveSession(importedSession);
                   await refreshRecentSessions();
                   setSelectedSessionId(importedSession.sessionId);

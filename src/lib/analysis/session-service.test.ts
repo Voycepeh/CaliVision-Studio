@@ -123,6 +123,8 @@ test("upload analysis path persists exactly one completed session", async () => 
   assert.equal(sessions[0]?.status, "completed");
   assert.equal(sessions[0]?.sourceKind, "upload");
   assert.equal(sessions[0]?.sourceUri, "upload://local/upload-job-1/attempt.mp4");
+  assert.equal(sessions[0]?.pipelineVersion, "drill-analysis-pipeline-v1");
+  assert.equal(sessions[0]?.scorerVersion, "frame-phase-scorer-v1");
   assert.equal(sessions[0]?.annotatedVideoUri, "upload://local/upload-job-1/attempt.annotated-video.webm");
 });
 
