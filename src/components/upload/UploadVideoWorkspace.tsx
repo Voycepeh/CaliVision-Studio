@@ -6,6 +6,7 @@ import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideo
 import type { UploadJob } from "@/lib/upload/types";
 import { getPrimarySamplePackage } from "@/lib/package/samples";
 import { listReadyDrillsForUpload } from "@/lib/library";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   createAnalysisArtifactFilename,
   createImportedAnalysisSessionCopy,
@@ -109,6 +110,7 @@ function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
 type ReadyUploadDrill = Awaited<ReturnType<typeof listReadyDrillsForUpload>>[number];
 
 export function UploadVideoWorkspace() {
+  const { persistenceMode, session } = useAuth();
   const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
   const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
   const [readyDrills, setReadyDrills] = useState<ReadyUploadDrill[] | null>(null);
@@ -292,11 +294,11 @@ export function UploadVideoWorkspace() {
 
   useEffect(() => {
     void (async () => {
-      const drills = await listReadyDrillsForUpload();
+      const drills = await listReadyDrillsForUpload({ mode: persistenceMode === "cloud" ? "cloud" : "local", session });
       setReadyDrills(drills);
       setSelectedReadyDrillId((current) => current ?? drills[0]?.drillId ?? null);
     })();
-  }, []);
+  }, [persistenceMode, session]);
 
   useEffect(() => {
     setReplayElapsedMs(0);

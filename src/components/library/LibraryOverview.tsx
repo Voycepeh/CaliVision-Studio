@@ -31,20 +31,27 @@ export function LibraryOverview() {
   const [versionsByDrillId, setVersionsByDrillId] = useState<Record<string, DrillVersionSnapshot[]>>({});
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
-  const { persistenceMode } = useAuth();
+  const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
     pendingActionByItemId: {},
     actionMessageByItemId: {},
     actionErrorByItemId: {}
   });
   const signedInMode = persistenceMode === "cloud";
+  const repositoryContext = useMemo(
+    () => ({
+      mode: signedInMode ? "cloud" : "local",
+      session
+    }) as const,
+    [session, signedInMode]
+  );
 
   const refreshLibrary = useCallback(async (): Promise<void> => {
-    const nextDrills = await listDrillsWithActiveVersion();
+    const nextDrills = await listDrillsWithActiveVersion(repositoryContext);
     setDrills(nextDrills);
-    const versions = await Promise.all(nextDrills.map((item) => listVersionsForDrill(item.drillId)));
+    const versions = await Promise.all(nextDrills.map((item) => listVersionsForDrill(item.drillId, repositoryContext)));
     setVersionsByDrillId(Object.fromEntries(nextDrills.map((item, index) => [item.drillId, versions[index] ?? []])));
-  }, []);
+  }, [repositoryContext]);
 
   useEffect(() => {
     void refreshLibrary();
@@ -103,13 +110,13 @@ export function LibraryOverview() {
     const filtered = drills.filter((drill) => !q || drill.title.toLowerCase().includes(q) || drill.drillId.toLowerCase().includes(q));
     return [...filtered].sort((a, b) => {
       if (sortBy === "title-asc") return a.title.localeCompare(b.title);
-      if (sortBy === "publish-status") return Number(b.activeVersion.isPublished) - Number(a.activeVersion.isPublished);
+      if (sortBy === "publish-status") return Number(Boolean(b.activeReadyVersion?.isPublished)) - Number(Boolean(a.activeReadyVersion?.isPublished));
       return b.updatedAtIso.localeCompare(a.updatedAtIso);
     });
   }, [drills, searchText, sortBy]);
 
   async function onCreateDraft(): Promise<void> {
-    const created = await createDrill();
+    const created = await createDrill(repositoryContext);
     setItemFeedback("global:create", "Created a new drill draft.");
     await refreshLibrary();
     router.push(`/studio?draftId=${encodeURIComponent(created.draftVersionId)}`);
@@ -121,7 +128,7 @@ export function LibraryOverview() {
       return;
     }
 
-    const drafted = await createDraftVersion(drill.drillId);
+    const drafted = await createDraftVersion(drill.drillId, repositoryContext);
     setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? "Resumed draft version." : "Created draft version from active Ready version.");
     await refreshLibrary();
     router.push(`/studio?draftId=${encodeURIComponent(drafted.draftVersionId)}`);
@@ -133,18 +140,18 @@ export function LibraryOverview() {
       return;
     }
 
-    await markVersionReady(drill.latestDraftVersionId);
+    await markVersionReady(drill.latestDraftVersionId, repositoryContext);
     setItemFeedback(`drill:${drill.drillId}`, "Draft marked Ready.");
     await refreshLibrary();
   }
 
   async function onPublish(drill: DrillLibraryItem): Promise<void> {
-    if (drill.activeVersion.status !== "ready") {
+    if (!drill.activeReadyVersion) {
       setItemFeedback(`drill:${drill.drillId}`, "Only Ready versions can be published.", "error");
       return;
     }
 
-    publishVersion(drill.activeVersion);
+    await publishVersion(drill.activeReadyVersion, repositoryContext);
     setItemFeedback(`drill:${drill.drillId}`, "Ready version published.");
     await refreshLibrary();
   }
@@ -226,8 +233,8 @@ export function LibraryOverview() {
                   <div style={rowTitleWrapStyle}>
                     <strong>{drill.title}</strong>
                     <p className="muted" style={{ margin: 0 }}>
-                      Active v{drill.activeVersion.versionNumber} • {drill.activeVersion.status === "ready" ? "Ready" : "Draft"}
-                      {drill.activeVersion.isPublished ? " • Published" : ""}
+                      Current v{drill.currentVersion.versionNumber} • {drill.currentVersion.status === "ready" ? "Ready" : "Draft"}
+                      {drill.currentVersion.isPublished ? " • Published" : ""}
                     </p>
                   </div>
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
@@ -240,7 +247,7 @@ export function LibraryOverview() {
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`publish:${drill.drillId}`, "Publishing…", () => onPublish(drill))}>
                       Publish
                     </button>
-                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeVersion))}>
+                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
                       Export drill file
                     </button>
                   </div>
