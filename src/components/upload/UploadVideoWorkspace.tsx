@@ -197,6 +197,8 @@ export function UploadVideoWorkspace() {
       patch: { status: "processing", stageLabel: "Initializing MediaPipe Pose Landmarker", startedAtIso: new Date().toISOString() }
     });
 
+    let persistedSession: AnalysisSessionRecord | null = null;
+
     try {
       const timeline = await processVideoFile(nextJob.file, {
         cadenceFps,
@@ -204,18 +206,19 @@ export function UploadVideoWorkspace() {
         onProgress: (progress, stageLabel) => dispatch({ type: "update", id: nextJob.id, patch: { progress, stageLabel } })
       });
       const annotatedVideoUri = createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`);
-      const persisted = await persistCompletedUploadAnalysisSession({
+      persistedSession = await persistCompletedUploadAnalysisSession({
         repository: analysisRepository,
         drill: referenceDrill,
         drillVersion: "sample-v1",
         timeline,
         sourceId: nextJob.id,
         sourceLabel: nextJob.fileName,
-        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-        annotatedVideoUri
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName)
       });
       dispatch({ type: "update", id: nextJob.id, patch: { stageLabel: "Rendering annotated video", progress: 0.97 } });
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { analysisSession: persisted, includeAnalysisOverlay: true });
+      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { analysisSession: persistedSession, includeAnalysisOverlay: true });
+      const linkedSession: AnalysisSessionRecord = { ...persistedSession, annotatedVideoUri };
+      await analysisRepository.saveSession(linkedSession);
 
       dispatch({
         type: "update",
@@ -235,7 +238,7 @@ export function UploadVideoWorkspace() {
           }
         }
       });
-      setSelectedSessionId(persisted.sessionId);
+      setSelectedSessionId(linkedSession.sessionId);
       await refreshRecentSessions();
       setSelectedJobId(nextJob.id);
     } catch (error) {
@@ -252,7 +255,7 @@ export function UploadVideoWorkspace() {
         }
       });
 
-      if (!cancelled) {
+      if (!cancelled && !persistedSession) {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
           drill: referenceDrill,
@@ -262,8 +265,8 @@ export function UploadVideoWorkspace() {
           sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
           errorMessage: message
         });
-        await refreshRecentSessions();
       }
+      await refreshRecentSessions();
     } finally {
       activeAbortRef.current = null;
       isRunningRef.current = false;

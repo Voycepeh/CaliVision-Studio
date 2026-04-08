@@ -64,6 +64,7 @@ This increment does **not**:
 
 - change scorer/engine accuracy or event-generation logic,
 - recompute analysis inside export rendering,
+- redesign or replace the current browser-local annotated export pipeline,
 - introduce hosted media processing,
 - polished import UX,
 - backend sharing,
