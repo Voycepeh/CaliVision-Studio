@@ -69,12 +69,12 @@ Browse drills and drafts -> continue editing, run analysis, or review annotated 
 ```mermaid
 flowchart LR
     U["User"] --> WS["CaliVision Web<br/>Desktop + Mobile Browser"]
-    WS --> DL["Drill Library and Persistence"]
-    WS --> LS["Live Streaming Coaching"]
-    WS --> UA["Record / Upload Analysis + Annotated Replay"]
-    U --> AA["Android App"]
-    AA --> LC["Specialized Edge Live Coaching"]
-    WS -. cross-platform primary experience .-> AA
+
+    WS --> DL["Drill Library"]
+    WS --> DP["Persistence"]
+    WS --> LS["Live Streaming"]
+    WS --> UA["Record / Upload Analysis"]
+    WS --> AR["Annotated Replay + Export"]
 ```
 
 ## Current capabilities
