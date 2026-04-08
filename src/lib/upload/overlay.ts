@@ -105,26 +105,26 @@ function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, l
     return;
   }
 
-  const fontSize = 18;
-  const lineHeight = 24;
+  const fontSize = 24;
+  const lineHeight = 32;
   ctx.save();
   ctx.font = `600 ${fontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   ctx.textAlign = align;
   ctx.textBaseline = "top";
   const widest = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
-  const paddingX = 12;
-  const paddingY = 10;
+  const paddingX = 16;
+  const paddingY = 14;
   const boxWidth = widest + paddingX * 2;
   const boxHeight = lines.length * lineHeight + paddingY * 2;
   const left = align === "left" ? x : x - boxWidth;
-  ctx.fillStyle = "rgba(15, 23, 42, 0.72)";
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.66)";
-  ctx.lineWidth = 1;
+  ctx.fillStyle = "rgba(2, 6, 23, 0.82)";
+  ctx.strokeStyle = "rgba(191, 219, 254, 0.95)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(left, y, boxWidth, boxHeight, 10);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "rgba(248, 250, 252, 0.95)";
+  ctx.fillStyle = "rgba(248, 250, 252, 1)";
   lines.forEach((line, index) => {
     const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
     ctx.fillText(line, textX, y + paddingY + index * lineHeight);
@@ -156,31 +156,24 @@ function drawStatusPill(ctx: CanvasRenderingContext2D, x: number, y: number, tex
 export function drawAnalysisOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
-  _height: number,
+  height: number,
   replayOverlayState?: ReplayOverlayState | null
 ): void {
   if (!replayOverlayState) {
     return;
   }
 
-  const topPadding = Math.max(10, width * 0.01);
-  const sidePadding = Math.max(10, width * 0.015);
-  const leftLines: string[] = [];
-  const rightLines: string[] = [];
+  const sidePadding = Math.max(14, width * 0.02);
+  const bottomPadding = Math.max(14, height * 0.035);
+  const lines: string[] = [
+    replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none",
+    `Reps: ${replayOverlayState.repCount}`,
+    `Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`
+  ];
 
-  leftLines.push(replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none");
-
-  if (replayOverlayState.showRepCount) {
-    rightLines.push(`Reps: ${replayOverlayState.repCount}`);
-  }
-
-  if (replayOverlayState.showHoldTimer) {
-    rightLines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`);
-  }
-
-  drawOverlayBlock(ctx, sidePadding, topPadding, leftLines, "left");
-  drawOverlayBlock(ctx, width - sidePadding, topPadding, rightLines, "right");
+  const estimatedBoxHeight = lines.length * 32 + 14 * 2;
+  drawOverlayBlock(ctx, sidePadding, Math.max(8, height - estimatedBoxHeight - bottomPadding), lines, "left");
   if (replayOverlayState.statusLabel) {
-    drawStatusPill(ctx, sidePadding, topPadding + 52, replayOverlayState.statusLabel);
+    drawStatusPill(ctx, sidePadding, Math.max(8, height - estimatedBoxHeight - bottomPadding - 36), replayOverlayState.statusLabel);
   }
 }

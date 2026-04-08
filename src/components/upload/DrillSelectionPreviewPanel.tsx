@@ -14,6 +14,7 @@ type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
   sourceKind?: "seeded" | "local" | "hosted";
   showSourceBadge?: boolean;
+  compact?: boolean;
 };
 
 function sortPhases(phases: PortablePhase[]): PortablePhase[] {
@@ -78,7 +79,7 @@ export function buildDrillOptionLabel(drill: PortableDrill): string {
   return `${drill.title} · ${formatDrillTypeLabel(drill.drillType)} · ${formatViewLabel(drill.defaultView)}`;
 }
 
-export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false }: DrillSelectionPreviewPanelProps) {
+export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false }: DrillSelectionPreviewPanelProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const frameRef = useRef<number | null>(null);
@@ -164,10 +165,10 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
   }, [drill.drillType, loopPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex, sampledFrame.phaseTitle]);
 
   return (
-    <section className="card" style={{ margin: 0, display: "grid", gap: "0.6rem", background: "rgba(114,168,255,0.08)" }}>
+    <section className="card" style={{ margin: 0, display: "grid", gap: "0.5rem", background: "rgba(114,168,255,0.08)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "grid", gap: "0.2rem" }}>
-          <strong style={{ fontSize: "1rem" }}>{drill.title}</strong>
+          <strong style={{ fontSize: compact ? "0.92rem" : "1rem" }}>{drill.title}</strong>
           <div className="muted" style={{ fontSize: "0.85rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
             <span>View: {formatViewLabel(drill.defaultView)}</span>
@@ -181,14 +182,16 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
         ) : null}
       </div>
 
-      <PoseCanvas
-        pose={poseModel}
-        title="Motion preview"
-        subtitle={`${phaseStateLabel} · ${sampledFrame.phaseTitle}`}
-        editable={false}
-        showPoseLayer
-        sizeMode="balanced"
-      />
+      <div style={{ maxWidth: compact ? 360 : undefined }}>
+        <PoseCanvas
+          pose={poseModel}
+          title="Motion preview"
+          subtitle={`${phaseStateLabel} · ${sampledFrame.phaseTitle}`}
+          editable={false}
+          showPoseLayer
+          sizeMode={compact ? "default" : "balanced"}
+        />
+      </div>
 
       <div className="studio-animation-controls" style={{ marginTop: 0 }}>
         <button type="button" onClick={() => setIsPlaying((current) => !current)} disabled={timeline.totalDurationMs <= 0}>

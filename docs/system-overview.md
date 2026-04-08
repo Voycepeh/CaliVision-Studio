@@ -11,7 +11,7 @@
 - local-first/mock-backed state for registry/publishing/discovery,
 - Upload Video processing and artifact generation runs in-browser on user hardware,
 - portable package contract remains canonical engineering boundary,
-- deterministic analysis runtime + local session persistence now exists in `src/lib/analysis/*` (frame scoring, temporal smoothing, event extraction, analysis session repository/service) for Upload Video history/debug inspection and future live-analysis integration,
+- deterministic analysis runtime exists in `src/lib/analysis/*` (frame scoring, temporal smoothing, event extraction, session data models/services) and currently powers a transient one-pass Upload Video workflow (upload/analyze/inspect/download/reset),
 - hosted backend/auth/storage remain future layers.
 
 > Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).
