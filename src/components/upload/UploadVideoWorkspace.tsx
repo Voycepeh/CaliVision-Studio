@@ -203,8 +203,19 @@ export function UploadVideoWorkspace() {
         signal: controller.signal,
         onProgress: (progress, stageLabel) => dispatch({ type: "update", id: nextJob.id, patch: { progress, stageLabel } })
       });
+      const annotatedVideoUri = createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`);
+      const persisted = await persistCompletedUploadAnalysisSession({
+        repository: analysisRepository,
+        drill: referenceDrill,
+        drillVersion: "sample-v1",
+        timeline,
+        sourceId: nextJob.id,
+        sourceLabel: nextJob.fileName,
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+        annotatedVideoUri
+      });
       dispatch({ type: "update", id: nextJob.id, patch: { stageLabel: "Rendering annotated video", progress: 0.97 } });
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline);
+      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { analysisSession: persisted, includeAnalysisOverlay: true });
 
       dispatch({
         type: "update",
@@ -223,16 +234,6 @@ export function UploadVideoWorkspace() {
             annotatedVideoMimeType: annotated.mimeType
           }
         }
-      });
-      const persisted = await persistCompletedUploadAnalysisSession({
-        repository: analysisRepository,
-        drill: referenceDrill,
-        drillVersion: "sample-v1",
-        timeline,
-        sourceId: nextJob.id,
-        sourceLabel: nextJob.fileName,
-        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
       });
       setSelectedSessionId(persisted.sessionId);
       await refreshRecentSessions();
@@ -599,7 +600,7 @@ export function UploadVideoWorkspace() {
             </button>
           </div>
           <div className="muted" style={{ marginTop: "0.45rem", display: "grid", gap: "0.2rem" }}>
-            <span><strong>Annotated Video:</strong> video preview with pose overlay styling for playback/export.</span>
+            <span><strong>Annotated Video:</strong> exported replay includes pose + persisted drill-analysis overlays when available.</span>
             <span><strong>Processing Summary (.json):</strong> lightweight summary metadata about this run.</span>
             <span><strong>Pose Timeline (.json):</strong> frame-by-frame pose keypoints and timestamps.</span>
           </div>

@@ -1,5 +1,7 @@
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
-import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
+import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
+import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import type { PoseTimeline } from "@/lib/upload/types";
 
 export type ProcessVideoOptions = {
@@ -146,7 +148,11 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   }
 }
 
-export async function exportAnnotatedVideo(file: File, timeline: PoseTimeline): Promise<{ blob: Blob; mimeType: string }> {
+export async function exportAnnotatedVideo(
+  file: File,
+  timeline: PoseTimeline,
+  options?: { analysisSession?: AnalysisSessionRecord | null; includeAnalysisOverlay?: boolean }
+): Promise<{ blob: Blob; mimeType: string }> {
   const { video, objectUrl } = await loadVideoElement(file);
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -180,8 +186,18 @@ export async function exportAnnotatedVideo(file: File, timeline: PoseTimeline): 
   await new Promise<void>((resolve) => {
     const tick = () => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const frame = getNearestPoseFrame(timeline.frames, video.currentTime * 1000);
+      const currentMs = video.currentTime * 1000;
+      const frame = getNearestPoseFrame(timeline.frames, currentMs);
       drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+      if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
+        drawAnalysisOverlay(
+          ctx,
+          canvas.width,
+          canvas.height,
+          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs),
+          { drillLabel: options.analysisSession.drillTitle }
+        );
+      }
 
       if (video.ended) {
         resolve();
