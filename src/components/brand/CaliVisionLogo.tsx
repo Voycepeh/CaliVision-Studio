@@ -18,7 +18,7 @@ export function CaliVisionLogo({ size = "hero", className, priority = false }: C
   return (
     <Image
       src="/brand/calivision-home-logo.png"
-      alt="CaliVision Studio"
+      alt="CaliVision"
       width={dimensions.width}
       height={dimensions.height}
       priority={priority}
