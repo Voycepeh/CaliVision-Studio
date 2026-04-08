@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
-import { deriveReplayMarkers, deriveReplaySessionOverview, deriveReplayStateAtTime } from "./replay-state.ts";
+import { deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime } from "./replay-state.ts";
 
 function createSession(): AnalysisSessionRecord {
   return {
@@ -116,8 +116,41 @@ test("deriveReplaySessionOverview includes phase coverage and quality label", ()
 
 test("missing session returns safe replay defaults", () => {
   const state = deriveReplayStateAtTime(undefined, 1000);
+  const overlay = deriveReplayOverlayStateAtTime(undefined, 1000);
   const markers = deriveReplayMarkers(undefined);
   assert.equal(state.activePhaseId, null);
+  assert.equal(overlay.phaseLabel, null);
+  assert.equal(overlay.showRepCount, false);
+  assert.equal(overlay.showHoldTimer, false);
   assert.equal(state.repCount, 0);
   assert.equal(markers.length, 0);
+});
+
+test("overlay state shows rep count and active hold timer signals", () => {
+  const session = createSession();
+
+  const inHold = deriveReplayOverlayStateAtTime(session, 1500);
+  assert.equal(inHold.phaseLabel, "down");
+  assert.equal(inHold.showRepCount, true);
+  assert.equal(inHold.showHoldTimer, true);
+
+  const afterHold = deriveReplayOverlayStateAtTime(session, 2500);
+  assert.equal(afterHold.showRepCount, true);
+  assert.equal(afterHold.showHoldTimer, false);
+});
+
+test("overlay state falls back to phase-enter events when frame samples are missing", () => {
+  const session = createSession();
+  session.frameSamples = [];
+  const overlay = deriveReplayOverlayStateAtTime(session, 1100);
+  assert.equal(overlay.phaseLabel, "down");
+});
+
+test("overlay helper stays aligned with base replay derivation", () => {
+  const session = createSession();
+  const base = deriveReplayStateAtTime(session, 2500);
+  const overlay = deriveReplayOverlayStateAtTime(session, 2500);
+  assert.equal(overlay.timestampMs, base.timestampMs);
+  assert.equal(overlay.repCount, base.repCount);
+  assert.equal(overlay.holdActive, base.holdActive);
 });

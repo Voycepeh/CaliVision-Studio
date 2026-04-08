@@ -29,7 +29,7 @@
 3. Run MediaPipe Pose Landmarker in video mode locally.
 4. Persist one local analysis session per completed, partial, or failed attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
 5. Use the upload handoff card to open the latest result from the current upload when available.
-6. Review overlay preview for completed jobs.
+6. Review overlay preview for completed jobs (pose overlay in preview canvas).
 7. Use **Recent analyses** shortcuts to jump to:
    - latest result from current upload,
    - latest analysis for this drill,
@@ -41,7 +41,7 @@
    - collapsible debug/pipeline details,
    - optional raw JSON.
 9. Download local artifacts in clear user-facing order:
-   - Annotated Video,
+   - Annotated Video (pose + persisted drill-analysis overlays when available; graceful fallback to pose-only),
    - Processing Summary (.json),
    - Pose Timeline (.json),
    - Analysis Artifact (.json) export payload (versioned structured session export).

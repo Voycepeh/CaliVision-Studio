@@ -40,7 +40,11 @@ Versioning exists from day one so contract evolution can stay additive and forwa
 - Frame-phase samples
 - Source linkage metadata (`sourceId`, URIs, labels)
 - Analysis pipeline metadata (`pipelineVersion`, `scorerVersion`)
-- Derived-media placeholder metadata for annotated replay references
+- Derived-media metadata for annotated replay references
+- Annotated replay export overlays (when analysis is available) that render:
+  - phase label at the current replay timestamp,
+  - rep count for rep-oriented sessions,
+  - active hold timer while a hold is in progress.
 
 ## Export UX
 
@@ -49,18 +53,19 @@ From **Upload Video → Recent analyses → Session detail**, users can download
 - Filename is deterministic and readable: drill + timestamp + session id.
 - Export reads from persisted session data (IndexedDB-backed session source of truth).
 - Missing optional fields (for example absent frame samples or source URIs) are handled safely.
+- Annotated replay export now reuses persisted replay derivation state, so session replay UI and exported video stay time-synced from one source of truth.
+- If structured analysis is missing or incomplete, pose overlay export still succeeds and analysis overlays degrade gracefully (for example `Phase: n/a`, hidden hold timer when inactive).
 - Session detail keeps debug data collapsible (session IDs, drill IDs, pipeline metadata, source linkage) so normal review stays clean while technical inspection remains accessible.
 - Failed/partial analyses remain truthfully labeled; export still works for available structured data.
 
-## Structured export vs future annotated replay export
+## Explicit non-goals for this increment
 
-This PR ships only structured analysis JSON export.
+This increment does **not**:
 
-Out of scope in this PR:
-
-- full annotated video rendering/export pipeline,
+- change scorer/engine accuracy or event-generation logic,
+- recompute analysis inside export rendering,
+- redesign or replace the current browser-local annotated export pipeline,
+- introduce hosted media processing,
 - polished import UX,
 - backend sharing,
 - cross-device sync.
-
-A lightweight hook exists via `derivedMedia.annotatedReplay` in the artifact manifest so future media export work can attach references without changing the basic artifact shape.
