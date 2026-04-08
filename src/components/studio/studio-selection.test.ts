@@ -12,6 +12,19 @@ test("deep-link selection logic does not reset when selected phase still exists"
   assert.equal(next, "phase_2");
 });
 
+
+test("regression: editing selected phase text keeps phase 2 selected", () => {
+  const beforeEditPhaseIds = ["phase_1", "phase_2", "phase_3"];
+  const afterEditPhaseIds = ["phase_1", "phase_2", "phase_3"];
+
+  const next = chooseFallbackPhaseId({
+    selectedPhaseId: "phase_2",
+    availablePhaseIds: afterEditPhaseIds,
+    previousPhaseIndexes: Object.fromEntries(beforeEditPhaseIds.map((phaseId, index) => [phaseId, index]))
+  });
+
+  assert.equal(next, "phase_2");
+});
 test("gracefully falls back to nearest phase index when selected phase is deleted", () => {
   const next = chooseFallbackPhaseId({
     selectedPhaseId: "phase_2",
