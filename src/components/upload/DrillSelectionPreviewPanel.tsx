@@ -165,11 +165,11 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
   }, [drill.drillType, loopPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex, sampledFrame.phaseTitle]);
 
   return (
-    <section className="card" style={{ margin: 0, display: "grid", gap: "0.5rem", background: "rgba(114,168,255,0.08)" }}>
+    <section className="card" style={{ margin: 0, display: "grid", gap: compact ? "0.35rem" : "0.5rem", background: "rgba(114,168,255,0.08)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "grid", gap: "0.2rem" }}>
-          <strong style={{ fontSize: compact ? "0.92rem" : "1rem" }}>{drill.title}</strong>
-          <div className="muted" style={{ fontSize: "0.85rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+          <strong style={{ fontSize: compact ? "0.84rem" : "1rem" }}>{drill.title}</strong>
+          <div className="muted" style={{ fontSize: compact ? "0.78rem" : "0.85rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
             <span>View: {formatViewLabel(drill.defaultView)}</span>
             <span>Phases: {drill.phases.length}</span>
@@ -182,7 +182,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
         ) : null}
       </div>
 
-      <div style={{ maxWidth: compact ? 360 : undefined }}>
+      <div style={{ maxWidth: compact ? 260 : undefined }}>
         <PoseCanvas
           pose={poseModel}
           title="Motion preview"
@@ -193,21 +193,23 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
         />
       </div>
 
-      <div className="studio-animation-controls" style={{ marginTop: 0 }}>
-        <button type="button" onClick={() => setIsPlaying((current) => !current)} disabled={timeline.totalDurationMs <= 0}>
-          {isPlaying ? "Pause" : "Play"}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setElapsedMs(0);
-            setIsPlaying(true);
-          }}
-          disabled={timeline.totalDurationMs <= 0}
-        >
-          Replay
-        </button>
-      </div>
+      {!compact ? (
+        <div className="studio-animation-controls" style={{ marginTop: 0 }}>
+          <button type="button" onClick={() => setIsPlaying((current) => !current)} disabled={timeline.totalDurationMs <= 0}>
+            {isPlaying ? "Pause" : "Play"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setElapsedMs(0);
+              setIsPlaying(true);
+            }}
+            disabled={timeline.totalDurationMs <= 0}
+          >
+            Replay
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

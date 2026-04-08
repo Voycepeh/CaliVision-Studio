@@ -22,14 +22,15 @@
 1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in).
 2. Briefly preview drill motion in a compact context card (drill name/type/view/phase count).
 3. Upload one local video (file picker or drag/drop) to start analysis immediately in-browser.
-4. Run MediaPipe Pose Landmarker locally and review the active run only (no session-history browser on this route).
-5. Inspect a concise result view centered around the annotated preview and summary chips (phase/reps/hold/duration/confidence/result).
-6. Expand optional diagnostics only when needed (events, temporal trace with selectable granularity, deep inspection/debug details collapsed by default).
-7. Download local artifacts in clear user-facing order:
-   - Annotated Video (pose + persisted drill-analysis overlays when available; graceful fallback to pose-only),
-   - Processing Summary (.json),
-   - Pose Timeline (.json).
-8. Leaving or refreshing `/upload` intentionally resets to a fresh flow.
+4. Review the active run only (no session-history browser on this route), centered around:
+   - annotated video preview,
+   - concise summary chips (phase/reps/hold/duration/confidence/result),
+   - optional advanced diagnostics (collapsed by default).
+5. Download outputs in this simplified order:
+   - Annotated Video (`.webm`),
+   - Processing Summary (`.json`),
+   - Pose Timeline (`.json`).
+6. Leave or refresh `/upload` to intentionally start fresh.
 
 ## Current availability notes
 

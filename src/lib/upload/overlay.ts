@@ -105,26 +105,28 @@ function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, l
     return;
   }
 
-  const fontSize = 24;
-  const lineHeight = 32;
+  const fontSize = 30;
+  const lineHeight = 40;
   ctx.save();
   ctx.font = `600 ${fontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
   ctx.textAlign = align;
   ctx.textBaseline = "top";
   const widest = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
-  const paddingX = 16;
-  const paddingY = 14;
+  const paddingX = 20;
+  const paddingY = 18;
   const boxWidth = widest + paddingX * 2;
   const boxHeight = lines.length * lineHeight + paddingY * 2;
   const left = align === "left" ? x : x - boxWidth;
-  ctx.fillStyle = "rgba(2, 6, 23, 0.82)";
-  ctx.strokeStyle = "rgba(191, 219, 254, 0.95)";
-  ctx.lineWidth = 2;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.98)";
+  ctx.lineWidth = 3;
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.roundRect(left, y, boxWidth, boxHeight, 10);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "rgba(248, 250, 252, 1)";
+  ctx.fillStyle = "rgba(255, 255, 255, 1)";
   lines.forEach((line, index) => {
     const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
     ctx.fillText(line, textX, y + paddingY + index * lineHeight);
@@ -163,17 +165,17 @@ export function drawAnalysisOverlay(
     return;
   }
 
-  const sidePadding = Math.max(14, width * 0.02);
-  const bottomPadding = Math.max(14, height * 0.035);
+  const sidePadding = Math.max(20, width * 0.03);
+  const topPadding = Math.max(20, height * 0.03);
   const lines: string[] = [
     replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none",
     `Reps: ${replayOverlayState.repCount}`,
     `Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`
   ];
 
-  const estimatedBoxHeight = lines.length * 32 + 14 * 2;
-  drawOverlayBlock(ctx, sidePadding, Math.max(8, height - estimatedBoxHeight - bottomPadding), lines, "left");
+  const estimatedBoxHeight = lines.length * 40 + 18 * 2;
+  drawOverlayBlock(ctx, sidePadding, topPadding, lines, "left");
   if (replayOverlayState.statusLabel) {
-    drawStatusPill(ctx, sidePadding, Math.max(8, height - estimatedBoxHeight - bottomPadding - 36), replayOverlayState.statusLabel);
+    drawStatusPill(ctx, sidePadding, topPadding + estimatedBoxHeight + 8, replayOverlayState.statusLabel);
   }
 }

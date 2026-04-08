@@ -106,7 +106,7 @@ export function UploadVideoWorkspace() {
   const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
   const [activeSession, setActiveSession] = useState<AnalysisSessionRecord | null>(null);
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
-  const [traceStepMs, setTraceStepMs] = useState<number>(500);
+  const [traceStepMs, setTraceStepMs] = useState<number>(1000);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -341,18 +341,19 @@ export function UploadVideoWorkspace() {
         </p>
       </div>
 
-      <div className="card" style={{ margin: 0, border: "1px solid rgba(114,168,255,0.75)", background: "rgba(114,168,255,0.12)" }}>
+      <div className="card" style={{ margin: 0, border: "2px solid rgba(114,168,255,0.95)", background: "rgba(114,168,255,0.16)" }}>
         <div style={{ display: "grid", gap: "0.65rem" }}>
           <button
             type="button"
             className="pill"
             onClick={() => fileInputRef.current?.click()}
             style={{
-              fontSize: "1.02rem",
+              fontSize: "1.1rem",
               fontWeight: 700,
-              padding: "0.75rem 1.05rem",
-              borderColor: "rgba(144,190,255,0.95)",
-              background: "rgba(76, 142, 255, 0.28)",
+              padding: "0.9rem 1.25rem",
+              borderWidth: 2,
+              borderColor: "rgba(186,220,255,1)",
+              background: "rgba(67, 131, 255, 0.44)",
               justifySelf: "start"
             }}
           >
@@ -391,12 +392,14 @@ export function UploadVideoWorkspace() {
         </div>
       </div>
 
-      <DrillSelectionPreviewPanel
-        drill={activeSelectedDrill}
-        sourceKind={selectedDrill?.sourceKind ?? "seeded"}
-        showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
-        compact
-      />
+      <div style={{ maxWidth: 360, opacity: 0.92 }}>
+        <DrillSelectionPreviewPanel
+          drill={activeSelectedDrill}
+          sourceKind={selectedDrill?.sourceKind ?? "seeded"}
+          showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
+          compact
+        />
+      </div>
 
       <div
         onDragOver={(event) => event.preventDefault()}
@@ -499,9 +502,37 @@ export function UploadVideoWorkspace() {
       ) : null}
 
       {activeSession ? (
-        <>
+        <details style={{ marginTop: "0.2rem", opacity: 0.88 }}>
+          <summary style={{ cursor: "pointer" }}>Advanced diagnostics (optional)</summary>
+          <p className="muted" style={{ marginTop: "0.35rem" }}>Use these only for deeper troubleshooting after reviewing the main result and downloads.</p>
+
+          <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
+            <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
+            <div style={{ marginTop: "0.4rem", display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
+              <span className="muted">Granularity</span>
+              <select value={traceStepMs} onChange={(event) => setTraceStepMs(Number(event.target.value))}>
+                {TRACE_STEP_OPTIONS.map((option) => (
+                  <option key={option} value={option}>{formatTraceStepLabel(option)}</option>
+                ))}
+              </select>
+            </div>
+            {traceRows.length === 0 ? (
+              <p className="muted">No frame samples available for this run.</p>
+            ) : !isMeaningfullyVariant(traceRows) ? (
+              <p className="muted">No meaningful temporal changes at this interval.</p>
+            ) : (
+              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
+                {traceRows.map((row) => (
+                  <li key={`trace-${row.timestampMs}`}>
+                    {formatDurationShort(row.timestampMs)} • phase={row.phase} • reps={row.repCount} • confidence={row.confidence.toFixed(2)}
+                  </li>
+                ))}
+              </ol>
+            )}
+          </details>
+
           {activeSession.events.length > 0 ? (
-            <details style={{ marginTop: "0.2rem" }}>
+            <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
               <summary style={{ cursor: "pointer" }}>Events</summary>
               <ol className="muted">
                 {activeSession.events.map((event) => (
@@ -515,32 +546,7 @@ export function UploadVideoWorkspace() {
             </details>
           ) : null}
 
-          <details style={{ marginTop: "0.2rem" }}>
-            <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
-            <div style={{ marginTop: "0.4rem", display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
-              <span className="muted">Granularity</span>
-              <select value={traceStepMs} onChange={(event) => setTraceStepMs(Number(event.target.value))}>
-                {TRACE_STEP_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{formatTraceStepLabel(option)}</option>
-                ))}
-              </select>
-            </div>
-            {traceRows.length === 0 ? (
-              <p className="muted">No frame samples available for this run.</p>
-            ) : !isMeaningfullyVariant(traceRows) ? (
-              <p className="muted">Temporal trace is stable at this granularity; no meaningful phase or rep changes to show.</p>
-            ) : (
-              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
-                {traceRows.map((row) => (
-                  <li key={`trace-${row.timestampMs}`}>
-                    {formatDurationShort(row.timestampMs)} • phase={row.phase} • reps={row.repCount} • confidence={row.confidence.toFixed(2)}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </details>
-
-          <details style={{ marginTop: "0.2rem", opacity: 0.92 }}>
+          <details style={{ marginTop: "0.35rem", opacity: 0.9 }}>
             <summary style={{ cursor: "pointer" }}>Deep inspection table</summary>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.45rem" }}>
@@ -564,11 +570,11 @@ export function UploadVideoWorkspace() {
             </div>
           </details>
 
-          <details>
+          <details style={{ marginTop: "0.35rem", opacity: 0.85 }}>
             <summary style={{ cursor: "pointer" }}>Debug and pipeline details</summary>
             <p className="muted" style={{ marginTop: "0.35rem" }}>Additional diagnostics are intentionally collapsed for normal Upload Video flow.</p>
           </details>
-        </>
+        </details>
       ) : null}
     </section>
   );
