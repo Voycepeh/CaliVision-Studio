@@ -1,71 +1,106 @@
-# CaliVision
-https://cali-vision-studio.vercel.app
+# CaliVision Studio
+CaliVision Studio is the browser-first workspace where drills are authored, analyzed, refined, persisted, and shared.
 
-CaliVision is the primary product surface across desktop and mobile browsers.
+Live app: <https://cali-vision-studio.vercel.app>
 
-CaliVision has evolved from the original Android app (built on kotlin/ml kit pose) 
-<https://github.com/Voycepeh/CaliVision>
-Into todays cross platform webapp (built on typescript, mediapipe, hosted on vercel, with supabase backend and google cloud oauth) 
+## Why I built CaliVision
+I built CaliVision because I wanted help visualizing my handstand stack.
 
+I was already recording training videos and manually replaying them, but I wanted faster and more structured feedback so I could adjust in the next set instead of guessing.
 
-## Product direction
+CaliVision also became a practical experiment in AI-assisted building. I come from a data architecture / BI background rather than traditional app development, and I wanted to push an idea into a real product while learning where AI accelerates delivery, where human judgment still matters, and where the limits of AI-assisted development actually are.
 
-After further consideration, CaliVision is moving toward a cross-platform web-first architecture.
+## Why Studio exists
+Studio exists because the core workflows are broader than a phone-only runtime:
 
-- Studio is the primary product surface.
-- Studio owns drill authoring, drill library workflows, upload analysis, replay/review, and future in-browser mobile camera capture.
-- Android is no longer presented as the primary surface for the whole product.
-- Android remains an optional native path for premium live coaching or hardware-specific workflows when it proves meaningfully better than the browser.
+- Upload Video analysis in browser.
+- Livestream analysis in browser.
+- Drill authoring and iterative phase editing.
+- Animation preview and movement refinement.
+- Drill file/package management (import/export compatibility).
+- Drill Exchange publish/discovery/import workflows.
 
-## A short history of the product
+In short: Studio is the source-of-truth workspace for creating and improving drills, then applying them during analysis.
 
-CaliVision started Android-first because on-device live coaching was the initial center of effort.
+## Main capabilities
+### Analyze movement (upload + livestream)
+- Run skeletal overlay on uploaded videos using MediaPipe.
+- Run live stream skeletal overlay in browser.
+- Apply a selected drill during analysis so outputs are drill-aware (for example rep counting, hold duration, and phase classification).
 
-As the end-to-end workflow expanded (authoring, library management, upload analysis, and review), Android-first ownership no longer fit the broader product journey.
+### Author and refine drills
+- Create drills/movements in phases.
+- Seed and refine phase references from pose detection on uploaded images.
+- Preview movement as skeleton animation and iterate quickly.
 
-The web app is now the better center of gravity because it provides one cross-platform workflow across desktop and mobile browsers, while Android should be described as legacy and no longer as the main product
+### Persist and share drills
+- Save drafts locally in the browser (IndexedDB-first behavior).
+- Sign in with Google and use hosted persistence via Supabase where configured.
+- Keep portable drill files/packages for import/export compatibility.
+- Publish to Drill Exchange and import shared drills.
 
-## Main user flows
+## Typical workflow
+1. Start in **Library** (`/library`) and choose an existing drill or create/import one.
+2. Open **Drill Studio** (`/studio`) to refine phases and pose references.
+3. Preview animation, iterate, and validate movement intent.
+4. Save as a local draft and/or persist to your signed-in hosted account.
+5. Optionally publish to **Drill Exchange** (`/marketplace`) or export a portable drill file.
+6. Open **Upload Video** (`/upload`) or livestream mode and select that drill.
+7. Review drill-specific outputs such as rep counts, hold timing, and phase classification.
 
-### 1. Drill authoring flow
+## Persistence and sharing model
+- **Local-first is core:** browser-local persistence remains the baseline, including when hosted services are unavailable.
+- **Hosted persistence is supported directionally now:** Google sign-in + Supabase are used for first-party hosted draft/account workflows where configured.
+- **Portability remains explicit:** drill file/package flows still support import/export and cross-user movement of content.
+- **Exchange workflows are part of the product surface:** publish/discover/import flows are included, with maturity varying by route and feature area.
 
-Library -> open or create drill -> edit phases and poses in CaliVision -> save to library.
+## Relationship to Android
+Studio (this repository) is the main cross-platform authoring and analysis workspace.
 
-### 2. Upload and capture analysis flow
+The Android app is a downstream runtime/mobile companion for native live-coaching and hardware-specific scenarios, not the primary authoring home: <https://github.com/Voycepeh/CaliVision>.
 
-Library or Upload Video -> choose drill or freestyle -> upload video or capture from mobile browser camera -> run analysis in CaliVision -> review outputs, replay, and results.
+## AI-assisted SDLC (human-in-the-loop)
+This project is intentionally built with AI assistance, not autonomous shipping:
 
-### 3. Optional Android runtime flow
+- **ChatGPT** helps with planning, tradeoff analysis, and design pressure-testing.
+- **Codex** helps execute scoped repository changes and draft implementation updates.
+- **Human owner** sets direction, validates behavior, integrates changes, runs tests, and approves what ships.
 
-Create and manage drill in CaliVision -> use, export, or sync drill to Android app -> start optional live coaching session on device.
+AI increases speed and leverage; accountability and product judgment remain human responsibilities.
 
-### 4. Library and review flow
-
-Browse drills and drafts -> continue editing, run analysis, or review annotated replay and events.
-
-## System view
-
+## Mermaid diagrams
+### 1) Product ecosystem and workflow
 ```mermaid
 flowchart LR
-    U["User"] --> WS["CaliVision Web<br/>Desktop + Mobile Browser"]
-
-    WS --> DL["Drill Library"]
-    WS --> DP["Persistence"]
-    WS --> LS["Live Streaming"]
-    WS --> UA["Record / Upload Analysis"]
-    WS --> AR["Annotated Replay + Export"]
+    L[Library] --> S[Drill Studio]
+    S --> D[Local Draft IndexedDB]
+    S --> H[Hosted Draft Supabase]
+    S --> P[Portable Drill File/Package]
+    D --> A[Upload Video]
+    H --> A
+    P --> A
+    D --> V[Livestream Analysis]
+    H --> V
+    P --> V
+    S --> X[Drill Exchange Publish]
+    X --> I[Import from Exchange]
+    I --> L
+    A --> O[Outputs: Reps / Holds / Phase Classification]
+    V --> O
 ```
 
-## Current capabilities
+### 2) AI-assisted SDLC
+```mermaid
+flowchart LR
+    Idea[Problem / Idea] --> Plan[Plan with ChatGPT]
+    Plan --> Exec[Execute with Codex]
+    Exec --> Integrate[Integrate + Run]
+    Integrate --> Review[Manual Review + Testing]
+    Review --> Refine[Refine]
+    Refine --> Plan
+```
 
-- Drill authoring in Studio
-- Drill and draft management in Library
-- Browser-based Upload Video analysis
-- Review and replay outputs in browser workflows
-- Export and compatibility workflows for runtime clients
-
-## Repo quick start
-
+## Quick start
 ```bash
 npm install
 npm run dev
@@ -73,10 +108,8 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-## Documentation notes
-
-For package specs, compatibility details, and low-level contract behavior, use the docs in `docs/`.
-
-## Scope discipline
-
-This README is a product and user-flow map first. Keep detailed implementation and contract notes in `docs/`, schema files, compatibility docs, and samples unless those details are required to explain user flow.
+## Concise technical notes
+- Next.js + React web app.
+- MediaPipe-based pose workflows for browser analysis.
+- Local-first persistence with hosted Supabase foundations where configured.
+- Keep README focused on product flow and ownership; put low-level contracts and compatibility details in `docs/`.
