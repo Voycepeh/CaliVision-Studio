@@ -355,6 +355,7 @@ export function StudioStateProvider({
     () => new PackagePublishService(new MockStorageProvider(), new MockPackageRegistryAdapter())
   );
   const initializedDeepLinkPackageIdRef = useRef<string | null>(null);
+  const initializedLocalDrillIdRef = useRef<string | null>(null);
   const previousPhaseIndexesRef = useRef<PreviousPhaseIndexMap>({});
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
@@ -504,8 +505,15 @@ export function StudioStateProvider({
 
   useEffect(() => {
     if (persistenceMode !== "local" || !hydrationComplete || !initialDrillId) {
+      initializedLocalDrillIdRef.current = null;
       return;
     }
+
+    if (initializedLocalDrillIdRef.current === initialDrillId) {
+      return;
+    }
+
+    initializedLocalDrillIdRef.current = initialDrillId;
 
     void (async () => {
       const resolved = await loadEditableVersionForDrill(initialDrillId, { mode: "local" });
