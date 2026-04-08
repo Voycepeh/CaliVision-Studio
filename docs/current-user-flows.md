@@ -75,7 +75,11 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 4. `Mark Ready` promotes a valid Draft version to Ready for upload analysis and publishing eligibility.
 5. `Publish` is gated to Ready versions only (Published remains a Ready snapshot with published flag).
 6. `Version history` shows per-version status/timestamps within a single drill row without duplicating top-level drill entries.
-7. `Import drill file` saves into **My drills** and participates in the same version-aware view.
+7. `Import drill file` writes to the active workspace only:
+   - signed out → **Browser workspace** (local storage),
+   - signed in → **Cloud workspace** (hosted storage).
+8. Duplicate imports are explicitly reported (for example, “already exists in Browser workspace / Cloud workspace”) instead of silently no-oping.
+9. When signed in, Library does not silently merge browser-local drills into cloud-owned drill rows; local-vs-cloud ownership is clearly separated in messaging.
 
 ## Hosted drafts foundation (April 2026)
 
