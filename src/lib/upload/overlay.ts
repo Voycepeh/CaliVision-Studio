@@ -4,6 +4,14 @@ import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
 const VISIBLE_JOINTS = new Set(getPreviewJointNames("front"));
+const UPLOAD_OVERLAY_STYLE = {
+  skeletonBase: PREVIEW_OVERLAY_STYLE.skeletonBase,
+  nose: PREVIEW_OVERLAY_STYLE.nose,
+  hip: PREVIEW_OVERLAY_STYLE.hip,
+  jointRadiusBase: PREVIEW_OVERLAY_STYLE.jointRadiusBase * 0.5,
+  jointRadiusLargeMultiplier: PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier,
+  skeletonStrokeWidth: PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth * 0.5
+} as const;
 
 function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number) {
   return { x: joint.x * width, y: joint.y * height };
@@ -22,8 +30,8 @@ export function drawPoseOverlay(
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(2, (width / 1280) * PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth);
-  ctx.strokeStyle = PREVIEW_OVERLAY_STYLE.skeletonBase;
+  ctx.lineWidth = Math.max(1, (width / 1280) * UPLOAD_OVERLAY_STYLE.skeletonStrokeWidth);
+  ctx.strokeStyle = UPLOAD_OVERLAY_STYLE.skeletonBase;
 
   for (const connection of CONNECTIONS) {
     const from = frame.joints[connection.from as CanonicalJointName];
@@ -48,11 +56,11 @@ export function drawPoseOverlay(
       continue;
     }
     const role = getPreviewJointRole(jointName as CanonicalJointName);
-    ctx.fillStyle = role === "nose" ? PREVIEW_OVERLAY_STYLE.nose : role === "hip" ? PREVIEW_OVERLAY_STYLE.hip : PREVIEW_OVERLAY_STYLE.skeletonBase;
+    ctx.fillStyle = role === "nose" ? UPLOAD_OVERLAY_STYLE.nose : role === "hip" ? UPLOAD_OVERLAY_STYLE.hip : UPLOAD_OVERLAY_STYLE.skeletonBase;
     const { x, y } = toCanvasPoint(point, width, height);
     ctx.beginPath();
-    const baseRadius = Math.max(2, (width / 1280) * PREVIEW_OVERLAY_STYLE.jointRadiusBase);
-    const radius = role === "nose" ? baseRadius * PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
+    const baseRadius = Math.max(1, (width / 1280) * UPLOAD_OVERLAY_STYLE.jointRadiusBase);
+    const radius = role === "nose" ? baseRadius * UPLOAD_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
   }
