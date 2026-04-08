@@ -19,17 +19,19 @@
 
 ## Current Upload Video flow
 
-1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in).
-2. Briefly preview drill motion in a compact context card (drill name/type/view/phase count).
-3. Upload one local video (file picker or drag/drop) to start analysis immediately in-browser.
+1. Upload Video opens in **No drill · Freestyle overlay** mode by default.
+2. User may optionally select a real drill from local drafts or hosted drills (when signed in) for rep/phase/hold analysis.
+3. Upload one local video (file picker or drag/drop) to start processing immediately in-browser.
 4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
-5. Review the result in the primary analysis area (annotated video preview + concise summary chips for phase/reps/hold/duration/confidence/result).
-6. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) only when troubleshooting is needed.
-7. Download outputs in this simplified order (shown once in UI):
+5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
+6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
+7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
+8. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
+9. Download outputs in this simplified order (shown once in UI):
    - Annotated Video (`.webm`)
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
-8. Leave or refresh `/upload` to intentionally start fresh.
+10. Leave or refresh `/upload` to intentionally start fresh.
 
 ## Current availability notes
 

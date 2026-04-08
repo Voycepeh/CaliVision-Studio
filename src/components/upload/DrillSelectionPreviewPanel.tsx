@@ -12,7 +12,7 @@ const HOLD_PLATEAU_MIN_DURATION_MS = 900;
 
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
-  sourceKind?: "seeded" | "local" | "hosted";
+  sourceKind?: "local" | "hosted";
   showSourceBadge?: boolean;
   compact?: boolean;
   quiet?: boolean;
@@ -34,8 +34,7 @@ function formatViewLabel(view: PortableViewType): string {
 
 function formatSourceLabel(sourceKind: DrillSelectionPreviewPanelProps["sourceKind"]): string {
   if (sourceKind === "hosted") return "Hosted";
-  if (sourceKind === "local") return "Local";
-  return "Seeded";
+  return "Local";
 }
 
 function createLoopPhases(drill: PortableDrill): PortablePhase[] {
@@ -91,7 +90,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
   const previewResetKey = useMemo(
     () =>
       [
-        sourceKind ?? "seeded",
+        sourceKind ?? "local",
         drill.drillId,
         drill.drillType,
         ...drill.phases

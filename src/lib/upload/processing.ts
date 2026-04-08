@@ -151,7 +151,13 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
 export async function exportAnnotatedVideo(
   file: File,
   timeline: PoseTimeline,
-  options?: { analysisSession?: AnalysisSessionRecord | null; includeAnalysisOverlay?: boolean }
+  options?: {
+    analysisSession?: AnalysisSessionRecord | null;
+    includeAnalysisOverlay?: boolean;
+    overlayModeLabel?: string;
+    includeDrillMetrics?: boolean;
+    overlayConfidenceLabel?: string;
+  }
 ): Promise<{ blob: Blob; mimeType: string }> {
   const { video, objectUrl } = await loadVideoElement(file);
   const canvas = document.createElement("canvas");
@@ -194,8 +200,19 @@ export async function exportAnnotatedVideo(
           ctx,
           canvas.width,
           canvas.height,
-          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs)
+          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs),
+          {
+            modeLabel: options.overlayModeLabel,
+            showDrillMetrics: options.includeDrillMetrics,
+            confidenceLabel: options.overlayConfidenceLabel
+          }
         );
+      } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
+        drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+          modeLabel: options.overlayModeLabel,
+          showDrillMetrics: false,
+          confidenceLabel: options.overlayConfidenceLabel
+        });
       }
 
       if (video.ended) {

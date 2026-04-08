@@ -1,13 +1,14 @@
 import type { CanonicalJointName, PortableDrill } from "@/lib/schema/contracts";
 
 export type UploadJobDrillSelection = {
-  drill: PortableDrill;
+  drill?: PortableDrill;
   drillVersion?: string;
+  mode?: "freestyle" | "drill";
   drillBinding: {
-    drillId: string;
+    drillId?: string;
     drillName: string;
     drillVersion?: string;
-    sourceKind: "seeded" | "local" | "hosted" | "unknown";
+    sourceKind: "freestyle" | "seeded" | "local" | "hosted" | "unknown";
     sourceId?: string;
     sourceLabel?: string;
   };

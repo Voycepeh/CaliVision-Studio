@@ -2,15 +2,15 @@
 
 This flow exists to make **Upload Video** validation practical before any scoring-model rewrite.
 
-## Drill selection flow
+## Mode and drill selection flow
 
-- Upload Video now starts with a **Select drill** control.
-- Drill sources can include:
-  - **seeded drills** (including simple validation drills),
+- Upload Video now defaults to **No drill · Freestyle overlay**.
+- Drill-specific analysis is optional and secondary.
+- Optional drill sources include:
   - **local drafts** saved in this browser/device,
   - **hosted drills** when signed in and hosted library is available.
-- The selected drill is shown with drill type and source and is bound directly to each analysis run.
-- Upload jobs snapshot this drill binding at queue time, so later picker changes do not retarget already queued videos.
+- Upload jobs snapshot the selected mode/drill binding at queue time, so later picker changes do not retarget already queued videos.
+- Freestyle mode keeps the workflow honest: overlay-first processing and export, without implying active rep/hold/phase scoring.
 
 ## Why the inspection view exists
 
