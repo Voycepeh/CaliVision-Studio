@@ -341,85 +341,91 @@ export function UploadVideoWorkspace() {
         </p>
       </div>
 
-      <div className="card" style={{ margin: 0, border: "2px solid rgba(114,168,255,0.95)", background: "rgba(114,168,255,0.16)" }}>
-        <div style={{ display: "grid", gap: "0.65rem" }}>
-          <button
-            type="button"
-            className="pill"
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              fontSize: "1.1rem",
-              fontWeight: 700,
-              padding: "0.9rem 1.25rem",
-              borderWidth: 2,
-              borderColor: "rgba(186,220,255,1)",
-              background: "rgba(67, 131, 255, 0.44)",
-              justifySelf: "start"
-            }}
-          >
-            Upload videos and analyze
-          </button>
+      <div className="upload-workflow-layout">
+        <div className="upload-workflow-primary">
+          <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
+            <div style={{ display: "grid", gap: "0.65rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
+                <strong style={{ fontSize: "0.95rem" }}>Upload Video workflow</strong>
+                <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: "0.45rem 0.75rem", fontSize: "0.86rem" }}>
+                  Choose video
+                </button>
+              </div>
 
-          <div style={{ display: "flex", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
-            <label className="muted" style={{ fontSize: "0.85rem" }}>
-              Select drill
-              <select
-                value={selectedDrillKey ?? ""}
-                onChange={(event) => setSelectedDrillKey(event.target.value)}
-                style={{ marginLeft: "0.35rem", minWidth: 240 }}
-                disabled={drillOptionsLoading || drillOptions.length === 0}
+              <div style={{ display: "flex", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
+                <label className="muted" style={{ fontSize: "0.85rem" }}>
+                  Select drill
+                  <select
+                    value={selectedDrillKey ?? ""}
+                    onChange={(event) => setSelectedDrillKey(event.target.value)}
+                    style={{ marginLeft: "0.35rem", minWidth: 240 }}
+                    disabled={drillOptionsLoading || drillOptions.length === 0}
+                  >
+                    {drillOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="muted" style={{ fontSize: "0.85rem" }}>
+                  Cadence FPS
+                  <input
+                    type="number"
+                    min={4}
+                    max={30}
+                    value={cadenceFps}
+                    onChange={(event) => setCadenceFps(Math.max(4, Math.min(30, Number(event.target.value) || DEFAULT_CADENCE_FPS)))}
+                    style={{ marginLeft: "0.35rem", width: 70 }}
+                  />
+                </label>
+              </div>
+
+              <div
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void enqueueFiles(event.dataTransfer.files);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    fileInputRef.current?.click();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="card upload-workflow-dropzone"
+                style={{ margin: 0 }}
               >
-                {drillOptions.map((option) => (
-                  <option key={option.key} value={option.key}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="muted" style={{ fontSize: "0.85rem" }}>
-              Cadence FPS
+                <strong>Drop a video here or click to upload</strong>
+                <p className="muted" style={{ margin: "0.35rem 0 0" }}>A new upload replaces the previous run on this page.</p>
+              </div>
+              <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
+                Select drill and cadence first, then upload or drop one video to run a fresh local analysis pass.
+              </p>
               <input
-                type="number"
-                min={4}
-                max={30}
-                value={cadenceFps}
-                onChange={(event) => setCadenceFps(Math.max(4, Math.min(30, Number(event.target.value) || DEFAULT_CADENCE_FPS)))}
-                style={{ marginLeft: "0.35rem", width: 70 }}
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={(event) => event.target.files && enqueueFiles(event.target.files)}
               />
-            </label>
+            </div>
           </div>
-          <input ref={fileInputRef} type="file" accept="video/*" multiple style={{ display: "none" }} onChange={(event) => event.target.files && enqueueFiles(event.target.files)} />
         </div>
-      </div>
 
-      <div style={{ maxWidth: 360, opacity: 0.92 }}>
-        <DrillSelectionPreviewPanel
-          drill={activeSelectedDrill}
-          sourceKind={selectedDrill?.sourceKind ?? "seeded"}
-          showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
-          compact
-        />
-      </div>
-
-      <div
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={(event) => {
-          event.preventDefault();
-          void enqueueFiles(event.dataTransfer.files);
-        }}
-        className="card"
-        style={{
-          margin: 0,
-          borderStyle: "dashed",
-          borderWidth: 2,
-          borderColor: "rgba(144,190,255,0.95)",
-          background: "rgba(114,168,255,0.1)",
-          textAlign: "center",
-          padding: "1rem"
-        }}
-      >
-        <strong>Drop video here to analyze</strong>
-        <p className="muted" style={{ margin: "0.35rem 0 0" }}>A new upload replaces the previous run on this page.</p>
+        <aside className="upload-workflow-preview">
+          <DrillSelectionPreviewPanel
+            drill={activeSelectedDrill}
+            sourceKind={selectedDrill?.sourceKind ?? "seeded"}
+            showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
+            compact
+            quiet
+          />
+        </aside>
       </div>
 
       {activeJob ? (
