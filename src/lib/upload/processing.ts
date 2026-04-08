@@ -194,8 +194,7 @@ export async function exportAnnotatedVideo(
           ctx,
           canvas.width,
           canvas.height,
-          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs),
-          { drillLabel: options.analysisSession.drillTitle }
+          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs)
         );
       }
 

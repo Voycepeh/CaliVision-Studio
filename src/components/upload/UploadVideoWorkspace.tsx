@@ -11,13 +11,13 @@ import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import {
   createAnalysisArtifactFilename,
+  buildCompletedUploadAnalysisSession,
   createImportedAnalysisSessionCopy,
   deriveReplayMarkers,
   deriveReplaySessionOverview,
   deriveReplayStateAtTime,
   getBrowserAnalysisSessionRepository,
   getReplayDurationMs,
-  persistCompletedUploadAnalysisSession,
   persistFailedUploadAnalysisSession,
   serializeAnalysisSessionArtifact,
   type AnalysisSessionRecord
@@ -69,6 +69,30 @@ function formatClock(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatConfidence(value?: number): string {
+  if (typeof value !== "number") {
+    return "n/a";
+  }
+  return `${Math.round(value * 100)}%`;
+}
+
+function hasReliablePhase(session: AnalysisSessionRecord): boolean {
+  if (session.debug?.noEventCause === "low_confidence_frames") {
+    return false;
+  }
+  return session.frameSamples.some((sample) => Boolean(sample.classifiedPhaseId));
+}
+
+function getPrimaryResultMessage(session: AnalysisSessionRecord): string {
+  if (!hasReliablePhase(session)) {
+    return "No reliable phase match detected in this run.";
+  }
+  if (session.events.length === 0) {
+    return "No drill events were extracted from this run.";
+  }
+  return `Detected ${session.summary.repCount ?? 0} reps across ${session.events.length} analysis events.`;
 }
 
 function markerColor(type: string): string {
@@ -295,8 +319,21 @@ export function UploadVideoWorkspace() {
         signal: controller.signal,
         onProgress: (progress, stageLabel) => dispatch({ type: "update", id: nextJob.id, patch: { progress, stageLabel } })
       });
+      const completedSession = buildCompletedUploadAnalysisSession({
+        drill: nextJob.drillSelection.drill,
+        drillVersion: nextJob.drillSelection.drillVersion,
+        drillBinding: nextJob.drillSelection.drillBinding,
+        timeline,
+        sourceId: nextJob.id,
+        sourceLabel: nextJob.fileName,
+        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+      });
       dispatch({ type: "update", id: nextJob.id, patch: { stageLabel: "Rendering annotated video", progress: 0.97 } });
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { includeAnalysisOverlay: true });
+      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, {
+        includeAnalysisOverlay: true,
+        analysisSession: completedSession
+      });
 
       dispatch({
         type: "update",
@@ -316,17 +353,8 @@ export function UploadVideoWorkspace() {
           }
         }
       });
-      const persisted = await persistCompletedUploadAnalysisSession({
-        repository: analysisRepository,
-        drill: nextJob.drillSelection.drill,
-        drillVersion: nextJob.drillSelection.drillVersion,
-        drillBinding: nextJob.drillSelection.drillBinding,
-        timeline,
-        sourceId: nextJob.id,
-        sourceLabel: nextJob.fileName,
-        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
-      });
+      await analysisRepository.saveSession(completedSession);
+      const persisted = completedSession;
       setSelectedSessionId(persisted.sessionId);
       await refreshRecentSessions();
       setSelectedJobId(nextJob.id);
@@ -804,41 +832,140 @@ export function UploadVideoWorkspace() {
               <p style={{ margin: 0 }}>
                 <strong>{getSessionOutcomeLabel(selectedSession)}</strong> • {new Date(selectedSession.createdAtIso).toLocaleString()}
               </p>
-              <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-                Source upload: {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"} • Session ID: {selectedSession.sessionId}
-              </p>
             </div>
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.45rem" }}>
               <span className="pill">Reps: {selectedSession.summary.repCount ?? 0}</span>
               <span className="pill">Hold duration: {formatDuration(selectedSession.summary.holdDurationMs)}</span>
               <span className="pill">Analyzed duration: {formatDuration(selectedSession.summary.analyzedDurationMs)}</span>
-              <span className="pill">Frame samples: {selectedSession.frameSamples.length}</span>
-              <span className="pill">Events: {selectedSession.events.length}</span>
+              <span className="pill">Confidence: {formatConfidence(selectedSession.summary.confidenceAvg)}</span>
+              <span className="pill">Result: {selectedSession.status}</span>
+            </div>
+            <div className="card" style={{ margin: "0.55rem 0 0", background: "rgba(114,168,255,0.08)" }}>
+              <p style={{ margin: 0 }}>
+                <strong>{getPrimaryResultMessage(selectedSession)}</strong>
+              </p>
+              {selectedSession.events.length === 0 && hasReliablePhase(selectedSession) ? (
+                <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                  We detected phase movement, but it never satisfied drill event rules for rep/hold extraction.
+                </p>
+              ) : null}
             </div>
             {summarizeSessionAvailability(selectedSession).length > 0 ? (
-              <p className="muted" style={{ marginTop: 0 }}>
+              <p className="muted" style={{ marginTop: "0.55rem" }}>
                 Availability notes: {summarizeSessionAvailability(selectedSession).join(" • ")}
               </p>
             ) : null}
-            <div className="card" style={{ margin: "0.55rem 0 0", background: "rgba(148,163,184,0.08)" }}>
-              <h5 style={{ margin: 0 }}>Drill linkage</h5>
-              <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-                Drill: {selectedSession.drillBinding?.drillName ?? selectedSession.drillTitle ?? selectedSession.drillId} • id{" "}
-                {selectedSession.drillBinding?.drillId ?? selectedSession.drillId} • version{" "}
-                {selectedSession.drillBinding?.drillVersion ?? selectedSession.drillVersion ?? "n/a"} • source{" "}
-                {selectedSession.drillBinding?.sourceKind ?? "unknown"}
+            <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
+              <h5 style={{ margin: 0 }}>Replay review</h5>
+              <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
+                {selectedSession.drillTitle ?? selectedSession.drillId} • {new Date(selectedSession.createdAtIso).toLocaleString()}
               </p>
+              <div
+                style={{
+                  position: "relative",
+                  borderRadius: "0.5rem",
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  padding: "0.6rem",
+                  background: "rgba(15,23,42,0.5)",
+                  marginBottom: "0.6rem"
+                }}
+              >
+                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <span className="pill">Phase: {replayState.activePhaseId ?? "none"}</span>
+                  <span className="pill">Reps: {replayState.repCount}</span>
+                  {selectedSession.summary.holdDurationMs !== undefined ? (
+                    <span className="pill">
+                      Hold: {replayState.holdActive ? formatDuration(replayState.holdElapsedMs) : "inactive"}
+                    </span>
+                  ) : null}
+                  <span className="pill">
+                    {formatClock(replayState.timestampMs)} / {formatClock(replayDurationMs)}
+                  </span>
+                </div>
+                <details style={{ marginTop: "0.45rem" }}>
+                  <summary className="muted" style={{ cursor: "pointer" }}>Replay details</summary>
+                  <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                    Status: {selectedSession.status} • nearest event: {replayState.nearestEvent?.type ?? "none"} • session quality{" "}
+                    {replayOverview.qualityLabel}
+                  </p>
+                </details>
+              </div>
+
+              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.4rem" }}>
+                <button type="button" className="pill" onClick={handleReplayPlayPause} disabled={replayDurationMs <= 0}>
+                  {isReplayPlaying ? "Pause" : "Play"}
+                </button>
+                <button type="button" className="pill" onClick={handleReplayReset} disabled={replayDurationMs <= 0}>Reset</button>
+              </div>
+              <div style={{ position: "relative", paddingTop: "0.65rem" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(1, replayDurationMs)}
+                  value={Math.min(replayElapsedMs, replayDurationMs)}
+                  onChange={(event) => handleReplaySeek(Number(event.target.value))}
+                  style={{ width: "100%" }}
+                  disabled={replayDurationMs <= 0}
+                />
+                <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 8, pointerEvents: "none" }}>
+                  {replayMarkers.map((marker) => (
+                    <span
+                      key={marker.eventId}
+                      title={`${marker.type} @ ${formatDurationShort(marker.timestampMs)}`}
+                      style={{
+                        position: "absolute",
+                        left: `${replayDurationMs > 0 ? (marker.timestampMs / replayDurationMs) * 100 : 0}%`,
+                        width: 2,
+                        height: "100%",
+                        borderRadius: 999,
+                        background: markerColor(marker.type),
+                        opacity: 0.85
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
-            <details open style={{ marginTop: "0.6rem" }}>
-              <summary style={{ cursor: "pointer" }}>Analysis inspection</summary>
-              {selectedSession.debug?.noEventCause ? (
+
+            <details style={{ marginTop: "0.6rem" }}>
+              <summary style={{ cursor: "pointer" }}>Events</summary>
+              {selectedSession.events.length === 0 ? (
                 <p className="muted" style={{ marginTop: "0.45rem" }}>
-                  No-event cause: {selectedSession.debug.noEventCause}
-                  {selectedSession.debug.noEventDetails?.length
-                    ? ` • ${selectedSession.debug.noEventDetails.join(" • ")}`
-                    : ""}
+                  No drill events were extracted for this run.
                 </p>
               ) : null}
+              <ol className="muted">
+                {selectedSession.events.map((event) => (
+                  <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
+                    <button type="button" className="pill" onClick={() => handleReplaySeek(event.timestampMs)}>
+                      {event.type} @ {formatDurationShort(event.timestampMs)}
+                      {event.phaseId ? ` • phase=${event.phaseId}` : ""}
+                      {event.repIndex ? ` • rep=${event.repIndex}` : ""}
+                      {typeof event.details?.["holdDurationMs"] === "number" ? ` • hold=${formatDuration(Number(event.details?.["holdDurationMs"]))}` : ""}
+                      {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </details>
+
+            <details style={{ marginTop: "0.6rem" }}>
+              <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
+              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
+                {(selectedSession.debug?.smootherTransitions ?? []).map((transition, index) => (
+                  <li key={`transition-${transition.timestampMs}-${index}`}>
+                    <button type="button" className="pill" onClick={() => handleReplaySeek(transition.timestampMs)}>
+                      {transition.type} @ {formatDurationShort(transition.timestampMs)} • from {transition.fromPhaseId ?? "n/a"} • to{" "}
+                      {transition.toPhaseId ?? transition.phaseId ?? "n/a"}
+                      {transition.details?.["reason"] ? ` • reason=${String(transition.details["reason"])}` : ""}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </details>
+
+            <details style={{ marginTop: "0.6rem" }}>
+              <summary style={{ cursor: "pointer" }}>Deep inspection table</summary>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.45rem" }}>
                   <thead>
@@ -877,128 +1004,23 @@ export function UploadVideoWorkspace() {
               ) : null}
             </details>
 
-            <details open style={{ marginTop: "0.6rem" }}>
-              <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
-              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
-                {(selectedSession.debug?.smootherTransitions ?? []).map((transition, index) => (
-                  <li key={`transition-${transition.timestampMs}-${index}`}>
-                    <button type="button" className="pill" onClick={() => handleReplaySeek(transition.timestampMs)}>
-                      {transition.type} @ {formatDurationShort(transition.timestampMs)} • from {transition.fromPhaseId ?? "n/a"} • to{" "}
-                      {transition.toPhaseId ?? transition.phaseId ?? "n/a"}
-                      {transition.details?.["reason"] ? ` • reason=${String(transition.details["reason"])}` : ""}
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </details>
-            <div className="card" style={{ margin: "0.7rem 0 0", background: "rgba(114,168,255,0.08)" }}>
-              <h5 style={{ margin: 0 }}>Replay review</h5>
-              <p className="muted" style={{ margin: "0.35rem 0 0.5rem" }}>
-                {selectedSession.drillTitle ?? selectedSession.drillId} • {new Date(selectedSession.createdAtIso).toLocaleString()} • quality {replayOverview.qualityLabel}
-              </p>
-              <p className="muted" style={{ margin: "0 0 0.45rem" }}>
-                {isReplayBoundToPreview
-                  ? "Replay controls are synced to the visible preview video."
-                  : "Replay controls are using persisted session timing only (no matching preview video selected)."}
-              </p>
-              <div
-                style={{
-                  position: "relative",
-                  borderRadius: "0.5rem",
-                  border: "1px solid rgba(148,163,184,0.35)",
-                  padding: "0.6rem",
-                  background: "rgba(15,23,42,0.5)",
-                  marginBottom: "0.6rem"
-                }}
-              >
-                <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" }}>
-                  <span className="pill">Phase: {replayState.activePhaseId ?? "n/a"}</span>
-                  {selectedSession.summary.repCount !== undefined ? <span className="pill">Reps: {replayState.repCount}</span> : null}
-                  {selectedSession.summary.holdDurationMs !== undefined ? (
-                    <span className="pill">
-                      Hold: {replayState.holdActive ? formatDuration(replayState.holdElapsedMs) : "inactive"}
-                    </span>
-                  ) : null}
-                  <span className="pill">Status: {selectedSession.status}</span>
-                </div>
-                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
-                  {formatClock(replayState.timestampMs)} / {formatClock(replayDurationMs)} • nearest event: {replayState.nearestEvent?.type ?? "none"}
-                </p>
-              </div>
-
-              <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.4rem" }}>
-                <button type="button" className="pill" onClick={handleReplayPlayPause} disabled={replayDurationMs <= 0}>
-                  {isReplayPlaying ? "Pause" : "Play"}
-                </button>
-                <button type="button" className="pill" onClick={handleReplayReset} disabled={replayDurationMs <= 0}>Reset</button>
-              </div>
-              <div style={{ position: "relative", paddingTop: "0.65rem" }}>
-                <input
-                  type="range"
-                  min={0}
-                  max={Math.max(1, replayDurationMs)}
-                  value={Math.min(replayElapsedMs, replayDurationMs)}
-                  onChange={(event) => handleReplaySeek(Number(event.target.value))}
-                  style={{ width: "100%" }}
-                  disabled={replayDurationMs <= 0}
-                />
-                <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 8, pointerEvents: "none" }}>
-                  {replayMarkers.map((marker) => (
-                    <span
-                      key={marker.eventId}
-                      title={`${marker.type} @ ${formatDurationShort(marker.timestampMs)}`}
-                      style={{
-                        position: "absolute",
-                        left: `${replayDurationMs > 0 ? (marker.timestampMs / replayDurationMs) * 100 : 0}%`,
-                        width: 2,
-                        height: "100%",
-                        borderRadius: 999,
-                        background: markerColor(marker.type),
-                        opacity: 0.85
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              {replayOverview.phaseCoverage.length > 0 ? (
-                <p className="muted" style={{ margin: "0.45rem 0 0" }}>
-                  Phase coverage:{" "}
-                  {replayOverview.phaseCoverage
-                    .slice(0, 4)
-                    .map((entry) => `${entry.phaseId} ${entry.percent.toFixed(0)}%`)
-                    .join(" • ")}
-                </p>
-              ) : null}
-            </div>
-
-            <details open>
-              <summary style={{ cursor: "pointer" }}>Events</summary>
-              <ol className="muted">
-                {selectedSession.events.map((event) => (
-                  <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
-                    <button type="button" className="pill" onClick={() => handleReplaySeek(event.timestampMs)}>
-                      {event.type} @ {formatDurationShort(event.timestampMs)}
-                      {event.phaseId ? ` • phase=${event.phaseId}` : ""}
-                      {event.repIndex ? ` • rep=${event.repIndex}` : ""}
-                      {typeof event.details?.["holdDurationMs"] === "number" ? ` • hold=${formatDuration(Number(event.details?.["holdDurationMs"]))}` : ""}
-                      {event.toPhaseId ? ` • to=${event.toPhaseId}` : ""}
-                    </button>
-                  </li>
-                ))}
-              </ol>
-            </details>
-
             <details>
               <summary style={{ cursor: "pointer" }}>Debug and pipeline details</summary>
               <ul className="muted" style={{ marginBottom: "0.45rem" }}>
                 <li>Session ID: {selectedSession.sessionId}</li>
                 <li>Drill ID: {selectedSession.drillId}</li>
+                <li>Source upload: {selectedSession.sourceLabel ?? selectedSession.sourceId ?? "n/a"}</li>
                 <li>Pipeline version: {selectedSession.pipelineVersion ?? "unknown"}</li>
                 <li>Scorer version: {selectedSession.scorerVersion ?? "unknown"}</li>
                 <li>Cadence FPS: {selectedSession.debug?.cadenceFps ?? "n/a"}</li>
                 <li>Detector: {selectedSession.debug?.detector ?? "n/a"}</li>
                 <li>Source URI: {selectedSession.rawVideoUri ?? selectedSession.sourceUri ?? "n/a"}</li>
                 <li>Annotated URI: {selectedSession.annotatedVideoUri ?? "n/a"}</li>
+                <li>
+                  Drill binding: {selectedSession.drillBinding?.drillName ?? selectedSession.drillTitle ?? selectedSession.drillId} •{" "}
+                  {selectedSession.drillBinding?.sourceKind ?? "unknown"}
+                </li>
+                {selectedSession.debug?.noEventCause ? <li>No-event cause: {selectedSession.debug.noEventCause}</li> : null}
                 {selectedSession.debug?.errorMessage ? <li>Error context: {selectedSession.debug.errorMessage}</li> : null}
               </ul>
             </details>

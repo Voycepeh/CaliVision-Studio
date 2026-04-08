@@ -136,7 +136,7 @@ test("overlay state shows rep count and active hold timer signals", () => {
 
   const afterHold = deriveReplayOverlayStateAtTime(session, 2500);
   assert.equal(afterHold.showRepCount, true);
-  assert.equal(afterHold.showHoldTimer, false);
+  assert.equal(afterHold.showHoldTimer, true);
 });
 
 test("overlay state falls back to phase-enter events when frame samples are missing", () => {
@@ -146,6 +146,15 @@ test("overlay state falls back to phase-enter events when frame samples are miss
   assert.equal(overlay.phaseLabel, "down");
 });
 
+test("overlay state surfaces low-confidence status for no reliable runs", () => {
+  const session = createSession();
+  session.debug = { noEventCause: "low_confidence_frames" };
+  session.frameSamples = [{ timestampMs: 0, classifiedPhaseId: undefined, confidence: 0.05 }];
+  const overlay = deriveReplayOverlayStateAtTime(session, 0);
+  assert.equal(overlay.phaseLabel, null);
+  assert.equal(overlay.statusLabel, "Low confidence");
+});
+
 test("overlay helper stays aligned with base replay derivation", () => {
   const session = createSession();
   const base = deriveReplayStateAtTime(session, 2500);
@@ -153,4 +162,13 @@ test("overlay helper stays aligned with base replay derivation", () => {
   assert.equal(overlay.timestampMs, base.timestampMs);
   assert.equal(overlay.repCount, base.repCount);
   assert.equal(overlay.holdActive, base.holdActive);
+});
+
+test("overlay state keeps rep count visible even when no rep events exist", () => {
+  const session = createSession();
+  session.summary.repCount = undefined;
+  session.events = session.events.filter((event) => event.type !== "rep_complete");
+  const overlay = deriveReplayOverlayStateAtTime(session, 1200);
+  assert.equal(overlay.repCount, 0);
+  assert.equal(overlay.showRepCount, true);
 });
