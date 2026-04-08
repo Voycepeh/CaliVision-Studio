@@ -4,6 +4,7 @@ import type { AuthSession } from "@/lib/auth/supabase-auth";
 import { deleteDraft, loadDraft, loadDraftList, saveDraft, type LocalDraftRecord, type LocalDraftSummary } from "@/lib/persistence/local-draft-store";
 import { deleteRegistryEntriesByPackageId, loadLocalRegistryEntries, upsertRegistryEntryFromPackage, type PackageRegistryEntry } from "@/lib/registry";
 import type { DrillPackage } from "@/lib/schema/contracts";
+import { reconcileLocalVersionSnapshots } from "./local-versioning";
 
 export type DrillVersionStatus = "draft" | "ready";
 
@@ -54,6 +55,21 @@ function parseVersionNumber(pkg: DrillPackage): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
+function createUniqueId(prefix: "draft" | "drill"): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function mapLocalPersistenceError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes("requested version") && message.includes("existing version")) {
+    return new Error("Local browser storage was upgraded by another Studio module. Reload once to refresh local workspace data.");
+  }
+  return error instanceof Error ? error : new Error("Local browser save failed.");
+}
+
 function statusFromPackage(pkg: DrillPackage): DrillVersionStatus {
   return pkg.manifest.versioning?.draftStatus === "draft" ? "draft" : "ready";
 }
@@ -93,7 +109,8 @@ function toReadyVersion(entry: PackageRegistryEntry): DrillVersionSnapshot {
 }
 
 async function listLocalVersions(): Promise<DrillVersionSnapshot[]> {
-  const [drafts, entries] = await Promise.all([loadDraftList(), Promise.resolve(loadLocalRegistryEntries())]);
+  const entries = loadLocalRegistryEntries();
+  const drafts = await loadDraftList().catch(() => [] as LocalDraftSummary[]);
   const draftVersions = await Promise.all(
     drafts.map(async (draft) => {
       const loaded = await loadDraft(draft.draftId);
@@ -101,7 +118,7 @@ async function listLocalVersions(): Promise<DrillVersionSnapshot[]> {
     })
   );
   const readyVersions = entries.map(toReadyVersion);
-  return [...readyVersions, ...draftVersions.filter((v): v is DrillVersionSnapshot => Boolean(v))].sort(
+  return reconcileLocalVersionSnapshots([...readyVersions, ...draftVersions.filter((v): v is DrillVersionSnapshot => Boolean(v))]).sort(
     (a, b) => new Date(b.updatedAtIso).getTime() - new Date(a.updatedAtIso).getTime()
   );
 }
@@ -202,8 +219,8 @@ export async function listDrillsWithActiveVersion(context?: DrillRepositoryConte
 export async function createDrill(context?: DrillRepositoryContext): Promise<{ drillId: string; draftVersionId: string }> {
   const resolved = asContext(context);
   const now = new Date().toISOString();
-  const draftId = `draft-${Date.now()}`;
-  const drillId = `drill-${Date.now()}`;
+  const draftId = createUniqueId("draft");
+  const drillId = createUniqueId("drill");
   const pkg = ensureVersioningMetadata(structuredClone(getPrimarySamplePackage()));
   pkg.manifest.packageId = drillId;
   pkg.manifest.packageVersion = "0.1.0";
@@ -230,7 +247,11 @@ export async function createDrill(context?: DrillRepositoryContext): Promise<{ d
     return { drillId, draftVersionId: pkg.manifest.versioning.versionId };
   }
 
-  await saveDraft({ draftId, sourceLabel: "authored-local", packageJson: pkg, assetsById: {} });
+  try {
+    await saveDraft({ draftId, sourceLabel: "authored-local", packageJson: pkg, assetsById: {} });
+  } catch (error) {
+    throw mapLocalPersistenceError(error);
+  }
   return { drillId, draftVersionId: draftId };
 }
 
@@ -246,7 +267,7 @@ export async function createDraftVersion(drillId: string, context?: DrillReposit
     throw new Error("No base ready version exists for this drill yet.");
   }
 
-  const nextDraftId = `draft-${Date.now()}`;
+  const nextDraftId = createUniqueId("draft");
   const next = ensureVersioningMetadata(structuredClone(activeReady.packageJson));
   next.manifest.updatedAtIso = new Date().toISOString();
   next.manifest.versioning = {

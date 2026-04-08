@@ -15,7 +15,7 @@ export function ensureVersioningMetadata(drillPackage: DrillPackage): DrillPacka
 
   manifest.versioning = {
     packageSlug: manifest.versioning?.packageSlug ?? toSlug(manifest.packageId),
-    versionId,
+    versionId: manifest.versioning?.versionId ?? versionId,
     revision: Math.max(1, manifest.versioning?.revision ?? 1),
     lineageId,
     draftStatus: manifest.versioning?.draftStatus ?? "draft",
