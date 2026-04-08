@@ -14,4 +14,14 @@ export {
 export type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
 export { persistCompletedUploadAnalysisSession, persistFailedUploadAnalysisSession } from "./session-service.ts";
 
+export {
+  ANALYSIS_ARTIFACT_TYPE,
+  ANALYSIS_ARTIFACT_VERSION,
+  createAnalysisArtifactFilename,
+  createAnalysisSessionArtifact,
+  deserializeAnalysisSessionArtifact,
+  serializeAnalysisSessionArtifact
+} from "./export-artifact.ts";
+export type { AnalysisSessionArtifact } from "./export-artifact.ts";
+
 export { deriveReplayMarkers, deriveReplaySessionOverview, deriveReplayStateAtTime, getReplayDurationMs } from "./replay-state.ts";

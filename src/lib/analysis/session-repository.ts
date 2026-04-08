@@ -9,6 +9,7 @@ export type AnalysisSessionRecord = {
   drillTitle?: string;
   drillVersion?: string;
   pipelineVersion?: string;
+  scorerVersion?: string;
   sourceKind: AnalysisSourceKind;
   sourceId?: string;
   sourceUri?: string;

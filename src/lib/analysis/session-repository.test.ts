@@ -15,6 +15,7 @@ function buildSession(overrides: Partial<AnalysisSessionRecord> = {}): AnalysisS
     drillTitle: "Drill Alpha",
     drillVersion: "v1",
     pipelineVersion: "pipeline-v1",
+    scorerVersion: "scorer-v1",
     sourceKind: "upload",
     sourceId: "upload-1",
     sourceLabel: "attempt.mp4",
@@ -47,6 +48,7 @@ test("saving and retrieving a completed analysis session preserves events and fr
   assert.equal(loaded?.summary.repCount, 2);
   assert.equal(loaded?.frameSamples.length, 2);
   assert.equal(loaded?.events[0]?.type, "phase_enter");
+  assert.equal(loaded?.scorerVersion, "scorer-v1");
 });
 
 test("list sessions by drill id filters and sorts recent first", async () => {

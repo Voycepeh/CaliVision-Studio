@@ -4,6 +4,7 @@ import type { PortableDrill } from "../schema/contracts.ts";
 import type { PoseTimeline } from "../upload/types.ts";
 
 const PIPELINE_VERSION = "drill-analysis-pipeline-v1";
+const SCORER_VERSION = "frame-phase-scorer-v1";
 
 type PersistUploadInput = {
   repository: AnalysisSessionRepository;
@@ -30,6 +31,7 @@ export async function persistCompletedUploadAnalysisSession(input: PersistUpload
     drillTitle: input.drill.title,
     drillVersion: input.drillVersion,
     pipelineVersion: PIPELINE_VERSION,
+    scorerVersion: SCORER_VERSION,
     sourceKind: "upload",
     sourceId: input.sourceId,
     sourceUri: input.sourceUri,
@@ -73,6 +75,7 @@ export async function persistFailedUploadAnalysisSession(input: {
     drillTitle: input.drill.title,
     drillVersion: input.drillVersion,
     pipelineVersion: PIPELINE_VERSION,
+    scorerVersion: SCORER_VERSION,
     sourceKind: "upload",
     sourceId: input.sourceId,
     sourceUri: input.sourceUri,

@@ -29,7 +29,8 @@
    - Annotated Video,
    - Processing Summary (.json),
    - Pose Timeline (.json),
-   - Analysis Session (.json) export-safe payload.
+   - Analysis Artifact (.json) export payload (versioned structured session export).
+8. Export contract details are documented in `docs/analysis-artifact-export.md`.
 
 ## Current availability notes
 

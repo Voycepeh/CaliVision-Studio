@@ -1,43 +1,42 @@
-# PR Plan — Persist Drill Analysis Sessions + Upload History Wiring
+# PR Plan — Analysis Artifact Export for Persisted Drill Analysis Sessions
 
 ## Summary
 
-Persist Drill Studio analysis sessions from Upload Video runs so structured outputs (frame samples, event logs, summary metrics, source linkage) survive beyond one computation and are inspectable in a local history/debug surface.
+Add a portable, versioned analysis artifact export for persisted Upload Video analysis sessions so users/developers can download, inspect, share, and reuse structured results outside a single runtime session.
 
 ## Problem
 
-Upload Video can produce analysis artifacts but structured comparison output disappears after a run, making it hard to debug, compare attempts, and prepare for future replay overlays/export workflows.
+Studio already persists analysis sessions and supports in-app review, but there is no explicit export artifact contract for portability, QA/debug handoff, dataset iteration, or future hosted sync/import workflows.
 
 ## Assumptions
 
-- Studio remains the web-first source of truth for drill authoring and portable drill file/package semantics.
+- Studio remains web-first and local-first for current Upload Video analysis workflows.
+- Persisted analysis sessions remain IndexedDB-backed source of truth for export in this phase.
 - Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
-- Local-first behavior remains a hard requirement even as hosted foundations grow.
-- Local-first persistence remains the default: analysis sessions are durable in browser IndexedDB.
-- Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+- Export contract evolution should be additive and versioned from day one.
 
 ## Scope
 
-- Add a persistence model for analysis sessions (`AnalysisSessionRecord`) that includes:
-  - source linkage (`sourceKind`, `sourceId`, `sourceUri`, labels),
-  - drill linkage (`drillId`, optional `drillVersion`),
-  - status/timestamps,
-  - frame phase samples, event log, summary metrics, quality/debug metadata.
-- Add repository abstractions for save/get/list-by-drill/list-recent/delete plus JSON serializer/deserializer for round-trip export compatibility.
-- Wire Upload Video completion/failure flow to persist one session per attempt.
-- Add a minimal Upload Video history/debug inspection surface showing recent sessions, summary metrics, event log, and JSON debug payload.
-- Add tests for repository persistence behavior and upload-analysis persistence wiring.
+- Define a versioned analysis artifact payload contract.
+- Add serializer + safe deserializer utilities for artifact JSON.
+- Preserve and export pipeline/scoring version metadata.
+- Add a minimal download action from Upload Video analysis session detail.
+- Provide filename generation utility for deterministic, readable artifact names.
+- Add derived-media placeholder metadata for future annotated replay export references.
+- Add tests for contract shape, version metadata, filename generation, optional field handling, and parse/round-trip behavior.
+- Update docs describing export purpose, scope, and non-goals.
 
 ## Non-goals
 
-- no replay overlay rendering onto video preview,
-- no auth-first hosted analysis session sync in this PR,
-- no major Upload Video visual redesign,
-- no scoring model rewrite.
+- full annotated video rendering/export pipeline,
+- polished import UX,
+- backend artifact sharing,
+- cross-device sync,
+- large Upload Video UI redesign.
 
 ## Follow-up candidates (not included)
 
-- render persisted analysis overlays on replay/preview timeline,
-- add drill selection wiring so upload analysis runs against user-selected authored drill drafts,
-- add hosted synchronization abstraction for session history while retaining local-first fallback,
-- introduce richer comparison views across multiple persisted attempts.
+- richer Upload Video results browsing and timeline/event inspection UX,
+- internal/import UX to rehydrate artifacts into persisted sessions,
+- hosted artifact storage/sync with local-first fallback,
+- annotated replay/media packaging built on `derivedMedia` hooks.
