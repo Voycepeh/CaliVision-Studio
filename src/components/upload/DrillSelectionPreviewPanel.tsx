@@ -15,6 +15,7 @@ type DrillSelectionPreviewPanelProps = {
   sourceKind?: "seeded" | "local" | "hosted";
   showSourceBadge?: boolean;
   compact?: boolean;
+  quiet?: boolean;
 };
 
 function sortPhases(phases: PortablePhase[]): PortablePhase[] {
@@ -79,7 +80,7 @@ export function buildDrillOptionLabel(drill: PortableDrill): string {
   return `${drill.title} · ${formatDrillTypeLabel(drill.drillType)} · ${formatViewLabel(drill.defaultView)}`;
 }
 
-export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false }: DrillSelectionPreviewPanelProps) {
+export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const frameRef = useRef<number | null>(null);
@@ -165,7 +166,16 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
   }, [drill.drillType, loopPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex, sampledFrame.phaseTitle]);
 
   return (
-    <section className="card" style={{ margin: 0, display: "grid", gap: compact ? "0.35rem" : "0.5rem", background: "rgba(114,168,255,0.08)" }}>
+    <section
+      className="card"
+      style={{
+        margin: 0,
+        display: "grid",
+        gap: compact ? "0.35rem" : "0.5rem",
+        background: quiet ? "rgba(114,168,255,0.04)" : "rgba(114,168,255,0.08)",
+        borderColor: quiet ? "rgba(130, 159, 192, 0.26)" : undefined
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
         <div style={{ display: "grid", gap: "0.2rem" }}>
           <strong style={{ fontSize: compact ? "0.84rem" : "1rem" }}>{drill.title}</strong>
