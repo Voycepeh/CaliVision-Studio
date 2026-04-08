@@ -19,36 +19,17 @@
 
 ## Current Upload Video flow
 
-1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in), then select local videos (file picker or drag/drop).
-2. Queue jobs in-browser (default single active processing job) with explicit lifecycle labels:
-   - ready to analyze,
-   - analyzing,
-   - analysis completed / failed / cancelled,
-   - results available,
-   - no structured result available yet.
-3. Run MediaPipe Pose Landmarker in video mode locally.
-4. Persist one local analysis session per completed, partial, or failed attempt, including source linkage (`sourceId` + URI references for raw/annotated media), frame-phase samples, event log, and summary metrics.
-5. Use the upload handoff card to open the latest result from the current upload when available.
-6. Review overlay preview for completed jobs (pose overlay in preview canvas).
-7. Use **Recent analyses** shortcuts to jump to:
-   - latest result from current upload,
-   - latest analysis for this drill,
-   - any previous session detail.
-8. In session detail, inspect:
-   - summary + key metrics first,
-   - explicit drill linkage metadata (drill id/name/version + source kind),
-   - replay/timeline review,
-   - analysis inspection table (per-sample phase, confidence, alternates, smoothing output),
-   - temporal trace (accepted/rejected transitions and reason details),
-   - event log,
-   - collapsible debug/pipeline details,
-   - optional raw JSON.
-9. Download local artifacts in clear user-facing order:
-   - Annotated Video (pose + persisted drill-analysis overlays when available; graceful fallback to pose-only),
-   - Processing Summary (.json),
-   - Pose Timeline (.json),
-   - Analysis Artifact (.json) export payload (versioned structured session export).
-10. Export contract details are documented in `docs/analysis-artifact-export.md`.
+1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in).
+2. Briefly preview drill motion in a compact context card (drill name/type/view/phase count).
+3. Upload one local video (file picker or drag/drop) to start analysis immediately in-browser.
+4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
+5. Review the result in the primary analysis area (annotated video preview + concise summary chips for phase/reps/hold/duration/confidence/result).
+6. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) only when troubleshooting is needed.
+7. Download outputs in this simplified order (shown once in UI):
+   - Annotated Video (`.webm`)
+   - Processing Summary (`.json`)
+   - Pose Timeline (`.json`)
+8. Leave or refresh `/upload` to intentionally start fresh.
 
 ## Current availability notes
 
