@@ -46,6 +46,7 @@ import {
   saveDraft,
   setLastOpenedDraft
 } from "@/lib/persistence/local-draft-store";
+import { markVersionReady, validateVersionReadiness } from "@/lib/library";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import type {
@@ -164,6 +165,7 @@ type StudioStateValue = {
   forkSelectedPackage: () => void;
   createSelectedPackageNewVersion: () => void;
   saveSelectedToHosted: () => Promise<void>;
+  markSelectedVersionReady: () => Promise<void>;
   persistenceMode: "local" | "cloud";
 };
 
@@ -694,6 +696,39 @@ export function StudioStateProvider({
     setHostedDraftIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.id }));
     setHostedSaveState("saved");
     setHostedSaveStatusMessage(`Saved to account at ${new Date(upsert.value.updatedAtIso).toLocaleString()}.`);
+  }
+
+  async function markSelectedVersionReady(): Promise<void> {
+    if (!selectedPackage) {
+      return;
+    }
+
+    const readiness = validateVersionReadiness(selectedPackage.workingPackage);
+    if (!readiness.isReady) {
+      setImportFeedback({
+        status: "error",
+        message: `Ready requirements not met (${readiness.issues.length} issue${readiness.issues.length === 1 ? "" : "s"}).`,
+        issues: []
+      });
+      return;
+    }
+
+    const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId;
+    if (!versionId) {
+      setImportFeedback({
+        status: "error",
+        message: "Cannot mark ready: no draft version ID found.",
+        issues: []
+      });
+      return;
+    }
+
+    await markVersionReady(versionId);
+    setImportFeedback({
+      status: "success",
+      message: "Draft version marked Ready and available for Upload Video / Publish.",
+      issues: []
+    });
   }
 
   async function importFromFile(file: File): Promise<void> {
@@ -1582,6 +1617,15 @@ export function StudioStateProvider({
       return;
     }
 
+    if (selectedPackage.workingPackage.manifest.versioning?.draftStatus !== "publish-ready") {
+      setPublishWorkflow((current) => ({
+        ...current,
+        status: "blocked",
+        message: "Publish blocked: only Ready versions can be published."
+      }));
+      return;
+    }
+
     const readiness = await validatePackagePublishReadiness(selectedPackage.workingPackage);
     if (!readiness.isReady) {
       setPublishWorkflow((current) => ({
@@ -1688,6 +1732,7 @@ export function StudioStateProvider({
     forkSelectedPackage,
     createSelectedPackageNewVersion,
     saveSelectedToHosted,
+    markSelectedVersionReady,
     persistenceMode
   };
 

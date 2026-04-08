@@ -17,6 +17,8 @@ export function StudioPublishPanel() {
 
   const drill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
   const publishing = selectedPackage?.workingPackage.manifest.publishing;
+  const versioning = selectedPackage?.workingPackage.manifest.versioning;
+  const isReadyVersion = versioning?.draftStatus === "publish-ready";
 
   const summary = useMemo(() => {
     if (!drill || !selectedPackage) {
@@ -45,7 +47,7 @@ export function StudioPublishPanel() {
         </button>
       </div>
       <p className="muted" style={{ marginTop: "0.5rem" }}>
-        Publishing is local/mock only in this PR. Export/download and publish prep remain separate workflows.
+        Publishing is local/mock only in this PR. Only Ready versions can publish.
       </p>
 
       {!summary ? (
@@ -96,11 +98,16 @@ export function StudioPublishPanel() {
               type="button"
               onClick={runMockPublish}
               style={buttonStyle}
-              disabled={publishWorkflow.status === "publishing" || publishWorkflow.status === "validating"}
+              disabled={publishWorkflow.status === "publishing" || publishWorkflow.status === "validating" || !isReadyVersion}
             >
               Publish (Mock Local)
             </button>
           </div>
+          {!isReadyVersion ? (
+            <p className="muted" style={{ marginBottom: "0.3rem", color: "#f0b47d" }}>
+              Mark this draft version Ready before publishing.
+            </p>
+          ) : null}
 
           <p className="muted" style={{ marginBottom: "0.3rem" }}>
             Status: {publishWorkflow.status} — {publishWorkflow.message}
