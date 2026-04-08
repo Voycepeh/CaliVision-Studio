@@ -83,16 +83,34 @@ export function upsertRegistryEntryFromPackage(input: {
   const normalizedPackage = ensureVersioningMetadata(input.packageJson);
   const next = createRegistryEntryFromPackage({ ...input, packageJson: normalizedPackage });
   const current = loadLocalRegistryEntries();
-  const duplicateVersion = current.find(
-    (entry) =>
-      entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion && entry.entryId !== next.entryId
+  const existingVersion = current.find(
+    (entry) => entry.summary.packageId === next.summary.packageId && entry.summary.packageVersion === next.summary.packageVersion
   );
-  if (duplicateVersion) {
-    throw new Error(`Duplicate version conflict for ${next.summary.packageId}@${next.summary.packageVersion}.`);
-  }
-  const merged = attachLineageEntryIds([next, ...current.filter((entry) => entry.entryId !== next.entryId)]);
+
+  const normalizedNext = existingVersion
+    ? {
+        ...next,
+        entryId: existingVersion.entryId,
+        summary: {
+          ...next.summary,
+          entryId: existingVersion.entryId
+        }
+      }
+    : next;
+  const normalizedDetailsEntry: PackageRegistryEntry = {
+    ...normalizedNext,
+    details: {
+      ...normalizedNext.details,
+      summary: normalizedNext.summary
+    }
+  };
+
+  const merged = attachLineageEntryIds([
+    normalizedDetailsEntry,
+    ...current.filter((entry) => entry.entryId !== normalizedDetailsEntry.entryId)
+  ]);
   saveLocalRegistryEntries(merged);
-  return next;
+  return normalizedDetailsEntry;
 }
 
 export function createDerivedRegistryEntry(input: {
