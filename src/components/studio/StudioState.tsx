@@ -503,6 +503,37 @@ export function StudioStateProvider({
   }, [initialDraftId, initialDrillId, initialHostedDraftId, initialVersionId, isConfigured, persistenceMode, session]);
 
   useEffect(() => {
+    if (persistenceMode !== "local" || !hydrationComplete || !initialDrillId) {
+      return;
+    }
+
+    void (async () => {
+      const resolved = await loadEditableVersionForDrill(initialDrillId, { mode: "local" });
+      if (!resolved) {
+        return;
+      }
+
+      const packageKey = `draft:${resolved.versionId}`;
+      const existing = packages.find((entry) => entry.packageKey === packageKey);
+      const phaseId = getSortedPhases(resolved.packageJson)[0]?.phaseId ?? null;
+      if (!existing) {
+        const loaded = await loadDraft(resolved.versionId);
+        if (!loaded) {
+          return;
+        }
+
+        const entry = createEditablePackageEntry(packageKey, loaded.record.sourceLabel, loaded.record.packageJson);
+        setPackages((current) => [entry, ...current.filter((item) => item.packageKey !== packageKey)]);
+        setDraftIdsByPackageKey((current) => ({ ...current, [packageKey]: resolved.versionId }));
+        setPackageAssetBlobs((current) => ({ ...current, [packageKey]: loaded.assetsById }));
+      }
+
+      setSelectedPackageKey(packageKey);
+      setSelectedPhaseId(phaseId);
+    })();
+  }, [hydrationComplete, initialDrillId, packages, persistenceMode]);
+
+  useEffect(() => {
     if (!initialPackageId) {
       initializedDeepLinkPackageIdRef.current = null;
       return;

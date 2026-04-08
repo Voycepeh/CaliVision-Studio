@@ -2,7 +2,7 @@ import { ensureVersioningMetadata } from "@/lib/package";
 import type { DrillPackage } from "@/lib/schema/contracts";
 
 const DB_NAME = "calivision.studio.local";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DRAFT_STORE = "drafts";
 const ASSET_STORE = "assets";
 const META_STORE = "meta";
@@ -142,6 +142,19 @@ function toSummary(record: LocalDraftRecord): LocalDraftSummary {
   };
 }
 
+function normalizeDraftPackage(packageJson: DrillPackage, draftId: string): DrillPackage {
+  const normalized = ensureVersioningMetadata(packageJson);
+  normalized.manifest.versioning = {
+    ...(normalized.manifest.versioning ?? {}),
+    packageSlug: normalized.manifest.versioning?.packageSlug ?? normalized.manifest.packageId,
+    lineageId: normalized.manifest.versioning?.lineageId ?? normalized.manifest.packageId,
+    revision: Math.max(1, normalized.manifest.versioning?.revision ?? 1),
+    versionId: draftId,
+    draftStatus: "draft"
+  };
+  return normalized;
+}
+
 export async function saveDraft(input: {
   draftId: string;
   sourceLabel: string;
@@ -150,7 +163,7 @@ export async function saveDraft(input: {
 }): Promise<DraftSaveResult> {
   const db = await openDatabase();
   const nowIso = new Date().toISOString();
-  const normalizedPackage = ensureVersioningMetadata(input.packageJson);
+  const normalizedPackage = normalizeDraftPackage(input.packageJson, input.draftId);
   const title = normalizedPackage.drills[0]?.title || normalizedPackage.manifest.packageId;
 
   const tx = db.transaction([DRAFT_STORE, ASSET_STORE], "readwrite");
@@ -208,7 +221,7 @@ export async function saveDraft(input: {
 
 export async function loadDraft(draftId: string): Promise<{ record: LocalDraftRecord; assetsById: Record<string, Blob> } | null> {
   const db = await openDatabase();
-  const tx = db.transaction([DRAFT_STORE, ASSET_STORE], "readonly");
+  const tx = db.transaction([DRAFT_STORE, ASSET_STORE], "readwrite");
   const draftStore = tx.objectStore(DRAFT_STORE);
   const assetStore = tx.objectStore(ASSET_STORE);
   const record = (await requestToPromise(draftStore.get(draftId))) as LocalDraftRecord | undefined;
@@ -218,27 +231,57 @@ export async function loadDraft(draftId: string): Promise<{ record: LocalDraftRe
     return null;
   }
 
+  const normalizedPackage = normalizeDraftPackage(record.packageJson, draftId);
+  const needsMigration = normalizedPackage.manifest.versioning?.versionId !== record.packageJson.manifest.versioning?.versionId;
+  const nextRecord = needsMigration
+    ? {
+        ...record,
+        packageVersion: normalizedPackage.manifest.packageVersion,
+        packageJson: normalizedPackage,
+        updatedAtIso: new Date().toISOString()
+      }
+    : record;
+  if (needsMigration) {
+    draftStore.put(nextRecord);
+  }
+
   const index = assetStore.index("draftId");
   const assets = (await requestToPromise(index.getAll(IDBKeyRange.only(draftId)))) as LocalDraftAssetRecord[];
   await transactionDone(tx);
 
   return {
-    record,
+    record: nextRecord,
     assetsById: Object.fromEntries(assets.map((asset) => [asset.assetId, asset.blob]))
   };
 }
 
 export async function loadDraftList(): Promise<LocalDraftSummary[]> {
   const db = await openDatabase();
-  const tx = db.transaction(DRAFT_STORE, "readonly");
+  const tx = db.transaction(DRAFT_STORE, "readwrite");
   const store = tx.objectStore(DRAFT_STORE);
-  const records = ((await requestToPromise(store.getAll())) as LocalDraftRecord[]).map((record) => ({
-    ...record,
-    packageJson: ensureVersioningMetadata(record.packageJson)
-  }));
+  const records = (await requestToPromise(store.getAll())) as LocalDraftRecord[];
+  const normalizedRecords = records.map((record) => {
+    const normalizedPackage = normalizeDraftPackage(record.packageJson, record.draftId);
+    const changed = normalizedPackage.manifest.versioning?.versionId !== record.packageJson.manifest.versioning?.versionId;
+    const normalizedRecord: LocalDraftRecord = changed
+      ? {
+          ...record,
+          packageVersion: normalizedPackage.manifest.packageVersion,
+          packageJson: normalizedPackage,
+          updatedAtIso: new Date().toISOString()
+        }
+      : {
+          ...record,
+          packageJson: normalizedPackage
+        };
+    if (changed) {
+      store.put(normalizedRecord);
+    }
+    return normalizedRecord;
+  });
   await transactionDone(tx);
 
-  return records.map(toSummary).sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
+  return normalizedRecords.map(toSummary).sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
 }
 
 export async function deleteDraft(draftId: string): Promise<void> {
