@@ -119,10 +119,7 @@ function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
   return [];
 }
 
-type ReadyUploadDrill = Awaited<ReturnType<typeof listReadyDrillsForUpload>>[number];
-
 export function UploadVideoWorkspace() {
-  const { persistenceMode, session } = useAuth();
   const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
   const { session, isConfigured, persistenceMode } = useAuth();
   const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
@@ -157,6 +154,7 @@ export function UploadVideoWorkspace() {
     [drillOptions, selectedDrillKey]
   );
   const activeSelectedDrill = useMemo(() => selectedDrill?.drill ?? fallbackDrill, [selectedDrill?.drill, fallbackDrill]);
+  const hasReadyDrills = drillOptions.length > 0;
   const drillSessions = useMemo(
     () => recentSessions.filter((session) => session.drillId === activeSelectedDrill.drillId),
     [recentSessions, activeSelectedDrill.drillId]
@@ -232,7 +230,6 @@ export function UploadVideoWorkspace() {
   }, [analysisRepository]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
-    const drillSelection = createUploadJobDrillSelection({ fallbackDrill, selectedDrill });
     if (!hasReadyDrills) {
       return;
     }
@@ -260,7 +257,7 @@ export function UploadVideoWorkspace() {
       dispatch({ type: "add", jobs: nextJobs });
       setSelectedJobId(nextJobs[0].id);
     }
-  }, [dispatch, fallbackDrill, selectedDrill]);
+  }, [dispatch, fallbackDrill, hasReadyDrills, selectedDrill]);
 
   const runQueue = useCallback(async () => {
     if (isRunningRef.current) {
@@ -282,28 +279,14 @@ export function UploadVideoWorkspace() {
       patch: { status: "processing", stageLabel: "Initializing MediaPipe Pose Landmarker", startedAtIso: new Date().toISOString() }
     });
 
-    let persistedSession: AnalysisSessionRecord | null = null;
-
     try {
       const timeline = await processVideoFile(nextJob.file, {
         cadenceFps,
         signal: controller.signal,
         onProgress: (progress, stageLabel) => dispatch({ type: "update", id: nextJob.id, patch: { progress, stageLabel } })
       });
-      const annotatedVideoUri = createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`);
-      persistedSession = await persistCompletedUploadAnalysisSession({
-        repository: analysisRepository,
-        drill: referenceDrill,
-        drillVersion: "sample-v1",
-        timeline,
-        sourceId: nextJob.id,
-        sourceLabel: nextJob.fileName,
-        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName)
-      });
       dispatch({ type: "update", id: nextJob.id, patch: { stageLabel: "Rendering annotated video", progress: 0.97 } });
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { analysisSession: persistedSession, includeAnalysisOverlay: true });
-      const linkedSession: AnalysisSessionRecord = { ...persistedSession, annotatedVideoUri };
-      await analysisRepository.saveSession(linkedSession);
+      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, { includeAnalysisOverlay: true });
 
       dispatch({
         type: "update",
@@ -351,7 +334,7 @@ export function UploadVideoWorkspace() {
         }
       });
 
-      if (!cancelled && !persistedSession) {
+      if (!cancelled) {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
           drill: nextJob.drillSelection.drill,
