@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { InMemoryAnalysisSessionRepository } from "./session-repository.ts";
-import { persistCompletedUploadAnalysisSession, persistFailedUploadAnalysisSession } from "./session-service.ts";
+import { buildCompletedUploadAnalysisSession, persistCompletedUploadAnalysisSession, persistFailedUploadAnalysisSession } from "./session-service.ts";
 import type { PoseTimeline } from "../upload/types.ts";
 import type { PortableDrill, PortablePhase, PortablePose } from "../schema/contracts.ts";
 
@@ -129,6 +129,22 @@ test("upload analysis path persists exactly one completed session", async () => 
   assert.equal(sessions[0]?.drillBinding?.drillId, "service-drill");
   assert.equal(Array.isArray(sessions[0]?.debug?.smootherTransitions), true);
   assert.equal(Array.isArray(sessions[0]?.debug?.smoothedFrames), true);
+});
+
+test("buildCompletedUploadAnalysisSession constructs a session record without saving", async () => {
+  const repository = new InMemoryAnalysisSessionRepository();
+  const drill = buildDrill();
+  const built = buildCompletedUploadAnalysisSession({
+    drill,
+    drillVersion: "sample-v1",
+    timeline: createTimeline(),
+    sourceId: "upload-job-build-only",
+    sourceLabel: "attempt.mp4"
+  });
+
+  assert.equal(built.sourceId, "upload-job-build-only");
+  assert.equal(built.status, "completed");
+  assert.equal((await repository.listRecentSessions()).length, 0);
 });
 
 test("failed analysis attempts can be persisted truthfully", async () => {

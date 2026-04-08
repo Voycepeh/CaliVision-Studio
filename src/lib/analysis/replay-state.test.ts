@@ -146,6 +146,15 @@ test("overlay state falls back to phase-enter events when frame samples are miss
   assert.equal(overlay.phaseLabel, "down");
 });
 
+test("overlay state surfaces low-confidence status for no reliable runs", () => {
+  const session = createSession();
+  session.debug = { noEventCause: "low_confidence_frames" };
+  session.frameSamples = [{ timestampMs: 0, classifiedPhaseId: undefined, confidence: 0.05 }];
+  const overlay = deriveReplayOverlayStateAtTime(session, 0);
+  assert.equal(overlay.phaseLabel, null);
+  assert.equal(overlay.statusLabel, "Low confidence");
+});
+
 test("overlay helper stays aligned with base replay derivation", () => {
   const session = createSession();
   const base = deriveReplayStateAtTime(session, 2500);

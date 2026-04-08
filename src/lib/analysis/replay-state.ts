@@ -22,6 +22,7 @@ export type ReplayOverlayState = ReplayDerivedState & {
   phaseLabel: string | null;
   showRepCount: boolean;
   showHoldTimer: boolean;
+  statusLabel?: string;
 };
 
 export type ReplaySessionOverview = {
@@ -157,7 +158,8 @@ export function deriveReplayOverlayStateAtTime(
       ...base,
       phaseLabel: null,
       showRepCount: false,
-      showHoldTimer: false
+      showHoldTimer: false,
+      statusLabel: undefined
     };
   }
 
@@ -172,7 +174,8 @@ export function deriveReplayOverlayStateAtTime(
     ...base,
     phaseLabel: base.activePhaseId ?? phaseFromEvents,
     showRepCount: hasRepSignal,
-    showHoldTimer: hasHoldSignal && base.holdActive
+    showHoldTimer: hasHoldSignal && base.holdActive,
+    statusLabel: session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined
   };
 }
 

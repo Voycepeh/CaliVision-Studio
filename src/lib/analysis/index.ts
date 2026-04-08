@@ -12,7 +12,11 @@ export {
   serializeAnalysisSession
 } from "./session-repository.ts";
 export type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
-export { persistCompletedUploadAnalysisSession, persistFailedUploadAnalysisSession } from "./session-service.ts";
+export {
+  buildCompletedUploadAnalysisSession,
+  persistCompletedUploadAnalysisSession,
+  persistFailedUploadAnalysisSession
+} from "./session-service.ts";
 
 export {
   ANALYSIS_ARTIFACT_TYPE,

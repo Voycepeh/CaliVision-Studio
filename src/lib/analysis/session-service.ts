@@ -17,7 +17,6 @@ function inferUploadSessionStatus(output: ReturnType<typeof runDrillAnalysisPipe
 }
 
 type PersistUploadInput = {
-  repository: AnalysisSessionRepository;
   drill: PortableDrill;
   drillVersion?: string;
   drillBinding?: AnalysisSessionRecord["drillBinding"];
@@ -73,7 +72,7 @@ function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>)
   };
 }
 
-export async function persistCompletedUploadAnalysisSession(input: PersistUploadInput): Promise<AnalysisSessionRecord> {
+export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): AnalysisSessionRecord {
   const output = runDrillAnalysisPipeline({
     drill: input.drill,
     sampledFrames: input.timeline.frames,
@@ -81,7 +80,7 @@ export async function persistCompletedUploadAnalysisSession(input: PersistUpload
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
   });
 
-  const session: AnalysisSessionRecord = {
+  return {
     sessionId: output.session.sessionId,
     drillId: output.session.drillId,
     drillTitle: input.drill.title,
@@ -119,7 +118,12 @@ export async function persistCompletedUploadAnalysisSession(input: PersistUpload
       sourceKind: "unknown"
     }
   };
+}
 
+export async function persistCompletedUploadAnalysisSession(
+  input: PersistUploadInput & { repository: AnalysisSessionRepository }
+): Promise<AnalysisSessionRecord> {
+  const session = buildCompletedUploadAnalysisSession(input);
   await input.repository.saveSession(session);
   return session;
 }

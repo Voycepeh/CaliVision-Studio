@@ -132,12 +132,32 @@ function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, l
   ctx.restore();
 }
 
+function drawStatusPill(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): void {
+  ctx.save();
+  ctx.font = "600 14px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  const paddingX = 10;
+  const paddingY = 7;
+  const boxWidth = ctx.measureText(text).width + paddingX * 2;
+  const boxHeight = 14 + paddingY * 2;
+  ctx.fillStyle = "rgba(148, 163, 184, 0.2)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.7)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(x, y, boxWidth, boxHeight, 999);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "rgba(241, 245, 249, 0.95)";
+  ctx.fillText(text, x + paddingX, y + paddingY);
+  ctx.restore();
+}
+
 export function drawAnalysisOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
   _height: number,
-  replayOverlayState?: ReplayOverlayState | null,
-  options?: { drillLabel?: string }
+  replayOverlayState?: ReplayOverlayState | null
 ): void {
   if (!replayOverlayState) {
     return;
@@ -148,15 +168,7 @@ export function drawAnalysisOverlay(
   const leftLines: string[] = [];
   const rightLines: string[] = [];
 
-  if (options?.drillLabel) {
-    leftLines.push(options.drillLabel);
-  }
-
-  if (replayOverlayState.phaseLabel) {
-    leftLines.push(`Phase: ${replayOverlayState.phaseLabel}`);
-  } else {
-    leftLines.push("Phase: n/a");
-  }
+  leftLines.push(replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none");
 
   if (replayOverlayState.showRepCount) {
     rightLines.push(`Reps: ${replayOverlayState.repCount}`);
@@ -168,4 +180,7 @@ export function drawAnalysisOverlay(
 
   drawOverlayBlock(ctx, sidePadding, topPadding, leftLines, "left");
   drawOverlayBlock(ctx, width - sidePadding, topPadding, rightLines, "right");
+  if (replayOverlayState.statusLabel) {
+    drawStatusPill(ctx, sidePadding, topPadding + 52, replayOverlayState.statusLabel);
+  }
 }
