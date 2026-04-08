@@ -22,7 +22,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
   async function onAuthClick() {
     if (userEmail) {
       const confirmed = window.confirm(
-        "Sign out?\n\nYou’ll leave your cloud workspace and switch to browser-only storage. Your cloud Drafts and My drills stay in your account, but won’t be available until you sign in again. Local browser data and cloud data are separate workspaces."
+        "Sign out?\n\nYou’ll leave your cloud workspace and switch to browser-only storage. Your cloud My drills stay in your account, but won’t be available until you sign in again. Local browser data and cloud data are separate workspaces."
       );
       if (!confirmed) {
         return;

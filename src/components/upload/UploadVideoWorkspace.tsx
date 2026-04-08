@@ -5,6 +5,7 @@ import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import type { UploadJob } from "@/lib/upload/types";
 import { getPrimarySamplePackage } from "@/lib/package/samples";
+import { listReadyDrillsForUpload } from "@/lib/library";
 import {
   createAnalysisArtifactFilename,
   createImportedAnalysisSessionCopy,
@@ -105,9 +106,19 @@ function reducer(state: UploadJob[], action: JobAction): UploadJob[] {
   return [];
 }
 
+type ReadyUploadDrill = Awaited<ReturnType<typeof listReadyDrillsForUpload>>[number];
+
 export function UploadVideoWorkspace() {
   const analysisRepository = useMemo(() => getBrowserAnalysisSessionRepository(), []);
-  const referenceDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
+  const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
+  const [readyDrills, setReadyDrills] = useState<ReadyUploadDrill[] | null>(null);
+  const [selectedReadyDrillId, setSelectedReadyDrillId] = useState<string | null>(null);
+  const selectedReadyDrill = useMemo(
+    () => readyDrills?.find((drill) => drill.drillId === selectedReadyDrillId) ?? readyDrills?.[0] ?? null,
+    [readyDrills, selectedReadyDrillId]
+  );
+  const referenceDrill = selectedReadyDrill?.packageJson.drills[0] ?? fallbackDrill;
+  const hasReadyDrills = (readyDrills?.length ?? 0) > 0;
   const [jobs, setJobs] = useState<UploadJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<AnalysisSessionRecord[]>([]);
@@ -152,6 +163,9 @@ export function UploadVideoWorkspace() {
   }, [analysisRepository]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
+    if (!hasReadyDrills) {
+      return;
+    }
     const nextJobs: UploadJob[] = [];
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("video/")) {
@@ -175,7 +189,7 @@ export function UploadVideoWorkspace() {
       dispatch({ type: "add", jobs: nextJobs });
       setSelectedJobId(nextJobs[0].id);
     }
-  }, [dispatch]);
+  }, [dispatch, hasReadyDrills]);
 
   const runQueue = useCallback(async () => {
     if (isRunningRef.current) {
@@ -227,7 +241,7 @@ export function UploadVideoWorkspace() {
       const persisted = await persistCompletedUploadAnalysisSession({
         repository: analysisRepository,
         drill: referenceDrill,
-        drillVersion: "sample-v1",
+        drillVersion: selectedReadyDrill?.versionId ?? "sample-v1",
         timeline,
         sourceId: nextJob.id,
         sourceLabel: nextJob.fileName,
@@ -255,7 +269,7 @@ export function UploadVideoWorkspace() {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
           drill: referenceDrill,
-          drillVersion: "sample-v1",
+          drillVersion: selectedReadyDrill?.versionId ?? "sample-v1",
           sourceId: nextJob.id,
           sourceLabel: nextJob.fileName,
           sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
@@ -267,7 +281,7 @@ export function UploadVideoWorkspace() {
       activeAbortRef.current = null;
       isRunningRef.current = false;
     }
-  }, [analysisRepository, cadenceFps, dispatch, jobs, referenceDrill, refreshRecentSessions]);
+  }, [analysisRepository, cadenceFps, dispatch, jobs, referenceDrill, refreshRecentSessions, selectedReadyDrill?.versionId]);
 
   useEffect(() => {
     void runQueue();
@@ -275,6 +289,14 @@ export function UploadVideoWorkspace() {
   useEffect(() => {
     void refreshRecentSessions();
   }, [refreshRecentSessions]);
+
+  useEffect(() => {
+    void (async () => {
+      const drills = await listReadyDrillsForUpload();
+      setReadyDrills(drills);
+      setSelectedReadyDrillId((current) => current ?? drills[0]?.drillId ?? null);
+    })();
+  }, []);
 
   useEffect(() => {
     setReplayElapsedMs(0);
@@ -454,7 +476,22 @@ export function UploadVideoWorkspace() {
       </div>
 
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
-        <button type="button" className="pill" onClick={() => fileInputRef.current?.click()}>Upload videos and analyze</button>
+        <button type="button" className="pill" disabled={!hasReadyDrills} onClick={() => fileInputRef.current?.click()}>Upload videos and analyze</button>
+        <label className="muted" style={{ fontSize: "0.85rem" }}>
+          Ready drill
+          <select
+            value={selectedReadyDrill?.drillId ?? ""}
+            onChange={(event) => setSelectedReadyDrillId(event.target.value)}
+            style={{ marginLeft: "0.35rem" }}
+          >
+            {(readyDrills ?? []).map((drill) => (
+              <option key={drill.drillId} value={drill.drillId}>
+                {drill.title} {drill.isPublished ? "(Published)" : "(Ready)"}
+              </option>
+            ))}
+            {(readyDrills ?? []).length === 0 ? <option value="">No ready drills (using sample fallback)</option> : null}
+          </select>
+        </label>
         <span className="muted">Linked drill: {referenceDrill.title}</span>
         <label className="muted" style={{ fontSize: "0.85rem" }}>
           Cadence FPS
@@ -462,6 +499,11 @@ export function UploadVideoWorkspace() {
         </label>
         <input ref={fileInputRef} type="file" accept="video/*" multiple style={{ display: "none" }} onChange={(event) => event.target.files && enqueueFiles(event.target.files)} />
       </div>
+      {!hasReadyDrills ? (
+        <p className="muted" style={{ margin: 0, color: "#f0b47d" }}>
+          No Ready drills yet. Mark a drill version Ready in My drills before upload analysis.
+        </p>
+      ) : null}
 
       <div
         onDragOver={(event) => event.preventDefault()}
