@@ -22,6 +22,25 @@ Studio exists because the core workflows are broader than a phone-only runtime:
 
 In short: Studio is the source-of-truth workspace for creating and improving drills, then applying them during analysis.
 
+### Product ecosystem and workflow
+```mermaid
+flowchart LR
+    L[Library] --> S[Drill Studio]
+    S --> D[Local Draft IndexedDB]
+    S --> H[Hosted Draft Supabase]
+    S --> P[Portable Drill File/Package]
+    D --> A[Upload Video]
+    H --> A
+    P --> A
+    D --> V[Livestream Analysis]
+    H --> V
+    P --> V
+    S --> X[Drill Exchange Publish]
+    X --> I[Import from Exchange]
+    I --> L
+    A --> O[Outputs: Reps / Holds / Phase Classification]
+    V --> O
+```
 ## Main capabilities
 ### Analyze movement (upload + livestream)
 - Run skeletal overlay on uploaded videos using MediaPipe.
@@ -68,28 +87,7 @@ This project is intentionally built with AI assistance, not autonomous shipping:
 
 AI increases speed and leverage; accountability and product judgment remain human responsibilities.
 
-## Mermaid diagrams
-### 1) Product ecosystem and workflow
-```mermaid
-flowchart LR
-    L[Library] --> S[Drill Studio]
-    S --> D[Local Draft IndexedDB]
-    S --> H[Hosted Draft Supabase]
-    S --> P[Portable Drill File/Package]
-    D --> A[Upload Video]
-    H --> A
-    P --> A
-    D --> V[Livestream Analysis]
-    H --> V
-    P --> V
-    S --> X[Drill Exchange Publish]
-    X --> I[Import from Exchange]
-    I --> L
-    A --> O[Outputs: Reps / Holds / Phase Classification]
-    V --> O
-```
-
-### 2) AI-assisted SDLC
+### AI-assisted SDLC
 ```mermaid
 flowchart LR
     Idea[Problem / Idea] --> Plan[Plan with ChatGPT]
