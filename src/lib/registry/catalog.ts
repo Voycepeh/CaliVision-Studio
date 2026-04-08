@@ -10,6 +10,7 @@ import type {
   PackageSummary
 } from "./types.ts";
 import { createEntryId } from "./identity.ts";
+import { getPrimaryDrillDisplayMetadata } from "./display-metadata.ts";
 
 export const DEFAULT_PACKAGE_LISTING_QUERY: PackageListingQuery = {
   searchText: "",
@@ -32,11 +33,12 @@ export function createRegistryEntryFromPackage(input: {
   const validation = validatePortableDrillPackage(normalizedPackage);
   const provenanceSummary = summarizeProvenance(normalizedPackage);
 
-  const title = publishing?.title ?? drill?.title ?? input.packageJson.manifest.packageId;
+  const displayMetadata = getPrimaryDrillDisplayMetadata(normalizedPackage);
+  const title = displayMetadata.title ?? publishing?.title ?? input.packageJson.manifest.packageId;
   const tags = publishing?.tags ?? drill?.tags ?? [];
   const categories = publishing?.categories ?? [];
   const updatedAtIso = normalizedPackage.manifest.updatedAtIso || new Date().toISOString();
-  const phaseCount = normalizedPackage.drills.reduce((count, item) => count + item.phases.length, 0);
+  const phaseCount = displayMetadata.phaseCount;
   const warnings = validation.issues.filter((issue) => issue.severity !== "error").map((issue) => issue.message);
   const artifactId = `${input.packageJson.manifest.packageId}@${input.packageJson.manifest.packageVersion}`;
   const entryId = createEntryId({

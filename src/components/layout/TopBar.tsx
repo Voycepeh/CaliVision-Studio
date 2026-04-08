@@ -29,7 +29,8 @@ export function TopBar() {
     forkSelectedPackage,
     createSelectedPackageNewVersion,
     saveSelectedToHosted,
-    hostedSaveStatusMessage
+    hostedSaveStatusMessage,
+    persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
   const isDirty = saveStatusLabel.startsWith("Unsaved");
@@ -72,6 +73,9 @@ export function TopBar() {
           <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
             {isConfigured ? userEmail ? `Signed in: ${userEmail}` : "Not signed in (hosted save unavailable)" : "Supabase not configured: local-only mode"}
           </p>
+          <p style={{ margin: "0.2rem 0 0", color: "var(--muted)", fontSize: "0.75rem" }}>
+            Storage mode: {persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}
+          </p>
         </div>
         <nav style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
           {navItems.map((item) => (
@@ -98,8 +102,8 @@ export function TopBar() {
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
           Export drill
         </button>
-        <button type="button" onClick={() => void saveSelectedToHosted()} style={actionButtonStyle} disabled={!selectedPackage || !userEmail || !isConfigured}>
-          Save to account
+        <button type="button" onClick={() => void saveSelectedToHosted()} style={actionButtonStyle} disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
+          {persistenceMode === "cloud" ? "Save to account" : "Cloud save (sign in)"}
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
           Share to Exchange (Mock)
