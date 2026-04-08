@@ -32,6 +32,7 @@ import {
   summarizeSessionAvailability
 } from "@/lib/upload/analysis-session-ux";
 import { formatDurationShort } from "@/lib/format/duration";
+import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -184,7 +185,7 @@ export function UploadVideoWorkspace() {
     setDrillOptionsLoading(true);
     const options: DrillSelectionOption[] = listSeededSampleDrills().map((entry) => ({
       key: `seeded:${entry.drill.drillId}:${entry.packageVersion}`,
-      label: entry.drill.title,
+      label: buildDrillOptionLabel(entry.drill),
       sourceKind: "seeded",
       sourceId: entry.packageId,
       packageVersion: entry.packageVersion,
@@ -199,7 +200,7 @@ export function UploadVideoWorkspace() {
         if (!drill) continue;
         options.push({
           key: `local:${summary.draftId}:${drill.drillId}`,
-          label: drill.title,
+          label: buildDrillOptionLabel(drill),
           sourceKind: "local",
           sourceId: summary.draftId,
           packageVersion: loaded.record.packageJson.manifest.packageVersion,
@@ -218,7 +219,7 @@ export function UploadVideoWorkspace() {
           if (!drill) continue;
           options.push({
             key: `hosted:${item.id}:${drill.drillId}`,
-            label: drill.title,
+            label: buildDrillOptionLabel(drill),
             sourceKind: "hosted",
             sourceId: item.id,
             packageVersion: item.packageVersion,
@@ -580,7 +581,7 @@ export function UploadVideoWorkspace() {
           >
             {drillOptions.map((option) => (
               <option key={option.key} value={option.key}>
-                {option.label} ({option.sourceKind})
+                {option.label}
               </option>
             ))}
           </select>
@@ -591,10 +592,11 @@ export function UploadVideoWorkspace() {
         </label>
         <input ref={fileInputRef} type="file" accept="video/*" multiple style={{ display: "none" }} onChange={(event) => event.target.files && enqueueFiles(event.target.files)} />
       </div>
-      <p className="muted" style={{ margin: 0 }}>
-        Selected drill: <strong>{activeSelectedDrill.title}</strong> • type {activeSelectedDrill.drillType} • source{" "}
-        {selectedDrill?.sourceKind ?? "seeded"} {selectedDrill?.sourceId ? `(${selectedDrill.sourceId})` : ""}
-      </p>
+      <DrillSelectionPreviewPanel
+        drill={activeSelectedDrill}
+        sourceKind={selectedDrill?.sourceKind ?? "seeded"}
+        showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
+      />
 
       <div
         onDragOver={(event) => event.preventDefault()}
