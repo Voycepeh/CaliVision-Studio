@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "./drill-selection.ts";
-import type { PortableDrill } from "../schema/contracts.ts";
 
 test("resolveSelectedDrillKey prefers current selection when available", () => {
   const options = [{ key: "seeded:a" }, { key: "local:b" }];
@@ -19,17 +18,7 @@ test("resolveSelectedDrillKey falls back to first option when preferred key is m
 });
 
 test("createUploadJobDrillSelection snapshots selected drill binding for queued jobs", () => {
-  const fallbackDrill: PortableDrill = {
-    drillId: "fallback",
-    slug: "fallback",
-    title: "Fallback",
-    drillType: "rep",
-    difficulty: "beginner",
-    tags: [],
-    defaultView: "side",
-    phases: []
-  };
-  const selectedDrill = {
+  const selectedDrill: Parameters<typeof createUploadJobDrillSelection>[0]["selectedDrill"] = {
     key: "local:draft-1:drill-1",
     sourceKind: "local" as const,
     sourceId: "draft-1",
@@ -43,12 +32,20 @@ test("createUploadJobDrillSelection snapshots selected drill binding for queued 
       tags: [],
       defaultView: "side",
       phases: []
-    } as PortableDrill
+    }
   };
 
-  const snapshot = createUploadJobDrillSelection({ fallbackDrill, selectedDrill });
+  const snapshot = createUploadJobDrillSelection({ selectedDrill });
+  assert.equal(snapshot.mode, "drill");
   assert.equal(snapshot.drill.drillId, "drill-1");
   assert.equal(snapshot.drillBinding.sourceKind, "local");
   assert.equal(snapshot.drillBinding.sourceId, "draft-1");
   assert.equal(snapshot.drillVersion, "0.4.0");
+});
+
+test("createUploadJobDrillSelection defaults to freestyle mode when no drill is selected", () => {
+  const snapshot = createUploadJobDrillSelection({ selectedDrill: null });
+  assert.equal(snapshot.mode, "freestyle");
+  assert.equal(snapshot.drill, undefined);
+  assert.equal(snapshot.drillBinding.sourceKind, "freestyle");
 });

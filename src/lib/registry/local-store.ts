@@ -1,4 +1,4 @@
-import { createDerivedPackage, ensureVersioningMetadata, getPrimarySamplePackage } from "@/lib/package";
+import { createDerivedPackage, ensureVersioningMetadata } from "@/lib/package";
 import { createRegistryEntryFromPackage } from "@/lib/registry/catalog";
 import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "@/lib/registry/types";
 import type { DrillPackage, DrillPackageRelationType } from "@/lib/schema/contracts";
@@ -11,27 +11,14 @@ type PersistedRegistry = {
 
 export function loadLocalRegistryEntries(): PackageRegistryEntry[] {
   if (typeof window === "undefined") {
-    return [
-      createRegistryEntryFromPackage({
-        packageJson: getPrimarySamplePackage(),
-        sourceType: "authored-local",
-        sourceLabel: "sample:reactive-defense"
-      })
-    ];
+    return [];
   }
 
   const raw = window.localStorage.getItem(REGISTRY_STORAGE_KEY);
 
   if (!raw) {
-    const seeded = [
-      createRegistryEntryFromPackage({
-        packageJson: getPrimarySamplePackage(),
-        sourceType: "authored-local",
-        sourceLabel: "sample:reactive-defense"
-      })
-    ];
-    saveLocalRegistryEntries(seeded);
-    return seeded;
+    saveLocalRegistryEntries([]);
+    return [];
   }
 
   try {

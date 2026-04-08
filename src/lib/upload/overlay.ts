@@ -159,23 +159,32 @@ export function drawAnalysisOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  replayOverlayState?: ReplayOverlayState | null
-): void {
-  if (!replayOverlayState) {
-    return;
+  replayOverlayState?: ReplayOverlayState | null,
+  options?: {
+    modeLabel?: string;
+    showDrillMetrics?: boolean;
+    confidenceLabel?: string;
   }
-
+): void {
   const sidePadding = Math.max(20, width * 0.03);
   const topPadding = Math.max(20, height * 0.03);
-  const lines: string[] = [
-    replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none",
-    `Reps: ${replayOverlayState.repCount}`,
-    `Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`
-  ];
+  const lines: string[] = [];
+  if (options?.modeLabel) {
+    lines.push(options.modeLabel);
+  }
+  if (options?.showDrillMetrics !== false && replayOverlayState) {
+    lines.push(replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none");
+    lines.push(`Reps: ${replayOverlayState.repCount}`);
+    lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`);
+  }
+  if (options?.confidenceLabel) {
+    lines.push(options.confidenceLabel);
+  }
+  if (lines.length === 0) return;
 
   const estimatedBoxHeight = lines.length * 40 + 18 * 2;
   drawOverlayBlock(ctx, sidePadding, topPadding, lines, "left");
-  if (replayOverlayState.statusLabel) {
+  if (replayOverlayState?.statusLabel) {
     drawStatusPill(ctx, sidePadding, topPadding + estimatedBoxHeight + 8, replayOverlayState.statusLabel);
   }
 }

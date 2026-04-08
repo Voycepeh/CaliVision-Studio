@@ -9,27 +9,39 @@ export function resolveSelectedDrillKey(options: Array<{ key: string }>, current
 }
 
 export function createUploadJobDrillSelection(input: {
-  fallbackDrill: PortableDrill;
   selectedDrill?: {
     key: string;
-    sourceKind: "seeded" | "local" | "hosted";
+    sourceKind: "local" | "hosted";
     sourceId?: string;
     packageVersion?: string;
     drill: PortableDrill;
   } | null;
 }) {
-  const drill = input.selectedDrill?.drill ?? input.fallbackDrill;
-  const drillVersion = input.selectedDrill?.packageVersion ?? "sample-v1";
+  if (!input.selectedDrill) {
+    return {
+      mode: "freestyle" as const,
+      drillVersion: undefined,
+      drillBinding: {
+        drillName: "No drill (Freestyle overlay)",
+        sourceKind: "freestyle" as const,
+        sourceLabel: "freestyle:overlay-only"
+      }
+    };
+  }
+
+  const drill = input.selectedDrill.drill;
+  const drillVersion = input.selectedDrill.packageVersion;
   return {
+    mode: "drill" as const,
     drill,
     drillVersion,
     drillBinding: {
       drillId: drill.drillId,
       drillName: drill.title,
       drillVersion,
-      sourceKind: input.selectedDrill?.sourceKind ?? "seeded",
-      sourceId: input.selectedDrill?.sourceId,
-      sourceLabel: input.selectedDrill?.key ?? "seeded:default"
+      sourceKind: input.selectedDrill.sourceKind,
+      sourceId: input.selectedDrill.sourceId,
+      sourceLabel: input.selectedDrill.key
     }
   };
 }

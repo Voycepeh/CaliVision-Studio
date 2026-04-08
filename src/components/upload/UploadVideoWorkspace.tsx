@@ -3,27 +3,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
-import { drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
+import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import type { UploadJob } from "@/lib/upload/types";
-import { getPrimarySamplePackage, listSeededSampleDrills } from "@/lib/package/samples";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
+import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
 const TRACE_STEP_OPTIONS = [100, 500, 1000] as const;
+const FREESTYLE_DRILL_KEY = "freestyle";
 
 type DrillSelectionOption = {
   key: string;
   label: string;
-  sourceKind: "seeded" | "local" | "hosted";
+  sourceKind: "local" | "hosted";
   sourceId?: string;
   packageVersion?: string;
-  drill: ReturnType<typeof getPrimarySamplePackage>["drills"][number];
+  drill: PortableDrill;
 };
 
 function formatBytes(bytes: number): string {
@@ -102,7 +104,6 @@ function isMeaningfullyVariant(traceRows: Array<{ phase: string; repCount: numbe
 
 export function UploadVideoWorkspace() {
   const { session, isConfigured, persistenceMode } = useAuth();
-  const fallbackDrill = useMemo(() => getPrimarySamplePackage().drills[0], []);
   const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
   const [activeSession, setActiveSession] = useState<AnalysisSessionRecord | null>(null);
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
@@ -111,25 +112,20 @@ export function UploadVideoWorkspace() {
   const activeAbortRef = useRef<AbortController | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
-  const [selectedDrillKey, setSelectedDrillKey] = useState<string | null>(null);
+  const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
 
-  const selectedDrill = useMemo(() => drillOptions.find((option) => option.key === selectedDrillKey) ?? null, [drillOptions, selectedDrillKey]);
-  const activeSelectedDrill = useMemo(() => selectedDrill?.drill ?? fallbackDrill, [selectedDrill?.drill, fallbackDrill]);
-  const hasReadyDrills = drillOptions.length > 0;
+  const selectedDrill = useMemo(
+    () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
+    [drillOptions, selectedDrillKey]
+  );
 
   const refreshDrillOptions = useCallback(async () => {
     setDrillOptionsLoading(true);
-    const options: DrillSelectionOption[] = listSeededSampleDrills().map((entry) => ({
-      key: `seeded:${entry.drill.drillId}:${entry.packageVersion}`,
-      label: buildDrillOptionLabel(entry.drill),
-      sourceKind: "seeded",
-      sourceId: entry.packageId,
-      packageVersion: entry.packageVersion,
-      drill: entry.drill
-    }));
+    const options: DrillSelectionOption[] = [];
 
     try {
       const localSummaries = await loadDraftList();
@@ -171,7 +167,8 @@ export function UploadVideoWorkspace() {
     setDrillOptions(options);
     setSelectedDrillKey((current) => {
       const stored = typeof window !== "undefined" ? window.localStorage.getItem(SELECTED_DRILL_STORAGE_KEY) : null;
-      return resolveSelectedDrillKey(options, current, stored);
+      const resolved = resolveSelectedDrillKey(options, current, stored);
+      return resolved ?? FREESTYLE_DRILL_KEY;
     });
     setDrillOptionsLoading(false);
   }, [isConfigured, session]);
@@ -221,18 +218,29 @@ export function UploadVideoWorkspace() {
     let raf = 0;
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], video.currentTime * 1000);
+      const currentMs = video.currentTime * 1000;
+      const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
       drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+      if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
+        drawAnalysisOverlay(ctx, canvas.width, canvas.height, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
+          modeLabel: activeJob.drillSelection.drillBinding.drillName,
+          showDrillMetrics: true,
+          confidenceLabel: `Confidence: ${formatConfidence(activeSession.summary.confidenceAvg)}`
+        });
+      } else {
+        drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+          modeLabel: "No drill · Freestyle overlay",
+          showDrillMetrics: false
+        });
+      }
       raf = requestAnimationFrame(draw);
     };
 
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [activeJob, previewObjectUrl]);
+  }, [activeJob, activeSession, previewObjectUrl]);
 
   const startSingleRun = useCallback(async (file: File) => {
-    if (!hasReadyDrills) return;
-
     const metadata = await readVideoMetadata(file);
     const jobId = crypto.randomUUID();
     const nextJob: UploadJob = {
@@ -246,7 +254,7 @@ export function UploadVideoWorkspace() {
       progress: 0,
       createdAtIso: new Date().toISOString(),
       startedAtIso: new Date().toISOString(),
-      drillSelection: createUploadJobDrillSelection({ fallbackDrill, selectedDrill })
+      drillSelection: createUploadJobDrillSelection({ selectedDrill })
     };
 
     setActiveSession(null);
@@ -262,22 +270,36 @@ export function UploadVideoWorkspace() {
         onProgress: (progress, stageLabel) => setActiveJob((current) => (current ? { ...current, progress, stageLabel } : current))
       });
 
-      const completedSession = buildCompletedUploadAnalysisSession({
-        drill: nextJob.drillSelection.drill,
-        drillVersion: nextJob.drillSelection.drillVersion,
-        drillBinding: nextJob.drillSelection.drillBinding,
-        timeline,
-        sourceId: nextJob.id,
-        sourceLabel: nextJob.fileName,
-        sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-        annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
-      });
+      const completedSession = (nextJob.drillSelection.mode ?? "drill") === "drill" && nextJob.drillSelection.drill
+        ? buildCompletedUploadAnalysisSession({
+            drill: nextJob.drillSelection.drill,
+            drillVersion: nextJob.drillSelection.drillVersion,
+            drillBinding: {
+              drillId: nextJob.drillSelection.drill.drillId,
+              drillName: nextJob.drillSelection.drillBinding.drillName,
+              drillVersion: nextJob.drillSelection.drillVersion,
+              sourceKind: nextJob.drillSelection.drillBinding.sourceKind === "freestyle" ? "unknown" : nextJob.drillSelection.drillBinding.sourceKind,
+              sourceId: nextJob.drillSelection.drillBinding.sourceId,
+              sourceLabel: nextJob.drillSelection.drillBinding.sourceLabel
+            },
+            timeline,
+            sourceId: nextJob.id,
+            sourceLabel: nextJob.fileName,
+            sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
+            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+          })
+        : null;
 
       setActiveJob((current) => (current ? { ...current, progress: 0.97, stageLabel: "Rendering annotated video" } : current));
 
       const annotated = await exportAnnotatedVideo(nextJob.file, timeline, {
         includeAnalysisOverlay: true,
-        analysisSession: completedSession
+        analysisSession: completedSession,
+        overlayModeLabel: (nextJob.drillSelection.mode ?? "drill") === "drill"
+          ? `Drill: ${nextJob.drillSelection.drillBinding.drillName}`
+          : "No drill · Freestyle overlay",
+        includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
+        overlayConfidenceLabel: completedSession ? `Confidence: ${formatConfidence(completedSession.summary.confidenceAvg)}` : undefined
       });
 
       setActiveJob((current) =>
@@ -315,7 +337,7 @@ export function UploadVideoWorkspace() {
     } finally {
       activeAbortRef.current = null;
     }
-  }, [cadenceFps, fallbackDrill, hasReadyDrills, selectedDrill]);
+  }, [cadenceFps, selectedDrill]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
     const firstVideo = Array.from(files).find((file) => file.type.startsWith("video/"));
@@ -354,13 +376,14 @@ export function UploadVideoWorkspace() {
 
               <div style={{ display: "flex", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
                 <label className="muted" style={{ fontSize: "0.85rem" }}>
-                  Select drill
+                  Analysis mode
                   <select
-                    value={selectedDrillKey ?? ""}
+                    value={selectedDrillKey}
                     onChange={(event) => setSelectedDrillKey(event.target.value)}
                     style={{ marginLeft: "0.35rem", minWidth: 240 }}
-                    disabled={drillOptionsLoading || drillOptions.length === 0}
+                    disabled={drillOptionsLoading}
                   >
+                    <option value={FREESTYLE_DRILL_KEY}>No drill · Freestyle overlay</option>
                     {drillOptions.map((option) => (
                       <option key={option.key} value={option.key}>
                         {option.label}
@@ -403,7 +426,7 @@ export function UploadVideoWorkspace() {
                 <p className="muted" style={{ margin: "0.35rem 0 0" }}>A new upload replaces the previous run on this page.</p>
               </div>
               <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
-                Select drill and cadence first, then upload or drop one video to run a fresh local analysis pass.
+                Freestyle mode is the default for reliable overlay output. Choose a drill only when you want rep/phase metrics.
               </p>
               <input
                 ref={fileInputRef}
@@ -418,13 +441,16 @@ export function UploadVideoWorkspace() {
         </div>
 
         <aside className="upload-workflow-preview">
-          <DrillSelectionPreviewPanel
-            drill={activeSelectedDrill}
-            sourceKind={selectedDrill?.sourceKind ?? "seeded"}
-            showSourceBadge={Boolean(selectedDrill && selectedDrill.sourceKind !== "seeded")}
-            compact
-            quiet
-          />
+          {selectedDrill ? (
+            <DrillSelectionPreviewPanel drill={selectedDrill.drill} sourceKind={selectedDrill.sourceKind} showSourceBadge compact quiet />
+          ) : (
+            <section className="card" style={{ margin: 0, background: "rgba(114,168,255,0.04)" }}>
+              <strong style={{ fontSize: "0.9rem" }}>Freestyle overlay mode</strong>
+              <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
+                Upload Video will run pose overlay and export outputs without drill-specific rep, hold, or phase scoring.
+              </p>
+            </section>
+          )}
         </aside>
       </div>
 
@@ -437,7 +463,7 @@ export function UploadVideoWorkspace() {
                 {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
               </p>
               <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                Drill: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
+                Mode: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
               </p>
               <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
               {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}
@@ -463,12 +489,32 @@ export function UploadVideoWorkspace() {
       {activeJob?.artefacts ? (
         <section className="card" style={{ margin: 0 }}>
           <h3 style={{ marginTop: 0 }}>Analysis result</h3>
-          <div style={{ position: "relative", width: "100%", maxWidth: 760 }}>
-            <video ref={previewVideoRef} src={previewObjectUrl ?? undefined} controls style={{ width: "100%", borderRadius: "0.6rem" }} />
+          <div
+            ref={fullscreenContainerRef}
+            style={{ position: "relative", width: "100%", maxWidth: 960, maxHeight: "68vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
+          >
+            <video ref={previewVideoRef} src={previewObjectUrl ?? undefined} controls style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }} />
             <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
           </div>
+          <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+            <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
+            <button
+              type="button"
+              className="pill"
+              onClick={async () => {
+                if (!fullscreenContainerRef.current) return;
+                if (document.fullscreenElement) {
+                  await document.exitFullscreen();
+                  return;
+                }
+                await fullscreenContainerRef.current.requestFullscreen();
+              }}
+            >
+              Overlay Fullscreen
+            </button>
+          </div>
 
-          {activeSession ? (
+          {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
               <span className="pill">Phase: {activeSession.events.at(-1)?.phaseId ?? "none"}</span>
               <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
@@ -477,7 +523,12 @@ export function UploadVideoWorkspace() {
               <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
               <span className="pill">Result: {activeSession.status}</span>
             </div>
-          ) : null}
+          ) : (
+            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+              <span className="pill">Mode: No drill · Freestyle overlay</span>
+              <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
             {activeJob.artefacts.annotatedVideoBlob ? (
@@ -507,7 +558,7 @@ export function UploadVideoWorkspace() {
         </section>
       ) : null}
 
-      {activeSession ? (
+      {activeSession && (activeJob?.drillSelection.mode ?? "drill") === "drill" ? (
         <details style={{ marginTop: "0.2rem", opacity: 0.88 }}>
           <summary style={{ cursor: "pointer" }}>Advanced diagnostics (optional)</summary>
           <p className="muted" style={{ marginTop: "0.35rem" }}>Use these only for deeper troubleshooting after reviewing the main result and downloads.</p>
