@@ -79,3 +79,29 @@ test("duplicate identity detection uses lineage/version identity, not title", ()
   const renamed = makePackage({ packageId: "drill-id", revision: 4, title: "Different Name" });
   assert.equal(hasDuplicatePackageIdentity(original, [renamed]), true);
 });
+
+test("legacy package imports with same packageId but different packageVersion are not treated as duplicates", () => {
+  const now = new Date().toISOString();
+  const legacyV1: DrillPackage = {
+    manifest: {
+      schemaVersion: "0.1.0",
+      packageId: "legacy-drill",
+      packageVersion: "0.1.0",
+      createdAtIso: now,
+      updatedAtIso: now,
+      source: "web-studio",
+      compatibility: {
+        androidMinVersion: "1.2.0",
+        androidTargetContract: "drill-package-0.1.0"
+      }
+    },
+    drills: [{ drillId: "legacy-drill", slug: "legacy-drill", title: "Legacy Drill", drillType: "rep", difficulty: "beginner", tags: [], defaultView: "front", phases: [] }],
+    assets: []
+  };
+  const legacyV2: DrillPackage = {
+    ...legacyV1,
+    manifest: { ...legacyV1.manifest, packageVersion: "0.1.1" }
+  };
+
+  assert.equal(hasDuplicatePackageIdentity(legacyV2, [legacyV1]), false);
+});

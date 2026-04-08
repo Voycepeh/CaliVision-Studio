@@ -10,12 +10,11 @@ export type DrillImportDecision = {
 
 export function buildPackageIdentityKeys(pkgInput: DrillPackage): string[] {
   const lineageId = pkgInput.manifest.versioning?.lineageId ?? pkgInput.manifest.packageId;
-  const revision = pkgInput.manifest.versioning?.revision ?? 1;
   const versionId = pkgInput.manifest.versioning?.versionId ?? pkgInput.manifest.packageVersion;
   const packageId = pkgInput.manifest.packageId;
   const packageVersion = pkgInput.manifest.packageVersion;
 
-  return [`lineage:${lineageId}:revision:${revision}`, `lineage:${lineageId}:version:${versionId}`, `package:${packageId}:version:${packageVersion}`];
+  return [`lineage:${lineageId}:version:${versionId}`, `package:${packageId}:version:${packageVersion}`];
 }
 
 export function hasDuplicatePackageIdentity(input: DrillPackage, existingPackages: DrillPackage[]): boolean {
