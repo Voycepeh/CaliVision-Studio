@@ -84,5 +84,5 @@ test("durations below minimum are sanitized and surfaced in timeline metadata", 
   assert.equal(sanitizeDurationMs(10), 100);
   assert.equal(timeline.segments[0]?.durationMs, 100);
   assert.equal(timeline.segments[0]?.durationAdjusted, true);
-  assert.match(timeline.warnings.map((warning) => warning.message).join("\n"), /clamps to 100ms/);
+  assert.match(timeline.warnings.map((warning) => warning.message).join("\n"), /clamps to 0.1s/);
 });

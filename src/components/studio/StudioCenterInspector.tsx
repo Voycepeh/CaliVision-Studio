@@ -10,6 +10,7 @@ import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
+import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
 import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contracts";
@@ -187,7 +188,7 @@ export function StudioCenterInspector() {
                       <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle} className="studio-phase-select-button">
                         <div className="studio-phase-list-heading">
                           <strong className="studio-phase-list-title">{phase.order}. {phase.title}</strong>
-                          <span className="muted studio-phase-list-meta">{(phase.durationMs / 1000).toFixed(1)}s • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
+                          <span className="muted studio-phase-list-meta">{formatDurationShort(phase.durationMs)} • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
                         </div>
                         <small className="muted studio-phase-list-subline">{phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}</small>
                       </button>
@@ -213,8 +214,21 @@ export function StudioCenterInspector() {
                       </label>
 
                       <label style={labelStyle}>
-                        <span>Duration (ms)</span>
-                        <input type="number" min={1} step={100} value={selectedPhase.durationMs} onChange={(event) => setPhaseDuration(selectedPhase.phaseId, Number(event.target.value))} style={inputStyle} />
+                        <span>Duration (seconds)</span>
+                        <input
+                          type="number"
+                          min={0.1}
+                          step={0.1}
+                          value={Number((selectedPhase.durationMs / 1000).toFixed(1))}
+                          onChange={(event) => {
+                            const secondsValue = Number(event.target.value);
+                            if (!Number.isFinite(secondsValue)) {
+                              return;
+                            }
+                            setPhaseDuration(selectedPhase.phaseId, Math.max(1, Math.round(secondsValue * 1000)));
+                          }}
+                          style={inputStyle}
+                        />
                       </label>
                     </div>
 

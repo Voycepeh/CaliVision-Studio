@@ -31,6 +31,7 @@ import {
   isReviewableSession,
   summarizeSessionAvailability
 } from "@/lib/upload/analysis-session-ux";
+import { formatDurationShort } from "@/lib/format/duration";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -57,10 +58,10 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDuration(durationMs?: number): string {
-  if (!durationMs) {
+  if (durationMs === undefined || durationMs === null) {
     return "Unknown";
   }
-  return `${(durationMs / 1000).toFixed(1)}s`;
+  return formatDurationShort(durationMs);
 }
 
 function formatClock(ms: number): string {
@@ -842,7 +843,7 @@ export function UploadVideoWorkspace() {
                 <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.45rem" }}>
                   <thead>
                     <tr className="muted">
-                      <th style={{ textAlign: "left" }}>t(ms)</th>
+                      <th style={{ textAlign: "left" }}>t(s)</th>
                       <th style={{ textAlign: "left" }}>best phase</th>
                       <th style={{ textAlign: "left" }}>score</th>
                       <th style={{ textAlign: "left" }}>alternate</th>
@@ -859,7 +860,7 @@ export function UploadVideoWorkspace() {
                       const smoothedFrame = selectedSession.debug?.smoothedFrames?.find((frame) => frame.timestampMs === sample.timestampMs);
                       return (
                         <tr key={`sample-${sample.timestampMs}`}>
-                          <td><button type="button" className="pill" onClick={() => handleReplaySeek(sample.timestampMs)}>{sample.timestampMs}</button></td>
+                          <td><button type="button" className="pill" onClick={() => handleReplaySeek(sample.timestampMs)}>{formatDurationShort(sample.timestampMs)}</button></td>
                           <td>{sample.classifiedPhaseId ?? "unknown"}</td>
                           <td>{sample.confidence.toFixed(2)}</td>
                           <td>{sortedCandidates.join(", ") || "n/a"}</td>
@@ -882,7 +883,7 @@ export function UploadVideoWorkspace() {
                 {(selectedSession.debug?.smootherTransitions ?? []).map((transition, index) => (
                   <li key={`transition-${transition.timestampMs}-${index}`}>
                     <button type="button" className="pill" onClick={() => handleReplaySeek(transition.timestampMs)}>
-                      {transition.type} @ {(transition.timestampMs / 1000).toFixed(2)}s • from {transition.fromPhaseId ?? "n/a"} • to{" "}
+                      {transition.type} @ {formatDurationShort(transition.timestampMs)} • from {transition.fromPhaseId ?? "n/a"} • to{" "}
                       {transition.toPhaseId ?? transition.phaseId ?? "n/a"}
                       {transition.details?.["reason"] ? ` • reason=${String(transition.details["reason"])}` : ""}
                     </button>
@@ -945,7 +946,7 @@ export function UploadVideoWorkspace() {
                   {replayMarkers.map((marker) => (
                     <span
                       key={marker.eventId}
-                      title={`${marker.type} @ ${(marker.timestampMs / 1000).toFixed(2)}s`}
+                      title={`${marker.type} @ ${formatDurationShort(marker.timestampMs)}`}
                       style={{
                         position: "absolute",
                         left: `${replayDurationMs > 0 ? (marker.timestampMs / replayDurationMs) * 100 : 0}%`,
@@ -976,7 +977,7 @@ export function UploadVideoWorkspace() {
                 {selectedSession.events.map((event) => (
                   <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
                     <button type="button" className="pill" onClick={() => handleReplaySeek(event.timestampMs)}>
-                      {event.type} @ {(event.timestampMs / 1000).toFixed(2)}s
+                      {event.type} @ {formatDurationShort(event.timestampMs)}
                       {event.phaseId ? ` • phase=${event.phaseId}` : ""}
                       {event.repIndex ? ` • rep=${event.repIndex}` : ""}
                       {typeof event.details?.["holdDurationMs"] === "number" ? ` • hold=${formatDuration(Number(event.details?.["holdDurationMs"]))}` : ""}
