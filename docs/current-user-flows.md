@@ -19,7 +19,7 @@
 
 ## Current Upload Video flow
 
-1. Select multiple local videos (file picker or drag/drop).
+1. Select a drill with **Select drill** (seeded, local browser draft, or hosted drill when signed in), then select local videos (file picker or drag/drop).
 2. Queue jobs in-browser (default single active processing job) with explicit lifecycle labels:
    - ready to analyze,
    - analyzing,
@@ -36,7 +36,10 @@
    - any previous session detail.
 8. In session detail, inspect:
    - summary + key metrics first,
+   - explicit drill linkage metadata (drill id/name/version + source kind),
    - replay/timeline review,
+   - analysis inspection table (per-sample phase, confidence, alternates, smoothing output),
+   - temporal trace (accepted/rejected transitions and reason details),
    - event log,
    - collapsible debug/pipeline details,
    - optional raw JSON.

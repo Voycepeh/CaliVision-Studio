@@ -39,6 +39,7 @@ export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOu
   return {
     scoredFrames,
     smoothedFrames: smoothed.frames,
+    transitions: smoothed.transitions,
     session: {
       sessionId: `analysis_${Date.now()}`,
       drillId: input.drill.drillId,

@@ -2,6 +2,16 @@ import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample } from "..
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
 export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
+export type DrillBindingSourceKind = "seeded" | "local" | "hosted" | "unknown";
+
+export type AnalysisSessionDrillBinding = {
+  drillId: string;
+  drillName: string;
+  drillVersion?: string;
+  sourceKind: DrillBindingSourceKind;
+  sourceId?: string;
+  sourceLabel?: string;
+};
 
 export type AnalysisSessionRecord = {
   sessionId: string;
@@ -31,7 +41,25 @@ export type AnalysisSessionRecord = {
     detector?: string;
     cadenceFps?: number;
     sourceVideoFileName?: string;
+    noEventCause?: string;
+    noEventDetails?: string[];
+    smootherTransitions?: Array<{
+      timestampMs: number;
+      type: "phase_enter" | "phase_exit" | "invalid_transition";
+      fromPhaseId?: string;
+      toPhaseId?: string;
+      phaseId?: string;
+      details?: Record<string, string | number | boolean>;
+    }>;
+    smoothedFrames?: Array<{
+      timestampMs: number;
+      rawBestPhaseId: string | null;
+      rawBestPhaseScore: number;
+      smoothedPhaseId: string | null;
+      transitionAccepted: boolean;
+    }>;
   };
+  drillBinding?: AnalysisSessionDrillBinding;
 };
 
 export type AnalysisSessionExport = {
