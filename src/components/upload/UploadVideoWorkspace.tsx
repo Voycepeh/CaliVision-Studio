@@ -485,7 +485,7 @@ export function UploadVideoWorkspace() {
               const lifecycleTone = toneStyles(
                 lifecycleState === "analysis_failed"
                   ? "bad"
-                  : lifecycleState === "results_available" || lifecycleState === "analysis_completed"
+                  : lifecycleState === "results_available"
                     ? "good"
                     : lifecycleState === "no_structured_result_yet"
                       ? "warn"

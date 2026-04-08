@@ -5,7 +5,6 @@ export type UploadLifecycleState =
   | "ready_to_analyze"
   | "queued"
   | "analyzing"
-  | "analysis_completed"
   | "analysis_failed"
   | "analysis_cancelled"
   | "results_available"
@@ -35,8 +34,6 @@ export function getLifecycleLabel(state: UploadLifecycleState): string {
       return "Queued";
     case "analyzing":
       return "Analyzing";
-    case "analysis_completed":
-      return "Analysis completed";
     case "analysis_failed":
       return "Analysis failed";
     case "analysis_cancelled":
