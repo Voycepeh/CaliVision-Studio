@@ -62,6 +62,17 @@ export function deleteRegistryEntry(entryId: string): boolean {
   return true;
 }
 
+export function deleteRegistryEntriesByPackageId(packageId: string): number {
+  const current = loadLocalRegistryEntries();
+  const next = current.filter((entry) => entry.summary.packageId !== packageId);
+  if (next.length === current.length) {
+    return 0;
+  }
+
+  saveLocalRegistryEntries(attachLineageEntryIds(next));
+  return current.length - next.length;
+}
+
 export function upsertRegistryEntryFromPackage(input: {
   packageJson: DrillPackage;
   sourceType: PackageSourceType;

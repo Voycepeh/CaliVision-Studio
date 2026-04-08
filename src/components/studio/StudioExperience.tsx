@@ -30,14 +30,24 @@ function StudioEmptyState() {
 export function StudioExperience({
   initialPackageId,
   initialDraftId,
+  initialDrillId,
+  initialVersionId,
   initialHostedDraftId
 }: {
   initialPackageId?: string;
   initialDraftId?: string;
+  initialDrillId?: string;
+  initialVersionId?: string;
   initialHostedDraftId?: string;
 }) {
   return (
-    <StudioStateProvider initialPackageId={initialPackageId} initialDraftId={initialDraftId} initialHostedDraftId={initialHostedDraftId}>
+    <StudioStateProvider
+      initialPackageId={initialPackageId}
+      initialDraftId={initialDraftId}
+      initialDrillId={initialDrillId}
+      initialVersionId={initialVersionId}
+      initialHostedDraftId={initialHostedDraftId}
+    >
       <div className="studio-route-surface">
         <StudioEmptyState />
       </div>

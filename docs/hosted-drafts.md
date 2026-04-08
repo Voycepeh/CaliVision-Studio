@@ -1,23 +1,17 @@
-# Hosted drafts (first backend slice)
+# Hosted drafts (legacy compatibility note)
 
-Hosted drafts are user-owned, private drill drafts stored in Supabase.
+As of April 8, 2026, **normal Studio edit/save/load lifecycle no longer uses `hosted_drafts`**.
 
-## What a hosted draft includes
+## Active model
 
-- hosted draft id
-- owner user id
-- title
-- summary
-- draft status
-- package id/version/schema version
-- revision/provenance-ready metadata
-- content JSON used to restore Studio authoring state
+- `hosted_library` is the hosted source of truth for drill versions.
+- Draft vs Ready is represented by version metadata (`manifest.versioning.draftStatus`), not by separate tables in UI flow.
+- Library and Studio both target the same drill identity (`packageId`) and version identity (`versionId`).
 
-## What this does not include yet
+## Why `hosted_drafts` still exists
 
-- public Drill Exchange retrieval
-- full package publishing workflow
-- collaboration/comments/social layers
-- billing/moderation controls
+- Table remains for migration/backfill compatibility only.
+- Legacy links that still provide `hostedDraftId` are treated as version-id fallback during transition.
+- New library/studio flows should route with `drillId` / `versionId` semantics.
 
 Android runtime/live coaching remains outside Studio in https://github.com/Voycepeh/CaliVision.

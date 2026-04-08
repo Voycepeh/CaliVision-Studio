@@ -29,7 +29,7 @@ export function StudioActionBar() {
         <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
           {persistenceMode === "cloud" ? "Save draft" : "Cloud save (sign in)"}
         </button>
-        <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "local"}>
+        <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage}>
           Mark Ready
         </button>
         <Link href="/library" className="pill">

@@ -3,15 +3,15 @@
 ## Local-only behavior (guest or missing Supabase env)
 
 - App remains fully usable.
-- Drafts and library data stay in browser-local persistence.
+- Draft editing stays browser-local (IndexedDB/local persistence).
 - Hosted controls are hidden or disabled.
 
 ## Signed-in hosted behavior (Google auth)
 
 - User signs in with Google through Supabase.
-- Hosted drafts/library become available under that user account.
+- Hosted versions are stored in `hosted_library` as the single active lifecycle store.
+- Draft and Ready are version statuses (metadata), not separate storage buckets in UI.
 - RLS policies ensure each user can only access their own hosted rows.
-- Local draft import on sign-in uses move semantics (hosted save first, then local delete per successful draft).
 
 ## Failure safety
 

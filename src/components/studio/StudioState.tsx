@@ -2,8 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { loadHostedDraft, upsertHostedDraft } from "@/lib/hosted/repository";
-import { uploadHostedDraftAsset } from "@/lib/hosted/storage";
+import { upsertHostedLibraryItem } from "@/lib/hosted/library-repository";
 import {
   clonePackage,
   createEditablePackageEntry,
@@ -46,7 +45,7 @@ import {
   saveDraft,
   setLastOpenedDraft
 } from "@/lib/persistence/local-draft-store";
-import { markVersionReady, validateVersionReadiness } from "@/lib/library";
+import { loadEditableVersionForDrill, loadVersionById, markVersionReady, validateVersionReadiness } from "@/lib/library";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import type {
@@ -316,11 +315,15 @@ export function StudioStateProvider({
   children,
   initialPackageId,
   initialDraftId,
+  initialDrillId,
+  initialVersionId,
   initialHostedDraftId
 }: {
   children: React.ReactNode;
   initialPackageId?: string;
   initialDraftId?: string;
+  initialDrillId?: string;
+  initialVersionId?: string;
   initialHostedDraftId?: string;
 }) {
   const [packages, setPackages] = useState<EditablePackageEntry[]>(() => createInitialPackages());
@@ -340,7 +343,7 @@ export function StudioStateProvider({
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
   const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Cloud save is available when signed in.");
-  const [hostedDraftIdsByPackageKey, setHostedDraftIdsByPackageKey] = useState<Record<string, string>>({});
+  const [, setHostedVersionIdsByPackageKey] = useState<Record<string, string>>({});
   const { session, isConfigured, persistenceMode } = useAuth();
   const [draftIdsByPackageKey, setDraftIdsByPackageKey] = useState<Record<string, string>>({});
   const [hydrationComplete, setHydrationComplete] = useState(false);
@@ -465,27 +468,39 @@ export function StudioStateProvider({
   }, [initialDraftId, persistenceMode]);
 
   useEffect(() => {
-    if (persistenceMode !== "cloud" || !initialHostedDraftId || !session || !isConfigured) {
+    if (persistenceMode !== "cloud" || !session || !isConfigured) {
+      return;
+    }
+
+    const requestedVersionId = initialVersionId ?? initialDraftId ?? initialHostedDraftId;
+    const requestedDrillId = initialDrillId;
+    if (!requestedVersionId && !requestedDrillId) {
       return;
     }
 
     void (async () => {
-      const loaded = await loadHostedDraft(session, initialHostedDraftId);
-      if (!loaded.ok) {
+      const context = { mode: "cloud", session } as const;
+      const resolved = requestedVersionId
+        ? await loadVersionById(requestedVersionId, context)
+        : requestedDrillId
+          ? await loadEditableVersionForDrill(requestedDrillId, context)
+          : null;
+
+      if (!resolved) {
         setHostedSaveState("error");
-        setHostedSaveStatusMessage(loaded.error);
+        setHostedSaveStatusMessage("Unable to load selected drill in cloud workspace.");
         return;
       }
 
-      const packageKey = `hosted:${loaded.value.id}`;
-      const entry = createEditablePackageEntry(packageKey, `hosted:${loaded.value.id}`, loaded.value.content);
+      const packageKey = `hosted:${resolved.versionId}`;
+      const entry = createEditablePackageEntry(packageKey, `hosted:${resolved.versionId}`, resolved.packageJson);
       setPackages((current) => [entry, ...current.filter((item) => item.packageKey !== packageKey)]);
-      setHostedDraftIdsByPackageKey((current) => ({ ...current, [packageKey]: loaded.value.id }));
+      setHostedVersionIdsByPackageKey((current) => ({ ...current, [packageKey]: resolved.versionId }));
       setSelectedPackageKey(packageKey);
       setSelectedPhaseId(getSortedPhases(entry.workingPackage)[0]?.phaseId ?? null);
-      setHostedSaveStatusMessage(`Opened draft: ${loaded.value.title}`);
+      setHostedSaveStatusMessage(`Opened ${resolved.title}.`);
     })();
-  }, [initialHostedDraftId, isConfigured, persistenceMode, session]);
+  }, [initialDraftId, initialDrillId, initialHostedDraftId, initialVersionId, isConfigured, persistenceMode, session]);
 
   useEffect(() => {
     if (!initialPackageId) {
@@ -643,7 +658,7 @@ export function StudioStateProvider({
       return;
     }
 
-    setHostedDraftIdsByPackageKey({});
+    setHostedVersionIdsByPackageKey({});
     setHostedSaveState("idle");
     setHostedSaveStatusMessage("Browser-local save mode active.");
     setPackages((current) => current.filter((entry) => !entry.packageKey.startsWith("hosted:")));
@@ -680,20 +695,15 @@ export function StudioStateProvider({
     }
 
     setHostedSaveState("saving");
-    const currentHostedId = hostedDraftIdsByPackageKey[selectedPackage.packageKey];
-    const upsert = await upsertHostedDraft(session, { draftId: currentHostedId, packageJson: selectedPackage.workingPackage });
+    const upsert = await upsertHostedLibraryItem(session, selectedPackage.workingPackage);
     if (!upsert.ok) {
       setHostedSaveState("error");
       setHostedSaveStatusMessage("Cloud save failed — edits are still safe on this device.");
       return;
     }
 
-    const blobs = packageAssetBlobs[selectedPackage.packageKey] ?? {};
-    for (const [assetId, file] of Object.entries(blobs)) {
-      await uploadHostedDraftAsset({ session, draftId: upsert.value.id, assetId, file });
-    }
-
-    setHostedDraftIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.id }));
+    const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId ?? upsert.value.id;
+    setHostedVersionIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: versionId }));
     setHostedSaveState("saved");
     setHostedSaveStatusMessage(`Saved to account at ${new Date(upsert.value.updatedAtIso).toLocaleString()}.`);
   }
@@ -723,7 +733,7 @@ export function StudioStateProvider({
       return;
     }
 
-    await markVersionReady(versionId);
+    await markVersionReady(versionId, persistenceMode === "cloud" && session ? { mode: "cloud", session } : { mode: "local" });
     setImportFeedback({
       status: "success",
       message: "Draft version marked Ready and available for Upload Video / Publish.",
