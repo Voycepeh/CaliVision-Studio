@@ -55,6 +55,7 @@ export type AnalysisRunOutput = {
   session: AnalysisSession;
   scoredFrames: FramePhaseScore[];
   smoothedFrames: SmoothedPhaseFrame[];
+  transitions: SmootherTransition[];
 };
 
 export type ScorerOptions = {

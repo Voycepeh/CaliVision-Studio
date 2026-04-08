@@ -72,3 +72,29 @@ test("debug-oriented partial outcomes are called out", () => {
   const label = getSessionOutcomeLabel(buildSession({ status: "partial", frameSamples: [], events: [] }));
   assert.equal(label, "Partial analysis");
 });
+
+test("no-event sessions surface explicit known cause messaging", () => {
+  const label = getSessionOutcomeLabel(
+    buildSession({
+      events: [],
+      debug: { noEventCause: "no_confirmed_phase_transitions" }
+    })
+  );
+  assert.equal(label, "Structured frames available, no confirmed phase transitions");
+
+  const notes = summarizeSessionAvailability(
+    buildSession({
+      events: [],
+      rawVideoUri: "upload://local/attempt.mp4",
+      debug: {
+        noEventCause: "low_confidence_frames",
+        noEventDetails: ["All sampled frames were below the classification confidence threshold."]
+      }
+    })
+  );
+  assert.deepEqual(notes, [
+    "Event log unavailable",
+    "Cause: low_confidence_frames",
+    "All sampled frames were below the classification confidence threshold."
+  ]);
+});

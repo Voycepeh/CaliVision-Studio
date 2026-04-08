@@ -20,12 +20,58 @@ type PersistUploadInput = {
   repository: AnalysisSessionRepository;
   drill: PortableDrill;
   drillVersion?: string;
+  drillBinding?: AnalysisSessionRecord["drillBinding"];
   timeline: PoseTimeline;
   sourceId?: string;
   sourceUri?: string;
   sourceLabel?: string;
   annotatedVideoUri?: string;
 };
+
+function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>): { cause?: string; details: string[] } {
+  const details: string[] = [];
+  if (output.session.events.length > 0) {
+    return { details };
+  }
+  if (output.scoredFrames.length === 0) {
+    return { cause: "no_frame_samples", details: ["No sampled frames were available."] };
+  }
+
+  const confidenceThreshold = 0.35;
+  const highConfidenceFrames = output.scoredFrames.filter((frame) => frame.bestPhaseScore >= confidenceThreshold).length;
+  const phaseEnterTransitions = output.transitions.filter((transition) => transition.type === "phase_enter").length;
+  const invalidTransitions = output.transitions.filter((transition) => transition.type === "invalid_transition").length;
+  const smoothedFrames = output.smoothedFrames.filter((frame) => frame.smoothedPhaseId).length;
+
+  if (highConfidenceFrames === 0) {
+    return {
+      cause: "low_confidence_frames",
+      details: ["All sampled frames were below the classification confidence threshold."]
+    };
+  }
+  if (smoothedFrames === 0) {
+    return {
+      cause: "no_valid_smoothed_phases",
+      details: ["Temporal smoothing did not produce a stable phase timeline."]
+    };
+  }
+  if (phaseEnterTransitions === 0) {
+    return {
+      cause: "no_confirmed_phase_transitions",
+      details: ["No phase transitions were confirmed by the temporal smoother."]
+    };
+  }
+  if (invalidTransitions > 0) {
+    details.push("Some transitions were rejected by ordered sequence or allowed-skip rules.");
+  }
+
+  return {
+    cause: "sequence_or_hold_not_satisfied",
+    details: details.length > 0
+      ? details
+      : ["Ordered rep sequence or hold qualification conditions were never satisfied."]
+  };
+}
 
 export async function persistCompletedUploadAnalysisSession(input: PersistUploadInput): Promise<AnalysisSessionRecord> {
   const output = runDrillAnalysisPipeline({
@@ -61,7 +107,16 @@ export async function persistCompletedUploadAnalysisSession(input: PersistUpload
     debug: {
       detector: input.timeline.detector,
       cadenceFps: input.timeline.cadenceFps,
-      sourceVideoFileName: input.timeline.video.fileName
+      sourceVideoFileName: input.timeline.video.fileName,
+      smootherTransitions: output.transitions,
+      smoothedFrames: output.smoothedFrames,
+      ...deriveNoEventCause(output)
+    },
+    drillBinding: input.drillBinding ?? {
+      drillId: input.drill.drillId,
+      drillName: input.drill.title,
+      drillVersion: input.drillVersion,
+      sourceKind: "unknown"
     }
   };
 
@@ -73,6 +128,7 @@ export async function persistFailedUploadAnalysisSession(input: {
   repository: AnalysisSessionRepository;
   drill: PortableDrill;
   drillVersion?: string;
+  drillBinding?: AnalysisSessionRecord["drillBinding"];
   sourceId?: string;
   sourceUri?: string;
   sourceLabel?: string;
@@ -103,6 +159,12 @@ export async function persistFailedUploadAnalysisSession(input: {
     debug: {
       errorMessage: input.errorMessage,
       sourceVideoFileName: input.sourceLabel
+    },
+    drillBinding: input.drillBinding ?? {
+      drillId: input.drill.drillId,
+      drillName: input.drill.title,
+      drillVersion: input.drillVersion,
+      sourceKind: "unknown"
     }
   };
 
