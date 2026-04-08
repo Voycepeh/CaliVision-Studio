@@ -1,4 +1,5 @@
 import type { CanonicalJointName, PortableCanvasSpec, PortablePhase, PortablePose } from "../schema/contracts.ts";
+import { formatDurationShort } from "../format/duration.ts";
 
 const DEFAULT_PHASE_DURATION_MS = 1200;
 const CANONICAL_FALLBACK_CANVAS: PortableCanvasSpec = {
@@ -73,12 +74,12 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
     if (!Number.isFinite(phase.durationMs) || phase.durationMs <= 0) {
       warnings.push({
         severity: "warning",
-        message: `Phase ${phase.order} (${phase.title}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${sanitizedDurationMs}ms.`
+        message: `Phase ${phase.order} (${phase.title}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${formatDurationShort(sanitizedDurationMs)}.`
       });
     } else if (phase.durationMs < MIN_PHASE_DURATION_MS) {
       warnings.push({
         severity: "info",
-        message: `Phase ${phase.order} (${phase.title}) duration ${phase.durationMs}ms is very short. Preview clamps to ${sanitizedDurationMs}ms for stability.`
+        message: `Phase ${phase.order} (${phase.title}) duration ${formatDurationShort(phase.durationMs)} is very short. Preview clamps to ${formatDurationShort(sanitizedDurationMs)} for stability.`
       });
     }
 

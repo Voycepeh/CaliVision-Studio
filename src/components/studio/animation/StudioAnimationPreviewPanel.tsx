@@ -5,6 +5,7 @@ import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { useStudioState } from "@/components/studio/StudioState";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
 import { getSortedPhases } from "@/lib/editor/package-editor";
+import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 
 const PLAYBACK_SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -80,7 +81,7 @@ export function StudioAnimationPreviewPanel() {
 
   const sampledFrame = useMemo(() => sampleAnimationTimeline(timeline, elapsedMs), [timeline, elapsedMs]);
   const poseModel = useMemo(() => mapPortablePoseToCanvasPoseModel(sampledFrame.pose), [sampledFrame.pose]);
-  const totalSeconds = timeline.totalDurationMs > 0 ? (timeline.totalDurationMs / 1000).toFixed(2) : "0.00";
+  const totalDurationLabel = formatDurationShort(timeline.totalDurationMs);
 
   return (
     <section className="studio-animation-preview-card">
@@ -142,7 +143,7 @@ export function StudioAnimationPreviewPanel() {
             <p className="muted" style={{ margin: 0 }}>
               Current phase: {sampledFrame.phaseId ? `${sampledFrame.phaseIndex + 1}/${timeline.segments.length}` : "n/a"}
             </p>
-            <p className="muted" style={{ margin: 0 }}>Total sequence time: {totalSeconds}s</p>
+            <p className="muted" style={{ margin: 0 }}>Total sequence time: {totalDurationLabel}</p>
             <p className="muted" style={{ margin: 0 }}>
               Timeline progress: {timeline.totalDurationMs > 0 ? `${Math.round((sampledFrame.elapsedMs / timeline.totalDurationMs) * 100)}%` : "0%"}
             </p>
@@ -157,7 +158,7 @@ export function StudioAnimationPreviewPanel() {
                     {index + 1}. {segment.title}
                   </strong>
                   <span className="muted">
-                    {segment.durationMs}ms{segment.durationAdjusted ? ` (from ${segment.sourceDurationMs}ms)` : ""}
+                    {formatDurationShort(segment.durationMs)}{segment.durationAdjusted ? ` (from ${formatDurationShort(segment.sourceDurationMs)})` : ""}
                   </span>
                 </div>
               ))}

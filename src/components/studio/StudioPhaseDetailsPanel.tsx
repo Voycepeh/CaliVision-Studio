@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getSortedPhases } from "@/lib/editor/package-editor";
+import { formatDurationShort } from "@/lib/format/duration";
 
 export function StudioPhaseDetailsPanel() {
   const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
@@ -22,7 +23,7 @@ export function StudioPhaseDetailsPanel() {
         <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
           <li>Phase ID: {selectedPhase.phaseId}</li>
           <li>Order: {selectedPhase.order}</li>
-          <li>Duration: {selectedPhase.durationMs}ms</li>
+          <li>Duration: {formatDurationShort(selectedPhase.durationMs)}</li>
           <li>Pose frames: {selectedPhase.poseSequence.length}</li>
           <li>Assets: {selectedPhase.assetRefs.length}</li>
           <li>
