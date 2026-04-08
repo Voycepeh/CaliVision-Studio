@@ -5,6 +5,9 @@ import {
   getLifecycleLabel,
   getSessionOutcomeLabel,
   getUploadLifecycleState,
+  hasMeaningfulAnalysisOutput,
+  hasPlayableMediaSource,
+  isReviewableSession,
   summarizeSessionAvailability
 } from "./analysis-session-ux.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
@@ -116,4 +119,43 @@ test("no-event sessions surface explicit known cause messaging", () => {
     "Cause: low_confidence_frames",
     "All sampled frames were below the classification confidence threshold."
   ]);
+});
+
+test("reviewable session detection accepts playable media sessions", () => {
+  const session = buildSession({
+    frameSamples: [],
+    events: [],
+    summary: { repCount: 0, analyzedDurationMs: 0 },
+    rawVideoUri: "upload://local/attempt.mp4"
+  });
+  assert.equal(hasPlayableMediaSource(session), true);
+  assert.equal(hasMeaningfulAnalysisOutput(session), false);
+  assert.equal(isReviewableSession(session), true);
+});
+
+test("reviewable session detection accepts meaningful analysis without media uri", () => {
+  const session = buildSession({
+    rawVideoUri: undefined,
+    frameSamples: [],
+    events: [{ eventId: "e-1", type: "rep_complete", timestampMs: 1200, repIndex: 1 }],
+    summary: { repCount: 1, analyzedDurationMs: 1400 }
+  });
+  assert.equal(hasPlayableMediaSource(session), false);
+  assert.equal(hasMeaningfulAnalysisOutput(session), true);
+  assert.equal(isReviewableSession(session), true);
+});
+
+test("reviewable session detection rejects empty failed attempts", () => {
+  const session = buildSession({
+    status: "failed",
+    rawVideoUri: undefined,
+    annotatedVideoUri: undefined,
+    sourceUri: undefined,
+    frameSamples: [],
+    events: [],
+    summary: { repCount: 0, analyzedDurationMs: 0, holdDurationMs: 0 }
+  });
+  assert.equal(hasPlayableMediaSource(session), false);
+  assert.equal(hasMeaningfulAnalysisOutput(session), false);
+  assert.equal(isReviewableSession(session), false);
 });

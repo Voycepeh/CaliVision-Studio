@@ -97,6 +97,33 @@ export function findLatestSessionForUpload(sessions: AnalysisSessionRecord[], so
   return sessions.find((session) => session.sourceId === sourceId) ?? null;
 }
 
+export function hasPlayableMediaSource(session: AnalysisSessionRecord): boolean {
+  return Boolean(session.rawVideoUri || session.annotatedVideoUri || session.sourceUri);
+}
+
+export function hasMeaningfulAnalysisOutput(session: AnalysisSessionRecord): boolean {
+  if (session.events.length > 0) {
+    return true;
+  }
+  if (session.frameSamples.length > 0) {
+    return true;
+  }
+  if ((session.summary.repCount ?? 0) > 0) {
+    return true;
+  }
+  if ((session.summary.holdDurationMs ?? 0) > 0) {
+    return true;
+  }
+  if ((session.summary.analyzedDurationMs ?? 0) > 0) {
+    return true;
+  }
+  return false;
+}
+
+export function isReviewableSession(session: AnalysisSessionRecord): boolean {
+  return hasPlayableMediaSource(session) || hasMeaningfulAnalysisOutput(session);
+}
+
 export function summarizeSessionAvailability(session: AnalysisSessionRecord): string[] {
   const notes: string[] = [];
   if (!session.rawVideoUri) {

@@ -28,6 +28,7 @@ import {
   getSessionOutcomeLabel,
   getSessionStatusTone,
   getUploadLifecycleState,
+  isReviewableSession,
   summarizeSessionAvailability
 } from "@/lib/upload/analysis-session-ux";
 
@@ -127,6 +128,7 @@ export function UploadVideoWorkspace() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [recentSessions, setRecentSessions] = useState<AnalysisSessionRecord[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [showFailedAttempts, setShowFailedAttempts] = useState(false);
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
@@ -141,13 +143,21 @@ export function UploadVideoWorkspace() {
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
 
   const selectedJob = useMemo(() => jobs.find((job) => job.id === selectedJobId) ?? jobs.find((job) => job.status === "completed"), [jobs, selectedJobId]);
+  const reviewableSessions = useMemo(
+    () => recentSessions.filter((session) => isReviewableSession(session)),
+    [recentSessions]
+  );
+  const visibleSessions = useMemo(
+    () => (showFailedAttempts ? recentSessions : reviewableSessions),
+    [recentSessions, reviewableSessions, showFailedAttempts]
+  );
   const selectedSession = useMemo(
-    () => recentSessions.find((session) => session.sessionId === selectedSessionId) ?? recentSessions[0],
-    [recentSessions, selectedSessionId]
+    () => visibleSessions.find((session) => session.sessionId === selectedSessionId) ?? visibleSessions[0],
+    [visibleSessions, selectedSessionId]
   );
   const selectedJobLinkedSession = useMemo(
-    () => findLatestSessionForUpload(recentSessions, selectedJob?.id),
-    [recentSessions, selectedJob?.id]
+    () => findLatestSessionForUpload(visibleSessions, selectedJob?.id),
+    [visibleSessions, selectedJob?.id]
   );
   const selectedDrill = useMemo(
     () => drillOptions.find((option) => option.key === selectedDrillKey) ?? null,
@@ -156,8 +166,8 @@ export function UploadVideoWorkspace() {
   const activeSelectedDrill = useMemo(() => selectedDrill?.drill ?? fallbackDrill, [selectedDrill?.drill, fallbackDrill]);
   const hasReadyDrills = drillOptions.length > 0;
   const drillSessions = useMemo(
-    () => recentSessions.filter((session) => session.drillId === activeSelectedDrill.drillId),
-    [recentSessions, activeSelectedDrill.drillId]
+    () => visibleSessions.filter((session) => session.drillId === activeSelectedDrill.drillId),
+    [visibleSessions, activeSelectedDrill.drillId]
   );
   const replayDurationMs = useMemo(() => getReplayDurationMs(selectedSession), [selectedSession]);
   const replayState = useMemo(() => deriveReplayStateAtTime(selectedSession, replayElapsedMs), [selectedSession, replayElapsedMs]);
@@ -226,7 +236,6 @@ export function UploadVideoWorkspace() {
   const refreshRecentSessions = useCallback(async () => {
     const sessions = await analysisRepository.listRecentSessions({ limit: 12 });
     setRecentSessions(sessions);
-    setSelectedSessionId((previous) => previous ?? sessions[0]?.sessionId ?? null);
   }, [analysisRepository]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
@@ -366,6 +375,17 @@ export function UploadVideoWorkspace() {
     if (!selectedDrillKey) return;
     window.localStorage.setItem(SELECTED_DRILL_STORAGE_KEY, selectedDrillKey);
   }, [selectedDrillKey]);
+  useEffect(() => {
+    setSelectedSessionId((current) => {
+      if (visibleSessions.length === 0) {
+        return null;
+      }
+      if (!current) {
+        return visibleSessions[0].sessionId;
+      }
+      return visibleSessions.some((session) => session.sessionId === current) ? current : visibleSessions[0].sessionId;
+    });
+  }, [visibleSessions]);
 
   useEffect(() => {
     setReplayElapsedMs(0);
@@ -629,11 +649,11 @@ export function UploadVideoWorkspace() {
               </div>
               <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
                 <button type="button" className="pill" onClick={() => setSelectedJobId(job.id)}>Preview</button>
-                {findLatestSessionForUpload(recentSessions, job.id) ? (
+                {findLatestSessionForUpload(visibleSessions, job.id) ? (
                   <button
                     type="button"
                     className="pill"
-                    onClick={() => setSelectedSessionId(findLatestSessionForUpload(recentSessions, job.id)!.sessionId)}
+                    onClick={() => setSelectedSessionId(findLatestSessionForUpload(visibleSessions, job.id)!.sessionId)}
                   >
                     View analysis
                   </button>
@@ -726,6 +746,14 @@ export function UploadVideoWorkspace() {
         <p className="muted" style={{ marginTop: 0 }}>
           Jump back into the latest session, drill-linked history, or a result tied to the current upload.
         </p>
+        <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.55rem" }}>
+          <input
+            type="checkbox"
+            checked={showFailedAttempts}
+            onChange={(event) => setShowFailedAttempts(event.target.checked)}
+          />
+          Show failed attempts
+        </label>
         <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginBottom: "0.55rem" }}>
           {selectedJobLinkedSession ? (
             <button type="button" className="pill" onClick={() => setSelectedSessionId(selectedJobLinkedSession.sessionId)}>
@@ -738,9 +766,12 @@ export function UploadVideoWorkspace() {
             </button>
           ) : null}
         </div>
-        {recentSessions.length === 0 ? <p className="muted">No persisted analysis sessions yet. Run Upload Video to create one.</p> : null}
+        {!showFailedAttempts && recentSessions.length > 0 && reviewableSessions.length === 0 ? (
+          <p className="muted">No review-ready sessions yet. Run a full analysis to add a session you can replay.</p>
+        ) : null}
+        {recentSessions.length === 0 ? <p className="muted">No sessions yet. Run Upload Video to create your first analysis.</p> : null}
         <div style={{ display: "grid", gap: "0.4rem" }}>
-          {recentSessions.map((session) => (
+          {visibleSessions.map((session) => (
             <button
               key={session.sessionId}
               type="button"
