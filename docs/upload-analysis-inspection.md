@@ -10,6 +10,7 @@ This flow exists to make **Upload Video** validation practical before any scorin
   - **local drafts** saved in this browser/device,
   - **hosted drills** when signed in and hosted library is available.
 - The selected drill is shown with drill type and source and is bound directly to each analysis run.
+- Upload jobs snapshot this drill binding at queue time, so later picker changes do not retarget already queued videos.
 
 ## Why the inspection view exists
 
@@ -46,4 +47,3 @@ The current view can now surface known causes such as:
 - ML classifier changes.
 
 Studio remains the web-first authoring/analysis source of truth, while runtime/live coaching remains in the Android client: <https://github.com/Voycepeh/CaliVision>.
-

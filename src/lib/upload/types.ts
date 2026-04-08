@@ -1,4 +1,17 @@
-import type { CanonicalJointName } from "@/lib/schema/contracts";
+import type { CanonicalJointName, PortableDrill } from "@/lib/schema/contracts";
+
+export type UploadJobDrillSelection = {
+  drill: PortableDrill;
+  drillVersion?: string;
+  drillBinding: {
+    drillId: string;
+    drillName: string;
+    drillVersion?: string;
+    sourceKind: "seeded" | "local" | "hosted" | "unknown";
+    sourceId?: string;
+    sourceLabel?: string;
+  };
+};
 
 export type UploadJobStatus = "queued" | "processing" | "completed" | "failed" | "cancelled";
 
@@ -16,6 +29,7 @@ export type UploadJob = {
   createdAtIso: string;
   startedAtIso?: string;
   completedAtIso?: string;
+  drillSelection: UploadJobDrillSelection;
   artefacts?: UploadJobArtifacts;
 };
 

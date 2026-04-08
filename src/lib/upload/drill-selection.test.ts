@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveSelectedDrillKey } from "./drill-selection.ts";
+import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "./drill-selection.ts";
+import type { PortableDrill } from "../schema/contracts.ts";
 
 test("resolveSelectedDrillKey prefers current selection when available", () => {
   const options = [{ key: "seeded:a" }, { key: "local:b" }];
@@ -17,3 +18,37 @@ test("resolveSelectedDrillKey falls back to first option when preferred key is m
   assert.equal(resolveSelectedDrillKey(options, "hosted:c", "hosted:c"), "seeded:a");
 });
 
+test("createUploadJobDrillSelection snapshots selected drill binding for queued jobs", () => {
+  const fallbackDrill: PortableDrill = {
+    drillId: "fallback",
+    slug: "fallback",
+    title: "Fallback",
+    drillType: "rep",
+    difficulty: "beginner",
+    tags: [],
+    defaultView: "side",
+    phases: []
+  };
+  const selectedDrill = {
+    key: "local:draft-1:drill-1",
+    sourceKind: "local" as const,
+    sourceId: "draft-1",
+    packageVersion: "0.4.0",
+    drill: {
+      drillId: "drill-1",
+      slug: "drill-1",
+      title: "Selected Drill",
+      drillType: "rep",
+      difficulty: "beginner",
+      tags: [],
+      defaultView: "side",
+      phases: []
+    } as PortableDrill
+  };
+
+  const snapshot = createUploadJobDrillSelection({ fallbackDrill, selectedDrill });
+  assert.equal(snapshot.drill.drillId, "drill-1");
+  assert.equal(snapshot.drillBinding.sourceKind, "local");
+  assert.equal(snapshot.drillBinding.sourceId, "draft-1");
+  assert.equal(snapshot.drillVersion, "0.4.0");
+});

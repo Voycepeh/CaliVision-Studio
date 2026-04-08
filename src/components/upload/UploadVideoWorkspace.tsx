@@ -8,7 +8,7 @@ import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideo
 import type { UploadJob } from "@/lib/upload/types";
 import { getPrimarySamplePackage, listSeededSampleDrills } from "@/lib/package/samples";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
-import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
+import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import {
   createAnalysisArtifactFilename,
   createImportedAnalysisSessionCopy,
@@ -228,6 +228,7 @@ export function UploadVideoWorkspace() {
   }, [analysisRepository]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
+    const drillSelection = createUploadJobDrillSelection({ fallbackDrill, selectedDrill });
     const nextJobs: UploadJob[] = [];
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("video/")) {
@@ -243,7 +244,8 @@ export function UploadVideoWorkspace() {
         status: "queued",
         stageLabel: "Ready",
         progress: 0,
-        createdAtIso: new Date().toISOString()
+        createdAtIso: new Date().toISOString(),
+        drillSelection
       });
     }
 
@@ -251,7 +253,7 @@ export function UploadVideoWorkspace() {
       dispatch({ type: "add", jobs: nextJobs });
       setSelectedJobId(nextJobs[0].id);
     }
-  }, [dispatch]);
+  }, [dispatch, fallbackDrill, selectedDrill]);
 
   const runQueue = useCallback(async () => {
     if (isRunningRef.current) {
@@ -302,16 +304,9 @@ export function UploadVideoWorkspace() {
       });
       const persisted = await persistCompletedUploadAnalysisSession({
         repository: analysisRepository,
-        drill: selectedDrill?.drill ?? fallbackDrill,
-        drillVersion: selectedDrill?.packageVersion ?? "sample-v1",
-        drillBinding: {
-          drillId: (selectedDrill?.drill ?? fallbackDrill).drillId,
-          drillName: (selectedDrill?.drill ?? fallbackDrill).title,
-          drillVersion: selectedDrill?.packageVersion ?? "sample-v1",
-          sourceKind: selectedDrill?.sourceKind ?? "seeded",
-          sourceId: selectedDrill?.sourceId,
-          sourceLabel: selectedDrill?.key ?? "seeded:default"
-        },
+        drill: nextJob.drillSelection.drill,
+        drillVersion: nextJob.drillSelection.drillVersion,
+        drillBinding: nextJob.drillSelection.drillBinding,
         timeline,
         sourceId: nextJob.id,
         sourceLabel: nextJob.fileName,
@@ -338,16 +333,9 @@ export function UploadVideoWorkspace() {
       if (!cancelled) {
         await persistFailedUploadAnalysisSession({
           repository: analysisRepository,
-          drill: selectedDrill?.drill ?? fallbackDrill,
-          drillVersion: selectedDrill?.packageVersion ?? "sample-v1",
-          drillBinding: {
-            drillId: (selectedDrill?.drill ?? fallbackDrill).drillId,
-            drillName: (selectedDrill?.drill ?? fallbackDrill).title,
-            drillVersion: selectedDrill?.packageVersion ?? "sample-v1",
-            sourceKind: selectedDrill?.sourceKind ?? "seeded",
-            sourceId: selectedDrill?.sourceId,
-            sourceLabel: selectedDrill?.key ?? "seeded:default"
-          },
+          drill: nextJob.drillSelection.drill,
+          drillVersion: nextJob.drillSelection.drillVersion,
+          drillBinding: nextJob.drillSelection.drillBinding,
           sourceId: nextJob.id,
           sourceLabel: nextJob.fileName,
           sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
@@ -359,7 +347,7 @@ export function UploadVideoWorkspace() {
       activeAbortRef.current = null;
       isRunningRef.current = false;
     }
-  }, [analysisRepository, cadenceFps, dispatch, jobs, selectedDrill, fallbackDrill, refreshRecentSessions]);
+  }, [analysisRepository, cadenceFps, dispatch, jobs, refreshRecentSessions]);
 
   useEffect(() => {
     void runQueue();
@@ -619,6 +607,9 @@ export function UploadVideoWorkspace() {
                 <strong>{job.fileName}</strong>
                 <p className="muted" style={{ margin: "0.2rem 0 0" }}>
                   {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)} • {job.status}
+                </p>
+                <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                  Queued drill: {job.drillSelection.drillBinding.drillName} ({job.drillSelection.drillBinding.sourceKind})
                 </p>
                 <p className="muted" style={{ margin: "0.2rem 0 0" }}>{job.stageLabel}</p>
                 {job.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{job.errorMessage}</p> : null}

@@ -20,6 +20,25 @@ function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
     stageLabel: "Ready",
     progress: 0,
     createdAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      drill: {
+        drillId: "drill-1",
+        slug: "drill-1",
+        title: "Drill 1",
+        drillType: "rep",
+        difficulty: "beginner",
+        tags: [],
+        defaultView: "side",
+        phases: []
+      },
+      drillVersion: "sample-v1",
+      drillBinding: {
+        drillId: "drill-1",
+        drillName: "Drill 1",
+        drillVersion: "sample-v1",
+        sourceKind: "seeded"
+      }
+    },
     ...overrides
   };
 }
