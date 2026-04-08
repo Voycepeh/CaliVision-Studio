@@ -5,6 +5,7 @@ import { deleteDraft, loadDraft, loadDraftList, saveDraft, type LocalDraftRecord
 import { deleteRegistryEntriesByPackageId, loadLocalRegistryEntries, upsertRegistryEntryFromPackage, type PackageRegistryEntry } from "@/lib/registry";
 import type { DrillPackage } from "@/lib/schema/contracts";
 import { reconcileLocalVersionSnapshots } from "./local-versioning";
+import { decideDrillImportOutcome } from "./drill-import-logic";
 
 export type DrillVersionStatus = "draft" | "ready";
 
@@ -36,6 +37,21 @@ export type DrillLibraryItem = {
   currentVersion: DrillVersionSnapshot;
   activeReadyVersion: DrillVersionSnapshot | null;
   updatedAtIso: string;
+};
+
+export type DrillImportOutcome = {
+  status: "imported" | "duplicate";
+  workspace: "browser" | "cloud";
+  drillId: string;
+  title: string;
+  matchedOtherWorkspace: boolean;
+};
+
+type DrillImportDependencies = {
+  listLocalVersions: () => Promise<DrillVersionSnapshot[]>;
+  listCloudVersions: (session: AuthSession) => Promise<DrillVersionSnapshot[]>;
+  saveCloudPackage: (session: AuthSession, pkg: DrillPackage) => Promise<void>;
+  saveLocalPackage: (pkg: DrillPackage, sourceLabel: string) => void;
 };
 
 const LOCAL_CONTEXT: DrillRepositoryContext = { mode: "local" };
@@ -159,6 +175,59 @@ async function listAllVersions(context?: DrillRepositoryContext): Promise<DrillV
 
 function selectEditableVersion(versions: DrillVersionSnapshot[]): DrillVersionSnapshot | null {
   return versions.find((version) => version.status === "draft") ?? versions.find((version) => version.status === "ready") ?? versions[0] ?? null;
+}
+
+const defaultImportDependencies: DrillImportDependencies = {
+  listLocalVersions,
+  listCloudVersions,
+  async saveCloudPackage(session, pkg) {
+    const saved = await upsertHostedLibraryItem(session, pkg);
+    if (!saved.ok) {
+      throw new Error(saved.error);
+    }
+  },
+  saveLocalPackage(pkg, sourceLabel) {
+    upsertRegistryEntryFromPackage({
+      packageJson: pkg,
+      sourceType: "imported-local",
+      sourceLabel
+    });
+  }
+};
+
+export async function importDrillPackage(
+  input: { packageJson: DrillPackage; sourceLabel: string },
+  context?: DrillRepositoryContext,
+  dependencies: DrillImportDependencies = defaultImportDependencies
+): Promise<DrillImportOutcome> {
+  const resolved = asContext(context);
+  const pkg = ensureVersioningMetadata(structuredClone(input.packageJson));
+  if (isCloudContext(resolved)) {
+    const [cloudVersions, localVersions] = await Promise.all([dependencies.listCloudVersions(resolved.session), dependencies.listLocalVersions()]);
+    const decision = decideDrillImportOutcome({
+      packageJson: pkg,
+      workspace: "cloud",
+      targetWorkspacePackages: cloudVersions.map((version) => version.packageJson),
+      otherWorkspacePackages: localVersions.map((version) => version.packageJson)
+    });
+    if (decision.status !== "duplicate") {
+      await dependencies.saveCloudPackage(resolved.session, pkg);
+    }
+
+    return decision;
+  }
+
+  const localVersions = await dependencies.listLocalVersions();
+  const decision = decideDrillImportOutcome({
+    packageJson: pkg,
+    workspace: "browser",
+    targetWorkspacePackages: localVersions.map((version) => version.packageJson)
+  });
+  if (decision.status !== "duplicate") {
+    dependencies.saveLocalPackage(pkg, input.sourceLabel);
+  }
+
+  return decision;
 }
 
 export async function loadVersionById(versionId: string, context?: DrillRepositoryContext): Promise<DrillVersionSnapshot | null> {

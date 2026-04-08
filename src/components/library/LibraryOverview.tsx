@@ -8,6 +8,7 @@ import {
   createDrill,
   createDraftVersion,
   deleteDrill,
+  importDrillPackage,
   listDrillsWithActiveVersion,
   listVersionsForDrill,
   markVersionReady,
@@ -16,7 +17,7 @@ import {
   type DrillVersionSnapshot
 } from "@/lib/library";
 import { buildBundleForExport, downloadPackageBundle, packageKeyFromFile, readPackageFile } from "@/lib/package";
-import { upsertRegistryEntryFromPackage, type PackageListingSort } from "@/lib/registry";
+import { type PackageListingSort } from "@/lib/registry";
 
 type FeedbackTone = "success" | "error";
 type ItemActionState = {
@@ -180,12 +181,23 @@ export function LibraryOverview() {
       return;
     }
 
-    upsertRegistryEntryFromPackage({
-      packageJson: imported.packageViewModel.package,
-      sourceType: "imported-local",
-      sourceLabel: `library-import:${file.name}`
-    });
-    setItemFeedback("global:import", `Imported "${imported.packageViewModel.package.drills[0]?.title ?? imported.packageViewModel.package.manifest.packageId}".`);
+    const result = await importDrillPackage(
+      {
+        packageJson: imported.packageViewModel.package,
+        sourceLabel: `library-import:${file.name}`
+      },
+      repositoryContext
+    );
+    if (result.status === "duplicate") {
+      setItemFeedback("global:import", `"${result.title}" already exists in ${result.workspace === "cloud" ? "Cloud workspace" : "Browser workspace"}. No changes made.`);
+    } else {
+      setItemFeedback("global:import", `Imported "${result.title}" into ${result.workspace === "cloud" ? "Cloud workspace" : "Browser workspace"}.`);
+    }
+    if (result.workspace === "cloud" && result.matchedOtherWorkspace) {
+      setItemFeedback("global:import:ownership", `This drill file also matches a drill in Browser workspace. Cloud and Browser workspaces stay separate.`);
+    } else {
+      setItemFeedback("global:import:ownership", "");
+    }
     await refreshLibrary();
   }
 
@@ -203,7 +215,7 @@ export function LibraryOverview() {
           One library for all drills. Each drill keeps stable identity with version history, Draft/Ready status, and publish state.
         </p>
         <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-          Storage mode: {signedInMode ? "Cloud workspace (compatibility mode while unified hosted model lands)" : "Browser workspace (local only)"}
+          Storage mode: {signedInMode ? "Cloud workspace (hosted drills only)" : "Browser workspace (local drills only)"}
         </p>
         <div style={compactActionRowStyle}>
           <button type="button" style={primaryButtonStyle} disabled={Boolean(pendingActionByItemId["global:create"])} onClick={() => void runItemAction("global:create", "Creating drill…", onCreateDraft)}>
@@ -249,6 +261,9 @@ export function LibraryOverview() {
                     </p>
                   </div>
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
+                    Source: {signedInMode ? "Cloud workspace" : "Browser workspace"}
+                  </p>
 
                   <div style={compactActionRowStyle}>
                     <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening editor…", () => onOpenForEdit(drill))}>Edit</button>
@@ -293,6 +308,7 @@ export function LibraryOverview() {
 
       <InlineItemFeedback itemId="global:create" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
       <InlineItemFeedback itemId="global:import" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+      <InlineItemFeedback itemId="global:import:ownership" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
     </section>
   );
 }
