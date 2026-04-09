@@ -381,14 +381,6 @@ export function StudioStateProvider({
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
-  const selectedPhase = useMemo(() => {
-    if (!selectedPackage || !selectedPhaseId) {
-      return null;
-    }
-
-    const drill = getPrimaryDrill(selectedPackage.workingPackage);
-    return drill?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null;
-  }, [selectedPackage, selectedPhaseId]);
   const selectedPhaseEditorView = selectedPackage
     ? getPrimaryDrill(selectedPackage.workingPackage)?.primaryView ?? DEFAULT_EDITOR_VIEW
     : DEFAULT_EDITOR_VIEW;
