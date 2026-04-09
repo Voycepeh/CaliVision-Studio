@@ -244,6 +244,8 @@ export function UploadVideoWorkspace() {
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
       ctx.save();
       ctx.translate(videoRect.offsetX, videoRect.offsetY);
+      // Intentionally draw only once in rendered video-space (not full canvas/device pixels)
+      // to avoid duplicate/ghost overlays on high-DPR screens.
       drawPoseOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, frame);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
