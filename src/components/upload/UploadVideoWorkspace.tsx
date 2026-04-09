@@ -198,7 +198,6 @@ export function UploadVideoWorkspace() {
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
     [drillOptions, selectedDrillKey]
   );
-  const phaseLabels = useMemo(() => buildPhaseLabelMap(selectedDrill?.drill), [selectedDrill?.drill]);
 
   const refreshDrillOptions = useCallback(async () => {
     setDrillOptionsLoading(true);
@@ -540,11 +539,11 @@ export function UploadVideoWorkspace() {
     setWorkflowResetKey((current) => nextUploadWorkflowResetKey(current));
   }, []);
 
+  const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
   const traceRows = useMemo(() => {
     if (!activeSession) return [];
-    return summarizeTrace(activeSession, traceStepMs);
-  }, [activeSession, traceStepMs]);
-  const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
+    return summarizeTrace(activeSession, traceStepMs, activePhaseLabels);
+  }, [activePhaseLabels, activeSession, traceStepMs]);
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
@@ -857,7 +856,7 @@ export function UploadVideoWorkspace() {
               <ol className="muted">
                 {activeSession.events.map((event) => (
                   <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
-                    {formatDiagnosticEvent(event, phaseLabels)} @ {formatDurationShort(event.timestampMs)}
+                    {formatDiagnosticEvent(event, activePhaseLabels)} @ {formatDurationShort(event.timestampMs)}
                   </li>
                 ))}
               </ol>
@@ -899,7 +898,7 @@ export function UploadVideoWorkspace() {
                   {activeSession.frameSamples.slice(0, 120).map((sample) => (
                     <tr key={`sample-${sample.timestampMs}`}>
                       <td>{formatDurationShort(sample.timestampMs)}</td>
-                      <td>{resolvePhaseLabel(sample.classifiedPhaseId, phaseLabels)}</td>
+                      <td>{resolvePhaseLabel(sample.classifiedPhaseId, activePhaseLabels)}</td>
                       <td>{sample.confidence.toFixed(2)}</td>
                     </tr>
                   ))}
