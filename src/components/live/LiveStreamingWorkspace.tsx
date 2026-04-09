@@ -23,6 +23,27 @@ const LIVE_OVERLAY_CADENCE_FPS = 10;
 const LIVE_SAMPLE_INTERVAL_MS = Math.round(1000 / LIVE_OVERLAY_CADENCE_FPS);
 const FREESTYLE_KEY = "freestyle";
 
+async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
+  const objectUrl = URL.createObjectURL(blob);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.src = objectUrl;
+
+  const metadata = await new Promise<{ durationMs: number; width: number; height: number }>((resolve, reject) => {
+    video.onloadedmetadata = () => {
+      resolve({
+        durationMs: Math.max(0, Math.round(video.duration * 1000)),
+        width: video.videoWidth || 720,
+        height: video.videoHeight || 1280
+      });
+    };
+    video.onerror = () => reject(new Error("Unable to load recorded video metadata."));
+  });
+
+  URL.revokeObjectURL(objectUrl);
+  return metadata;
+}
+
 type DrillSelectionOption = {
   key: string;
   label: string;
@@ -50,6 +71,7 @@ export function LiveStreamingWorkspace() {
   const recorderRef = useRef<ReturnType<typeof createMediaRecorder> | null>(null);
   const landmarkerRef = useRef<Awaited<ReturnType<typeof createPoseLandmarkerForJob>> | null>(null);
   const startedAtRef = useRef<number>(0);
+  const mediaStartMsRef = useRef<number>(0);
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -130,10 +152,13 @@ export function LiveStreamingWorkspace() {
     }
   }, []);
 
-  const cleanupSession = useCallback(async () => {
+  const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
     if (liveLoopRef.current) {
       cancelAnimationFrame(liveLoopRef.current);
       liveLoopRef.current = null;
+    }
+    if (options?.stopRecorder && recorderRef.current) {
+      await recorderRef.current.stop({ discard: options.discardRecording ?? true });
     }
     if (previewVideoRef.current) {
       previewVideoRef.current.srcObject = null;
@@ -144,11 +169,14 @@ export function LiveStreamingWorkspace() {
     landmarkerRef.current = null;
     recorderRef.current = null;
     traceRef.current = null;
+    if (options?.nextStatus) {
+      setStatus(options.nextStatus);
+    }
   }, []);
 
   useEffect(() => {
     return () => {
-      void cleanupSession();
+      void cleanupSession({ stopRecorder: true, discardRecording: true });
       if (replayUrl) URL.revokeObjectURL(replayUrl);
     };
   }, [cleanupSession, replayUrl]);
@@ -158,6 +186,7 @@ export function LiveStreamingWorkspace() {
     setStatus("requesting-permission");
 
     try {
+      await cleanupSession({ stopRecorder: true, discardRecording: true });
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" } },
         audio: false
@@ -179,7 +208,7 @@ export function LiveStreamingWorkspace() {
             : "Unable to start camera preview."
       );
     }
-  }, [isRearCamera]);
+  }, [cleanupSession, isRearCamera]);
 
   const startSession = useCallback(async () => {
     const stream = liveStreamRef.current;
@@ -199,6 +228,7 @@ export function LiveStreamingWorkspace() {
     const recorder = createMediaRecorder(stream);
     recorderRef.current = recorder;
     startedAtRef.current = performance.now();
+    mediaStartMsRef.current = Math.max(0, video.currentTime * 1000);
 
     traceRef.current = createLiveTraceAccumulator({
       traceId: `live_${Date.now()}`,
@@ -223,10 +253,12 @@ export function LiveStreamingWorkspace() {
       ctx.drawImage(previewVideoRef.current, 0, 0, canvas.width, canvas.height);
 
       if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
-        const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, elapsedMs);
+        const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
+        const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
+        const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
         if (landmarks) {
-          const frame = mapLandmarksToPoseFrame(landmarks, elapsedMs);
+          const frame = mapLandmarksToPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
           drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
         }
@@ -251,15 +283,32 @@ export function LiveStreamingWorkspace() {
 
     const recorder = recorderRef.current;
     const traceAccumulator = traceRef.current;
-    const durationMs = Math.round(performance.now() - startedAtRef.current);
-    const width = previewVideoRef.current.videoWidth || 720;
-    const height = previewVideoRef.current.videoHeight || 1280;
+    const captureStopPerfNowMs = performance.now();
+    const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
     const raw = await recorder.stop();
+    if (!raw) {
+      setStatus("failed");
+      setErrorMessage("Live recording did not finalize correctly. Please retake.");
+      return;
+    }
+    const metadata = await readRecordedVideoMetadata(raw.blob);
     await cleanupSession();
 
     const completedAtIso = new Date().toISOString();
     const trace = traceAccumulator.finalize(
-      { durationMs, width, height, mimeType: raw.mimeType, sizeBytes: raw.blob.size },
+      {
+        durationMs: metadata.durationMs,
+        width: metadata.width,
+        height: metadata.height,
+        mimeType: raw.mimeType,
+        sizeBytes: raw.blob.size,
+        timing: {
+          mediaStartMs: Math.round(mediaStartMsRef.current),
+          mediaStopMs: Math.round(mediaStopMs),
+          captureStartPerfNowMs: Math.round(startedAtRef.current),
+          captureStopPerfNowMs: Math.round(captureStopPerfNowMs)
+        }
+      },
       completedAtIso
     );
 
@@ -272,7 +321,7 @@ export function LiveStreamingWorkspace() {
     setSessionSummary({
       reps: trace.summary.repCount ?? 0,
       holdMs: trace.summary.holdDurationMs ?? 0,
-      durationMs
+      durationMs: metadata.durationMs
     });
     setStatus("completed");
   }, [cleanupSession]);
@@ -313,7 +362,7 @@ export function LiveStreamingWorkspace() {
           <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()} disabled={status !== "live-session-running"}>
             Stop + finalize
           </button>
-          <button type="button" className="studio-button" onClick={() => void cleanupSession()}>
+          <button type="button" className="studio-button" onClick={() => void cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" })}>
             Cancel / retake
           </button>
         </div>

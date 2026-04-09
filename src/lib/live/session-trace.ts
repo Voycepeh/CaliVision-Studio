@@ -117,7 +117,22 @@ export function createLiveTraceAccumulator(input: {
       applyTransition(input.drillSelection.drill, frameSample.classifiedPhaseId ?? null, frame.timestampMs);
     },
 
-    finalize(video: { durationMs: number; width: number; height: number; mimeType: string; sizeBytes: number }, completedAtIso: string): LiveSessionTrace {
+    finalize(
+      video: {
+        durationMs: number;
+        width: number;
+        height: number;
+        mimeType: string;
+        sizeBytes: number;
+        timing: {
+          mediaStartMs: number;
+          mediaStopMs: number;
+          captureStartPerfNowMs: number;
+          captureStopPerfNowMs: number;
+        };
+      },
+      completedAtIso: string
+    ): LiveSessionTrace {
       if (state.activeHoldStartMs !== null) {
         const endMs = Math.max(video.durationMs, state.activeHoldStartMs);
         const targetHold = input.drillSelection.drill?.analysis?.targetHoldPhaseId ?? input.drillSelection.drill?.analysis?.orderedPhaseSequence?.[0];

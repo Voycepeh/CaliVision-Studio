@@ -1,6 +1,6 @@
 export type ActiveRecorder = {
   recorder: MediaRecorder;
-  stop: () => Promise<{ blob: Blob; mimeType: string }>;
+  stop: (options?: { discard?: boolean }) => Promise<{ blob: Blob; mimeType: string } | null>;
 };
 
 export function createMediaRecorder(stream: MediaStream): ActiveRecorder {
@@ -18,9 +18,28 @@ export function createMediaRecorder(stream: MediaStream): ActiveRecorder {
 
   return {
     recorder,
-    stop: () =>
+    stop: (options) =>
       new Promise((resolve) => {
-        recorder.onstop = () => resolve({ blob: new Blob(chunks, { type: mimeType }), mimeType });
+        if (recorder.state === "inactive") {
+          resolve(options?.discard ? null : { blob: new Blob(chunks, { type: mimeType }), mimeType });
+          return;
+        }
+
+        const timeoutId = setTimeout(() => {
+          resolve(options?.discard ? null : { blob: new Blob(chunks, { type: mimeType }), mimeType });
+        }, 1500);
+
+        recorder.onstop = () => {
+          clearTimeout(timeoutId);
+          resolve(options?.discard ? null : { blob: new Blob(chunks, { type: mimeType }), mimeType });
+        };
+
+        try {
+          recorder.requestData();
+        } catch {
+          // noop; requestData may throw in some browser states.
+        }
+
         recorder.stop();
       })
   };

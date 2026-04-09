@@ -42,6 +42,12 @@ export type LiveSessionTrace = {
     height: number;
     mimeType: string;
     sizeBytes: number;
+    timing: {
+      mediaStartMs: number;
+      mediaStopMs: number;
+      captureStartPerfNowMs: number;
+      captureStopPerfNowMs: number;
+    };
   };
   captures: LiveTraceCapture[];
   events: AnalysisEvent[];

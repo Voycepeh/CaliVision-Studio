@@ -35,7 +35,7 @@ test("trace retention captures rep and hold events with timestamps", () => {
   trace.pushFrame({ timestampMs: 400, joints: drill.phases[1].poseSequence[0].joints });
   trace.pushFrame({ timestampMs: 800, joints: drill.phases[0].poseSequence[0].joints });
 
-  const finalized = trace.finalize({ durationMs: 1000, width: 720, height: 1280, mimeType: "video/webm", sizeBytes: 2000 }, "2026-04-08T00:00:03.000Z");
+  const finalized = trace.finalize({ durationMs: 1000, width: 720, height: 1280, mimeType: "video/webm", sizeBytes: 2000, timing: { mediaStartMs: 0, mediaStopMs: 1000, captureStartPerfNowMs: 10, captureStopPerfNowMs: 1010 } }, "2026-04-08T00:00:03.000Z");
   assert.equal(finalized.captures.length, 3);
   assert.ok(finalized.events.some((event) => event.type === "phase_enter"));
   assert.ok((finalized.summary.repCount ?? 0) >= 1);
