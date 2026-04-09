@@ -14,9 +14,15 @@ type TraceState = {
   confidenceCount: number;
   lowConfidenceFrames: number;
   currentPhaseId: string | null;
+  pendingPhaseId: string | null;
+  pendingPhaseFrameCount: number;
+  confidenceGateOpen: boolean;
   activeHoldStartMs: number | null;
   expectedSequenceIndex: number;
 };
+const PHASE_CONFIRMATION_FRAMES = 2;
+const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
+const PHASE_CONFIDENCE_GATE_EXIT = 0.3;
 
 function scaleTimestamp(timestampMs: number, scale: number, maxDurationMs: number): number {
   return Math.max(0, Math.min(maxDurationMs, Math.round(timestampMs * scale)));
@@ -71,6 +77,9 @@ export function createLiveTraceAccumulator(input: {
     confidenceCount: 0,
     lowConfidenceFrames: 0,
     currentPhaseId: null,
+    pendingPhaseId: null,
+    pendingPhaseFrameCount: 0,
+    confidenceGateOpen: false,
     activeHoldStartMs: null,
     expectedSequenceIndex: 0
   };
@@ -150,7 +159,33 @@ export function createLiveTraceAccumulator(input: {
         state.lowConfidenceFrames += 1;
       }
 
-      applyTransition(input.drillSelection.drill, frameSample.classifiedPhaseId ?? null, frame.timestampMs);
+      if (state.confidenceGateOpen) {
+        state.confidenceGateOpen = frameSample.confidence >= PHASE_CONFIDENCE_GATE_EXIT;
+      } else {
+        state.confidenceGateOpen = frameSample.confidence >= PHASE_CONFIDENCE_GATE_ENTER;
+      }
+
+      const candidatePhaseId = state.confidenceGateOpen ? (frameSample.classifiedPhaseId ?? null) : null;
+      if (candidatePhaseId === state.currentPhaseId) {
+        state.pendingPhaseId = null;
+        state.pendingPhaseFrameCount = 0;
+        return;
+      }
+
+      if (candidatePhaseId !== state.pendingPhaseId) {
+        state.pendingPhaseId = candidatePhaseId;
+        state.pendingPhaseFrameCount = 1;
+        return;
+      }
+
+      state.pendingPhaseFrameCount += 1;
+      if (state.pendingPhaseFrameCount < PHASE_CONFIRMATION_FRAMES) {
+        return;
+      }
+
+      applyTransition(input.drillSelection.drill, candidatePhaseId, frame.timestampMs);
+      state.pendingPhaseId = null;
+      state.pendingPhaseFrameCount = 0;
     },
 
     getOverlayState(timestampMs: number) {
