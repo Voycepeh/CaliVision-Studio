@@ -21,6 +21,7 @@ import {
   getReplayStateTone,
   mapLiveTraceToTimelineMarkers,
   stopMediaStream,
+  summarizeLiveTraceFreshness,
   type LiveDrillSelection,
   type LiveSessionStatus,
   type LiveSessionTrace,
@@ -38,9 +39,16 @@ const JOINT_VISIBILITY_ENTER_THRESHOLD = 0.52;
 const JOINT_VISIBILITY_EXIT_THRESHOLD = 0.42;
 const JOINT_VISIBILITY_GRACE_SAMPLES = 2;
 const LIVE_POSE_STALE_HOLD_MS = 420;
+const LIVE_POSE_STALE_WARNING_MS = 1_200;
+const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
+const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
 
 type LiveCadenceStats = {
+  renderFrames: number;
   analysisTicks: number;
+  detectionInvocations: number;
+  detectionSuccesses: number;
+  landmarkUpdates: number;
   presentationTicks: number;
   stalePoseReuseCount: number;
 };
@@ -110,6 +118,8 @@ export function LiveStreamingWorkspace() {
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
+  const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
+  const trackingStatusRef = useRef<string>("Tracking ready");
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -129,8 +139,23 @@ export function LiveStreamingWorkspace() {
   const overlayProjectionRef = useRef<OverlayProjection | null>(null);
   const lastOverlayDiagnosticsAtRef = useRef(0);
   const lastPoseFrameAtRef = useRef<number>(0);
+  const lastAcceptedLandmarkTimestampRef = useRef<number>(0);
+  const lastAcceptedLandmarkPerfNowRef = useRef<number>(0);
+  const lastRenderedLandmarkTimestampRef = useRef<number>(0);
+  const lastDetectionTimestampRef = useRef<number>(0);
+  const lastVideoTimeMsRef = useRef<number>(0);
+  const repeatedVideoTimestampCountRef = useRef<number>(0);
+  const lastDiagnosticLogAtRef = useRef<number>(0);
   const stalePoseLoggedRef = useRef(false);
-  const liveCadenceStatsRef = useRef<LiveCadenceStats>({ analysisTicks: 0, presentationTicks: 0, stalePoseReuseCount: 0 });
+  const liveCadenceStatsRef = useRef<LiveCadenceStats>({
+    renderFrames: 0,
+    analysisTicks: 0,
+    detectionInvocations: 0,
+    detectionSuccesses: 0,
+    landmarkUpdates: 0,
+    presentationTicks: 0,
+    stalePoseReuseCount: 0
+  });
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -198,6 +223,14 @@ export function LiveStreamingWorkspace() {
     setSelectedMarkerId((current) => (current && timelineMarkers.some((marker) => marker.id === current) ? current : timelineMarkers[0].id));
   }, [timelineMarkers]);
 
+  const updateTrackingStatus = useCallback((nextStatus: string) => {
+    if (trackingStatusRef.current === nextStatus) {
+      return;
+    }
+    trackingStatusRef.current = nextStatus;
+    setTrackingStatusLabel(nextStatus);
+  }, []);
+
   const refreshDrillOptions = useCallback(async () => {
     const options: DrillSelectionOption[] = [];
     try {
@@ -251,7 +284,7 @@ export function LiveStreamingWorkspace() {
       setStatus("unsupported");
       setErrorMessage("Live Streaming is unsupported in this browser. Use a browser with camera + MediaRecorder support.");
     }
-  }, []);
+  }, [updateTrackingStatus]);
 
   const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
     if (liveLoopRef.current) {
@@ -272,8 +305,23 @@ export function LiveStreamingWorkspace() {
     traceRef.current = null;
     smoothedFrameRef.current = null;
     lastPoseFrameAtRef.current = 0;
+    lastAcceptedLandmarkTimestampRef.current = 0;
+    lastAcceptedLandmarkPerfNowRef.current = 0;
+    lastRenderedLandmarkTimestampRef.current = 0;
+    lastDetectionTimestampRef.current = 0;
+    lastVideoTimeMsRef.current = 0;
+    repeatedVideoTimestampCountRef.current = 0;
+    lastDiagnosticLogAtRef.current = 0;
     stalePoseLoggedRef.current = false;
-    liveCadenceStatsRef.current = { analysisTicks: 0, presentationTicks: 0, stalePoseReuseCount: 0 };
+    liveCadenceStatsRef.current = {
+      renderFrames: 0,
+      analysisTicks: 0,
+      detectionInvocations: 0,
+      detectionSuccesses: 0,
+      landmarkUpdates: 0,
+      presentationTicks: 0,
+      stalePoseReuseCount: 0
+    };
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
     const canvas = previewCanvasRef.current;
@@ -286,7 +334,8 @@ export function LiveStreamingWorkspace() {
     if (options?.nextStatus) {
       setStatus(options.nextStatus);
     }
-  }, []);
+    updateTrackingStatus("Tracking ready");
+  }, [updateTrackingStatus]);
 
   const syncOverlayCanvasSize = useCallback((force = false) => {
     if (!force && !overlayNeedsResizeSyncRef.current) {
@@ -536,6 +585,7 @@ export function LiveStreamingWorkspace() {
       recorderRef.current = recorder;
       startedAtRef.current = performance.now();
       mediaStartMsRef.current = Math.max(0, video.currentTime * 1000);
+      lastAcceptedLandmarkPerfNowRef.current = startedAtRef.current;
 
       traceRef.current = createLiveTraceAccumulator({
         traceId: `live_${Date.now()}`,
@@ -564,6 +614,7 @@ export function LiveStreamingWorkspace() {
       }
 
       const elapsedMs = performance.now() - startedAtRef.current;
+      liveCadenceStatsRef.current.renderFrames += 1;
       const previewVideo = previewVideoRef.current;
       syncOverlayCanvasSize();
       const projection = overlayProjectionRef.current;
@@ -572,7 +623,9 @@ export function LiveStreamingWorkspace() {
         return;
       }
       const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideo.currentTime * 1000);
-      const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
+      const elapsedTraceTimestampMs = Math.max(0, Math.round(elapsedMs));
+      const mediaTraceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
+      const traceTimestampMs = Math.max(lastPoseFrameAtRef.current + LIVE_MIN_TRACE_TIMESTAMP_STEP_MS, Math.max(mediaTraceTimestampMs, elapsedTraceTimestampMs));
       const pixelRatio = overlayPixelRatioRef.current;
       if (
         !isPreviewSurfaceReady({
@@ -591,14 +644,29 @@ export function LiveStreamingWorkspace() {
       }
 
       if (elapsedMs >= nextAnalysisAtMs) {
-        const result = landmarkerRef.current.detectForVideo(previewVideo, mediaTimeMs);
+        let detectionTimestampMs = Math.max(lastDetectionTimestampRef.current + 1, Math.round(mediaTimeMs));
+        if (Math.round(mediaTimeMs) === lastVideoTimeMsRef.current) {
+          repeatedVideoTimestampCountRef.current += 1;
+          detectionTimestampMs = Math.max(detectionTimestampMs, Math.round(performance.now()));
+        } else {
+          repeatedVideoTimestampCountRef.current = 0;
+          lastVideoTimeMsRef.current = Math.round(mediaTimeMs);
+        }
+        const result = landmarkerRef.current.detectForVideo(previewVideo, detectionTimestampMs);
+        lastDetectionTimestampRef.current = detectionTimestampMs;
         const landmarks = result.landmarks?.[0];
         liveCadenceStatsRef.current.analysisTicks += 1;
+        liveCadenceStatsRef.current.detectionInvocations += 1;
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
           lastPoseFrameAtRef.current = traceTimestampMs;
+          lastAcceptedLandmarkTimestampRef.current = traceTimestampMs;
+          lastAcceptedLandmarkPerfNowRef.current = performance.now();
+          liveCadenceStatsRef.current.detectionSuccesses += 1;
+          liveCadenceStatsRef.current.landmarkUpdates += 1;
           stalePoseLoggedRef.current = false;
+          updateTrackingStatus("Tracking active");
           logOverlayDiagnostics("draw-pose-frame");
         } else if (!stalePoseLoggedRef.current) {
           console.debug("[live-overlay] pose miss; reusing last stabilized frame", {
@@ -622,12 +690,16 @@ export function LiveStreamingWorkspace() {
       ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       const analyzedFrameState = traceRef.current.getAnalyzedFrameState(traceTimestampMs);
       const staleForMs = Math.max(0, traceTimestampMs - lastPoseFrameAtRef.current);
+      const staleLandmarkAgeMs = Math.max(0, Math.round(performance.now() - lastAcceptedLandmarkPerfNowRef.current));
       const canReuseStalePose = lastPoseFrameAtRef.current > 0 && staleForMs <= LIVE_POSE_STALE_HOLD_MS;
       if (analyzedFrameState.poseFrame && canReuseStalePose) {
         if (staleForMs > LIVE_ANALYSIS_INTERVAL_MS) {
           liveCadenceStatsRef.current.stalePoseReuseCount += 1;
         }
+        lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
         drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+      } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
+        updateTrackingStatus("Tracking lost");
       } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
         console.info("[live-overlay] stale pose timeout reached; clearing overlay skeleton", {
           traceTimestampMs,
@@ -636,6 +708,24 @@ export function LiveStreamingWorkspace() {
         });
         stalePoseLoggedRef.current = false;
       }
+
+      if (performance.now() - lastDiagnosticLogAtRef.current >= LIVE_DIAGNOSTIC_LOG_INTERVAL_MS) {
+        lastDiagnosticLogAtRef.current = performance.now();
+        console.info("[live-overlay] pose-freshness", {
+          sourceVideoCurrentTimeMs: Math.round(previewVideo.currentTime * 1000),
+          sourceVideoDimensions: `${previewVideo.videoWidth}x${previewVideo.videoHeight}`,
+          renderFrameCounter: liveCadenceStatsRef.current.renderFrames,
+          poseDetectionInvocationCounter: liveCadenceStatsRef.current.detectionInvocations,
+          poseDetectionSuccessCounter: liveCadenceStatsRef.current.detectionSuccesses,
+          landmarkUpdateCounter: liveCadenceStatsRef.current.landmarkUpdates,
+          latestAcceptedLandmarkTimestampMs: lastAcceptedLandmarkTimestampRef.current,
+          renderedLandmarkTimestampMs: lastRenderedLandmarkTimestampRef.current,
+          renderedLandmarkAgeMs: staleLandmarkAgeMs,
+          reusedPreviousLandmarks: canReuseStalePose && staleForMs > LIVE_ANALYSIS_INTERVAL_MS,
+          repeatedVideoTimestampCount: repeatedVideoTimestampCountRef.current
+        });
+      }
+
       drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
         showDrillMetrics: selection.mode === "drill",
@@ -646,7 +736,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize]);
+  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize, updateTrackingStatus]);
 
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
@@ -700,13 +790,15 @@ export function LiveStreamingWorkspace() {
       },
       completedAtIso
     );
+    const traceFreshness = summarizeLiveTraceFreshness(trace);
     const captureDurationMs = Math.max(1, Math.round(mediaStopMs - mediaStartMsRef.current));
     const analysisCadence = Number(((liveCadenceStatsRef.current.analysisTicks * 1000) / captureDurationMs).toFixed(2));
     const presentationCadence = Number(((liveCadenceStatsRef.current.presentationTicks * 1000) / captureDurationMs).toFixed(2));
     console.info("[live-overlay] cadence-summary", {
       analysisCadenceFps: analysisCadence,
       overlayPresentationCadenceFps: presentationCadence,
-      stalePoseReuseCount: liveCadenceStatsRef.current.stalePoseReuseCount
+      stalePoseReuseCount: liveCadenceStatsRef.current.stalePoseReuseCount,
+      traceFreshness
     });
 
     setLiveTrace(trace);
@@ -719,6 +811,11 @@ export function LiveStreamingWorkspace() {
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
 
     try {
+      if (!traceFreshness.hasSufficientFreshness) {
+        throw new Error(
+          `Pose not updating reliably (samples=${traceFreshness.sampleCount}, uniqueTimestamps=${traceFreshness.uniqueTimestampCount}, uniqueFrames=${traceFreshness.uniqueFingerprintCount}).`
+        );
+      }
       const annotated = await exportAnnotatedReplayFromLiveTrace({
         rawVideo: rawFile,
         trace,
@@ -736,7 +833,7 @@ export function LiveStreamingWorkspace() {
       console.error("[live-overlay] annotated export failed", { message });
       setReplayState("raw-fallback");
       setReplayExportStageLabel("Annotated export failed");
-      setErrorMessage(`${message} Showing raw session recording fallback.`);
+      setErrorMessage(`${message} Showing raw session recording fallback. Tracking may have been stale.`);
     }
 
     setStatus("completed");
@@ -862,6 +959,14 @@ export function LiveStreamingWorkspace() {
               <div className="pill">Reps: {summary?.repCount ?? 0}</div>
               <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
               <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
+              <div
+                className="pill"
+                style={{
+                  color: trackingStatusLabel === "Tracking active" ? "#8ce7bf" : trackingStatusLabel === "Tracking lost" ? "#f7d58b" : undefined
+                }}
+              >
+                {trackingStatusLabel}
+              </div>
               <div
                 className="pill"
                 style={{
