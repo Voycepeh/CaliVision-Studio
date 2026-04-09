@@ -8,7 +8,6 @@ export function StudioMetadataEditor() {
   const {
     selectedPackage,
     setDrillTitle,
-    setDrillSlug,
     setDrillDescription,
     setDrillType,
     setDrillDifficulty,
@@ -39,11 +38,6 @@ export function StudioMetadataEditor() {
         <label style={labelStyle}>
           <span>Drill title</span>
           <input value={drill.title} onChange={(event) => setDrillTitle(event.target.value)} style={inputStyle} />
-        </label>
-
-        <label style={labelStyle}>
-          <span>Drill slug (friendly identifier)</span>
-          <input value={drill.slug} onChange={(event) => setDrillSlug(event.target.value)} style={inputStyle} />
         </label>
       </div>
 

@@ -25,7 +25,6 @@ export type StudioPhaseViewModel = {
 export type StudioDrillViewModel = {
   drillId: string;
   title: string;
-  slug: string;
   description?: string;
   difficulty: string;
   primaryView: string;
@@ -71,7 +70,6 @@ export function mapDrillToViewModel(drill: PortableDrill): StudioDrillViewModel 
   return {
     drillId: drill.drillId,
     title: drill.title,
-    slug: drill.slug,
     description: drill.description,
     difficulty: drill.difficulty,
     primaryView: drill.primaryView,

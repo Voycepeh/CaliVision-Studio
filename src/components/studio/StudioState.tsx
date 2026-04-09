@@ -136,7 +136,6 @@ type StudioStateValue = {
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
   setDrillTitle: (title: string) => void;
-  setDrillSlug: (slug: string) => void;
   setDrillDescription: (description: string) => void;
   setDrillType: (drillType: PortableDrill["drillType"]) => void;
   setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
@@ -748,8 +747,15 @@ export function StudioStateProvider({
     setHostedSaveState("saving");
     const upsert = await upsertHostedLibraryItem(session, selectedPackage.workingPackage);
     if (!upsert.ok) {
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[studio] Cloud draft save failed", {
+          packageId: selectedPackage.workingPackage.manifest.packageId,
+          packageVersion: selectedPackage.workingPackage.manifest.packageVersion,
+          error: upsert.error
+        });
+      }
       setHostedSaveState("error");
-      setHostedSaveStatusMessage("Cloud save failed — edits are still safe on this device.");
+      setHostedSaveStatusMessage(`Cloud save failed: ${upsert.error}. Edits are still safe on this device.`);
       return;
     }
 
@@ -1044,20 +1050,6 @@ export function StudioStateProvider({
         }
 
         drill.title = title;
-      })
-    );
-  }
-
-
-  function setDrillSlug(slug: string): void {
-    updateSelectedPackage((entry) =>
-      updateWorkingPackage(entry, (draft) => {
-        const drill = getPrimaryDrill(draft);
-        if (!drill) {
-          return;
-        }
-
-        drill.slug = slug;
       })
     );
   }
@@ -1781,7 +1773,6 @@ export function StudioStateProvider({
     setPhaseDuration,
     setPhaseSummary,
     setDrillTitle,
-    setDrillSlug,
     setDrillDescription,
     setDrillType,
     setDrillDifficulty,

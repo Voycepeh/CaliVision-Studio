@@ -162,9 +162,11 @@ export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
     ...sanitized,
     primaryView: drill.primaryView ?? drill.defaultView ?? "front"
   } as PortableDrill);
+  const normalizedSlug = normalizeDrillSlug(normalizedIdentity);
 
   return {
     ...normalizedIdentity,
+    slug: normalizedSlug,
     defaultView: undefined,
     analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
     phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase, normalizedIdentity.primaryView))
@@ -220,6 +222,21 @@ export function normalizePortableDrillAnalysis(
     criticalPhaseIds: analysis?.criticalPhaseIds ?? [],
     allowedPhaseSkips: analysis?.allowedPhaseSkips ?? []
   };
+}
+
+function normalizeDrillSlug(drill: PortableDrill): string {
+  const existing = drill.slug?.trim();
+  if (existing) {
+    return existing;
+  }
+
+  const seed = drill.drillId?.trim() || drill.title?.trim() || "drill";
+  const normalized = seed
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return normalized || "drill";
 }
 
 function validateManifest(input: unknown, issues: PackageValidationIssue[]): void {
@@ -375,7 +392,7 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     }
 
     validateNonEmptyString(drill.drillId, `${drillPath}.drillId`, issues);
-    validateNonEmptyString(drill.slug, `${drillPath}.slug`, issues);
+    validateOptionalNonEmptyString(drill.slug, `${drillPath}.slug`, issues);
     validateNonEmptyString(drill.title, `${drillPath}.title`, issues);
     const drillView = typeof drill.primaryView === "string" ? drill.primaryView : drill.defaultView;
     if (typeof drillView !== "string" || !PORTABLE_VIEW_SET.has(drillView)) {

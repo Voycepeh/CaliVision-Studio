@@ -353,6 +353,7 @@ export async function createDrill(context?: DrillRepositoryContext): Promise<{ d
   if (pkg.drills[0]) {
     pkg.drills[0].drillId = drillId;
     pkg.drills[0].title = "New drill";
+    pkg.drills[0].slug = undefined;
   }
 
   if (isCloudContext(resolved)) {

@@ -43,7 +43,6 @@ const SIMPLE_REP_VALIDATION_PACKAGE: DrillPackage = {
   drills: [
     {
       drillId: "drill_simple_two_phase_rep_001",
-      slug: "simple-two-phase-rep",
       title: "Simple Two-Phase Rep Validation",
       description: "Minimal two-phase rep drill for validating phase transitions and rep completion.",
       drillType: "rep",
@@ -87,7 +86,6 @@ const SIMPLE_HOLD_VALIDATION_PACKAGE: DrillPackage = {
   drills: [
     {
       drillId: "drill_simple_hold_validation_001",
-      slug: "simple-hold-validation",
       title: "Simple Hold Validation",
       description: "Single-target hold drill for validating hold entry/exit timing in analysis.",
       drillType: "hold",

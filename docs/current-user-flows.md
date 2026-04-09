@@ -10,7 +10,7 @@
 ## Current Drill Studio flow
 
 1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
-2. Edit drill metadata (title, slug, required drill type, difficulty, primary view).
+2. Edit drill metadata (title, required drill type, difficulty, primary view). Internal identifiers are system-managed and hidden from normal authoring.
 3. Create/edit/reorder phases and update saved phase fields (phase name, order, duration, authored pose data).
 4. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
 5. Upload a phase image.
