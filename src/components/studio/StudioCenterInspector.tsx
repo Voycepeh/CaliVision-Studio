@@ -9,7 +9,7 @@ import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
-import { getSortedPhases } from "@/lib/editor/package-editor";
+import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
@@ -117,8 +117,10 @@ export function StudioCenterInspector() {
   const [sectionOpenState, setSectionOpenState] = useState<Record<number, boolean>>({});
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
+  const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
   const selectedPose = selectedPhase?.poseSequence[0] ?? null;
+  const persistedPoseView = selectedPose?.canvas.view ?? selectedDrill?.primaryView ?? "front";
   const poseModel = useMemo(
     () =>
       mapPortablePoseToCanvasPoseModel(
@@ -220,11 +222,11 @@ export function StudioCenterInspector() {
 
                 {selectedPhase ? (
                   <div className="card studio-selected-phase-basics">
-                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase</h4>
-                    <p className="muted" style={{ margin: 0 }}>Saved to the drill file: phase name, duration, and author notes.</p>
+                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Saved phase fields</h4>
+                    <p className="muted" style={{ margin: 0 }}>Persisted in the drill file/package: phase label, duration, and author notes.</p>
                     <div className="field-grid">
                       <label style={labelStyle}>
-                        <span>Phase name</span>
+                        <span>Phase label</span>
                         <input value={selectedPhase.name} onChange={(event) => renamePhase(selectedPhase.phaseId, event.target.value)} style={inputStyle} />
                       </label>
 
@@ -267,11 +269,15 @@ export function StudioCenterInspector() {
             {selectedPhase ? (
               <>
                 <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
-                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1" }}>
-                    Editor-only controls (not saved to the drill file).
+                  <h4 style={{ margin: 0, fontSize: "0.92rem", gridColumn: "1 / -1" }}>Editor tools</h4>
+                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
+                    Workspace-only controls for pose authoring. These do not change persisted drill/phase schema fields.
+                  </p>
+                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
+                    Primary view (saved drill metadata): <strong>{selectedDrill?.primaryView ?? "front"}</strong> • Persisted phase pose view: <strong>{persistedPoseView}</strong>
                   </p>
                   <label style={labelStyle}>
-                    <span>Selected joint</span>
+                    <span>Selected joint (workspace only)</span>
                     <select value={selectedJointName ?? ""} style={inputStyle} onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}>
                       <option value="">None</option>
                       {STANDARD_AUTHORING_JOINTS.map((joint) => <option key={joint.name} value={joint.name}>{joint.label}</option>)}
@@ -279,14 +285,14 @@ export function StudioCenterInspector() {
                   </label>
 
                   <label style={labelStyle}>
-                    <span>Focus region</span>
+                    <span>Focus region (workspace only)</span>
                     <select value={focusRegion} style={inputStyle} onChange={(event) => setFocusRegion(event.target.value as FocusRegion)}>
                       {FOCUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </select>
                   </label>
 
                   <label style={labelStyle}>
-                    <span>Editor view</span>
+                    <span>Editor canvas view (workspace only)</span>
                     <select value={selectedPhaseEditorView} style={inputStyle} onChange={(event) => setPhaseEditorView(selectedPhase.phaseId, event.target.value as PortableViewType)}>
                       <option value="front">front</option>
                       <option value="side">side</option>
@@ -295,9 +301,9 @@ export function StudioCenterInspector() {
                   </label>
 
                   <label style={labelStyle}>
-                    <span>Canvas size</span>
+                    <span>Canvas focus mode (workspace only)</span>
                     <button type="button" onClick={() => setIsPoseCanvasExpanded((current) => !current)} className="studio-button" aria-pressed={isPoseCanvasExpanded}>
-                      {isPoseCanvasExpanded ? "Use standard canvas" : "Focus canvas"}
+                      {isPoseCanvasExpanded ? "Standard canvas" : "Focus canvas"}
                     </button>
                   </label>
                 </section>
@@ -330,7 +336,7 @@ export function StudioCenterInspector() {
                 />
 
                 <section className="card studio-selected-joint-controls">
-                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint</h4>
+                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint editor</h4>
                   {selectedJointName ? (
                     <>
                       <div className="field-grid">
