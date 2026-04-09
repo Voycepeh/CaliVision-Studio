@@ -118,6 +118,7 @@ export function UploadVideoWorkspace() {
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
+  const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
 
   const selectedDrill = useMemo(
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
@@ -285,6 +286,7 @@ export function UploadVideoWorkspace() {
     };
 
     setActiveSession(null);
+    setIsReferencePanelVisible(false);
     setActiveJob(nextJob);
 
     const controller = new AbortController();
@@ -399,6 +401,12 @@ export function UploadVideoWorkspace() {
     return summarizeTrace(activeSession, traceStepMs);
   }, [activeSession, traceStepMs]);
 
+  const hasActiveUpload = activeJob?.status === "processing";
+  const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
+  const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
+  const showReferencePanel = isReferencePanelVisible;
+  const referenceToggleLabel = showReferencePanel ? "Hide reference animation" : "Show reference animation";
+
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
       <div className="card" style={{ margin: 0, background: "rgba(114,168,255,0.1)" }}>
@@ -412,7 +420,7 @@ export function UploadVideoWorkspace() {
         </p>
       </div>
 
-      <div className="upload-workflow-layout">
+      <div className={`upload-workflow-layout${showReferencePanel ? "" : " upload-workflow-layout--collapsed"}`}>
         <div className="upload-workflow-primary">
           <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
@@ -420,6 +428,22 @@ export function UploadVideoWorkspace() {
                 <strong style={{ fontSize: "0.95rem" }}>Upload Video workflow</strong>
                 <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: "0.45rem 0.75rem", fontSize: "0.86rem" }}>
                   Choose video
+                </button>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
+                <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
+                  {shouldCollapseReferencePanel
+                    ? "Upload is active. Video and processing stay in the main workspace."
+                    : "Reference animation is optional while you set up the upload."}
+                </p>
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={() => setIsReferencePanelVisible((current) => !current)}
+                  aria-expanded={showReferencePanel}
+                >
+                  {referenceToggleLabel}
                 </button>
               </div>
 
@@ -487,9 +511,122 @@ export function UploadVideoWorkspace() {
               />
             </div>
           </div>
+
+          {activeJob ? (
+            <article className="card" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+                <div>
+                  <strong>{activeJob.fileName}</strong>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                    {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
+                  </p>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                    Mode: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
+                  </p>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
+                  {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}
+                  {activeJob.errorDetails ? (
+                    <details style={{ marginTop: "0.3rem" }}>
+                      <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
+                      <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{activeJob.errorDetails}</pre>
+                    </details>
+                  ) : null}
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
+                  {activeJob.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
+                  {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
+                    <button type="button" className="pill" onClick={() => void startSingleRun(activeJob.file)}>Retry</button>
+                  ) : null}
+                  <button type="button" className="pill" onClick={() => { setActiveJob(null); setActiveSession(null); }}>Start fresh</button>
+                </div>
+              </div>
+              <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.4rem" }} />
+            </article>
+          ) : null}
+
+          {activeJob?.artefacts ? (
+            <section className="card" style={{ margin: 0 }}>
+              <h3 style={{ marginTop: 0 }}>Analysis result</h3>
+              <div
+                ref={fullscreenContainerRef}
+                style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
+              >
+                <video
+                  ref={previewVideoRef}
+                  src={previewObjectUrl ?? undefined}
+                  controls
+                  playsInline
+                  disablePictureInPicture
+                  controlsList="nofullscreen noremoteplayback"
+                  style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
+                />
+                <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
+              </div>
+              <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={async () => {
+                    if (!fullscreenContainerRef.current) return;
+                    if (document.fullscreenElement) {
+                      await document.exitFullscreen();
+                      return;
+                    }
+                    await fullscreenContainerRef.current.requestFullscreen();
+                  }}
+                >
+                  Overlay Fullscreen
+                </button>
+              </div>
+
+              {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                  <span className="pill">Phase: {activeSession.events.at(-1)?.phaseId ?? "none"}</span>
+                  <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
+                  <span className="pill">Hold: {activeSession.summary.holdDurationMs ? formatDuration(activeSession.summary.holdDurationMs) : "inactive"}</span>
+                  <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
+                  <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
+                  <span className="pill">Result: {activeSession.status}</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                  <span className="pill">Mode: No drill · Freestyle overlay</span>
+                  <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                {activeJob.artefacts.annotatedVideoBlob ? (
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
+                  >
+                    Download Annotated Video
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`)}
+                >
+                  Download Processing Summary (.json)
+                </button>
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`)}
+                >
+                  Download Pose Timeline (.json)
+                </button>
+              </div>
+            </section>
+          ) : null}
         </div>
 
-        <aside className="upload-workflow-preview">
+        {showReferencePanel ? (
+          <aside className="upload-workflow-preview">
           {selectedDrill ? (
             <DrillSelectionPreviewPanel drill={selectedDrill.drill} sourceKind={selectedDrill.sourceKind} showSourceBadge compact quiet />
           ) : (
@@ -500,120 +637,9 @@ export function UploadVideoWorkspace() {
               </p>
             </section>
           )}
-        </aside>
+          </aside>
+        ) : null}
       </div>
-
-      {activeJob ? (
-        <article className="card" style={{ margin: 0 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
-            <div>
-              <strong>{activeJob.fileName}</strong>
-              <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
-              </p>
-              <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                Mode: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
-              </p>
-              <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
-              {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}
-              {activeJob.errorDetails ? (
-                <details style={{ marginTop: "0.3rem" }}>
-                  <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
-                  <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{activeJob.errorDetails}</pre>
-                </details>
-              ) : null}
-            </div>
-            <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
-              {activeJob.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
-              {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
-                <button type="button" className="pill" onClick={() => void startSingleRun(activeJob.file)}>Retry</button>
-              ) : null}
-              <button type="button" className="pill" onClick={() => { setActiveJob(null); setActiveSession(null); }}>Start fresh</button>
-            </div>
-          </div>
-          <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.4rem" }} />
-        </article>
-      ) : null}
-
-      {activeJob?.artefacts ? (
-        <section className="card" style={{ margin: 0 }}>
-          <h3 style={{ marginTop: 0 }}>Analysis result</h3>
-          <div
-            ref={fullscreenContainerRef}
-            style={{ position: "relative", width: "100%", maxWidth: 960, maxHeight: "68vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
-          >
-            <video
-              ref={previewVideoRef}
-              src={previewObjectUrl ?? undefined}
-              controls
-              playsInline
-              disablePictureInPicture
-              controlsList="nofullscreen noremoteplayback"
-              style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
-            />
-            <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
-          </div>
-          <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-            <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
-            <button
-              type="button"
-              className="pill"
-              onClick={async () => {
-                if (!fullscreenContainerRef.current) return;
-                if (document.fullscreenElement) {
-                  await document.exitFullscreen();
-                  return;
-                }
-                await fullscreenContainerRef.current.requestFullscreen();
-              }}
-            >
-              Overlay Fullscreen
-            </button>
-          </div>
-
-          {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
-            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-              <span className="pill">Phase: {activeSession.events.at(-1)?.phaseId ?? "none"}</span>
-              <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
-              <span className="pill">Hold: {activeSession.summary.holdDurationMs ? formatDuration(activeSession.summary.holdDurationMs) : "inactive"}</span>
-              <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
-              <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
-              <span className="pill">Result: {activeSession.status}</span>
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-              <span className="pill">Mode: No drill · Freestyle overlay</span>
-              <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-            {activeJob.artefacts.annotatedVideoBlob ? (
-              <button
-                type="button"
-                className="pill"
-                onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
-              >
-                Download Annotated Video
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="pill"
-              onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`)}
-            >
-              Download Processing Summary (.json)
-            </button>
-            <button
-              type="button"
-              className="pill"
-              onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`)}
-            >
-              Download Pose Timeline (.json)
-            </button>
-          </div>
-        </section>
-      ) : null}
 
       {activeSession && (activeJob?.drillSelection.mode ?? "drill") === "drill" ? (
         <details style={{ marginTop: "0.2rem", opacity: 0.88 }}>
