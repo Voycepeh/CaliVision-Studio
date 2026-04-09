@@ -720,10 +720,15 @@ export function LiveStreamingWorkspace() {
         <p className="muted" style={{ margin: 0 }}>
           Mobile browser camera session with lightweight live overlay at {LIVE_OVERLAY_CADENCE_FPS} FPS, raw recording in parallel, and post-session annotated replay from retained trace + recording.
         </p>
-        <div style={{ display: "grid", gap: "0.6rem", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
-          <label style={{ display: "grid", gap: "0.3rem" }}>
+        <div className="live-streaming-control-row">
+          <label className="live-streaming-control-field">
             <span>Drill</span>
-            <select value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)} disabled={status === "live-session-running" || status === "requesting-permission"}>
+            <select
+              className="live-streaming-control-input"
+              value={selectedKey}
+              onChange={(event) => setSelectedKey(event.target.value)}
+              disabled={status === "live-session-running" || status === "requesting-permission"}
+            >
               <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
               {groupedDrillOptions.localOptions.length > 0 ? (
                 <optgroup label={`${formatDrillSourceLabel("local")} drills`}>
@@ -745,10 +750,15 @@ export function LiveStreamingWorkspace() {
               ) : null}
             </select>
           </label>
-          <label style={{ display: "grid", gap: "0.3rem" }}>
+          <label className="live-streaming-control-field">
             <span>Camera</span>
-            <button type="button" className="studio-button" onClick={() => setIsRearCamera((current) => !current)} disabled={status === "requesting-permission" || status === "live-session-running"}>
-              {isRearCamera ? "Rear camera" : "Front camera"}
+            <button
+              type="button"
+              className="studio-button live-streaming-control-input live-streaming-camera-button"
+              onClick={() => setIsRearCamera((current) => !current)}
+              disabled={status === "requesting-permission" || status === "live-session-running"}
+            >
+              <span className="live-streaming-button-text">{isRearCamera ? "Rear camera" : "Front camera"}</span>
             </button>
           </label>
         </div>
