@@ -443,13 +443,31 @@ export function LiveStreamingWorkspace() {
     []
   );
 
-  const requestPreview = useCallback(async () => {
+  const startSession = useCallback(async () => {
+    if (status === "requesting-permission" || status === "live-session-running" || status === "stopping-finalizing") {
+      return;
+    }
+
     setErrorMessage(null);
     setStatus("requesting-permission");
+    setReplayState("idle");
+    setReplayExportStageLabel(null);
+    setLiveTrace(null);
+    setSelectedMarkerId(null);
+    if (annotatedReplayUrl) {
+      URL.revokeObjectURL(annotatedReplayUrl);
+      setAnnotatedReplayUrl(null);
+    }
+    if (rawReplayUrl) {
+      URL.revokeObjectURL(rawReplayUrl);
+      setRawReplayUrl(null);
+    }
 
+    await cleanupSession({ stopRecorder: true, discardRecording: true });
+
+    let stream: MediaStream;
     try {
-      await cleanupSession({ stopRecorder: true, discardRecording: true });
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" } },
         audio: false
       });
@@ -458,28 +476,28 @@ export function LiveStreamingWorkspace() {
         previewVideoRef.current.srcObject = stream;
         await previewVideoRef.current.play();
       }
-      overlayNeedsResizeSyncRef.current = true;
-      syncOverlayCanvasSize(true);
-      setStatus("preview-ready");
     } catch (error) {
       const classified = classifyCameraError(error);
       setStatus(classified);
       setErrorMessage(
         classified === "denied"
-          ? "Camera permission was denied. Allow camera access and retry."
+          ? "Camera permission was denied. Allow camera access and tap Start live session to retry."
           : classified === "unsupported"
             ? "No usable camera found on this device/browser."
-            : "Unable to start camera preview."
+            : "Unable to start camera."
       );
+      return;
     }
-  }, [cleanupSession, isRearCamera, syncOverlayCanvasSize]);
 
-  const startSession = useCallback(async () => {
-    const stream = liveStreamRef.current;
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
     const container = mediaContainerRef.current;
-    if (!stream || !video || !canvas || !container) return;
+    if (!video || !canvas || !container) {
+      await cleanupSession({ stopRecorder: true, discardRecording: true });
+      setStatus("failed");
+      setErrorMessage("Live preview surface is unavailable. Retry to start a new session.");
+      return;
+    }
 
     syncOverlayCanvasSize(true);
     const previewReady = isPreviewSurfaceReady({
@@ -492,39 +510,36 @@ export function LiveStreamingWorkspace() {
       canvasHeight: canvas.height
     });
     if (!previewReady) {
-      setErrorMessage("Camera preview is not ready yet. Wait for the visible preview, then start again.");
+      await cleanupSession({ stopRecorder: true, discardRecording: true });
+      setStatus("failed");
+      setErrorMessage("Camera preview is not ready yet. Retry after camera initialization completes.");
       logOverlayDiagnostics("start-blocked-preview-not-ready");
       return;
     }
 
     setStatus("live-session-running");
-    setReplayState("idle");
-    setReplayExportStageLabel(null);
-    setLiveTrace(null);
-    setSelectedMarkerId(null);
-    setErrorMessage(null);
-    if (annotatedReplayUrl) {
-      URL.revokeObjectURL(annotatedReplayUrl);
-      setAnnotatedReplayUrl(null);
-    }
-    if (rawReplayUrl) {
-      URL.revokeObjectURL(rawReplayUrl);
-      setRawReplayUrl(null);
-    }
 
-    const landmarker = await createPoseLandmarkerForJob();
-    landmarkerRef.current = landmarker;
-    const recorder = createMediaRecorder(stream);
-    recorderRef.current = recorder;
-    startedAtRef.current = performance.now();
-    mediaStartMsRef.current = Math.max(0, video.currentTime * 1000);
+    try {
+      const landmarker = await createPoseLandmarkerForJob();
+      landmarkerRef.current = landmarker;
+      const recorder = createMediaRecorder(stream);
+      recorderRef.current = recorder;
+      startedAtRef.current = performance.now();
+      mediaStartMsRef.current = Math.max(0, video.currentTime * 1000);
 
-    traceRef.current = createLiveTraceAccumulator({
-      traceId: `live_${Date.now()}`,
-      startedAtIso: new Date().toISOString(),
-      cadenceFps: LIVE_OVERLAY_CADENCE_FPS,
-      drillSelection: selection
-    });
+      traceRef.current = createLiveTraceAccumulator({
+        traceId: `live_${Date.now()}`,
+        startedAtIso: new Date().toISOString(),
+        cadenceFps: LIVE_OVERLAY_CADENCE_FPS,
+        drillSelection: selection
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to initialize live overlay.";
+      setStatus("failed");
+      setErrorMessage(message);
+      await cleanupSession({ stopRecorder: true, discardRecording: true });
+      return;
+    }
 
     overlayNeedsResizeSyncRef.current = true;
     syncOverlayCanvasSize(true);
@@ -610,7 +625,24 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, buildStabilizedPoseFrame, logOverlayDiagnostics, rawReplayUrl, selection, syncOverlayCanvasSize]);
+  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize]);
+
+  const resetToIdle = useCallback(async () => {
+    await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
+    if (annotatedReplayUrl) {
+      URL.revokeObjectURL(annotatedReplayUrl);
+      setAnnotatedReplayUrl(null);
+    }
+    if (rawReplayUrl) {
+      URL.revokeObjectURL(rawReplayUrl);
+      setRawReplayUrl(null);
+    }
+    setLiveTrace(null);
+    setReplayState("idle");
+    setReplayExportStageLabel(null);
+    setSelectedMarkerId(null);
+    setErrorMessage(null);
+  }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
@@ -690,8 +722,8 @@ export function LiveStreamingWorkspace() {
         </p>
         <div style={{ display: "grid", gap: "0.6rem", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
           <label style={{ display: "grid", gap: "0.3rem" }}>
-            <span>Mode</span>
-            <select value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)} disabled={status === "live-session-running"}>
+            <span>Drill</span>
+            <select value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)} disabled={status === "live-session-running" || status === "requesting-permission"}>
               <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
               {groupedDrillOptions.localOptions.length > 0 ? (
                 <optgroup label={`${formatDrillSourceLabel("local")} drills`}>
@@ -715,25 +747,50 @@ export function LiveStreamingWorkspace() {
           </label>
           <label style={{ display: "grid", gap: "0.3rem" }}>
             <span>Camera</span>
-            <button type="button" className="studio-button" onClick={() => setIsRearCamera((current) => !current)} disabled={status === "live-session-running"}>
+            <button type="button" className="studio-button" onClick={() => setIsRearCamera((current) => !current)} disabled={status === "requesting-permission" || status === "live-session-running"}>
               {isRearCamera ? "Rear camera" : "Front camera"}
             </button>
           </label>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          <button type="button" className="studio-button studio-button-primary" onClick={() => void requestPreview()} disabled={status === "requesting-permission" || status === "live-session-running"}>
-            {status === "requesting-permission" ? "Requesting…" : "Open camera preview"}
-          </button>
-          <button type="button" className="studio-button studio-button-primary" onClick={() => void startSession()} disabled={status !== "preview-ready"}>
-            Start live session
-          </button>
-          <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()} disabled={status !== "live-session-running"}>
-            Stop + finalize
-          </button>
-          <button type="button" className="studio-button" onClick={() => void cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" })}>
-            Cancel / retake
-          </button>
+          {status === "live-session-running" ? (
+            <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+              Stop session
+            </button>
+          ) : null}
+          {(status === "idle" || status === "failed" || status === "denied") && (
+            <button type="button" className="studio-button studio-button-primary" onClick={() => void startSession()}>
+              Start live session
+            </button>
+          )}
+          {status === "requesting-permission" ? (
+            <button type="button" className="studio-button studio-button-primary" disabled>
+              Starting camera...
+            </button>
+          ) : null}
+          {status === "completed" ? (
+            <>
+              {replayUrl ? (
+                <button
+                  type="button"
+                  className="studio-button studio-button-primary"
+                  onClick={() => triggerDownload(replayUrl, `${liveTrace?.traceId ?? "live-session"}-${annotatedReplayUrl ? "annotated" : "raw"}.webm`)}
+                >
+                  Save replay
+                </button>
+              ) : null}
+              <button type="button" className="studio-button" onClick={() => void startSession()}>
+                Retake
+              </button>
+              <button type="button" className="studio-button studio-button-danger" onClick={() => void resetToIdle()}>
+                Discard
+              </button>
+            </>
+          ) : null}
         </div>
+        {(status === "unsupported" || status === "stopping-finalizing") && !errorMessage ? (
+          <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
+        ) : null}
         {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
       </article>
 
@@ -834,24 +891,6 @@ export function LiveStreamingWorkspace() {
               </div>
             </section>
 
-            <section style={{ display: "grid", gap: "0.45rem" }}>
-              <strong>Next actions</strong>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                {annotatedReplayUrl ? (
-                  <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace.traceId}-annotated.webm`)}>
-                    Save annotated replay
-                  </button>
-                ) : null}
-                {rawReplayUrl ? (
-                  <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace.traceId}-raw.webm`)}>
-                    Save raw recording
-                  </button>
-                ) : null}
-                <button type="button" className="studio-button" onClick={() => void requestPreview()} disabled={status === "requesting-permission" || status === "live-session-running"}>
-                  Start another live session
-                </button>
-              </div>
-            </section>
           </>
         ) : null}
       </article>
