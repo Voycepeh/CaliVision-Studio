@@ -211,7 +211,7 @@ export function StudioCenterInspector() {
                   </div>
                 </div>
                 <div style={{ display: "grid", gap: "0.35rem", padding: "0.55rem 0.65rem", border: "1px solid var(--border)", borderRadius: "0.6rem", background: "rgba(110, 168, 255, 0.04)" }}>
-                  <small className="muted">You have {runtimeModel?.phaseCount ?? phases.length} phases.</small>
+                  <small className="muted">You have {phases.length} phases.</small>
                   {runtimeModel ? (
                     <>
                       <small className="muted">Runtime loop: {runtimeModel.loopLabel || "n/a"}</small>

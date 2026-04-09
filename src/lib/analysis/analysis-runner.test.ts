@@ -141,7 +141,7 @@ test("two-phase ordered loop counts rep via implicit return transition", () => {
 test("rep completion with valid explicit skip", () => {
   const drill = buildDrill({
     phases: [
-      ...buildDrill().phases,
+      buildDrill().phases[0]!,
       {
         phaseId: "mid",
         order: 2,
@@ -149,6 +149,10 @@ test("rep completion with valid explicit skip", () => {
         durationMs: 400,
         poseSequence: [makePose("p_mid", 250, 0.5)],
         assetRefs: []
+      },
+      {
+        ...buildDrill().phases[1]!,
+        order: 3
       }
     ],
     analysis: {
@@ -346,6 +350,30 @@ test("stale sequence ids are ignored and runtime loop uses authored phases only"
     poseFrame(350, 0.8),
     poseFrame(500, 0.2),
     poseFrame(650, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 1);
+});
+
+test("runtime follows authored phase order when legacy analysis order is different", () => {
+  const drill = buildDrill();
+  drill.phases = [
+    { ...drill.phases[1]!, order: 1, phaseId: "bottom", name: "Bottom" },
+    { ...drill.phases[0]!, order: 2, phaseId: "top", name: "Top" }
+  ];
+  drill.analysis = {
+    ...drill.analysis!,
+    orderedPhaseSequence: ["top", "bottom"]
+  };
+
+  const frames = [
+    poseFrame(0, 0.8),
+    poseFrame(100, 0.8),
+    poseFrame(250, 0.2),
+    poseFrame(350, 0.2),
+    poseFrame(500, 0.8),
+    poseFrame(650, 0.8)
   ];
 
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });

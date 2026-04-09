@@ -65,6 +65,45 @@ test("runtime model deduplicates stale ordered sequence ids", () => {
   assert.equal(model.allowedTransitionKeys.has("top->top"), false);
 });
 
+test("runtime model follows authored phase order even when legacy analysis order differs", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.phases = [
+    { ...drill.phases[1]!, order: 1, phaseId: "bottom", name: "Bottom" },
+    { ...drill.phases[0]!, order: 2, phaseId: "top", name: "Top" }
+  ];
+  const model = buildPhaseRuntimeModel(drill, drill.analysis!);
+
+  assert.deepEqual(model.orderedPhaseIds, ["bottom", "top"]);
+  assert.equal(model.loopLabel, "1. Bottom -> 2. Top -> 1. Bottom");
+  assert.equal(model.legacyOrderMismatch, true);
+});
+
+test("runtime model includes newly added authored phase even when legacy analysis omits it", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.phases.push({
+    phaseId: "extended",
+    order: 3,
+    name: "Extended",
+    durationMs: 500,
+    poseSequence: [{ poseId: "extended_pose", timestampMs: 0, canvas: { coordinateSystem: "normalized-2d", widthRef: 1, heightRef: 1, view: "side" }, joints: { leftWrist: { x: 0.4, y: 0.4 } } }],
+    assetRefs: []
+  });
+  const model = buildPhaseRuntimeModel(drill, drill.analysis!);
+
+  assert.deepEqual(model.orderedPhaseIds, ["top", "bottom", "extended"]);
+  assert.equal(model.phaseCount, 3);
+  assert.equal(model.legacyOrderMismatchDetails.includes("legacy_analysis_missing_authored_phase_ids"), true);
+});
+
+test("runtime model ignores stale legacy ids and keeps authored transitions", () => {
+  const drill = buildDrill(["top", "removed", "bottom"]);
+  const model = buildPhaseRuntimeModel(drill, drill.analysis!);
+
+  assert.deepEqual(model.orderedPhaseIds, ["top", "bottom"]);
+  assert.equal(model.allowedTransitionKeys.has("top->removed"), false);
+  assert.equal(model.legacyOrderMismatchDetails.includes("legacy_analysis_contains_stale_phase_ids"), true);
+});
+
 test("similar phase warning flags near-duplicate poses", () => {
   const drill = buildDrill(["top", "bottom"]);
   const model = buildPhaseRuntimeModel(drill, drill.analysis!);

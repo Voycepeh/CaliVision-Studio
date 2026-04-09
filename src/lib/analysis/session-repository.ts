@@ -70,6 +70,8 @@ export type AnalysisSessionRecord = {
       attemptedNextPhase?: string | null;
       rejectedReason?: string;
       noRepReason?: string;
+      legacyOrderMismatch?: boolean;
+      legacyOrderMismatchDetails?: string[];
       modeSummary?: string;
       lastRepCompleted?: number | null;
     };

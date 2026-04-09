@@ -894,6 +894,12 @@ export function UploadVideoWorkspace() {
                 </li>
                 <li>Mode rule: {activeSession.debug.runtimeDiagnostics.modeSummary ?? "n/a"}</li>
                 <li>
+                  Legacy sequence mismatch:{" "}
+                  {activeSession.debug.runtimeDiagnostics.legacyOrderMismatch
+                    ? `yes (${(activeSession.debug.runtimeDiagnostics.legacyOrderMismatchDetails ?? []).join(", ") || "details unavailable"})`
+                    : "no"}
+                </li>
+                <li>
                   No-rep reason:{" "}
                   {activeSession.debug.runtimeDiagnostics.noRepReason
                     ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.noRepReason)

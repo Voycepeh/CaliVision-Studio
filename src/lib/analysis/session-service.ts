@@ -72,6 +72,8 @@ function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeo
         ? "insufficient_phase_count_for_rep"
         : "loop_not_completed"
       : undefined,
+    legacyOrderMismatch: runtimeModel.legacyOrderMismatch,
+    legacyOrderMismatchDetails: runtimeModel.legacyOrderMismatchDetails,
     modeSummary: runtimeModel.measurementMode === "rep" ? runtimeModel.repCompletionSummary : runtimeModel.holdSummary,
     lastRepCompleted: repEvent?.repIndex ?? null
   };

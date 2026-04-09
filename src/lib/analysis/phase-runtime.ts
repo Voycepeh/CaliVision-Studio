@@ -38,6 +38,9 @@ export type PhaseRuntimeModel = {
   holdPhaseId: string | null;
   holdPhaseLabel: string | null;
   holdSummary: string;
+  legacyAnalysisOrder: string[];
+  legacyOrderMismatch: boolean;
+  legacyOrderMismatchDetails: string[];
 };
 
 function normalizePhaseName(name: string | undefined, fallback: string): string {
@@ -60,10 +63,25 @@ function toUniqueOrderedIds(ids: string[]): string[] {
 
 export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableDrillAnalysis): PhaseRuntimeModel {
   const sortedPhases = [...drill.phases].sort((a, b) => a.order - b.order);
-  const authoredPhaseIds = new Set(sortedPhases.map((phase) => phase.phaseId));
-  const orderedFromAnalysis = analysis.orderedPhaseSequence.filter((phaseId) => authoredPhaseIds.has(phaseId));
-  const fallbackOrder = sortedPhases.map((phase) => phase.phaseId);
-  const orderedPhaseIds = toUniqueOrderedIds(orderedFromAnalysis.length > 0 ? orderedFromAnalysis : fallbackOrder);
+  const authoredPhaseIds = sortedPhases.map((phase) => phase.phaseId);
+  const orderedPhaseIds = toUniqueOrderedIds(authoredPhaseIds);
+  const authoredSet = new Set(orderedPhaseIds);
+  const legacyAnalysisOrder = toUniqueOrderedIds((analysis.orderedPhaseSequence ?? []).filter((phaseId) => authoredSet.has(phaseId)));
+  const legacyMissingFromAnalysis = orderedPhaseIds.filter((phaseId) => !legacyAnalysisOrder.includes(phaseId));
+  const legacyStaleIds = toUniqueOrderedIds((analysis.orderedPhaseSequence ?? []).filter((phaseId) => !authoredSet.has(phaseId)));
+  const sameOrder = legacyAnalysisOrder.length === orderedPhaseIds.length
+    && legacyAnalysisOrder.every((phaseId, index) => phaseId === orderedPhaseIds[index]);
+  const legacyOrderMismatchDetails: string[] = [];
+  if (!sameOrder) {
+    legacyOrderMismatchDetails.push("legacy_analysis_sequence_differs_from_authored_phase_order");
+  }
+  if (legacyMissingFromAnalysis.length > 0) {
+    legacyOrderMismatchDetails.push("legacy_analysis_missing_authored_phase_ids");
+  }
+  if (legacyStaleIds.length > 0) {
+    legacyOrderMismatchDetails.push("legacy_analysis_contains_stale_phase_ids");
+  }
+  const legacyOrderMismatch = legacyOrderMismatchDetails.length > 0;
 
   const phaseById = orderedPhaseIds.reduce<Record<string, RuntimePhase>>((acc, phaseId, index) => {
     const phase = sortedPhases.find((item) => item.phaseId === phaseId);
@@ -125,7 +143,10 @@ export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableD
     holdPhaseLabel,
     holdSummary: holdPhaseLabel
       ? `Hold drills track time while ${holdPhaseLabel} is confidently matched.`
-      : "Hold drills track time while the selected hold phase is confidently matched."
+      : "Hold drills track time while the selected hold phase is confidently matched.",
+    legacyAnalysisOrder,
+    legacyOrderMismatch,
+    legacyOrderMismatchDetails
   };
 }
 

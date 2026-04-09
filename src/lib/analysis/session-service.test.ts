@@ -150,6 +150,26 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
   assert.equal((await repository.listRecentSessions()).length, 0);
 });
 
+test("runtime diagnostics flag legacy analysis order mismatch without overriding authored order", () => {
+  const drill = buildDrill();
+  drill.phases = [
+    { ...drill.phases[1]!, order: 1, phaseId: "bottom", name: "Bottom" },
+    { ...drill.phases[0]!, order: 2, phaseId: "top", name: "Top" }
+  ];
+  drill.analysis = { ...drill.analysis!, orderedPhaseSequence: ["top", "bottom"] };
+
+  const built = buildCompletedUploadAnalysisSession({
+    drill,
+    drillVersion: "sample-v1",
+    timeline: createTimeline(),
+    sourceId: "upload-mismatch",
+    sourceLabel: "attempt.mp4"
+  });
+
+  assert.equal(built.debug?.runtimeDiagnostics?.legacyOrderMismatch, true);
+  assert.deepEqual(built.debug?.runtimeDiagnostics?.expectedPhaseOrder, ["1. Bottom", "2. Top", "1. Bottom"]);
+});
+
 test("failed analysis attempts can be persisted truthfully", async () => {
   const repository = new InMemoryAnalysisSessionRepository();
   const drill = buildDrill();
