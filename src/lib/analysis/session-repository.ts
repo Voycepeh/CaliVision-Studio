@@ -1,4 +1,4 @@
-import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample } from "../schema/contracts.ts";
+import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableAnalysisMeasurementType } from "../schema/contracts.ts";
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
 export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
@@ -18,6 +18,7 @@ export type AnalysisSessionRecord = {
   drillId: string;
   drillTitle?: string;
   drillVersion?: string;
+  drillMeasurementType?: PortableAnalysisMeasurementType;
   pipelineVersion?: string;
   scorerVersion?: string;
   sourceKind: AnalysisSourceKind;

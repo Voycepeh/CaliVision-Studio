@@ -51,7 +51,13 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
       drawAnalysisOverlay(ctx, canvas.width, canvas.height, deriveReplayOverlayStateAtTime(input.analysisSession, currentMs), {
         modeLabel: input.trace.drillSelection.drillBindingLabel,
         showDrillMetrics: input.trace.drillSelection.mode === "drill",
-        confidenceLabel: `Confidence: ${Math.round((input.trace.summary.confidenceAvg ?? 0) * 100)}%`
+        phaseLabels: (input.trace.drillSelection.drill?.phases ?? []).reduce<Record<string, string>>((acc, phase) => {
+          const label = (phase.name || phase.title || "").trim();
+          if (label) {
+            acc[phase.phaseId] = label;
+          }
+          return acc;
+        }, {})
       });
 
       if (video.ended) {

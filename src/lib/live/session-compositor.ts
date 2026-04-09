@@ -27,6 +27,7 @@ export function buildAnalysisSessionFromLiveTrace(trace: LiveSessionTrace): Anal
     drillId: drill?.drillId ?? "freestyle",
     drillTitle: drill?.title ?? "No drill (Freestyle)",
     drillVersion: trace.drillSelection.drillVersion,
+    drillMeasurementType: drill?.analysis?.measurementType ?? drill?.drillType,
     pipelineVersion: "live-session-trace-v1",
     scorerVersion: "frame-phase-scorer-v1",
     sourceKind: "live",
@@ -55,4 +56,3 @@ export function buildAnalysisSessionFromLiveTrace(trace: LiveSessionTrace): Anal
     }
   };
 }
-

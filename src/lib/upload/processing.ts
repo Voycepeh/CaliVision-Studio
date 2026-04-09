@@ -453,7 +453,7 @@ export async function exportAnnotatedVideo(
     includeAnalysisOverlay?: boolean;
     overlayModeLabel?: string;
     includeDrillMetrics?: boolean;
-    overlayConfidenceLabel?: string;
+    phaseLabels?: Record<string, string>;
   }
 ): Promise<{ blob: Blob; mimeType: string }> {
   const { video, objectUrl } = await loadVideoElement(file);
@@ -501,14 +501,13 @@ export async function exportAnnotatedVideo(
           {
             modeLabel: options.overlayModeLabel,
             showDrillMetrics: options.includeDrillMetrics,
-            confidenceLabel: options.overlayConfidenceLabel
+            phaseLabels: options.phaseLabels
           }
         );
       } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
         drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
           modeLabel: options.overlayModeLabel,
-          showDrillMetrics: false,
-          confidenceLabel: options.overlayConfidenceLabel
+          showDrillMetrics: false
         });
       }
 

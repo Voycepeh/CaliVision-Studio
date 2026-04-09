@@ -94,64 +94,92 @@ export function getNearestPoseFrame(frames: PoseFrame[], currentMs: number): Pos
 }
 
 function formatOverlayDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+  const totalSeconds = Math.max(0, durationMs / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds.toFixed(1)}s`;
+  }
+  const floored = Math.floor(totalSeconds);
+  const minutes = Math.floor(floored / 60);
+  const seconds = floored % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, lines: string[], align: CanvasTextAlign): void {
-  if (lines.length === 0) {
-    return;
-  }
-
-  const fontSize = 30;
-  const lineHeight = 40;
-  ctx.save();
-  ctx.font = `600 ${fontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
-  ctx.textAlign = align;
-  ctx.textBaseline = "top";
-  const widest = lines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
-  const paddingX = 20;
-  const paddingY = 18;
-  const boxWidth = widest + paddingX * 2;
-  const boxHeight = lines.length * lineHeight + paddingY * 2;
-  const left = align === "left" ? x : x - boxWidth;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.98)";
-  ctx.lineWidth = 3;
-  ctx.shadowColor = "rgba(0,0,0,0.45)";
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.roundRect(left, y, boxWidth, boxHeight, 10);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "rgba(255, 255, 255, 1)";
-  lines.forEach((line, index) => {
-    const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
-    ctx.fillText(line, textX, y + paddingY + index * lineHeight);
-  });
-  ctx.restore();
+function resolvePhaseLabel(phaseId: string | null, phaseLabels?: Record<string, string>): string | null {
+  if (!phaseId) return null;
+  const display = phaseLabels?.[phaseId]?.trim();
+  return display || phaseId;
 }
 
-function drawStatusPill(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): void {
+function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, lines: string[], align: CanvasTextAlign): number {
+  if (lines.length === 0) {
+    return 0;
+  }
+
+  const titleFontSize = 16;
+  const bodyFontSize = 14;
+  const lineGap = 6;
+  const paddingX = 12;
+  const paddingY = 10;
+
   ctx.save();
-  ctx.font = "600 14px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.textAlign = "left";
+  ctx.textAlign = align;
   ctx.textBaseline = "top";
-  const paddingX = 10;
-  const paddingY = 7;
-  const boxWidth = ctx.measureText(text).width + paddingX * 2;
-  const boxHeight = 14 + paddingY * 2;
-  ctx.fillStyle = "rgba(148, 163, 184, 0.2)";
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.7)";
+  const widest = lines.reduce((max, line, index) => {
+    ctx.font = index === 0
+      ? `600 ${titleFontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`
+      : `500 ${bodyFontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+    return Math.max(max, ctx.measureText(line).width);
+  }, 0);
+  const lineHeights = lines.map((_, index) => (index === 0 ? titleFontSize + 2 : bodyFontSize + 2));
+  const contentHeight = lineHeights.reduce((sum, h) => sum + h, 0) + Math.max(0, lines.length - 1) * lineGap;
+  const boxWidth = widest + paddingX * 2;
+  const boxHeight = contentHeight + paddingY * 2;
+  const left = align === "left" ? x : x - boxWidth;
+
+  ctx.fillStyle = "rgba(100, 116, 139, 0.54)";
+  ctx.strokeStyle = "rgba(226, 232, 240, 0.52)";
   ctx.lineWidth = 1;
+  ctx.shadowColor = "rgba(2, 6, 23, 0.2)";
+  ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.roundRect(x, y, boxWidth, boxHeight, 999);
+  ctx.roundRect(left, y, boxWidth, boxHeight, 12);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "rgba(241, 245, 249, 0.95)";
-  ctx.fillText(text, x + paddingX, y + paddingY);
+
+  let textY = y + paddingY;
+  lines.forEach((line, index) => {
+    ctx.font = index === 0
+      ? `600 ${titleFontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`
+      : `500 ${bodyFontSize}px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif`;
+    ctx.fillStyle = index === 0 ? "rgba(248, 250, 252, 0.97)" : "rgba(241, 245, 249, 0.94)";
+    const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
+    ctx.fillText(line, textX, textY);
+    textY += lineHeights[index] + (index === lines.length - 1 ? 0 : lineGap);
+  });
+  ctx.restore();
+  return boxHeight;
+}
+
+function drawStatusPill(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, align: CanvasTextAlign): void {
+  ctx.save();
+  ctx.font = "600 12px Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.textAlign = align;
+  ctx.textBaseline = "top";
+  const paddingX = 8;
+  const paddingY = 5;
+  const boxWidth = ctx.measureText(text).width + paddingX * 2;
+  const boxHeight = 12 + paddingY * 2;
+  const left = align === "left" ? x : x - boxWidth;
+  ctx.fillStyle = "rgba(148, 163, 184, 0.24)";
+  ctx.strokeStyle = "rgba(226, 232, 240, 0.52)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(left, y, boxWidth, boxHeight, 999);
+  ctx.fill();
+  ctx.stroke();
+  const textX = align === "left" ? left + paddingX : left + boxWidth - paddingX;
+  ctx.fillStyle = "rgba(241, 245, 249, 0.92)";
+  ctx.fillText(text, textX, y + paddingY);
   ctx.restore();
 }
 
@@ -163,28 +191,37 @@ export function drawAnalysisOverlay(
   options?: {
     modeLabel?: string;
     showDrillMetrics?: boolean;
-    confidenceLabel?: string;
+    phaseLabels?: Record<string, string>;
   }
 ): void {
-  const sidePadding = Math.max(20, width * 0.03);
-  const topPadding = Math.max(20, height * 0.03);
+  const sidePadding = Math.max(10, width * 0.025);
   const lines: string[] = [];
   if (options?.modeLabel) {
     lines.push(options.modeLabel);
   }
   if (options?.showDrillMetrics !== false && replayOverlayState) {
-    lines.push(replayOverlayState.phaseLabel ? `Phase: ${replayOverlayState.phaseLabel}` : "Phase: none");
-    lines.push(`Reps: ${replayOverlayState.repCount}`);
-    lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "inactive"}`);
-  }
-  if (options?.confidenceLabel) {
-    lines.push(options.confidenceLabel);
+    const phaseLabel = resolvePhaseLabel(replayOverlayState.phaseLabel, options?.phaseLabels);
+    lines.push(phaseLabel ? `Phase: ${phaseLabel}` : "Phase: —");
+    if (replayOverlayState.showHoldTimer && !replayOverlayState.showRepCount) {
+      lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "0.0s"}`);
+    } else if (replayOverlayState.showRepCount && !replayOverlayState.showHoldTimer) {
+      lines.push(`Reps: ${replayOverlayState.repCount}`);
+    } else if (replayOverlayState.showRepCount && replayOverlayState.showHoldTimer) {
+      lines.push(
+        replayOverlayState.holdActive
+          ? `Reps: ${replayOverlayState.repCount} · Hold: ${formatOverlayDuration(replayOverlayState.holdElapsedMs)}`
+          : `Reps: ${replayOverlayState.repCount}`
+      );
+    }
   }
   if (lines.length === 0) return;
 
-  const estimatedBoxHeight = lines.length * 40 + 18 * 2;
-  drawOverlayBlock(ctx, sidePadding, topPadding, lines, "left");
+  const align: CanvasTextAlign = width < 900 ? "right" : "left";
+  const anchorX = align === "left" ? sidePadding : width - sidePadding;
+  const estimatedHeight = 20 + lines.length * 24;
+  const overlayY = Math.max(sidePadding, height - estimatedHeight - sidePadding);
+  drawOverlayBlock(ctx, anchorX, overlayY, lines, align);
   if (replayOverlayState?.statusLabel) {
-    drawStatusPill(ctx, sidePadding, topPadding + estimatedBoxHeight + 8, replayOverlayState.statusLabel);
+    drawStatusPill(ctx, anchorX, Math.max(sidePadding, overlayY - 28), replayOverlayState.statusLabel, align);
   }
 }

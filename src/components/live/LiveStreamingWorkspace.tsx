@@ -59,6 +59,19 @@ type DrillSelectionOption = {
   drill: NonNullable<LiveDrillSelection["drill"]>;
 };
 
+function buildPhaseLabelMap(drill?: NonNullable<LiveDrillSelection["drill"]>): Record<string, string> {
+  if (!drill) {
+    return {};
+  }
+  return drill.phases.reduce<Record<string, string>>((acc, phase) => {
+    const label = (phase.name || phase.title || "").trim();
+    if (label) {
+      acc[phase.phaseId] = label;
+    }
+    return acc;
+  }, {});
+}
+
 function triggerDownload(url: string, fileName: string) {
   const link = document.createElement("a");
   link.href = url;
@@ -321,12 +334,12 @@ export function LiveStreamingWorkspace() {
       }
 
       const elapsedMs = performance.now() - startedAtRef.current;
+      const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
+      const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
       syncOverlayCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
-        const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
-        const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
         const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
         if (landmarks) {
@@ -337,17 +350,18 @@ export function LiveStreamingWorkspace() {
         lastSampleAt = elapsedMs;
       }
 
-      drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
-        modeLabel: `LIVE · ${selection.drillBindingLabel}`,
-        showDrillMetrics: false,
-        confidenceLabel: `${LIVE_OVERLAY_CADENCE_FPS} FPS overlay cadence`
+      const overlayState = traceRef.current.getOverlayState(traceTimestampMs);
+      drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
+        modeLabel: selection.drillBindingLabel,
+        showDrillMetrics: selection.mode === "drill",
+        phaseLabels: buildPhaseLabelMap(selection.drill)
       });
 
       liveLoopRef.current = requestAnimationFrame(draw);
     };
 
     draw();
-  }, [annotatedReplayUrl, rawReplayUrl, selection]);
+  }, [annotatedReplayUrl, rawReplayUrl, selection, syncOverlayCanvasSize]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;

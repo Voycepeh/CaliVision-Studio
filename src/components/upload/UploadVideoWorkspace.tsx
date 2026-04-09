@@ -53,6 +53,19 @@ function formatTraceStepLabel(stepMs: number): string {
   return `${(stepMs / 1000).toFixed(1)}s`;
 }
 
+function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string> {
+  if (!drill) {
+    return {};
+  }
+  return drill.phases.reduce<Record<string, string>>((acc, phase) => {
+    const label = (phase.name || phase.title || "").trim();
+    if (label) {
+      acc[phase.phaseId] = label;
+    }
+    return acc;
+  }, {});
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -252,7 +265,7 @@ export function UploadVideoWorkspace() {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
           modeLabel: activeJob.drillSelection.drillBinding.drillName,
           showDrillMetrics: true,
-          confidenceLabel: `Confidence: ${formatConfidence(activeSession.summary.confidenceAvg)}`
+          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill)
         });
       } else {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
@@ -329,10 +342,10 @@ export function UploadVideoWorkspace() {
         includeAnalysisOverlay: true,
         analysisSession: completedSession,
         overlayModeLabel: (nextJob.drillSelection.mode ?? "drill") === "drill"
-          ? `Drill: ${nextJob.drillSelection.drillBinding.drillName}`
+          ? nextJob.drillSelection.drillBinding.drillName
           : "No drill · Freestyle overlay",
         includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
-        overlayConfidenceLabel: completedSession ? `Confidence: ${formatConfidence(completedSession.summary.confidenceAvg)}` : undefined
+        phaseLabels: buildPhaseLabelMap(nextJob.drillSelection.drill)
       };
 
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
