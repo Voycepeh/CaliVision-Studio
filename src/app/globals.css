@@ -999,6 +999,42 @@ main {
   align-items: start;
 }
 
+
+.live-streaming-control-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.live-streaming-control-field {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.live-streaming-control-input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.15rem;
+}
+
+.live-streaming-camera-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.live-streaming-button-text {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .live-streaming-results-card {
   display: grid;
   gap: 0.7rem;
@@ -1049,5 +1085,9 @@ main {
 @media (max-width: 980px) {
   .upload-workflow-layout {
     grid-template-columns: 1fr;
+  }
+
+  .live-streaming-control-row {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
