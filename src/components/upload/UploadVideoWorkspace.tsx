@@ -13,6 +13,7 @@ import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
+import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 
@@ -52,6 +53,16 @@ function formatConfidence(value?: number): string {
 
 function formatTraceStepLabel(stepMs: number): string {
   return `${(stepMs / 1000).toFixed(1)}s`;
+}
+
+function formatDrillBindingSource(sourceKind: UploadJob["drillSelection"]["drillBinding"]["sourceKind"]): string {
+  if (sourceKind === "local" || sourceKind === "hosted") {
+    return formatStoredDrillSourceLabel(sourceKind);
+  }
+  if (sourceKind === "freestyle") {
+    return "Freestyle";
+  }
+  return "Unknown";
 }
 
 function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string> {
@@ -132,6 +143,7 @@ export function UploadVideoWorkspace() {
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
+  const [selectedSource, setSelectedSource] = useState<DrillSourceKind>(persistenceMode === "cloud" ? "cloud" : "local");
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
 
@@ -198,6 +210,51 @@ export function UploadVideoWorkspace() {
     if (!selectedDrillKey) return;
     window.localStorage.setItem(SELECTED_DRILL_STORAGE_KEY, selectedDrillKey);
   }, [selectedDrillKey]);
+
+  useEffect(() => {
+    setSelectedSource((current) => (current === "exchange" ? current : persistenceMode === "cloud" ? "cloud" : "local"));
+  }, [persistenceMode]);
+
+  const drillOptionGroups = useMemo(() => {
+    const titleCounts = new Map<string, number>();
+    for (const option of drillOptions) {
+      const key = option.drill.title.trim().toLowerCase();
+      titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+    }
+
+    const grouped = new Map<DrillSourceKind, Array<DrillSelectionOption & { displayLabel: string }>>();
+    for (const source of DRILL_SOURCE_ORDER) {
+      grouped.set(source, []);
+    }
+
+    for (const option of drillOptions) {
+      const titleKey = option.drill.title.trim().toLowerCase();
+      const duplicateTitleCount = titleCounts.get(titleKey) ?? 1;
+      const source = toDrillSourceKind(option.sourceKind);
+      grouped.get(source)?.push({
+        ...option,
+        displayLabel: buildDuplicateSafeDrillLabel({
+          baseLabel: option.label,
+          sourceKind: option.sourceKind,
+          sourceId: option.sourceId,
+          duplicateTitleCount
+        })
+      });
+    }
+
+    return grouped;
+  }, [drillOptions]);
+
+  useEffect(() => {
+    if (selectedDrillKey === FREESTYLE_DRILL_KEY) {
+      return;
+    }
+    const visibleOptions = drillOptionGroups.get(selectedSource) ?? [];
+    if (visibleOptions.some((option) => option.key === selectedDrillKey)) {
+      return;
+    }
+    setSelectedDrillKey(visibleOptions[0]?.key ?? FREESTYLE_DRILL_KEY);
+  }, [drillOptionGroups, selectedDrillKey, selectedSource]);
 
   useEffect(() => {
     if (!activeJob) {
@@ -490,17 +547,40 @@ export function UploadVideoWorkspace() {
                 <label className="muted" style={{ fontSize: "0.85rem" }}>
                   Analysis mode
                   <select
+                    value={selectedSource}
+                    onChange={(event) => setSelectedSource(event.target.value as DrillSourceKind)}
+                    style={{ marginLeft: "0.35rem", minWidth: 155 }}
+                    disabled={drillOptionsLoading}
+                  >
+                    {DRILL_SOURCE_ORDER.map((source) => (
+                      <option key={source} value={source}>
+                        {formatDrillSourceLabel(source)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="muted" style={{ fontSize: "0.85rem" }}>
+                  Drill
+                  <select
                     value={selectedDrillKey}
                     onChange={(event) => setSelectedDrillKey(event.target.value)}
                     style={{ marginLeft: "0.35rem", minWidth: 240 }}
                     disabled={drillOptionsLoading}
                   >
                     <option value={FREESTYLE_DRILL_KEY}>No drill · Freestyle overlay</option>
-                    {drillOptions.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.label}
+                    {(drillOptionGroups.get(selectedSource) ?? []).length === 0 ? (
+                      <option value={FREESTYLE_DRILL_KEY} disabled>
+                        No {formatDrillSourceLabel(selectedSource).toLowerCase()} drills available
                       </option>
-                    ))}
+                    ) : (
+                      <optgroup label={`${formatDrillSourceLabel(selectedSource)} drills`}>
+                        {(drillOptionGroups.get(selectedSource) ?? []).map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.displayLabel}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </label>
                 <label className="muted" style={{ fontSize: "0.85rem" }}>
@@ -566,7 +646,7 @@ export function UploadVideoWorkspace() {
                     {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
                   </p>
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                    Mode: {activeJob.drillSelection.drillBinding.drillName} ({activeJob.drillSelection.drillBinding.sourceKind})
+                    Mode: {activeJob.drillSelection.drillBinding.drillName} ({formatDrillBindingSource(activeJob.drillSelection.drillBinding.sourceKind)})
                   </p>
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
                   {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}

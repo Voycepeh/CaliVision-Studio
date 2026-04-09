@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { fitVideoCoverRect, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { buildDuplicateSafeDrillLabel, formatDrillSourceLabel, toDrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
@@ -122,6 +123,34 @@ export function LiveStreamingWorkspace() {
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
     [drillOptions, selectedKey]
   );
+  const groupedDrillOptions = useMemo(() => {
+    const titleCounts = new Map<string, number>();
+    for (const option of drillOptions) {
+      const key = option.drill.title.trim().toLowerCase();
+      titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
+    }
+    const localOptions: Array<DrillSelectionOption & { displayLabel: string }> = [];
+    const cloudOptions: Array<DrillSelectionOption & { displayLabel: string }> = [];
+
+    for (const option of drillOptions) {
+      const duplicateTitleCount = titleCounts.get(option.drill.title.trim().toLowerCase()) ?? 1;
+      const withDisplayLabel = {
+        ...option,
+        displayLabel: buildDuplicateSafeDrillLabel({
+          baseLabel: option.label,
+          sourceKind: option.sourceKind,
+          sourceId: option.sourceId,
+          duplicateTitleCount
+        })
+      };
+      if (toDrillSourceKind(option.sourceKind) === "cloud") {
+        cloudOptions.push(withDisplayLabel);
+      } else {
+        localOptions.push(withDisplayLabel);
+      }
+    }
+    return { localOptions, cloudOptions };
+  }, [drillOptions]);
 
   const selection: LiveDrillSelection = useMemo(() => {
     if (!selectedDrill) {
@@ -617,11 +646,24 @@ export function LiveStreamingWorkspace() {
             <span>Mode</span>
             <select value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)} disabled={status === "live-session-running"}>
               <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
-              {drillOptions.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
+              {groupedDrillOptions.localOptions.length > 0 ? (
+                <optgroup label={`${formatDrillSourceLabel("local")} drills`}>
+                  {groupedDrillOptions.localOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.displayLabel}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {groupedDrillOptions.cloudOptions.length > 0 ? (
+                <optgroup label={`${formatDrillSourceLabel("cloud")} drills`}>
+                  {groupedDrillOptions.cloudOptions.map((option) => (
+                    <option key={option.key} value={option.key}>
+                      {option.displayLabel}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
             </select>
           </label>
           <label style={{ display: "grid", gap: "0.3rem" }}>

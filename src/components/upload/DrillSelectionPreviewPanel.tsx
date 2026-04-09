@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
+import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
 
@@ -12,7 +13,7 @@ const HOLD_PLATEAU_MIN_DURATION_MS = 900;
 
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
-  sourceKind?: "local" | "hosted";
+  sourceKind?: StoredDrillSourceKind;
   showSourceBadge?: boolean;
   compact?: boolean;
   quiet?: boolean;
@@ -30,11 +31,6 @@ function formatViewLabel(view: PortableViewType): string {
   if (view === "front") return "Front";
   if (view === "rear") return "Rear";
   return "Side";
-}
-
-function formatSourceLabel(sourceKind: DrillSelectionPreviewPanelProps["sourceKind"]): string {
-  if (sourceKind === "hosted") return "Hosted";
-  return "Local";
 }
 
 function createLoopPhases(drill: PortableDrill): PortablePhase[] {
@@ -186,7 +182,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
         </div>
         {showSourceBadge ? (
           <span className="pill" style={{ opacity: 0.75, fontSize: "0.74rem" }}>
-            {formatSourceLabel(sourceKind)}
+            {formatStoredDrillSourceLabel(sourceKind ?? "local")}
           </span>
         ) : null}
       </div>
