@@ -8,6 +8,7 @@ function createSession(): AnalysisSessionRecord {
     sessionId: "session-1",
     drillId: "drill-1",
     drillVersion: "v1",
+    drillMeasurementType: "hybrid",
     drillTitle: "Push Up",
     status: "completed",
     sourceKind: "upload",
@@ -166,6 +167,7 @@ test("overlay helper stays aligned with base replay derivation", () => {
 
 test("overlay state keeps rep count visible even when no rep events exist", () => {
   const session = createSession();
+  session.drillMeasurementType = "rep";
   session.summary.repCount = undefined;
   session.events = session.events.filter((event) => event.type !== "rep_complete");
   const overlay = deriveReplayOverlayStateAtTime(session, 1200);

@@ -20,6 +20,7 @@ export type ReplayDerivedState = {
 
 export type ReplayOverlayState = ReplayDerivedState & {
   phaseLabel: string | null;
+  measurementType: "rep" | "hold" | "hybrid" | null;
   showRepCount: boolean;
   showHoldTimer: boolean;
   statusLabel?: string;
@@ -157,6 +158,7 @@ export function deriveReplayOverlayStateAtTime(
     return {
       ...base,
       phaseLabel: null,
+      measurementType: null,
       showRepCount: false,
       showHoldTimer: false,
       statusLabel: undefined
@@ -168,12 +170,14 @@ export function deriveReplayOverlayStateAtTime(
   const hasHoldSignal =
     session.summary.holdDurationMs !== undefined ||
     sortedEvents.some((event) => event.type === "hold_start" || event.type === "hold_end");
+  const measurementType = session.drillMeasurementType ?? (hasHoldSignal ? "hold" : "rep");
 
   return {
     ...base,
     phaseLabel: base.activePhaseId ?? phaseFromEvents,
-    showRepCount: true,
-    showHoldTimer: hasHoldSignal,
+    measurementType,
+    showRepCount: measurementType === "rep" || measurementType === "hybrid",
+    showHoldTimer: measurementType === "hold" || measurementType === "hybrid",
     statusLabel: session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined
   };
 }

@@ -153,6 +153,22 @@ export function createLiveTraceAccumulator(input: {
       applyTransition(input.drillSelection.drill, frameSample.classifiedPhaseId ?? null, frame.timestampMs);
     },
 
+    getOverlayState(timestampMs: number) {
+      const measurementType = input.drillSelection.drill?.analysis?.measurementType ?? input.drillSelection.drill?.drillType ?? null;
+      return {
+        timestampMs,
+        activePhaseId: state.currentPhaseId,
+        phaseLabel: state.currentPhaseId,
+        repCount: state.repCount,
+        holdActive: state.activeHoldStartMs !== null,
+        holdElapsedMs: state.activeHoldStartMs === null ? 0 : Math.max(0, timestampMs - state.activeHoldStartMs),
+        nearestEvent: state.events.at(-1) ?? null,
+        measurementType,
+        showRepCount: measurementType === "rep" || measurementType === "hybrid",
+        showHoldTimer: measurementType === "hold" || measurementType === "hybrid"
+      };
+    },
+
     finalize(
       video: {
         durationMs: number;
