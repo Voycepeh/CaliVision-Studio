@@ -104,3 +104,22 @@ test("phase transitions require confirmation and ignore confidence gate jitter",
   assert.equal(phaseEnterEvents[1]?.phaseId, "down");
   assert.equal(phaseEnterEvents[1]?.timestampMs, 500);
 });
+
+test("overlay state resolves authored phase labels", () => {
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_3",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: drill as never,
+      drillBindingLabel: drill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: drill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 100, joints: drill.phases[0].poseSequence[0].joints });
+  const overlay = trace.getOverlayState(100);
+  assert.equal(overlay.phaseLabel, "Up");
+});

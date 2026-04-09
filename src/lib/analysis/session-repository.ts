@@ -59,6 +59,15 @@ export type AnalysisSessionRecord = {
       smoothedPhaseId: string | null;
       transitionAccepted: boolean;
     }>;
+    runtimeDiagnostics?: {
+      expectedPhaseOrder: string[];
+      allowedTransitions: string[];
+      currentPhase?: string | null;
+      previousPhase?: string | null;
+      attemptedNextPhase?: string | null;
+      rejectedReason?: string;
+      lastRepCompleted?: number | null;
+    };
   };
   drillBinding?: AnalysisSessionDrillBinding;
 };
