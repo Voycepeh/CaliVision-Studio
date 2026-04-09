@@ -6,7 +6,6 @@ import type { PoseFrame, PoseTimeline } from "../upload/types.ts";
 export type LiveSessionStatus =
   | "idle"
   | "requesting-permission"
-  | "preview-ready"
   | "live-session-running"
   | "stopping-finalizing"
   | "completed"
