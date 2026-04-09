@@ -28,14 +28,22 @@ import {
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 
-const LIVE_OVERLAY_CADENCE_FPS = 10;
-const LIVE_SAMPLE_INTERVAL_MS = Math.round(1000 / LIVE_OVERLAY_CADENCE_FPS);
+const LIVE_ANALYSIS_CADENCE_FPS = 10;
+const LIVE_OVERLAY_PRESENTATION_FPS = 30;
+const LIVE_ANALYSIS_INTERVAL_MS = Math.round(1000 / LIVE_ANALYSIS_CADENCE_FPS);
+const LIVE_PRESENTATION_INTERVAL_MS = Math.round(1000 / LIVE_OVERLAY_PRESENTATION_FPS);
 const FREESTYLE_KEY = "freestyle";
 const LANDMARK_SMOOTHING_ALPHA = 0.38;
 const JOINT_VISIBILITY_ENTER_THRESHOLD = 0.52;
 const JOINT_VISIBILITY_EXIT_THRESHOLD = 0.42;
 const JOINT_VISIBILITY_GRACE_SAMPLES = 2;
 const LIVE_POSE_STALE_HOLD_MS = 420;
+
+type LiveCadenceStats = {
+  analysisTicks: number;
+  presentationTicks: number;
+  stalePoseReuseCount: number;
+};
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -122,6 +130,7 @@ export function LiveStreamingWorkspace() {
   const lastOverlayDiagnosticsAtRef = useRef(0);
   const lastPoseFrameAtRef = useRef<number>(0);
   const stalePoseLoggedRef = useRef(false);
+  const liveCadenceStatsRef = useRef<LiveCadenceStats>({ analysisTicks: 0, presentationTicks: 0, stalePoseReuseCount: 0 });
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -264,6 +273,7 @@ export function LiveStreamingWorkspace() {
     smoothedFrameRef.current = null;
     lastPoseFrameAtRef.current = 0;
     stalePoseLoggedRef.current = false;
+    liveCadenceStatsRef.current = { analysisTicks: 0, presentationTicks: 0, stalePoseReuseCount: 0 };
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
     const canvas = previewCanvasRef.current;
@@ -530,7 +540,7 @@ export function LiveStreamingWorkspace() {
       traceRef.current = createLiveTraceAccumulator({
         traceId: `live_${Date.now()}`,
         startedAtIso: new Date().toISOString(),
-        cadenceFps: LIVE_OVERLAY_CADENCE_FPS,
+        cadenceFps: LIVE_ANALYSIS_CADENCE_FPS,
         drillSelection: selection
       });
     } catch (error) {
@@ -546,7 +556,8 @@ export function LiveStreamingWorkspace() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let lastSampleAt = -LIVE_SAMPLE_INTERVAL_MS;
+    let nextAnalysisAtMs = 0;
+    let nextPresentationAtMs = 0;
     const draw = () => {
       if (!previewVideoRef.current || !landmarkerRef.current || !traceRef.current) {
         return;
@@ -562,11 +573,7 @@ export function LiveStreamingWorkspace() {
       }
       const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideo.currentTime * 1000);
       const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
       const pixelRatio = overlayPixelRatioRef.current;
-      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-
       if (
         !isPreviewSurfaceReady({
           readyState: previewVideo.readyState,
@@ -583,9 +590,10 @@ export function LiveStreamingWorkspace() {
         return;
       }
 
-      if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
+      if (elapsedMs >= nextAnalysisAtMs) {
         const result = landmarkerRef.current.detectForVideo(previewVideo, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
+        liveCadenceStatsRef.current.analysisTicks += 1;
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
@@ -599,13 +607,26 @@ export function LiveStreamingWorkspace() {
           });
           stalePoseLoggedRef.current = true;
         }
-        lastSampleAt = elapsedMs;
+        nextAnalysisAtMs = elapsedMs + LIVE_ANALYSIS_INTERVAL_MS;
       }
 
+      if (elapsedMs < nextPresentationAtMs) {
+        liveLoopRef.current = requestAnimationFrame(draw);
+        return;
+      }
+
+      nextPresentationAtMs = elapsedMs + LIVE_PRESENTATION_INTERVAL_MS;
+      liveCadenceStatsRef.current.presentationTicks += 1;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       const analyzedFrameState = traceRef.current.getAnalyzedFrameState(traceTimestampMs);
       const staleForMs = Math.max(0, traceTimestampMs - lastPoseFrameAtRef.current);
       const canReuseStalePose = lastPoseFrameAtRef.current > 0 && staleForMs <= LIVE_POSE_STALE_HOLD_MS;
       if (analyzedFrameState.poseFrame && canReuseStalePose) {
+        if (staleForMs > LIVE_ANALYSIS_INTERVAL_MS) {
+          liveCadenceStatsRef.current.stalePoseReuseCount += 1;
+        }
         drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
       } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
         console.info("[live-overlay] stale pose timeout reached; clearing overlay skeleton", {
@@ -679,6 +700,14 @@ export function LiveStreamingWorkspace() {
       },
       completedAtIso
     );
+    const captureDurationMs = Math.max(1, Math.round(mediaStopMs - mediaStartMsRef.current));
+    const analysisCadence = Number(((liveCadenceStatsRef.current.analysisTicks * 1000) / captureDurationMs).toFixed(2));
+    const presentationCadence = Number(((liveCadenceStatsRef.current.presentationTicks * 1000) / captureDurationMs).toFixed(2));
+    console.info("[live-overlay] cadence-summary", {
+      analysisCadenceFps: analysisCadence,
+      overlayPresentationCadenceFps: presentationCadence,
+      stalePoseReuseCount: liveCadenceStatsRef.current.stalePoseReuseCount
+    });
 
     setLiveTrace(trace);
     const rawUrl = URL.createObjectURL(raw.blob);
@@ -718,7 +747,7 @@ export function LiveStreamingWorkspace() {
       <article className="card" style={{ display: "grid", gap: "0.8rem" }}>
         <h2 style={{ margin: 0 }}>Live Streaming</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Mobile browser camera session with lightweight live overlay at {LIVE_OVERLAY_CADENCE_FPS} FPS, raw recording in parallel, and post-session annotated replay from retained trace + recording.
+          Mobile browser camera session with lightweight live overlay (analysis at {LIVE_ANALYSIS_CADENCE_FPS} FPS, presentation at {LIVE_OVERLAY_PRESENTATION_FPS} FPS), raw recording in parallel, and post-session annotated replay from retained trace + recording.
         </p>
         <div className="live-streaming-control-row">
           <label className="live-streaming-control-field">
