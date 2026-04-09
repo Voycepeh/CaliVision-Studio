@@ -83,6 +83,7 @@ export function LiveStreamingWorkspace() {
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const mediaContainerRef = useRef<HTMLDivElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const traceRef = useRef<ReturnType<typeof createLiveTraceAccumulator> | null>(null);
   const liveLoopRef = useRef<number | null>(null);
@@ -201,10 +202,42 @@ export function LiveStreamingWorkspace() {
     landmarkerRef.current = null;
     recorderRef.current = null;
     traceRef.current = null;
+    const canvas = previewCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
     if (options?.nextStatus) {
       setStatus(options.nextStatus);
     }
   }, []);
+
+  const syncOverlayCanvasSize = useCallback(() => {
+    const canvas = previewCanvasRef.current;
+    const container = mediaContainerRef.current;
+    if (!canvas || !container) return;
+
+    const bounds = container.getBoundingClientRect();
+    const width = Math.max(1, Math.round(bounds.width));
+    const height = Math.max(1, Math.round(bounds.height));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = mediaContainerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      syncOverlayCanvasSize();
+    });
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
+  }, [syncOverlayCanvasSize]);
 
   useEffect(() => {
     return () => {
@@ -277,8 +310,7 @@ export function LiveStreamingWorkspace() {
       drillSelection: selection
     });
 
-    canvas.width = video.videoWidth || 720;
-    canvas.height = video.videoHeight || 1280;
+    syncOverlayCanvasSize();
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -289,8 +321,8 @@ export function LiveStreamingWorkspace() {
       }
 
       const elapsedMs = performance.now() - startedAtRef.current;
+      syncOverlayCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(previewVideoRef.current, 0, 0, canvas.width, canvas.height);
 
       if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
         const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
@@ -415,7 +447,6 @@ export function LiveStreamingWorkspace() {
           </button>
         </div>
         {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
-        <span className="pill">State: {status}</span>
       </article>
 
       <article className="card" style={{ display: "grid", gap: "0.7rem" }}>

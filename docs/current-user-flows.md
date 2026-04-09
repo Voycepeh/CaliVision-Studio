@@ -3,7 +3,7 @@
 ## Home and navigation flow
 
 1. User lands on **Home** (`/`) as the brand-first product entry.
-2. User picks one of the primary paths: **Open Library**, **Upload Video**, **Live Streaming**, or **Download Android app**.
+2. User picks one of the primary paths: **Open Library**, **Upload Video**, or **Live Streaming**.
 3. From **Library** (`/library`), user can create a new drill, edit existing drills, view version history, import drill files, and open Drill Exchange.
 4. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
 
