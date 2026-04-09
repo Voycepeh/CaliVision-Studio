@@ -8,14 +8,20 @@ import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
 import {
+  buildLiveResultsSummary,
   classifyCameraError,
   createLiveTraceAccumulator,
   createMediaRecorder,
   exportAnnotatedReplayFromLiveTrace,
   getCameraSupportStatus,
+  getReplayStateMessage,
+  getReplayStateTone,
+  mapLiveTraceToTimelineMarkers,
   stopMediaStream,
   type LiveDrillSelection,
-  type LiveSessionStatus
+  type LiveSessionStatus,
+  type LiveSessionTrace,
+  type ReplayTerminalState
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 
@@ -53,6 +59,15 @@ type DrillSelectionOption = {
   drill: NonNullable<LiveDrillSelection["drill"]>;
 };
 
+function triggerDownload(url: string, fileName: string) {
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
 export function LiveStreamingWorkspace() {
   const { session, isConfigured } = useAuth();
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
@@ -60,8 +75,10 @@ export function LiveStreamingWorkspace() {
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>(FREESTYLE_KEY);
   const [isRearCamera, setIsRearCamera] = useState(true);
-  const [sessionSummary, setSessionSummary] = useState<{ reps: number; holdMs: number; durationMs: number } | null>(null);
-  const [replayUrl, setReplayUrl] = useState<string | null>(null);
+  const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
+  const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
+  const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
+  const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -97,19 +114,24 @@ export function LiveStreamingWorkspace() {
     };
   }, [selectedDrill]);
 
+  const summary = useMemo(() => (liveTrace ? buildLiveResultsSummary(liveTrace) : null), [liveTrace]);
+  const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace) : []), [liveTrace]);
+  const replayUrl = annotatedReplayUrl ?? rawReplayUrl;
+  const replayTone = getReplayStateTone(replayState);
+
   const refreshDrillOptions = useCallback(async () => {
     const options: DrillSelectionOption[] = [];
     try {
       const local = await loadDraftList();
-      for (const summary of local.slice(0, 20)) {
-        const loaded = await loadDraft(summary.draftId);
+      for (const summaryItem of local.slice(0, 20)) {
+        const loaded = await loadDraft(summaryItem.draftId);
         const drill = loaded?.record.packageJson.drills[0];
         if (!drill) continue;
         options.push({
-          key: `local:${summary.draftId}:${drill.drillId}`,
+          key: `local:${summaryItem.draftId}:${drill.drillId}`,
           label: drill.title,
           sourceKind: "local",
-          sourceId: summary.draftId,
+          sourceId: summaryItem.draftId,
           packageVersion: loaded.record.packageJson.manifest.packageVersion,
           drill
         });
@@ -177,9 +199,10 @@ export function LiveStreamingWorkspace() {
   useEffect(() => {
     return () => {
       void cleanupSession({ stopRecorder: true, discardRecording: true });
-      if (replayUrl) URL.revokeObjectURL(replayUrl);
+      if (annotatedReplayUrl) URL.revokeObjectURL(annotatedReplayUrl);
+      if (rawReplayUrl) URL.revokeObjectURL(rawReplayUrl);
     };
-  }, [cleanupSession, replayUrl]);
+  }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
 
   const requestPreview = useCallback(async () => {
     setErrorMessage(null);
@@ -217,10 +240,16 @@ export function LiveStreamingWorkspace() {
     if (!stream || !video || !canvas) return;
 
     setStatus("live-session-running");
-    setSessionSummary(null);
-    if (replayUrl) {
-      URL.revokeObjectURL(replayUrl);
-      setReplayUrl(null);
+    setReplayState("idle");
+    setLiveTrace(null);
+    setErrorMessage(null);
+    if (annotatedReplayUrl) {
+      URL.revokeObjectURL(annotatedReplayUrl);
+      setAnnotatedReplayUrl(null);
+    }
+    if (rawReplayUrl) {
+      URL.revokeObjectURL(rawReplayUrl);
+      setRawReplayUrl(null);
     }
 
     const landmarker = await createPoseLandmarkerForJob();
@@ -275,7 +304,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [replayUrl, selection]);
+  }, [annotatedReplayUrl, rawReplayUrl, selection]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
@@ -287,6 +316,7 @@ export function LiveStreamingWorkspace() {
     const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
     const raw = await recorder.stop();
     if (!raw) {
+      setReplayState("export-failed");
       setStatus("failed");
       setErrorMessage("Live recording did not finalize correctly. Please retake.");
       return;
@@ -312,17 +342,24 @@ export function LiveStreamingWorkspace() {
       completedAtIso
     );
 
+    setLiveTrace(trace);
+    const rawUrl = URL.createObjectURL(raw.blob);
+    setRawReplayUrl(rawUrl);
+    setReplayState("export-in-progress");
+
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
-    const annotated = await exportAnnotatedReplayFromLiveTrace({ rawVideo: rawFile, trace, analysisSession });
-    const url = URL.createObjectURL(annotated.blob);
 
-    setReplayUrl(url);
-    setSessionSummary({
-      reps: trace.summary.repCount ?? 0,
-      holdMs: trace.summary.holdDurationMs ?? 0,
-      durationMs: metadata.durationMs
-    });
+    try {
+      const annotated = await exportAnnotatedReplayFromLiveTrace({ rawVideo: rawFile, trace, analysisSession });
+      const annotatedUrl = URL.createObjectURL(annotated.blob);
+      setAnnotatedReplayUrl(annotatedUrl);
+      setReplayState("annotated-ready");
+    } catch {
+      setReplayState("raw-fallback");
+      setErrorMessage("Annotated replay generation failed. Showing raw session recording fallback.");
+    }
+
     setStatus("completed");
   }, [cleanupSession]);
 
@@ -375,12 +412,81 @@ export function LiveStreamingWorkspace() {
           <video ref={previewVideoRef} muted playsInline style={{ width: "100%", display: status === "completed" ? "none" : "block" }} />
           <canvas ref={previewCanvasRef} style={{ width: "100%", display: status === "live-session-running" ? "block" : "none" }} />
         </div>
-        {sessionSummary ? (
-          <div style={{ display: "grid", gap: "0.35rem" }}>
-            <strong>Session complete</strong>
-            <span className="muted">Duration: {Math.round(sessionSummary.durationMs / 1000)}s · Reps: {sessionSummary.reps} · Hold: {Math.round(sessionSummary.holdMs / 1000)}s</span>
+
+        {liveTrace ? (
+          <>
+            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div className="pill">Drill: {summary?.drillLabel ?? "Freestyle"}</div>
+              <div className="pill">Duration: {summary?.durationLabel ?? "0s"}</div>
+              <div className="pill">Reps: {summary?.repCount ?? 0}</div>
+              <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
+              <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
+              <div
+                className="pill"
+                style={{
+                  color: replayTone === "success" ? "#8ce7bf" : replayTone === "warning" ? "#f7d58b" : replayTone === "danger" ? "#f2bbbb" : undefined
+                }}
+              >
+                Replay: {getReplayStateMessage(replayState)}
+              </div>
+            </div>
+
             {replayUrl ? <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} /> : null}
-          </div>
+
+            <section style={{ display: "grid", gap: "0.45rem" }}>
+              <strong>Timeline</strong>
+              <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
+                {timelineMarkers.map((marker) => {
+                  const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
+                  return (
+                    <button
+                      key={marker.id}
+                      type="button"
+                      title={marker.label}
+                      aria-label={marker.label}
+                      style={{
+                        position: "absolute",
+                        left: `${Math.min(99, Math.max(0, leftPercent))}%`,
+                        top: "50%",
+                        transform: "translate(-50%, -50%)",
+                        border: 0,
+                        borderRadius: "999px",
+                        width: "0.7rem",
+                        height: "0.7rem",
+                        background: marker.kind === "rep" ? "#9b9dff" : marker.kind === "hold" ? "#8ce7bf" : "#f7d58b"
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <div style={{ display: "grid", gap: "0.3rem" }}>
+                {timelineMarkers.slice(0, 10).map((marker) => (
+                  <span key={`${marker.id}_label`} className="muted" style={{ fontSize: "0.85rem" }}>
+                    {marker.label}
+                  </span>
+                ))}
+              </div>
+            </section>
+
+            <section style={{ display: "grid", gap: "0.45rem" }}>
+              <strong>Next actions</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                {annotatedReplayUrl ? (
+                  <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace.traceId}-annotated.webm`)}>
+                    Save annotated replay
+                  </button>
+                ) : null}
+                {rawReplayUrl ? (
+                  <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace.traceId}-raw.webm`)}>
+                    Save raw recording
+                  </button>
+                ) : null}
+                <button type="button" className="studio-button" onClick={() => void requestPreview()} disabled={status === "requesting-permission" || status === "live-session-running"}>
+                  Start another live session
+                </button>
+              </div>
+            </section>
+          </>
         ) : null}
       </article>
     </section>
