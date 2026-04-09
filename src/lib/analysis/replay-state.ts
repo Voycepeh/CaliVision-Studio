@@ -26,6 +26,11 @@ export type ReplayOverlayState = ReplayDerivedState & {
   statusLabel?: string;
 };
 
+export type ReplayOverlaySample = {
+  timestampMs: number;
+  state: ReplayOverlayState;
+};
+
 export type ReplaySessionOverview = {
   durationMs: number;
   phaseCoverage: Array<{ phaseId: string; percent: number }>;
@@ -45,23 +50,34 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function toSafeTimestampMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+  return value;
+}
+
 function getSortedFrameSamples(session: AnalysisSessionRecord) {
-  return [...session.frameSamples].sort((a, b) => a.timestampMs - b.timestampMs);
+  return session.frameSamples
+    .filter((frame) => Number.isFinite(frame.timestampMs) && frame.timestampMs >= 0)
+    .sort((a, b) => a.timestampMs - b.timestampMs);
 }
 
 function getSortedEvents(session: AnalysisSessionRecord) {
-  return [...session.events].sort((a, b) => a.timestampMs - b.timestampMs);
+  return session.events
+    .filter((event) => Number.isFinite(event.timestampMs) && event.timestampMs >= 0)
+    .sort((a, b) => a.timestampMs - b.timestampMs);
 }
 
 export function getReplayDurationMs(session?: AnalysisSessionRecord | null): number {
   if (!session) {
     return 0;
   }
-  const fromSummary = session.summary.analyzedDurationMs ?? 0;
+  const fromSummary = toSafeTimestampMs(session.summary.analyzedDurationMs ?? 0);
   const sortedFrames = getSortedFrameSamples(session);
   const sortedEvents = getSortedEvents(session);
-  const fromFrames = sortedFrames.at(-1)?.timestampMs ?? 0;
-  const fromEvents = sortedEvents.at(-1)?.timestampMs ?? 0;
+  const fromFrames = toSafeTimestampMs(sortedFrames.at(-1)?.timestampMs ?? 0);
+  const fromEvents = toSafeTimestampMs(sortedEvents.at(-1)?.timestampMs ?? 0);
   return Math.max(fromSummary, fromFrames, fromEvents, 0);
 }
 
@@ -128,8 +144,8 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
     };
   }
 
-  const durationMs = getReplayDurationMs(session);
-  const clampedTimestamp = clamp(timestampMs, 0, durationMs);
+  const durationMs = toSafeTimestampMs(getReplayDurationMs(session));
+  const clampedTimestamp = clamp(toSafeTimestampMs(timestampMs), 0, durationMs);
   const sortedEvents = getSortedEvents(session);
   const sortedFrameSamples = getSortedFrameSamples(session);
   const nearestEvent =
@@ -180,6 +196,44 @@ export function deriveReplayOverlayStateAtTime(
     showHoldTimer: measurementType === "hold" || measurementType === "hybrid",
     statusLabel: session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined
   };
+}
+
+export function buildReplayOverlaySamples(
+  session: AnalysisSessionRecord | null | undefined,
+  timestampsMs: number[]
+): ReplayOverlaySample[] {
+  if (!session || timestampsMs.length === 0) {
+    return [];
+  }
+  const uniqueSorted = Array.from(new Set(timestampsMs.map((timestamp) => toSafeTimestampMs(timestamp))))
+    .sort((a, b) => a - b);
+  return uniqueSorted.map((timestampMs) => ({
+    timestampMs,
+    state: deriveReplayOverlayStateAtTime(session, timestampMs)
+  }));
+}
+
+export function getOverlaySampleAtTime(samples: ReplayOverlaySample[], timestampMs: number): ReplayOverlayState | null {
+  if (samples.length === 0) {
+    return null;
+  }
+  const target = toSafeTimestampMs(timestampMs);
+  let low = 0;
+  let high = samples.length - 1;
+  let candidate = samples[0];
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const current = samples[mid];
+    if (current.timestampMs <= target) {
+      candidate = current;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return candidate.state;
 }
 
 export function deriveReplayMarkers(session: AnalysisSessionRecord | null | undefined): ReplayTimelineMarker[] {

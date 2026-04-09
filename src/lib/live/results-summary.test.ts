@@ -83,3 +83,15 @@ test("getReplayStateMessage returns truthful fallback message", () => {
   assert.equal(getReplayStateMessage("annotated-ready"), "Annotated replay ready");
   assert.equal(getReplayStateMessage("raw-fallback"), "Annotated replay failed. Showing raw recording fallback");
 });
+
+test("buildLiveResultsSummary guards invalid duration math", () => {
+  const summary = buildLiveResultsSummary({
+    ...trace,
+    video: { ...trace.video, durationMs: Number.POSITIVE_INFINITY },
+    events: [{ eventId: "evt_bad", timestampMs: 1000, type: "hold_end", phaseId: "setup", details: { durationMs: Number.NaN } }],
+    summary: { ...trace.summary, holdDurationMs: Number.NaN }
+  });
+
+  assert.equal(summary.durationLabel, "Duration unavailable");
+  assert.equal(summary.holdSummaryLabel, "1 hold · Duration unavailable");
+});

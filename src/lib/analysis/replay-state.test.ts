@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
-import { deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime } from "./replay-state.ts";
+import { buildReplayOverlaySamples, deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime, getOverlaySampleAtTime } from "./replay-state.ts";
 
 function createSession(): AnalysisSessionRecord {
   return {
@@ -173,4 +173,26 @@ test("overlay state keeps rep count visible even when no rep events exist", () =
   const overlay = deriveReplayOverlayStateAtTime(session, 1200);
   assert.equal(overlay.repCount, 0);
   assert.equal(overlay.showRepCount, true);
+});
+
+test("replay state ignores invalid timestamps and durations", () => {
+  const session = createSession();
+  session.summary.analyzedDurationMs = Number.POSITIVE_INFINITY;
+  session.frameSamples.push({ timestampMs: Number.NaN, classifiedPhaseId: "bad", confidence: 0.1 });
+  session.events.push({ eventId: "bad", timestampMs: Number.NaN, type: "phase_enter", phaseId: "bad" });
+
+  const state = deriveReplayStateAtTime(session, Number.NaN);
+  assert.equal(state.timestampMs, 0);
+  assert.equal(state.repCount, 0);
+});
+
+test("overlay samples are time-indexed and queryable for replay/export rendering", () => {
+  const session = createSession();
+  const samples = buildReplayOverlaySamples(session, [0, 900, 1800, 2600]);
+  assert.equal(samples.length, 4);
+  assert.equal(samples[2]?.state.repCount, 1);
+
+  const at2s = getOverlaySampleAtTime(samples, 2000);
+  assert.equal(at2s?.repCount, 1);
+  assert.equal(at2s?.showRepCount, true);
 });

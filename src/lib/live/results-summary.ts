@@ -1,4 +1,5 @@
 import type { AnalysisEvent } from "../schema/contracts.ts";
+import { formatDurationClock, toFiniteNonNegativeMs } from "../format/safe-duration.ts";
 import type { LiveSessionTrace } from "./types.ts";
 
 export type ReplayTerminalState =
@@ -23,24 +24,24 @@ export type LiveResultsSummary = {
   phaseSummaryLabel: string;
 };
 
-function formatSeconds(milliseconds: number): string {
-  const seconds = Math.max(0, Math.round(milliseconds / 1000));
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins === 0) return `${secs}s`;
-  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
-}
-
 function buildHoldSummary(events: AnalysisEvent[], fallbackHoldMs: number): string {
   const holdStarts = events.filter((event) => event.type === "hold_start").length;
   const holdEnds = events.filter((event) => event.type === "hold_end");
   const holdCount = Math.max(holdStarts, holdEnds.length);
-  const holdDurationMs = holdEnds.reduce((total, event) => total + Number(event.details?.durationMs ?? 0), 0) || fallbackHoldMs;
+  const holdDurationMsFromEvents = holdEnds.reduce((total, event) => {
+    const durationMs = toFiniteNonNegativeMs(Number(event.details?.durationMs ?? 0));
+    return total + (durationMs ?? 0);
+  }, 0);
+  const safeFallbackHoldMs = toFiniteNonNegativeMs(fallbackHoldMs) ?? 0;
+  const holdDurationMs = holdDurationMsFromEvents > 0 ? holdDurationMsFromEvents : safeFallbackHoldMs;
 
   if (holdCount <= 0) {
     return "No holds detected";
   }
-  return `${holdCount} hold${holdCount === 1 ? "" : "s"} · ${formatSeconds(holdDurationMs)} total`;
+  if (holdDurationMs <= 0) {
+    return `${holdCount} hold${holdCount === 1 ? "" : "s"} · Duration unavailable`;
+  }
+  return `${holdCount} hold${holdCount === 1 ? "" : "s"} · ${formatDurationClock(holdDurationMs)} total`;
 }
 
 function buildPhaseSummary(events: AnalysisEvent[]): string {
@@ -54,9 +55,10 @@ function buildPhaseSummary(events: AnalysisEvent[]): string {
 }
 
 export function buildLiveResultsSummary(trace: LiveSessionTrace): LiveResultsSummary {
+  const durationMs = toFiniteNonNegativeMs(trace.video.durationMs);
   return {
     drillLabel: trace.drillSelection.drill?.title ?? "Freestyle",
-    durationLabel: formatSeconds(trace.video.durationMs),
+    durationLabel: durationMs === null ? "Duration unavailable" : formatDurationClock(durationMs),
     repCount: trace.summary.repCount ?? 0,
     holdSummaryLabel: buildHoldSummary(trace.events, trace.summary.holdDurationMs ?? 0),
     phaseSummaryLabel: buildPhaseSummary(trace.events)
@@ -78,8 +80,8 @@ function formatTimelineEventLabel(event: AnalysisEvent): string {
     return event.phaseId ? `Hold start (${event.phaseId})` : "Hold start";
   }
   if (event.type === "hold_end") {
-    const durationMs = Number(event.details?.durationMs ?? 0);
-    const durationLabel = durationMs > 0 ? ` · ${formatSeconds(durationMs)}` : "";
+    const durationMs = toFiniteNonNegativeMs(Number(event.details?.durationMs ?? 0)) ?? 0;
+    const durationLabel = durationMs > 0 ? ` · ${formatDurationClock(durationMs)}` : "";
     return `${event.phaseId ? `Hold end (${event.phaseId})` : "Hold end"}${durationLabel}`;
   }
   return formatPhaseLabel(event);
@@ -94,7 +96,7 @@ export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace): LiveTime
         id: event.eventId,
         timestampMs: event.timestampMs,
         kind,
-        label: `${formatSeconds(event.timestampMs)} · ${formatTimelineEventLabel(event)}`
+        label: `${formatDurationClock(event.timestampMs)} · ${formatTimelineEventLabel(event)}`
       };
     })
     .sort((a, b) => a.timestampMs - b.timestampMs);

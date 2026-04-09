@@ -370,8 +370,17 @@ export function LiveStreamingWorkspace() {
     const onWindowResize = () => {
       overlayNeedsResizeSyncRef.current = true;
     };
+    const onOrientationChange = () => {
+      overlayNeedsResizeSyncRef.current = true;
+    };
     window.addEventListener("resize", onWindowResize);
-    return () => window.removeEventListener("resize", onWindowResize);
+    window.addEventListener("orientationchange", onOrientationChange);
+    window.visualViewport?.addEventListener("resize", onWindowResize);
+    return () => {
+      window.removeEventListener("resize", onWindowResize);
+      window.removeEventListener("orientationchange", onOrientationChange);
+      window.visualViewport?.removeEventListener("resize", onWindowResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -523,6 +532,7 @@ export function LiveStreamingWorkspace() {
 
       const elapsedMs = performance.now() - startedAtRef.current;
       const previewVideo = previewVideoRef.current;
+      syncOverlayCanvasSize();
       const projection = overlayProjectionRef.current;
       if (!previewVideo || !projection) {
         liveLoopRef.current = requestAnimationFrame(draw);
@@ -530,7 +540,6 @@ export function LiveStreamingWorkspace() {
       }
       const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideo.currentTime * 1000);
       const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
-      syncOverlayCanvasSize();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const pixelRatio = overlayPixelRatioRef.current;
@@ -558,14 +567,16 @@ export function LiveStreamingWorkspace() {
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
-          drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, frame, { projection });
           logOverlayDiagnostics("draw-pose-frame");
         }
         lastSampleAt = elapsedMs;
       }
 
-      const overlayState = traceRef.current.getOverlayState(traceTimestampMs);
-      drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, overlayState, {
+      const analyzedFrameState = traceRef.current.getAnalyzedFrameState(traceTimestampMs);
+      if (analyzedFrameState.poseFrame) {
+        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+      }
+      drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
         showDrillMetrics: selection.mode === "drill",
         phaseLabels: buildPhaseLabelMap(selection.drill)
@@ -698,6 +709,13 @@ export function LiveStreamingWorkspace() {
               muted
               playsInline
               className="live-streaming-video"
+              onLoadedMetadata={() => {
+                overlayNeedsResizeSyncRef.current = true;
+                syncOverlayCanvasSize(true);
+              }}
+              onResize={() => {
+                overlayNeedsResizeSyncRef.current = true;
+              }}
               style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
             />
             <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
