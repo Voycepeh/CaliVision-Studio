@@ -460,6 +460,7 @@ export async function exportAnnotatedVideo(
     overlayModeLabel?: string;
     includeDrillMetrics?: boolean;
     phaseLabels?: Record<string, string>;
+    phaseCount?: number;
     onProgress?: (progress: number, stageLabel: string) => void;
   }
 ): Promise<{ blob: Blob; mimeType: string }> {
@@ -488,6 +489,7 @@ export async function exportAnnotatedVideo(
   const chunks: BlobPart[] = [];
   let actualRenderedFrameCount = 0;
   const phaseLabels = options?.phaseLabels;
+  const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
 
   recorder.ondataavailable = (event) => {
@@ -534,7 +536,8 @@ export async function exportAnnotatedVideo(
           drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
             modeLabel: options.overlayModeLabel,
             showDrillMetrics: options.includeDrillMetrics,
-            phaseLabels
+            phaseLabels,
+            phaseCount
           });
         } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
           drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {

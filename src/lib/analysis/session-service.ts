@@ -46,7 +46,9 @@ function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeo
   const repEvent = [...output.session.events].reverse().find((event) => event.type === "rep_complete");
 
   return {
-    expectedPhaseOrder: runtimeModel.orderedPhaseIds.map((phaseId) => resolveAuthoredPhaseLabel(phaseId, runtimeModel.phaseLabelById) ?? phaseId),
+    phaseCount: runtimeModel.phaseCount,
+    expectedPhaseOrder: runtimeModel.loopPhaseIds.map((phaseId) => resolveAuthoredPhaseLabel(phaseId, runtimeModel.phaseLabelById) ?? phaseId),
+    expectedLoop: runtimeModel.loopLabel,
     allowedTransitions: [...runtimeModel.allowedTransitionKeys].map((key) => {
       const [fromPhaseId, toPhaseId] = key.split("->");
       return `${resolveAuthoredPhaseLabel(fromPhaseId, runtimeModel.phaseLabelById) ?? fromPhaseId} -> ${resolveAuthoredPhaseLabel(toPhaseId, runtimeModel.phaseLabelById) ?? toPhaseId}`;
@@ -54,7 +56,25 @@ function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeo
     currentPhase: resolveAuthoredPhaseLabel(lastTransition?.phaseId, runtimeModel.phaseLabelById),
     previousPhase: resolveAuthoredPhaseLabel(prevTransition?.phaseId, runtimeModel.phaseLabelById),
     attemptedNextPhase: resolveAuthoredPhaseLabel(rejectedTransition?.toPhaseId, runtimeModel.phaseLabelById),
+    expectedNextPhase: (() => {
+      if (runtimeModel.orderedPhaseIds.length === 0) {
+        return undefined;
+      }
+      const currentIndex = runtimeModel.phaseById[lastTransition?.phaseId ?? ""]?.sequenceIndex ?? -1;
+      const nextIndex = currentIndex >= 0
+        ? (currentIndex + 1) % runtimeModel.orderedPhaseIds.length
+        : 0;
+      return runtimeModel.phaseById[runtimeModel.orderedPhaseIds[nextIndex] ?? ""]?.displayLabel;
+    })(),
     rejectedReason: rejectedTransition?.details?.reason ? String(rejectedTransition.details.reason) : undefined,
+    noRepReason: output.session.summary.repCount ? undefined : runtimeModel.measurementMode === "rep"
+      ? runtimeModel.phaseCount < runtimeModel.repRequiresAtLeastPhaseCount
+        ? "insufficient_phase_count_for_rep"
+        : "loop_not_completed"
+      : undefined,
+    legacyOrderMismatch: runtimeModel.legacyOrderMismatch,
+    legacyOrderMismatchDetails: runtimeModel.legacyOrderMismatchDetails,
+    modeSummary: runtimeModel.measurementMode === "rep" ? runtimeModel.repCompletionSummary : runtimeModel.holdSummary,
     lastRepCompleted: repEvent?.repIndex ?? null
   };
 }

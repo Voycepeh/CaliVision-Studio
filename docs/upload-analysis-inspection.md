@@ -47,3 +47,15 @@ The current view can now surface known causes such as:
 - ML classifier changes.
 
 Studio remains the web-first authoring/analysis source of truth, while runtime/live coaching remains in the Android client: <https://github.com/Voycepeh/CaliVision>.
+
+
+## Derived runtime loop and numbered phase labels
+
+Upload Video, live overlay, temporal trace, event logs, and diagnostics now use one canonical runtime model derived from Drill Studio authored phase order.
+
+- Phase order is authored as an ordered list in Drill Studio.
+- Runtime always auto-closes the loop from last phase back to phase 1.
+- Numbered phase labels are used consistently (for example `1. Start`, `2. Flap`, `Phase 2/3 · Flap`).
+- Rep drills require at least two phases and count only when the full loop returns to phase 1.
+- Hold drills accumulate time only while the selected hold phase is confidently active.
+- Similarity warnings in Drill Studio help flag phases that may be hard to distinguish at runtime.

@@ -1,15 +1,22 @@
 import type { PortableDrillAnalysis } from "../schema/contracts.ts";
+import type { PhaseRuntimeModel } from "./phase-runtime.ts";
 import type { FramePhaseScore, SmoothedPhaseFrame, TemporalSmoothingResult } from "./types.ts";
 
 export function smoothPhaseTimeline(
   scoredFrames: FramePhaseScore[],
   analysis: PortableDrillAnalysis,
-  options: { entryConfirmationFrames?: number } = {}
+  options: { entryConfirmationFrames?: number; runtimeModel?: PhaseRuntimeModel } = {}
 ): TemporalSmoothingResult {
   const minimumConfirmationFrames = Math.max(1, options.entryConfirmationFrames ?? analysis.minimumConfirmationFrames ?? 1);
   const exitGraceFrames = Math.max(0, analysis.exitGraceFrames || 0);
-  const allowedSkipKeys = new Set(analysis.allowedPhaseSkips.map((skip) => `${skip.fromPhaseId}->${skip.toPhaseId}`));
-  const orderedTransitionKeys = buildOrderedTransitionKeys(analysis.orderedPhaseSequence, analysis.measurementType);
+  const runtimeModel = options.runtimeModel;
+  const runtimePhaseIds = runtimeModel ? new Set(runtimeModel.orderedPhaseIds) : null;
+  const allowedSkipKeys = new Set((analysis.allowedPhaseSkips ?? [])
+    .filter((skip) => !runtimePhaseIds || (runtimePhaseIds.has(skip.fromPhaseId) && runtimePhaseIds.has(skip.toPhaseId)))
+    .map((skip) => `${skip.fromPhaseId}->${skip.toPhaseId}`));
+  const orderedTransitionKeys = runtimeModel?.allowedTransitionKeys
+    ? new Set(runtimeModel.allowedTransitionKeys)
+    : buildOrderedTransitionKeys(analysis.orderedPhaseSequence, analysis.measurementType);
 
   let stablePhaseId: string | null = null;
   let candidatePhaseId: string | null = null;
@@ -20,8 +27,21 @@ export function smoothPhaseTimeline(
   const transitions: TemporalSmoothingResult["transitions"] = [];
 
   for (const frame of scoredFrames) {
-    const rawPhaseId = frame.bestPhaseId;
+    const rawPhaseIdUnfiltered = frame.bestPhaseId;
+    const rawPhaseId = runtimePhaseIds && rawPhaseIdUnfiltered && !runtimePhaseIds.has(rawPhaseIdUnfiltered)
+      ? null
+      : rawPhaseIdUnfiltered;
     let transitionAccepted = false;
+
+    if (rawPhaseIdUnfiltered && rawPhaseIdUnfiltered !== rawPhaseId) {
+      transitions.push({
+        timestampMs: frame.timestampMs,
+        type: "invalid_transition",
+        fromPhaseId: stablePhaseId ?? undefined,
+        toPhaseId: rawPhaseIdUnfiltered,
+        details: { reason: "unknown_runtime_phase" }
+      });
+    }
 
     if (rawPhaseId === stablePhaseId) {
       candidatePhaseId = null;

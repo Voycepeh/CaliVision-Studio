@@ -12,6 +12,7 @@ import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
+import { buildPhaseRuntimeModel, buildPhaseSimilarityWarnings } from "@/lib/analysis";
 import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 
@@ -118,6 +119,18 @@ export function StudioCenterInspector() {
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
+  const runtimeModel = useMemo(() => {
+    if (!selectedDrill?.analysis) {
+      return null;
+    }
+    return buildPhaseRuntimeModel(selectedDrill, selectedDrill.analysis);
+  }, [selectedDrill]);
+  const phaseSimilarityWarnings = useMemo(() => {
+    if (!selectedDrill || !runtimeModel) {
+      return [];
+    }
+    return buildPhaseSimilarityWarnings(selectedDrill, runtimeModel);
+  }, [selectedDrill, runtimeModel]);
   const selectedPose = selectedPhase?.poseSequence[0] ?? null;
   const poseModel = useMemo(
     () =>
@@ -197,6 +210,29 @@ export function StudioCenterInspector() {
                     <button type="button" onClick={() => selectPhase(null)} className="studio-button">Clear selection</button>
                   </div>
                 </div>
+                <div style={{ display: "grid", gap: "0.35rem", padding: "0.55rem 0.65rem", border: "1px solid var(--border)", borderRadius: "0.6rem", background: "rgba(110, 168, 255, 0.04)" }}>
+                  <small className="muted">You have {phases.length} phases.</small>
+                  {runtimeModel ? (
+                    <>
+                      <small className="muted">Runtime loop: {runtimeModel.loopLabel || "n/a"}</small>
+                      <small className="muted">Mode: {runtimeModel.measurementMode === "rep" ? "Rep" : "Hold"}</small>
+                      <small className="muted">{runtimeModel.measurementMode === "rep" ? runtimeModel.repCompletionSummary : runtimeModel.holdSummary}</small>
+                    </>
+                  ) : (
+                    <small className="muted">Runtime loop follows authored phase order and auto-closes to phase 1.</small>
+                  )}
+                </div>
+                {phaseSimilarityWarnings.length > 0 ? (
+                  <div style={{ display: "grid", gap: "0.35rem", padding: "0.55rem 0.65rem", border: "1px solid rgba(245, 158, 11, 0.38)", borderRadius: "0.6rem", background: "rgba(245, 158, 11, 0.08)" }}>
+                    <strong style={{ fontSize: "0.82rem" }}>Phase similarity warnings</strong>
+                    {phaseSimilarityWarnings.slice(0, 4).map((warning) => (
+                      <small key={`${warning.phaseAId}-${warning.phaseBId}`} className="muted">
+                        {warning.severity === "ambiguous" ? "Highly similar" : "Similar"}: {warning.phaseBLabel} looks close to {warning.phaseALabel}
+                        {warning.adjacentInLoop ? " (adjacent in loop)" : ""}. Consider increasing pose contrast.
+                      </small>
+                    ))}
+                  </div>
+                ) : null}
                 <div style={{ display: "grid", gap: "0.5rem", marginTop: "0.65rem" }}>
                   {phases.map((phase, index) => (
                     <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>

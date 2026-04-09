@@ -46,6 +46,9 @@ flowchart LR
 - Run skeletal overlay on uploaded videos using MediaPipe.
 - Run live stream skeletal overlay in browser.
 - Apply a selected drill during analysis so outputs are drill-aware (for example rep counting, hold duration, and phase classification).
+- Runtime loop is derived from the authored phase order and auto-closes back to phase 1 (`1 -> 2 -> ... -> 1`).
+- Rep drills count only when the full authored loop returns to phase 1; hold drills track the selected hold phase while confidently matched.
+- Studio warns when authored phases are visually too similar and may be ambiguous at runtime.
 
 ### Author and refine drills
 - Create drills/movements in phases.

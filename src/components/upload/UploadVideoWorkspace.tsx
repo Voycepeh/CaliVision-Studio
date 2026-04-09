@@ -11,7 +11,7 @@ import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
-import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
+import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
@@ -70,11 +70,12 @@ function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string
   if (!drill) {
     return {};
   }
-  return drill.phases.reduce<Record<string, string>>((acc, phase) => {
-    const label = (phase.name || phase.title || "").trim();
-    if (label) {
-      acc[phase.phaseId] = label;
-    }
+  if (drill.analysis) {
+    return buildPhaseRuntimeModel(drill, drill.analysis).phaseLabelById;
+  }
+  return drill.phases.reduce<Record<string, string>>((acc, phase, index) => {
+    const label = (phase.name || phase.title || "").trim() || phase.phaseId;
+    acc[phase.phaseId] = `${index + 1}. ${label}`;
     return acc;
   }, {});
 }
@@ -150,6 +151,12 @@ function formatTransitionReason(reason: string | undefined): string {
       return "confidence unstable";
     case "off_path_transition":
       return "off authored path";
+    case "unknown_runtime_phase":
+      return "phase is outside authored loop";
+    case "insufficient_phase_count_for_rep":
+      return "at least 2 phases are required for rep counting";
+    case "loop_not_completed":
+      return "full authored loop was not completed";
     default:
       return reason ?? "unknown";
   }
@@ -371,7 +378,10 @@ export function UploadVideoWorkspace() {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
           modeLabel: activeJob.drillSelection.drillBinding.drillName,
           showDrillMetrics: true,
-          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill)
+          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill),
+          phaseCount: activeJob.drillSelection.drill?.analysis
+            ? buildPhaseRuntimeModel(activeJob.drillSelection.drill, activeJob.drillSelection.drill.analysis).phaseCount
+            : activeJob.drillSelection.drill?.phases.length
         });
       } else {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
@@ -451,7 +461,10 @@ export function UploadVideoWorkspace() {
           ? nextJob.drillSelection.drillBinding.drillName
           : "No drill · Freestyle overlay",
         includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
-        phaseLabels: buildPhaseLabelMap(nextJob.drillSelection.drill)
+        phaseLabels: buildPhaseLabelMap(nextJob.drillSelection.drill),
+        phaseCount: nextJob.drillSelection.drill?.analysis
+          ? buildPhaseRuntimeModel(nextJob.drillSelection.drill, nextJob.drillSelection.drill.analysis).phaseCount
+          : nextJob.drillSelection.drill?.phases.length
       };
 
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
@@ -867,15 +880,29 @@ export function UploadVideoWorkspace() {
             <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
               <summary style={{ cursor: "pointer" }}>Runtime diagnostic summary</summary>
               <ul className="muted" style={{ marginTop: "0.35rem" }}>
-                <li>Expected order: {activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.join(" → ") || "n/a"}</li>
+                <li>You have {activeSession.debug.runtimeDiagnostics.phaseCount ?? activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.length} phases.</li>
+                <li>Derived loop: {(activeSession.debug.runtimeDiagnostics.expectedLoop ?? activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.join(" → ")) || "n/a"}</li>
                 <li>Allowed transitions: {activeSession.debug.runtimeDiagnostics.allowedTransitions.join(", ") || "n/a"}</li>
                 <li>Current phase: {activeSession.debug.runtimeDiagnostics.currentPhase ?? "none"}</li>
-                <li>Previous phase: {activeSession.debug.runtimeDiagnostics.previousPhase ?? "none"}</li>
-                <li>Attempted next phase: {activeSession.debug.runtimeDiagnostics.attemptedNextPhase ?? "n/a"}</li>
+                <li>Expected next phase: {activeSession.debug.runtimeDiagnostics.expectedNextPhase ?? "n/a"}</li>
+                <li>Attempted phase: {activeSession.debug.runtimeDiagnostics.attemptedNextPhase ?? "n/a"}</li>
                 <li>
                   Rejected reason:{" "}
                   {activeSession.debug.runtimeDiagnostics.rejectedReason
                     ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.rejectedReason)
+                    : "n/a"}
+                </li>
+                <li>Mode rule: {activeSession.debug.runtimeDiagnostics.modeSummary ?? "n/a"}</li>
+                <li>
+                  Legacy sequence mismatch:{" "}
+                  {activeSession.debug.runtimeDiagnostics.legacyOrderMismatch
+                    ? `yes (${(activeSession.debug.runtimeDiagnostics.legacyOrderMismatchDetails ?? []).join(", ") || "details unavailable"})`
+                    : "no"}
+                </li>
+                <li>
+                  No-rep reason:{" "}
+                  {activeSession.debug.runtimeDiagnostics.noRepReason
+                    ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.noRepReason)
                     : "n/a"}
                 </li>
                 <li>Last rep event: {activeSession.debug.runtimeDiagnostics.lastRepCompleted ?? "none"}</li>

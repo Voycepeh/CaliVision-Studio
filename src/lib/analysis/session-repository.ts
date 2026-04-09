@@ -60,12 +60,19 @@ export type AnalysisSessionRecord = {
       transitionAccepted: boolean;
     }>;
     runtimeDiagnostics?: {
+      phaseCount?: number;
       expectedPhaseOrder: string[];
+      expectedLoop?: string;
       allowedTransitions: string[];
       currentPhase?: string | null;
       previousPhase?: string | null;
+      expectedNextPhase?: string | null;
       attemptedNextPhase?: string | null;
       rejectedReason?: string;
+      noRepReason?: string;
+      legacyOrderMismatch?: boolean;
+      legacyOrderMismatchDetails?: string[];
+      modeSummary?: string;
       lastRepCompleted?: number | null;
     };
   };
