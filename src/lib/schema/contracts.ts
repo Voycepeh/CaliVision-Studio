@@ -98,7 +98,9 @@ export type PortableDrillAnalysis = {
 export type PortablePhase = {
   phaseId: string;
   order: number;
-  title: string;
+  name: string;
+  /** @deprecated legacy import-only alias; use name */
+  title?: string;
   summary?: string;
   durationMs: number;
   startOffsetMs?: number;
@@ -115,7 +117,9 @@ export type PortableDrill = {
   description?: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   tags: string[];
-  defaultView: PortableViewType;
+  primaryView: PortableViewType;
+  /** @deprecated legacy import-only alias; use primaryView */
+  defaultView?: PortableViewType;
   thumbnailAssetId?: string;
   previewAssetId?: string;
   phases: PortablePhase[];

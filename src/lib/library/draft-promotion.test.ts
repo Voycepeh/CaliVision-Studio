@@ -25,11 +25,11 @@ function makePackage(phaseCount: number, title: string): DrillPackage {
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "side",
+        primaryView: "side",
         phases: Array.from({ length: phaseCount }, (_, i) => ({
           phaseId: `p-${i + 1}`,
           order: i + 1,
-          title: `Phase ${i + 1}`,
+          name: `Phase ${i + 1}`,
           durationMs: 1000,
           poseSequence: [],
           assetRefs: []

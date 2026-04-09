@@ -6,8 +6,8 @@ const drill = {
   drillId: "d1",
   title: "Pushup",
   phases: [
-    { phaseId: "up", title: "Up", poseSequence: [{ joints: { leftShoulder: { x: 0.5, y: 0.2 }, rightShoulder: { x: 0.6, y: 0.2 } } }] },
-    { phaseId: "down", title: "Down", poseSequence: [{ joints: { leftShoulder: { x: 0.5, y: 0.8 }, rightShoulder: { x: 0.6, y: 0.8 } } }] }
+    { phaseId: "up", name: "Up", poseSequence: [{ joints: { leftShoulder: { x: 0.5, y: 0.2 }, rightShoulder: { x: 0.6, y: 0.2 } } }] },
+    { phaseId: "down", name: "Down", poseSequence: [{ joints: { leftShoulder: { x: 0.5, y: 0.8 }, rightShoulder: { x: 0.6, y: 0.8 } } }] }
   ],
   analysis: {
     measurementType: "rep",

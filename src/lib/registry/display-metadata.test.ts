@@ -22,11 +22,11 @@ function buildPackage(): DrillPackage {
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "side",
+        primaryView: "side",
         phases: [
-          { phaseId: "p1", order: 1, title: "One", durationMs: 1000, poseSequence: [], assetRefs: [] },
-          { phaseId: "p2", order: 2, title: "Two", durationMs: 1000, poseSequence: [], assetRefs: [] },
-          { phaseId: "p3", order: 3, title: "Three", durationMs: 1000, poseSequence: [], assetRefs: [] }
+          { phaseId: "p1", order: 1, name: "One", durationMs: 1000, poseSequence: [], assetRefs: [] },
+          { phaseId: "p2", order: 2, name: "Two", durationMs: 1000, poseSequence: [], assetRefs: [] },
+          { phaseId: "p3", order: 3, name: "Three", durationMs: 1000, poseSequence: [], assetRefs: [] }
         ]
       },
       {
@@ -36,12 +36,12 @@ function buildPackage(): DrillPackage {
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "side",
+        primaryView: "side",
         phases: [
-          { phaseId: "x1", order: 1, title: "X", durationMs: 1000, poseSequence: [], assetRefs: [] },
-          { phaseId: "x2", order: 2, title: "Y", durationMs: 1000, poseSequence: [], assetRefs: [] },
-          { phaseId: "x3", order: 3, title: "Z", durationMs: 1000, poseSequence: [], assetRefs: [] },
-          { phaseId: "x4", order: 4, title: "W", durationMs: 1000, poseSequence: [], assetRefs: [] }
+          { phaseId: "x1", order: 1, name: "X", durationMs: 1000, poseSequence: [], assetRefs: [] },
+          { phaseId: "x2", order: 2, name: "Y", durationMs: 1000, poseSequence: [], assetRefs: [] },
+          { phaseId: "x3", order: 3, name: "Z", durationMs: 1000, poseSequence: [], assetRefs: [] },
+          { phaseId: "x4", order: 4, name: "W", durationMs: 1000, poseSequence: [], assetRefs: [] }
         ]
       }
     ],

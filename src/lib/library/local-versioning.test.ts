@@ -32,7 +32,7 @@ function makePackage(input: { packageId: string; packageVersion: string; version
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "side",
+        primaryView: "side",
         phases: []
       }
     ],

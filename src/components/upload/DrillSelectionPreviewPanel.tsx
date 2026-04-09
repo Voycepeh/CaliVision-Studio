@@ -52,19 +52,19 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
   const entryPhase: PortablePhase = {
     ...entrySource,
     phaseId: `${entrySource.phaseId}_entry_preview`,
-    title: "Entry",
+    name: "Entry",
     durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
   };
   const holdPlateauPhase: PortablePhase = {
     ...plateauSource,
     phaseId: `${plateauSource.phaseId}_hold_preview`,
-    title: plateauSource.title || "Hold",
+    name: plateauSource.name || "Hold",
     durationMs: Math.max(HOLD_PLATEAU_MIN_DURATION_MS, Math.round(plateauSource.durationMs * HOLD_LOOP_HOLD_RATIO))
   };
   const exitPhase: PortablePhase = {
     ...entrySource,
     phaseId: `${entrySource.phaseId}_exit_preview`,
-    title: "Exit",
+    name: "Exit",
     durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
   };
 
@@ -76,7 +76,7 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
 }
 
 export function buildDrillOptionLabel(drill: PortableDrill): string {
-  return `${drill.title} · ${formatDrillTypeLabel(drill.drillType)} · ${formatViewLabel(drill.defaultView)}`;
+  return `${drill.title} · ${formatDrillTypeLabel(drill.drillType)} · ${formatViewLabel(drill.primaryView)}`;
 }
 
 export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
@@ -180,7 +180,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
           <strong style={{ fontSize: compact ? "0.84rem" : "1rem" }}>{drill.title}</strong>
           <div className="muted" style={{ fontSize: compact ? "0.78rem" : "0.85rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
-            <span>View: {formatViewLabel(drill.defaultView)}</span>
+            <span>View: {formatViewLabel(drill.primaryView)}</span>
             <span>Phases: {drill.phases.length}</span>
           </div>
         </div>

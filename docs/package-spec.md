@@ -71,10 +71,19 @@ This is intentionally a typed placeholder and does not implement scoring logic.
 ## Phase identity and naming discipline
 
 - `PortablePhase.phaseId` is the stable internal identity for persistence, ordering references, and analysis wiring.
-- `PortablePhase.title` is the canonical user-facing phase name shown in Drill Studio.
+- `PortablePhase.name` is the canonical user-facing phase name shown in Drill Studio.
 - Rep/hold/classification wiring must reference `phaseId` (or explicit ordered/role metadata), not user-facing text labels.
 - Drill Studio normalization now migrates legacy generated IDs such as `phase_top`, `phase_bottom`, and `phase_new` to opaque stable IDs on load.
-- If semantic meaning is needed, use explicit fields (`PortablePhase.analysis.semanticRole`) instead of encoding meaning in `phaseId` or title strings.
+- If semantic meaning is needed, use explicit fields (`PortablePhase.analysis.semanticRole`) instead of encoding meaning in `phaseId` or name strings.
+
+
+## Field ownership (final cleanup baseline)
+
+- **Drill-level persisted fields**: `drillId`, `title`, `slug`, `drillType`, `description`, `difficulty`, `primaryView`, tags, analysis, and publication/version metadata where applicable.
+- **Phase-level persisted fields**: `phaseId`, `name`, `order`, timing (`durationMs`/`startOffsetMs`), authored pose sequence, optional analysis metadata, and explicit asset references when they are truly part of saved phase data.
+- **Editor-only non-persisted fields**: transient authoring UI state (`selectedJoint`, `focusRegion`, `canvasSize`, `focusCanvas`, temporary view controls) must not be exported or treated as canonical schema fields.
+
+Studio normalization removes known transient editor fields and migrates legacy aliases (`title`, `phaseName`, `label`) into canonical `name` during load/import.
 
 ## Analysis output models (schema-only for now)
 

@@ -28,7 +28,7 @@ export type StudioDrillViewModel = {
   slug: string;
   description?: string;
   difficulty: string;
-  defaultView: string;
+  primaryView: string;
   tags: string[];
   phases: StudioPhaseViewModel[];
 };
@@ -74,7 +74,7 @@ export function mapDrillToViewModel(drill: PortableDrill): StudioDrillViewModel 
     slug: drill.slug,
     description: drill.description,
     difficulty: drill.difficulty,
-    defaultView: drill.defaultView,
+    primaryView: drill.primaryView,
     tags: drill.tags,
     phases: [...drill.phases]
       .sort((a, b) => a.order - b.order)
@@ -86,7 +86,7 @@ export function mapPhaseToViewModel(phase: PortablePhase): StudioPhaseViewModel 
   return {
     phaseId: phase.phaseId,
     order: phase.order,
-    title: phase.title,
+    title: phase.name,
     durationMs: phase.durationMs,
     startOffsetMs: phase.startOffsetMs,
     poseCount: phase.poseSequence.length,

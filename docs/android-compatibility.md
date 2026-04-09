@@ -10,7 +10,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 - Preserve canonical joint naming and normalized coordinate semantics.
 - Preserve explicit phase order/timing behavior for authored playback.
-- Preserve stable per-phase identity semantics (`phaseId`) as internal references separate from user-facing phase names (`title`).
+- Preserve stable per-phase identity semantics (`phaseId`) as internal references separate from user-facing phase names (`name`).
 - Preserve manifest-driven schema compatibility fields.
 - Keep Studio export payloads Android-consumable.
 - Treat new analysis blocks as additive metadata that can be ignored by runtime clients that do not yet consume them.

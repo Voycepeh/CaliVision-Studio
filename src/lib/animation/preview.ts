@@ -74,12 +74,12 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
     if (!Number.isFinite(phase.durationMs) || phase.durationMs <= 0) {
       warnings.push({
         severity: "warning",
-        message: `Phase ${phase.order} (${phase.title}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${formatDurationShort(sanitizedDurationMs)}.`
+        message: `Phase ${phase.order} (${phase.name}) has invalid duration '${String(phase.durationMs)}'. Using fallback ${formatDurationShort(sanitizedDurationMs)}.`
       });
     } else if (phase.durationMs < MIN_PHASE_DURATION_MS) {
       warnings.push({
         severity: "info",
-        message: `Phase ${phase.order} (${phase.title}) duration ${formatDurationShort(phase.durationMs)} is very short. Preview clamps to ${formatDurationShort(sanitizedDurationMs)} for stability.`
+        message: `Phase ${phase.order} (${phase.name}) duration ${formatDurationShort(phase.durationMs)} is very short. Preview clamps to ${formatDurationShort(sanitizedDurationMs)} for stability.`
       });
     }
 
@@ -88,17 +88,17 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
     const toPose = phases.length > 1 ? toPhase?.poseSequence[0] ?? null : fromPose;
 
     if (!fromPose) {
-      warnings.push({ severity: "warning", message: `Phase ${phase.order} (${phase.title}) has no canonical pose. Preview will interpolate with available neighboring pose data.` });
+      warnings.push({ severity: "warning", message: `Phase ${phase.order} (${phase.name}) has no canonical pose. Preview will interpolate with available neighboring pose data.` });
     }
 
-    const missingCoverage = getMissingJointCoverageNotice(fromPose, toPose, phase.title, toPhase?.title ?? phase.title);
+    const missingCoverage = getMissingJointCoverageNotice(fromPose, toPose, phase.name, toPhase?.name ?? phase.name);
     if (missingCoverage) {
       warnings.push({ severity: "info", message: missingCoverage });
     }
 
     segments.push({
       phaseId: phase.phaseId,
-      title: phase.title,
+      title: phase.name,
       sourceDurationMs: phase.durationMs,
       durationMs: sanitizedDurationMs,
       durationAdjusted,

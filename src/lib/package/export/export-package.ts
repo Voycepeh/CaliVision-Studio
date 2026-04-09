@@ -6,6 +6,7 @@ import type {
   PortableAssetRef,
   PortableAssetRole
 } from "@/lib/schema/contracts";
+import { normalizePortableDrillPackage } from "@/lib/package/validation/validate-package";
 
 const PACKAGE_URI_PREFIX = "package://";
 
@@ -20,7 +21,8 @@ export type ExportBundleResult = {
 };
 
 export function serializePackageForExport(drillPackage: DrillPackage): string {
-  return `${JSON.stringify(drillPackage, null, 2)}\n`;
+  const normalized = normalizePortableDrillPackage(drillPackage);
+  return `${JSON.stringify(normalized, null, 2)}\n`;
 }
 
 export function serializeBundleForExport(bundle: DrillBundleFile): string {
@@ -45,8 +47,9 @@ export async function buildBundleForExport(
 ): Promise<ExportBundleResult> {
   const warnings: ExportWarning[] = [];
   const files: DrillBundleAssetFile[] = [];
+  const normalizedPackage = normalizePortableDrillPackage(drillPackage);
 
-  for (const asset of drillPackage.assets) {
+  for (const asset of normalizedPackage.assets) {
     const bundlePath = toBundleRelativePath(asset);
     if (!bundlePath) {
       continue;
@@ -73,12 +76,12 @@ export async function buildBundleForExport(
 
   const bundleManifest: DrillBundleManifest = {
     bundleVersion: "1",
-    packageId: drillPackage.manifest.packageId,
-    packageVersion: drillPackage.manifest.packageVersion,
+    packageId: normalizedPackage.manifest.packageId,
+    packageVersion: normalizedPackage.manifest.packageVersion,
     createdAtIso: new Date().toISOString(),
     drillPath: "drill.json",
     assets: files.map((file) => {
-      const ref = drillPackage.assets.find((asset) => toBundleRelativePath(asset) === file.path);
+      const ref = normalizedPackage.assets.find((asset) => toBundleRelativePath(asset) === file.path);
       return {
         assetId: ref?.assetId ?? file.path,
         role: (ref?.role ?? "phase-source-image") as PortableAssetRole,
@@ -95,7 +98,7 @@ export async function buildBundleForExport(
   return {
     bundle: {
       manifest: bundleManifest,
-      drill: drillPackage,
+      drill: normalizedPackage,
       files
     },
     warnings

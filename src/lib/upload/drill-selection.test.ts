@@ -30,7 +30,7 @@ test("createUploadJobDrillSelection snapshots selected drill binding for queued 
       drillType: "rep",
       difficulty: "beginner",
       tags: [],
-      defaultView: "side",
+      primaryView: "side",
       phases: []
     }
   };

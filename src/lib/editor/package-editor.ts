@@ -102,7 +102,7 @@ export function createNewPhase(phaseId: string, order: number, view: PortableVie
   return {
     phaseId,
     order,
-    title: `Phase ${order}`,
+    name: `Phase ${order}`,
     summary: "",
     durationMs: 5000,
     poseSequence: [createDefaultPose(`${phaseId}_pose_001`, view, 0)],
