@@ -125,6 +125,7 @@ type StudioStateValue = {
   selectedPhaseSourceImage: PhaseSourceImage | null;
   selectedPhaseDetection: DetectionWorkflowState;
   selectedPhaseOverlayState: PhaseOverlayState;
+  selectedPhaseEditorView: PortableViewType;
   selectPackage: (packageKey: string) => void;
   selectPhase: (phaseId: string | null) => void;
   selectJoint: (jointName: CanonicalJointName | null) => void;
@@ -134,7 +135,7 @@ type StudioStateValue = {
   renamePhase: (phaseId: string, title: string) => void;
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
-  setPhaseView: (phaseId: string, view: PortableViewType) => void;
+  setPhaseEditorView: (phaseId: string, view: PortableViewType) => void;
   setDrillTitle: (title: string) => void;
   setDrillSlug: (slug: string) => void;
   setDrillDescription: (description: string) => void;
@@ -186,6 +187,8 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   offsetX: 0,
   offsetY: 0
 };
+
+const DEFAULT_EDITOR_VIEW: PortableViewType = "front";
 
 const DEFAULT_PUBLISH_WORKFLOW_STATE: PublishWorkflowState = {
   panelOpen: false,
@@ -341,6 +344,7 @@ export function StudioStateProvider({
   const [packageAssetBlobs, setPackageAssetBlobs] = useState<Record<string, Record<string, Blob>>>({});
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
+  const [phaseEditorViewState, setPhaseEditorViewState] = useState<Record<string, PortableViewType>>({});
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
@@ -379,6 +383,17 @@ export function StudioStateProvider({
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
+  const selectedPhase = useMemo(() => {
+    if (!selectedPackage || !selectedPhaseId) {
+      return null;
+    }
+
+    const drill = getPrimaryDrill(selectedPackage.workingPackage);
+    return drill?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null;
+  }, [selectedPackage, selectedPhaseId]);
+  const selectedPhaseEditorView = selectedScopeKey
+    ? phaseEditorViewState[selectedScopeKey] ?? selectedPhase?.poseSequence[0]?.canvas.view ?? DEFAULT_EDITOR_VIEW
+    : DEFAULT_EDITOR_VIEW;
 
   useEffect(() => {
     if (persistenceMode !== "local") {
@@ -991,7 +1006,7 @@ export function StudioStateProvider({
     );
   }
 
-  function withPhaseUpdate(phaseId: string, callback: (phase: PortablePhase, view: PortableViewType) => void): void {
+  function withPhaseUpdate(phaseId: string, callback: (phase: PortablePhase, preferredView: PortableViewType) => void): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
         const drill = getPrimaryDrill(draft);
@@ -1004,7 +1019,9 @@ export function StudioStateProvider({
           return;
         }
 
-        callback(phase, drill.defaultView);
+        const scopeKey = getPhaseScopeKey(entry.packageKey, phaseId);
+        const editorView = scopeKey ? phaseEditorViewState[scopeKey] : null;
+        callback(phase, editorView ?? drill.defaultView);
       })
     );
   }
@@ -1027,16 +1044,20 @@ export function StudioStateProvider({
     });
   }
 
-  function setPhaseView(phaseId: string, view: PortableViewType): void {
-    withPhaseUpdate(phaseId, (phase) => {
-      phase.poseSequence = phase.poseSequence.map((pose) => ({
-        ...pose,
-        canvas: {
-          ...pose.canvas,
-          view
-        }
-      }));
-    });
+  function setPhaseEditorView(phaseId: string, view: PortableViewType): void {
+    if (!selectedPackageKey) {
+      return;
+    }
+
+    const scopeKey = getPhaseScopeKey(selectedPackageKey, phaseId);
+    if (!scopeKey) {
+      return;
+    }
+
+    setPhaseEditorViewState((current) => ({
+      ...current,
+      [scopeKey]: view
+    }));
   }
 
   function setDrillTitle(title: string): void {
@@ -1762,6 +1783,7 @@ export function StudioStateProvider({
     selectedPhaseSourceImage,
     selectedPhaseDetection,
     selectedPhaseOverlayState,
+    selectedPhaseEditorView,
     selectPackage,
     selectPhase,
     selectJoint,
@@ -1771,7 +1793,7 @@ export function StudioStateProvider({
     renamePhase,
     setPhaseDuration,
     setPhaseSummary,
-    setPhaseView,
+    setPhaseEditorView,
     setDrillTitle,
     setDrillSlug,
     setDrillDescription,
