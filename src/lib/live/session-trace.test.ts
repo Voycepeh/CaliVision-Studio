@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createLiveTraceAccumulator } from "./session-trace.ts";
+import { createLiveTraceAccumulator, normalizeTraceToVideoDuration } from "./session-trace.ts";
 
 const drill = {
   drillId: "d1",
@@ -39,4 +39,27 @@ test("trace retention captures rep and hold events with timestamps", () => {
   assert.equal(finalized.captures.length, 3);
   assert.ok(finalized.events.some((event) => event.type === "phase_enter"));
   assert.ok((finalized.summary.repCount ?? 0) >= 1);
+});
+
+test("trace timestamps can be normalized to finalized video duration for export alignment", () => {
+  const normalized = normalizeTraceToVideoDuration(
+    [
+      {
+        timestampMs: 0,
+        frame: { timestampMs: 0, joints: {} },
+        frameSample: { timestampMs: 0, confidence: 0.4 }
+      },
+      {
+        timestampMs: 1100,
+        frame: { timestampMs: 1100, joints: {} },
+        frameSample: { timestampMs: 1100, confidence: 0.5 }
+      }
+    ],
+    [{ eventId: "evt_1", timestampMs: 1100, type: "phase_enter", phaseId: "down" }],
+    1000
+  );
+
+  assert.equal(normalized.captures[1]?.timestampMs, 1000);
+  assert.equal(normalized.captures[1]?.frame.timestampMs, 1000);
+  assert.equal(normalized.events[0]?.timestampMs, 1000);
 });

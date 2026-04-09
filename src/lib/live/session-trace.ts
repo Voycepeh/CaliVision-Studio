@@ -18,6 +18,42 @@ type TraceState = {
   expectedSequenceIndex: number;
 };
 
+function scaleTimestamp(timestampMs: number, scale: number, maxDurationMs: number): number {
+  return Math.max(0, Math.min(maxDurationMs, Math.round(timestampMs * scale)));
+}
+
+export function normalizeTraceToVideoDuration(
+  captures: LiveSessionTrace["captures"],
+  events: AnalysisEvent[],
+  durationMs: number
+): { captures: LiveSessionTrace["captures"]; events: AnalysisEvent[] } {
+  const lastTraceTimestampMs = captures[captures.length - 1]?.timestampMs ?? events[events.length - 1]?.timestampMs ?? durationMs;
+  if (lastTraceTimestampMs <= 0 || durationMs <= 0) {
+    return { captures, events };
+  }
+
+  const scale = durationMs / lastTraceTimestampMs;
+  if (!Number.isFinite(scale) || Math.abs(1 - scale) < 0.005) {
+    return { captures, events };
+  }
+
+  return {
+    captures: captures.map((capture) => {
+      const timestampMs = scaleTimestamp(capture.timestampMs, scale, durationMs);
+      return {
+        ...capture,
+        timestampMs,
+        frame: { ...capture.frame, timestampMs },
+        frameSample: { ...capture.frameSample, timestampMs }
+      };
+    }),
+    events: events.map((event) => ({
+      ...event,
+      timestampMs: scaleTimestamp(event.timestampMs, scale, durationMs)
+    }))
+  };
+}
+
 export function createLiveTraceAccumulator(input: {
   traceId: string;
   startedAtIso: string;
@@ -143,6 +179,8 @@ export function createLiveTraceAccumulator(input: {
         }
       }
 
+      const normalized = normalizeTraceToVideoDuration(state.captures, state.events, video.durationMs);
+
       return {
         schemaVersion: "live-session-trace-v1",
         traceId: input.traceId,
@@ -152,8 +190,8 @@ export function createLiveTraceAccumulator(input: {
         drillSelection: input.drillSelection,
         cadenceFps: input.cadenceFps,
         video,
-        captures: state.captures,
-        events: state.events,
+        captures: normalized.captures,
+        events: normalized.events,
         summary: {
           repCount: state.repCount,
           holdDurationMs: Math.round(state.holdDurationMs),
