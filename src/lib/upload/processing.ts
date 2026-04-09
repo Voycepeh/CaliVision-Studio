@@ -521,7 +521,7 @@ export async function exportAnnotatedVideo(
       hasRequestFrame: Boolean(requestFrame)
     });
     try {
-      const renderStartedAtMs = performance.now();
+      const exportStartedAtMs = performance.now();
       for (let frameIndex = 0; frameIndex < expectedFrameCount; frameIndex += 1) {
         const timestampMs = Math.min(durationMs, Math.round(frameIndex * frameDurationMs));
         await seekVideo(video, timestampMs / 1000);
@@ -559,7 +559,7 @@ export async function exportAnnotatedVideo(
         );
 
         const targetElapsedMs = (frameIndex + 1) * frameDurationMs;
-        const renderElapsedMs = performance.now() - renderStartedAtMs;
+        const renderElapsedMs = performance.now() - exportStartedAtMs;
         const pacingDelayMs = Math.max(0, targetElapsedMs - renderElapsedMs);
         if (pacingDelayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, pacingDelayMs));
