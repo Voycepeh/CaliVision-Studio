@@ -1006,7 +1006,7 @@ export function StudioStateProvider({
     );
   }
 
-  function withPhaseUpdate(phaseId: string, callback: (phase: PortablePhase, preferredView: PortableViewType) => void): void {
+  function withPhaseUpdate(phaseId: string, callback: (phase: PortablePhase, persistedView: PortableViewType) => void): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
         const drill = getPrimaryDrill(draft);
@@ -1019,9 +1019,10 @@ export function StudioStateProvider({
           return;
         }
 
-        const scopeKey = getPhaseScopeKey(entry.packageKey, phaseId);
-        const editorView = scopeKey ? phaseEditorViewState[scopeKey] : null;
-        callback(phase, editorView ?? drill.primaryView);
+        // Keep export/runtime contracts based on persisted package fields only.
+        // Editor-only view controls are intentionally excluded from these writes.
+        const persistedView = phase.poseSequence[0]?.canvas.view ?? drill.primaryView;
+        callback(phase, persistedView);
       })
     );
   }
@@ -1643,6 +1644,8 @@ export function StudioStateProvider({
       return;
     }
 
+    // Export strictly from persisted package state. Transient editor controls
+    // (selected joint, focus region, editor canvas view, focus canvas mode) stay out of payloads.
     const exportPackage = clonePackage(selectedPackage.workingPackage);
     const primaryDrill = getPrimaryDrill(exportPackage);
     if (primaryDrill && !primaryDrill.thumbnailAssetId) {
