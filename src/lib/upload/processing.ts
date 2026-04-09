@@ -10,15 +10,116 @@ export type ProcessVideoOptions = {
   onProgress?: (progress: number, stageLabel: string) => void;
 };
 
+type SourceKind = "original" | "normalized";
+
+type VideoDiagnostics = {
+  width?: number;
+  height?: number;
+  durationMs?: number;
+  fps?: number;
+  codec?: string;
+  rotationMetadata?: number | "unknown";
+  colorTransfer?: string;
+  isHdrSource?: boolean;
+  hasSuspiciousMetadata: boolean;
+};
+
+export type ProcessVideoResult = {
+  timeline: PoseTimeline;
+  analysisFile: File;
+  analysisSourceKind: SourceKind;
+};
+
 const SEEK_EPSILON_SECONDS = 0.001;
-// Mobile browsers (especially Android Chrome) can need longer seek/decode settle time.
 const SEEK_TIMEOUT_MS = 8000;
 const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
+function logUploadEvent(event: string, payload?: Record<string, unknown>): void {
+  if (payload) {
+    console.info(`${UPLOAD_DIAGNOSTICS_PREFIX} ${event}`, payload);
+    return;
+  }
+  console.info(`${UPLOAD_DIAGNOSTICS_PREFIX} ${event}`);
+}
+
 function createObjectUrl(file: File): string {
   return URL.createObjectURL(file);
+}
+
+function extractCodecFromMimeType(mimeType: string): string | undefined {
+  const match = mimeType.match(/codecs\s*=\s*"?([^";]+)"?/i);
+  if (match?.[1]) {
+    return match[1].trim();
+  }
+  if (mimeType.includes("hevc") || mimeType.includes("h265") || mimeType.includes("hvc1") || mimeType.includes("hev1")) {
+    return "hevc";
+  }
+  if (mimeType.includes("avc") || mimeType.includes("h264") || mimeType.includes("avc1")) {
+    return "h264";
+  }
+  return undefined;
+}
+
+function inferHdrFromFileName(name: string): boolean {
+  const lower = name.toLowerCase();
+  return lower.includes("hlg") || lower.includes("hdr") || lower.includes("pq");
+}
+
+async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
+  const { video, objectUrl } = await loadVideoElement(file);
+  try {
+    const width = video.videoWidth || undefined;
+    const height = video.videoHeight || undefined;
+    const durationMs = Number.isFinite(video.duration) ? Math.round(video.duration * 1000) : undefined;
+    const codec = extractCodecFromMimeType(file.type);
+    const inferredHdr = inferHdrFromFileName(file.name) || /hlg|hdr|bt2020|pq/i.test(file.type);
+    const hasSuspiciousMetadata = !width || !height || !durationMs || durationMs <= 0;
+
+    return {
+      width,
+      height,
+      durationMs,
+      fps: undefined,
+      codec,
+      rotationMetadata: "unknown",
+      colorTransfer: inferredHdr ? "HLG/HDR (inferred)" : undefined,
+      isHdrSource: inferredHdr,
+      hasSuspiciousMetadata
+    };
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const width = diagnostics.width ?? 0;
+  const height = diagnostics.height ?? 0;
+  const isPortrait = width > 0 && height > 0 && height > width;
+  if (isPortrait && diagnostics.rotationMetadata !== undefined) {
+    reasons.push("portrait source may carry rotation metadata ambiguity");
+  }
+
+  if (diagnostics.isHdrSource) {
+    reasons.push("HDR/HLG transfer detected or inferred");
+  }
+
+  const codec = diagnostics.codec?.toLowerCase() ?? "";
+  if (codec.includes("hevc") || codec.includes("hvc1") || codec.includes("hev1") || codec.includes("h265")) {
+    reasons.push("HEVC/H.265 decoder-fragile source");
+  }
+
+  if (diagnostics.hasSuspiciousMetadata) {
+    reasons.push("suspicious or incomplete metadata");
+  }
+
+  if (!file.type) {
+    reasons.push("missing mime type metadata");
+  }
+
+  return { required: reasons.length > 0, reasons };
 }
 
 async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; objectUrl: string }> {
@@ -75,6 +176,98 @@ async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; 
   return { video, objectUrl };
 }
 
+function pickNormalizationMimeType(): string {
+  const preferred = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
+  for (const candidate of preferred) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate;
+    }
+  }
+  return "video/webm";
+}
+
+async function normalizeVideoForAnalysis(file: File, diagnostics: VideoDiagnostics, signal?: AbortSignal): Promise<File> {
+  const { video, objectUrl } = await loadVideoElement(file);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, diagnostics.width ?? video.videoWidth ?? 1);
+    canvas.height = Math.max(1, diagnostics.height ?? video.videoHeight ?? 1);
+    const ctx = canvas.getContext("2d", { alpha: false });
+
+    if (!ctx) {
+      throw new Error("Video preprocessing failed: 2D canvas unavailable.");
+    }
+
+    const stream = canvas.captureStream(30);
+    const mimeType = pickNormalizationMimeType();
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 6_000_000 });
+    const chunks: BlobPart[] = [];
+
+    const stopped = new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      recorder.onerror = () => reject(new Error("Video preprocessing failed: recorder error."));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+    });
+
+    await video.play();
+    recorder.start(250);
+
+    await new Promise<void>((resolve, reject) => {
+      const cleanup = () => {
+        video.removeEventListener("ended", onEnded);
+        video.removeEventListener("error", onVideoError);
+      };
+
+      const onEnded = () => {
+        cleanup();
+        resolve();
+      };
+
+      const onVideoError = () => {
+        cleanup();
+        reject(new Error("Video preprocessing failed: source decode error."));
+      };
+
+      const tick = () => {
+        if (signal?.aborted) {
+          cleanup();
+          reject(new DOMException("Processing cancelled", "AbortError"));
+          return;
+        }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (!video.ended) {
+          requestAnimationFrame(tick);
+        }
+      };
+
+      video.addEventListener("ended", onEnded, { once: true });
+      video.addEventListener("error", onVideoError, { once: true });
+      tick();
+    });
+
+    recorder.stop();
+    const blob = await stopped;
+
+    if (blob.size === 0) {
+      throw new Error("Video preprocessing failed: output file was empty.");
+    }
+
+    const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+    const stem = file.name.replace(/\.[^.]+$/, "");
+    return new File([blob], `${stem}.analysis-normalized.${extension}`, {
+      type: blob.type,
+      lastModified: Date.now()
+    });
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promise<void> {
   if (Math.abs(video.currentTime - targetSeconds) <= SEEK_EPSILON_SECONDS) {
     return;
@@ -85,9 +278,11 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
     const timeoutId = setTimeout(() => {
       cleanup();
       const waitedMs = Math.round(performance.now() - seekStartedAt);
-      console.debug(
-        `${UPLOAD_DIAGNOSTICS_PREFIX} Seek timeout at ${targetSeconds.toFixed(3)}s after ${waitedMs}ms (timeout=${SEEK_TIMEOUT_MS}ms).`
-      );
+      logUploadEvent("ANALYSIS_SEEK_TIMEOUT", {
+        targetSeconds,
+        waitedMs,
+        timeoutMs: SEEK_TIMEOUT_MS
+      });
       reject(new Error("Video seek timed out during pose sampling."));
     }, SEEK_TIMEOUT_MS);
 
@@ -132,17 +327,66 @@ export async function readVideoMetadata(file: File): Promise<{ durationMs?: numb
   }
 }
 
-export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<PoseTimeline> {
+export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<ProcessVideoResult> {
+  const diagnostics = await inspectVideoDiagnostics(file);
+  logUploadEvent("VIDEO_METADATA_INSPECTED", {
+    fileName: file.name,
+    width: diagnostics.width,
+    height: diagnostics.height,
+    rotationMetadata: diagnostics.rotationMetadata,
+    durationMs: diagnostics.durationMs,
+    fps: diagnostics.fps,
+    codec: diagnostics.codec,
+    colorTransfer: diagnostics.colorTransfer
+  });
+
+  const normalizationDecision = shouldNormalize(file, diagnostics);
+  let analysisFile = file;
+  let analysisSourceKind: SourceKind = "original";
+
+  if (normalizationDecision.required) {
+    logUploadEvent("NORMALIZATION_REQUIRED", {
+      fileName: file.name,
+      reasons: normalizationDecision.reasons
+    });
+    logUploadEvent("NORMALIZATION_STARTED", { fileName: file.name });
+
+    try {
+      analysisFile = await normalizeVideoForAnalysis(file, diagnostics, options.signal);
+      analysisSourceKind = "normalized";
+      logUploadEvent("NORMALIZATION_SUCCEEDED", {
+        sourceFileName: file.name,
+        normalizedFileName: analysisFile.name,
+        normalizedMimeType: analysisFile.type,
+        normalizedSizeBytes: analysisFile.size
+      });
+    } catch (error) {
+      logUploadEvent("NORMALIZATION_FAILED", {
+        fileName: file.name,
+        reason: error instanceof Error ? error.message : "unknown"
+      });
+      const preprocessingError = new Error("Video preprocessing failed");
+      (preprocessingError as Error & { cause?: unknown }).cause = error;
+      throw preprocessingError;
+    }
+  }
+
+  logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
+    mode: analysisSourceKind,
+    selectedFileName: analysisFile.name,
+    selectedMimeType: analysisFile.type || "unknown"
+  });
+
   const cadenceMs = 1000 / options.cadenceFps;
   const poseLandmarker = await createPoseLandmarkerForJob();
-  const { video, objectUrl } = await loadVideoElement(file);
+  const { video, objectUrl } = await loadVideoElement(analysisFile);
 
   const durationMs = Math.round(video.duration * 1000);
   const frames = [] as PoseTimeline["frames"];
   let lastTimestampMs = -1;
 
   try {
-    options.onProgress?.(0.02, "Sampling frames");
+    options.onProgress?.(0.02, analysisSourceKind === "normalized" ? "Sampling normalized frames" : "Sampling frames");
 
     const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
     for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
@@ -175,19 +419,23 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     options.onProgress?.(1, "Pose timeline complete");
 
     return {
-      schemaVersion: "upload-video-v1",
-      detector: "mediapipe-pose-landmarker",
-      cadenceFps: options.cadenceFps,
-      video: {
-        fileName: file.name,
-        width: video.videoWidth,
-        height: video.videoHeight,
-        durationMs,
-        sizeBytes: file.size,
-        mimeType: file.type
+      timeline: {
+        schemaVersion: "upload-video-v1",
+        detector: "mediapipe-pose-landmarker",
+        cadenceFps: options.cadenceFps,
+        video: {
+          fileName: analysisFile.name,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          durationMs,
+          sizeBytes: analysisFile.size,
+          mimeType: analysisFile.type || file.type
+        },
+        frames,
+        generatedAtIso: new Date().toISOString()
       },
-      frames,
-      generatedAtIso: new Date().toISOString()
+      analysisFile,
+      analysisSourceKind
     };
   } catch (error) {
     throw toUserFacingUploadError(error);
@@ -313,6 +561,10 @@ function toUserFacingUploadError(error: unknown): Error {
     return new Error(
       "Video processing hit a timestamp ordering issue. Please retry this video; Upload Video now starts retries with a fresh local processing context."
     );
+  }
+
+  if (normalized.includes("video preprocessing failed")) {
+    return new Error("Video preprocessing failed");
   }
 
   return error;
