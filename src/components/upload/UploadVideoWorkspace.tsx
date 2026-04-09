@@ -296,7 +296,7 @@ export function UploadVideoWorkspace() {
         stageLabel: analysisSourceKind === "normalized" ? "Rendering annotated video (normalized source)" : "Rendering annotated video"
       } : current));
 
-      const annotated = await exportAnnotatedVideo(analysisFile, timeline, {
+      const overlayOptions = {
         includeAnalysisOverlay: true,
         analysisSession: completedSession,
         overlayModeLabel: (nextJob.drillSelection.mode ?? "drill") === "drill"
@@ -304,7 +304,21 @@ export function UploadVideoWorkspace() {
           : "No drill · Freestyle overlay",
         includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
         overlayConfidenceLabel: completedSession ? `Confidence: ${formatConfidence(completedSession.summary.confidenceAvg)}` : undefined
-      });
+      };
+
+      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
+      try {
+        annotated = await exportAnnotatedVideo(nextJob.file, timeline, overlayOptions);
+      } catch (error) {
+        if (analysisSourceKind !== "normalized") {
+          throw error;
+        }
+        console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+          fileName: nextJob.fileName,
+          reason: error instanceof Error ? error.message : "unknown"
+        });
+        annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
+      }
 
       setActiveJob((current) =>
         current

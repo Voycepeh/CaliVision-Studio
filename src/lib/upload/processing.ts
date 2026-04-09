@@ -18,7 +18,7 @@ type VideoDiagnostics = {
   durationMs?: number;
   fps?: number;
   codec?: string;
-  rotationMetadata?: number | "unknown";
+  rotationMetadata?: number;
   colorTransfer?: string;
   isHdrSource?: boolean;
   hasSuspiciousMetadata: boolean;
@@ -83,7 +83,7 @@ async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
       durationMs,
       fps: undefined,
       codec,
-      rotationMetadata: "unknown",
+      rotationMetadata: undefined,
       colorTransfer: inferredHdr ? "HLG/HDR (inferred)" : undefined,
       isHdrSource: inferredHdr,
       hasSuspiciousMetadata
@@ -98,8 +98,8 @@ function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required:
   const width = diagnostics.width ?? 0;
   const height = diagnostics.height ?? 0;
   const isPortrait = width > 0 && height > 0 && height > width;
-  if (isPortrait && diagnostics.rotationMetadata !== undefined) {
-    reasons.push("portrait source may carry rotation metadata ambiguity");
+  if (isPortrait && typeof diagnostics.rotationMetadata === "number" && diagnostics.rotationMetadata % 360 !== 0) {
+    reasons.push("portrait source has non-zero rotation metadata");
   }
 
   if (diagnostics.isHdrSource) {
@@ -333,7 +333,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     fileName: file.name,
     width: diagnostics.width,
     height: diagnostics.height,
-    rotationMetadata: diagnostics.rotationMetadata,
+    rotationMetadata: diagnostics.rotationMetadata ?? "unknown",
     durationMs: diagnostics.durationMs,
     fps: diagnostics.fps,
     codec: diagnostics.codec,
