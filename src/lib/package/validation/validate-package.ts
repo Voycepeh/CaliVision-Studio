@@ -1,4 +1,5 @@
 import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
+import { normalizeDrillPhaseIdentity } from "@/lib/package/phase-identity";
 import type {
   DrillPackage,
   PortableAssetRef,
@@ -151,10 +152,12 @@ export function normalizePortableDrillPackage(input: DrillPackage): DrillPackage
 }
 
 export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
+  const normalizedIdentity = normalizeDrillPhaseIdentity(drill);
+
   return {
-    ...drill,
-    analysis: normalizePortableDrillAnalysis(drill.analysis, drill.drillType),
-    phases: drill.phases.map((phase) => normalizePortablePhase(phase))
+    ...normalizedIdentity,
+    analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
+    phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase))
   };
 }
 

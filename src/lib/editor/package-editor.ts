@@ -1,5 +1,5 @@
 import { clampNormalized } from "@/lib/canvas/mapping";
-import { validatePortableDrillPackage, type PackageValidationResult } from "@/lib/package/validation/validate-package";
+import { normalizePortableDrillPackage, validatePortableDrillPackage, type PackageValidationResult } from "@/lib/package/validation/validate-package";
 import { createDefaultPortablePose } from "@/lib/pose/portable-pose";
 import type { CanonicalJointName, DrillPackage, PortablePhase, PortablePose, PortableViewType } from "@/lib/schema/contracts";
 
@@ -21,8 +21,9 @@ export function clonePackage(drillPackage: DrillPackage): DrillPackage {
 }
 
 export function createEditablePackageEntry(packageKey: string, sourceLabel: string, sourcePackage: DrillPackage): EditablePackageEntry {
-  const baseline = clonePackage(sourcePackage);
-  const workingPackage = clonePackage(sourcePackage);
+  const normalized = normalizePortableDrillPackage(sourcePackage);
+  const baseline = clonePackage(normalized);
+  const workingPackage = clonePackage(normalized);
 
   return {
     packageKey,
@@ -86,6 +87,13 @@ export function ensureUniquePhaseId(phases: PortablePhase[], seed: string): stri
   return `${seed}_${index}`;
 }
 
+export function createStablePhaseId(phases: PortablePhase[]): string {
+  return ensureUniquePhaseId(
+    phases,
+    `phase_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
 export function createDefaultPose(poseId: string, view: PortableViewType, timestampMs = 0): PortablePose {
   return createDefaultPortablePose(poseId, view, timestampMs);
 }
@@ -94,7 +102,7 @@ export function createNewPhase(phaseId: string, order: number, view: PortableVie
   return {
     phaseId,
     order,
-    title: "New Phase",
+    title: `Phase ${order}`,
     summary: "",
     durationMs: 5000,
     poseSequence: [createDefaultPose(`${phaseId}_pose_001`, view, 0)],

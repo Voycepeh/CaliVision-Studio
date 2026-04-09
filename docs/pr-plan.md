@@ -38,3 +38,10 @@ The split between top-level Drafts and My drills creates duplicate entries, conf
 - Large Studio layout redesign.
 
 Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+
+## Assumptions / non-goals for phase identity cleanup
+
+- Assumption: `phaseId` is treated as internal stable identity, while `title` is the only canonical user-facing phase name in Drill Studio.
+- Assumption: legacy placeholders (`phase_top`, `phase_bottom`, `phase_new`) may exist in prior local/imported data and should be normalized on load.
+- Non-goal: introducing a new contract field for phase identity in this pass (the existing `phaseId` remains the portable identity field).
+- Non-goal: changing Android runtime ownership boundaries; runtime/live coaching remains in Android: <https://github.com/Voycepeh/CaliVision>.

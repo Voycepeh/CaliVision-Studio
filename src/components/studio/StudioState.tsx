@@ -8,7 +8,7 @@ import {
   clonePackage,
   createEditablePackageEntry,
   createNewPhase,
-  ensureUniquePhaseId,
+  createStablePhaseId,
   getPrimaryDrill,
   getSortedPhases,
   normalizePhaseOrder,
@@ -1148,7 +1148,7 @@ export function StudioStateProvider({
           normalizePhaseOrder(draft);
           const phases = getSortedPhases(draft);
           const nextOrder = phases.length + 1;
-          const phaseId = ensureUniquePhaseId(phases, "phase_new");
+          const phaseId = createStablePhaseId(phases);
           createdPhaseId = phaseId;
           drill.phases.push(createNewPhase(phaseId, nextOrder, drill.defaultView));
           normalizePhaseOrder(draft);
@@ -1222,7 +1222,7 @@ export function StudioStateProvider({
             return;
           }
 
-          const duplicateId = ensureUniquePhaseId(phases, `${source.phaseId}_copy`);
+          const duplicateId = createStablePhaseId(phases);
           duplicatedPhaseId = duplicateId;
           const duplicated = structuredClone(source);
 

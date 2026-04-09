@@ -49,12 +49,12 @@
       "analysis": {
         "measurementType": "rep",
         "orderedPhaseSequence": [
-          "phase_top",
-          "phase_bottom",
-          "phase_top"
+          "phase_001",
+          "phase_002",
+          "phase_001"
         ],
         "criticalPhaseIds": [
-          "phase_bottom"
+          "phase_002"
         ],
         "allowedPhaseSkips": [],
         "minimumConfirmationFrames": 2,
@@ -67,7 +67,7 @@
       },
       "phases": [
         {
-          "phaseId": "phase_top",
+          "phaseId": "phase_001",
           "order": 1,
           "title": "Top plank",
           "durationMs": 1200,
@@ -123,7 +123,7 @@
           "assetRefs": []
         },
         {
-          "phaseId": "phase_bottom",
+          "phaseId": "phase_002",
           "order": 2,
           "title": "Bottom",
           "durationMs": 900,
@@ -191,24 +191,24 @@
       "analysis": {
         "measurementType": "hold",
         "orderedPhaseSequence": [
-          "phase_entry",
-          "phase_hold"
+          "phase_101",
+          "phase_102"
         ],
         "criticalPhaseIds": [
-          "phase_hold"
+          "phase_102"
         ],
         "allowedPhaseSkips": [],
         "minimumConfirmationFrames": 2,
         "exitGraceFrames": 6,
         "minimumRepDurationMs": 500,
         "cooldownMs": 150,
-        "targetHoldPhaseId": "phase_hold",
+        "targetHoldPhaseId": "phase_102",
         "entryConfirmationFrames": 4,
         "minimumHoldDurationMs": 8000
       },
       "phases": [
         {
-          "phaseId": "phase_entry",
+          "phaseId": "phase_101",
           "order": 1,
           "title": "Entry",
           "durationMs": 1500,
@@ -245,7 +245,7 @@
           "assetRefs": []
         },
         {
-          "phaseId": "phase_hold",
+          "phaseId": "phase_102",
           "order": 2,
           "title": "Hold line",
           "durationMs": 12000,
@@ -308,21 +308,21 @@
       "analysis": {
         "measurementType": "hybrid",
         "orderedPhaseSequence": [
-          "phase_squat",
-          "phase_plank",
-          "phase_jump",
-          "phase_lockout"
+          "phase_201",
+          "phase_202",
+          "phase_203",
+          "phase_204"
         ],
         "criticalPhaseIds": [
-          "phase_plank",
-          "phase_lockout"
+          "phase_202",
+          "phase_204"
         ],
         "allowedPhaseSkips": [
           {
-            "fromPhaseId": "phase_plank",
-            "toPhaseId": "phase_lockout",
+            "fromPhaseId": "phase_202",
+            "toPhaseId": "phase_204",
             "skippedPhaseIds": [
-              "phase_jump"
+              "phase_203"
             ]
           }
         ],
@@ -331,13 +331,13 @@
         "minimumRepDurationMs": 900,
         "maximumRepDurationMs": 7000,
         "cooldownMs": 300,
-        "targetHoldPhaseId": "phase_lockout",
+        "targetHoldPhaseId": "phase_204",
         "entryConfirmationFrames": 3,
         "minimumHoldDurationMs": 600
       },
       "phases": [
         {
-          "phaseId": "phase_squat",
+          "phaseId": "phase_201",
           "order": 1,
           "title": "Squat",
           "durationMs": 900,
@@ -378,7 +378,7 @@
           "assetRefs": []
         },
         {
-          "phaseId": "phase_plank",
+          "phaseId": "phase_202",
           "order": 2,
           "title": "Plank",
           "durationMs": 800,
@@ -420,7 +420,7 @@
           "assetRefs": []
         },
         {
-          "phaseId": "phase_jump",
+          "phaseId": "phase_203",
           "order": 3,
           "title": "Jump",
           "durationMs": 700,
@@ -461,7 +461,7 @@
           "assetRefs": []
         },
         {
-          "phaseId": "phase_lockout",
+          "phaseId": "phase_204",
           "order": 4,
           "title": "Lockout",
           "durationMs": 900,
