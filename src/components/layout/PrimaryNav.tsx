@@ -5,7 +5,7 @@ import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
-  active?: "home" | "library" | "studio" | "upload" | "exchange";
+  active?: "home" | "library" | "studio" | "upload" | "live" | "exchange";
 };
 
 const items = [
@@ -13,6 +13,7 @@ const items = [
   { href: "/library", label: "Library", key: "library" },
   { href: "/studio", label: "Studio", key: "studio" },
   { href: "/upload", label: "Upload Video", key: "upload" },
+  { href: "/live", label: "Live Streaming", key: "live" },
   { href: "/marketplace", label: "Exchange", key: "exchange" }
 ] as const;
 
