@@ -167,11 +167,11 @@ export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
     ...normalizedIdentity,
     defaultView: undefined,
     analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
-    phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase))
+    phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase, normalizedIdentity.primaryView))
   };
 }
 
-export function normalizePortablePhase(phase: PortablePhase): PortablePhase {
+export function normalizePortablePhase(phase: PortablePhase, drillView?: PortableDrill["primaryView"]): PortablePhase {
   const sanitized = { ...(phase as PortablePhase & Record<string, unknown>) };
   delete sanitized.selectedJoint;
   delete sanitized.focusRegion;
@@ -183,6 +183,13 @@ export function normalizePortablePhase(phase: PortablePhase): PortablePhase {
     ...sanitized,
     title: undefined,
     name: phase.name ?? phase.title ?? `Phase ${phase.order}`,
+    poseSequence: phase.poseSequence.map((pose) => ({
+      ...pose,
+      canvas: {
+        ...pose.canvas,
+        view: drillView ?? pose.canvas.view
+      }
+    })),
     analysis: phase.analysis
       ? {
           ...phase.analysis,

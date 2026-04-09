@@ -13,7 +13,7 @@ import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
-import type { CanonicalJointName, PortableViewType } from "@/lib/schema/contracts";
+import type { CanonicalJointName } from "@/lib/schema/contracts";
 
 const NUDGE_STEP = 0.01;
 
@@ -97,7 +97,6 @@ export function StudioCenterInspector() {
     setPhaseDuration,
     setPhaseSummary,
     selectedPhaseEditorView,
-    setPhaseEditorView,
     addPhase,
     deletePhase,
     duplicatePhase,
@@ -120,7 +119,6 @@ export function StudioCenterInspector() {
   const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
   const selectedPose = selectedPhase?.poseSequence[0] ?? null;
-  const persistedPoseView = selectedPose?.canvas.view ?? selectedDrill?.primaryView ?? "front";
   const poseModel = useMemo(
     () =>
       mapPortablePoseToCanvasPoseModel(
@@ -271,10 +269,10 @@ export function StudioCenterInspector() {
                 <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
                   <h4 style={{ margin: 0, fontSize: "0.92rem", gridColumn: "1 / -1" }}>Editor tools</h4>
                   <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
-                    Workspace-only controls for pose authoring. These do not change persisted drill/phase schema fields.
+                    Use one camera view for the full drill. All phases automatically follow this view.
                   </p>
                   <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
-                    Primary view (saved drill metadata): <strong>{selectedDrill?.primaryView ?? "front"}</strong> • Persisted phase pose view: <strong>{persistedPoseView}</strong>
+                    Camera view: <strong>{selectedDrill?.primaryView ?? "front"}</strong>
                   </p>
                   <label style={labelStyle}>
                     <span>Selected joint (workspace only)</span>
@@ -288,15 +286,6 @@ export function StudioCenterInspector() {
                     <span>Focus region (workspace only)</span>
                     <select value={focusRegion} style={inputStyle} onChange={(event) => setFocusRegion(event.target.value as FocusRegion)}>
                       {FOCUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-
-                  <label style={labelStyle}>
-                    <span>Editor canvas view (workspace only)</span>
-                    <select value={selectedPhaseEditorView} style={inputStyle} onChange={(event) => setPhaseEditorView(selectedPhase.phaseId, event.target.value as PortableViewType)}>
-                      <option value="front">front</option>
-                      <option value="side">side</option>
-                      <option value="rear">rear</option>
                     </select>
                   </label>
 
