@@ -675,9 +675,9 @@ export function UploadVideoWorkspace() {
                 multiple
                 style={{ display: "none" }}
                 onChange={(event) => {
-                  const files = event.currentTarget.files;
+                  const files = event.currentTarget.files ? Array.from(event.currentTarget.files) : [];
                   clearFileInputValue(event.currentTarget);
-                  if (files) {
+                  if (files.length > 0) {
                     void enqueueFiles(files);
                   }
                 }}
