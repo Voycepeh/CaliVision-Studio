@@ -152,10 +152,14 @@ export function normalizePortableDrillPackage(input: DrillPackage): DrillPackage
 }
 
 export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
-  const { selectedJoint: _selectedJoint, focusRegion: _focusRegion, canvasSize: _canvasSize, focusCanvas: _focusCanvas, ...rest } =
-    drill as PortableDrill & Record<string, unknown>;
+  const sanitized = { ...(drill as PortableDrill & Record<string, unknown>) };
+  delete sanitized.selectedJoint;
+  delete sanitized.focusRegion;
+  delete sanitized.canvasSize;
+  delete sanitized.focusCanvas;
+
   const normalizedIdentity = normalizeDrillPhaseIdentity({
-    ...rest,
+    ...sanitized,
     primaryView: drill.primaryView ?? drill.defaultView ?? "front"
   } as PortableDrill);
 
@@ -168,17 +172,15 @@ export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
 }
 
 export function normalizePortablePhase(phase: PortablePhase): PortablePhase {
-  const {
-    selectedJoint: _selectedJoint,
-    focusRegion: _focusRegion,
-    canvasSize: _canvasSize,
-    focusCanvas: _focusCanvas,
-    transientUi: _transientUi,
-    ...rest
-  } = phase as PortablePhase & Record<string, unknown>;
+  const sanitized = { ...(phase as PortablePhase & Record<string, unknown>) };
+  delete sanitized.selectedJoint;
+  delete sanitized.focusRegion;
+  delete sanitized.canvasSize;
+  delete sanitized.focusCanvas;
+  delete sanitized.transientUi;
 
   return {
-    ...rest,
+    ...sanitized,
     title: undefined,
     name: phase.name ?? phase.title ?? `Phase ${phase.order}`,
     analysis: phase.analysis
