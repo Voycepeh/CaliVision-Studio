@@ -34,6 +34,10 @@ const SEEK_EPSILON_SECONDS = 0.001;
 const SEEK_TIMEOUT_MS = 8000;
 const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
+const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
+const EXPORT_MIN_FPS = 24;
+const EXPORT_MAX_FPS = 30;
+const EXPORT_MAX_FRAME_COUNT = 5400;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 function logUploadEvent(event: string, payload?: Record<string, unknown>): void {
@@ -454,6 +458,7 @@ export async function exportAnnotatedVideo(
     overlayModeLabel?: string;
     includeDrillMetrics?: boolean;
     phaseLabels?: Record<string, string>;
+    onProgress?: (progress: number, stageLabel: string) => void;
   }
 ): Promise<{ blob: Blob; mimeType: string }> {
   const { video, objectUrl } = await loadVideoElement(file);
@@ -467,10 +472,18 @@ export async function exportAnnotatedVideo(
     throw new Error("2D canvas context unavailable for annotated export.");
   }
 
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(0);
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
   const recorder = new MediaRecorder(stream, { mimeType });
+  const [videoTrack] = stream.getVideoTracks();
+  const requestFrame = videoTrack && "requestFrame" in videoTrack ? () => (videoTrack as CanvasCaptureMediaStreamTrack).requestFrame() : null;
   const chunks: BlobPart[] = [];
+  const durationMs = Math.max(1, Math.round(timeline.video.durationMs || (Number.isFinite(video.duration) ? video.duration * 1000 : 0)));
+  const targetFps = Math.min(EXPORT_MAX_FPS, Math.max(EXPORT_MIN_FPS, Math.round(timeline.cadenceFps || EXPORT_MIN_FPS)));
+  const frameStepMs = Math.max(1, Math.round(1000 / targetFps));
+  const estimatedFrameCount = Math.max(1, Math.min(EXPORT_MAX_FRAME_COUNT, Math.ceil(durationMs / frameStepMs)));
+  const phaseLabels = options?.phaseLabels;
+  const sourceFrames = timeline.frames;
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
@@ -478,11 +491,10 @@ export async function exportAnnotatedVideo(
     }
   };
 
-  const completed = new Promise<Blob>((resolve) => {
+  const completed = new Promise<Blob>((resolve, reject) => {
+    recorder.onerror = () => reject(new Error("Annotated export failed: recorder error."));
     recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
   });
-
-  recorder.start(250);
 
   const overlaySamples =
     options?.includeAnalysisOverlay !== false && options?.analysisSession
@@ -494,49 +506,69 @@ export async function exportAnnotatedVideo(
         ])
       : [];
 
-  await video.play();
+  try {
+    options?.onProgress?.(0.02, "Preparing export…");
+    recorder.start(100);
+    logUploadEvent("ANNOTATED_EXPORT_START", { durationMs, targetFps, estimatedFrameCount, hasRequestFrame: Boolean(requestFrame) });
+    try {
+      for (let index = 0; index < estimatedFrameCount; index += 1) {
+        const timestampMs = Math.min(durationMs, index * frameStepMs);
+        await seekVideo(video, timestampMs / 1000);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  await new Promise<void>((resolve) => {
-    const tick = () => {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const currentMs = video.currentTime * 1000;
-      const frame = getNearestPoseFrame(timeline.frames, currentMs);
-      drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
-      if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
-        const overlayState = getOverlaySampleAtTime(overlaySamples, currentMs);
-        drawAnalysisOverlay(
-          ctx,
-          canvas.width,
-          canvas.height,
-          overlayState,
-          {
+        const frame = getNearestPoseFrame(sourceFrames, timestampMs);
+        drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+        if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
+          const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
+          drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
             modeLabel: options.overlayModeLabel,
             showDrillMetrics: options.includeDrillMetrics,
-            phaseLabels: options.phaseLabels
-          }
-        );
-      } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
-        drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
-          modeLabel: options.overlayModeLabel,
-          showDrillMetrics: false
-        });
+            phaseLabels
+          });
+        } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
+          drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+            modeLabel: options.overlayModeLabel,
+            showDrillMetrics: false
+          });
+        }
+
+        requestFrame?.();
+
+        if (index % Math.max(1, Math.floor(estimatedFrameCount / 12)) === 0 || index === estimatedFrameCount - 1) {
+          logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", { index: index + 1, estimatedFrameCount, timestampMs });
+        }
+        options?.onProgress?.(0.05 + ((index + 1) / estimatedFrameCount) * 0.87, `Rendering frames (${index + 1}/${estimatedFrameCount})…`);
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
+    } catch (error) {
+      logUploadEvent("ANNOTATED_EXPORT_RENDER_FAILED", { message: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
 
-      if (video.ended) {
-        resolve();
-        return;
-      }
-      requestAnimationFrame(tick);
-    };
+    options?.onProgress?.(0.94, "Finalizing recorder output…");
+    recorder.stop();
 
-    tick();
-  });
+    const blob = await Promise.race([
+      completed,
+      new Promise<Blob>((_, reject) => {
+        setTimeout(() => reject(new Error("Annotated export timed out while finalizing recorder output.")), EXPORT_FINALIZE_TIMEOUT_MS);
+      })
+    ]);
+    logUploadEvent("ANNOTATED_EXPORT_COMPLETE", { sizeBytes: blob.size, mimeType });
 
-  recorder.stop();
-  const blob = await completed;
-  URL.revokeObjectURL(objectUrl);
+    if (blob.size === 0) {
+      throw new Error("Annotated export failed: recorder produced an empty file.");
+    }
 
-  return { blob, mimeType };
+    options?.onProgress?.(1, "Annotated export complete");
+    return { blob, mimeType };
+  } finally {
+    if (recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    videoTrack?.stop();
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export function buildAnalysisSummary(timeline: PoseTimeline) {
