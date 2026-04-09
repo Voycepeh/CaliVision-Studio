@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { fitVideoCoverRect, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
@@ -113,6 +114,9 @@ export function LiveStreamingWorkspace() {
   const jointVisibleRef = useRef<Record<string, boolean>>({});
   const jointGraceSamplesRef = useRef<Record<string, number>>({});
   const overlayNeedsResizeSyncRef = useRef(true);
+  const overlayPixelRatioRef = useRef(1);
+  const overlayProjectionRef = useRef<OverlayProjection | null>(null);
+  const lastOverlayDiagnosticsAtRef = useRef(0);
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -248,14 +252,79 @@ export function LiveStreamingWorkspace() {
     if (!canvas || !container) return;
 
     const bounds = container.getBoundingClientRect();
-    const width = Math.max(1, Math.round(bounds.width));
-    const height = Math.max(1, Math.round(bounds.height));
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
+    const resized = resolveOverlayCanvasSize({
+      cssWidth: bounds.width,
+      cssHeight: bounds.height,
+      devicePixelRatio: typeof window === "undefined" ? 1 : window.devicePixelRatio
+    });
+    if (canvas.style.width !== `${resized.cssWidth}px`) {
+      canvas.style.width = `${resized.cssWidth}px`;
+    }
+    if (canvas.style.height !== `${resized.cssHeight}px`) {
+      canvas.style.height = `${resized.cssHeight}px`;
+    }
+    if (canvas.width !== resized.backingWidth || canvas.height !== resized.backingHeight) {
+      canvas.width = resized.backingWidth;
+      canvas.height = resized.backingHeight;
+    }
+    overlayPixelRatioRef.current = resized.pixelRatio;
+
+    const video = previewVideoRef.current;
+    if (video?.videoWidth && video.videoHeight) {
+      const coverRect = fitVideoCoverRect({
+        containerWidth: resized.backingWidth,
+        containerHeight: resized.backingHeight,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight
+      });
+      overlayProjectionRef.current = {
+        ...coverRect,
+        mirrored: !isRearCamera
+      };
     }
     overlayNeedsResizeSyncRef.current = false;
-  }, []);
+  }, [isRearCamera]);
+
+  const logOverlayDiagnostics = useCallback(
+    (reason: string) => {
+      if (typeof window === "undefined" || !(window as typeof window & { __CALI_DEBUG_LIVE_OVERLAY?: boolean }).__CALI_DEBUG_LIVE_OVERLAY) {
+        return;
+      }
+      const now = performance.now();
+      if (now - lastOverlayDiagnosticsAtRef.current < 1200) return;
+      lastOverlayDiagnosticsAtRef.current = now;
+      const containerBounds = mediaContainerRef.current?.getBoundingClientRect();
+      const video = previewVideoRef.current;
+      const canvas = previewCanvasRef.current;
+      console.debug("[live-overlay]", reason, {
+        mirrored: !isRearCamera,
+        video: video
+          ? {
+              readyState: video.readyState,
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              currentTime: video.currentTime
+            }
+          : null,
+        container: containerBounds
+          ? {
+              width: Math.round(containerBounds.width),
+              height: Math.round(containerBounds.height)
+            }
+          : null,
+        canvas: canvas
+          ? {
+              cssWidth: canvas.style.width || "100%",
+              cssHeight: canvas.style.height || "100%",
+              width: canvas.width,
+              height: canvas.height
+            }
+          : null,
+        projection: overlayProjectionRef.current
+      });
+    },
+    [isRearCamera]
+  );
 
   useEffect(() => {
     const container = mediaContainerRef.current;
@@ -267,6 +336,14 @@ export function LiveStreamingWorkspace() {
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
   }, [syncOverlayCanvasSize]);
+
+  useEffect(() => {
+    const onWindowResize = () => {
+      overlayNeedsResizeSyncRef.current = true;
+    };
+    window.addEventListener("resize", onWindowResize);
+    return () => window.removeEventListener("resize", onWindowResize);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -337,6 +414,8 @@ export function LiveStreamingWorkspace() {
         previewVideoRef.current.srcObject = stream;
         await previewVideoRef.current.play();
       }
+      overlayNeedsResizeSyncRef.current = true;
+      syncOverlayCanvasSize(true);
       setStatus("preview-ready");
     } catch (error) {
       const classified = classifyCameraError(error);
@@ -349,13 +428,30 @@ export function LiveStreamingWorkspace() {
             : "Unable to start camera preview."
       );
     }
-  }, [cleanupSession, isRearCamera]);
+  }, [cleanupSession, isRearCamera, syncOverlayCanvasSize]);
 
   const startSession = useCallback(async () => {
     const stream = liveStreamRef.current;
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
-    if (!stream || !video || !canvas) return;
+    const container = mediaContainerRef.current;
+    if (!stream || !video || !canvas || !container) return;
+
+    syncOverlayCanvasSize(true);
+    const previewReady = isPreviewSurfaceReady({
+      readyState: video.readyState,
+      videoWidth: video.videoWidth,
+      videoHeight: video.videoHeight,
+      containerWidth: Math.round(container.getBoundingClientRect().width),
+      containerHeight: Math.round(container.getBoundingClientRect().height),
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height
+    });
+    if (!previewReady) {
+      setErrorMessage("Camera preview is not ready yet. Wait for the visible preview, then start again.");
+      logOverlayDiagnostics("start-blocked-preview-not-ready");
+      return;
+    }
 
     setStatus("live-session-running");
     setReplayState("idle");
@@ -397,24 +493,50 @@ export function LiveStreamingWorkspace() {
       }
 
       const elapsedMs = performance.now() - startedAtRef.current;
-      const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
+      const previewVideo = previewVideoRef.current;
+      const projection = overlayProjectionRef.current;
+      if (!previewVideo || !projection) {
+        liveLoopRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideo.currentTime * 1000);
       const traceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
       syncOverlayCanvasSize();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const pixelRatio = overlayPixelRatioRef.current;
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+      if (
+        !isPreviewSurfaceReady({
+          readyState: previewVideo.readyState,
+          videoWidth: previewVideo.videoWidth,
+          videoHeight: previewVideo.videoHeight,
+          containerWidth: Math.round((mediaContainerRef.current?.getBoundingClientRect().width ?? 0) * pixelRatio),
+          containerHeight: Math.round((mediaContainerRef.current?.getBoundingClientRect().height ?? 0) * pixelRatio),
+          canvasWidth: canvas.width,
+          canvasHeight: canvas.height
+        })
+      ) {
+        logOverlayDiagnostics("draw-skipped-preview-not-ready");
+        liveLoopRef.current = requestAnimationFrame(draw);
+        return;
+      }
 
       if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
-        const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, mediaTimeMs);
+        const result = landmarkerRef.current.detectForVideo(previewVideo, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
-          drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+          drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, frame, { projection });
+          logOverlayDiagnostics("draw-pose-frame");
         }
         lastSampleAt = elapsedMs;
       }
 
       const overlayState = traceRef.current.getOverlayState(traceTimestampMs);
-      drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
+      drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, overlayState, {
         modeLabel: selection.drillBindingLabel,
         showDrillMetrics: selection.mode === "drill",
         phaseLabels: buildPhaseLabelMap(selection.drill)
@@ -424,7 +546,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, buildStabilizedPoseFrame, rawReplayUrl, selection, syncOverlayCanvasSize]);
+  }, [annotatedReplayUrl, buildStabilizedPoseFrame, logOverlayDiagnostics, rawReplayUrl, selection, syncOverlayCanvasSize]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
@@ -529,7 +651,13 @@ export function LiveStreamingWorkspace() {
       <article className="card live-streaming-results-card">
         <div className="live-streaming-preview-shell">
           <div ref={mediaContainerRef} className="live-streaming-media-container">
-            <video ref={previewVideoRef} muted playsInline className="live-streaming-video" style={{ display: status === "completed" ? "none" : "block" }} />
+            <video
+              ref={previewVideoRef}
+              muted
+              playsInline
+              className="live-streaming-video"
+              style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
+            />
             <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
           </div>
         </div>

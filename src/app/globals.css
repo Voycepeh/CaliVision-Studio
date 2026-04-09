@@ -1031,10 +1031,13 @@ main {
 
 .live-streaming-video {
   object-fit: cover;
+  z-index: 1;
 }
 
 .live-streaming-overlay-canvas {
   pointer-events: none;
+  z-index: 2;
+  opacity: 1;
 }
 
 @media (min-width: 1080px) {

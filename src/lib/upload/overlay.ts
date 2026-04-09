@@ -1,6 +1,7 @@
 import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, getPreviewJointRole } from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
+import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
@@ -14,7 +15,10 @@ const UPLOAD_OVERLAY_STYLE = {
   skeletonStrokeWidth: PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth * 0.5
 } as const;
 
-function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number) {
+function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number, projection?: OverlayProjection) {
+  if (projection) {
+    return projectNormalizedPoint(joint, projection);
+  }
   return { x: joint.x * width, y: joint.y * height };
 }
 
@@ -22,7 +26,8 @@ export function drawPoseOverlay(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  frame?: PoseFrame
+  frame?: PoseFrame,
+  options?: { projection?: OverlayProjection }
 ): void {
   if (!frame) {
     return;
@@ -41,8 +46,8 @@ export function drawPoseOverlay(
       continue;
     }
 
-    const fromPoint = toCanvasPoint(from, width, height);
-    const toPoint = toCanvasPoint(to, width, height);
+    const fromPoint = toCanvasPoint(from, width, height, options?.projection);
+    const toPoint = toCanvasPoint(to, width, height, options?.projection);
     ctx.beginPath();
     ctx.moveTo(fromPoint.x, fromPoint.y);
     ctx.lineTo(toPoint.x, toPoint.y);
@@ -58,7 +63,7 @@ export function drawPoseOverlay(
     }
     const role = getPreviewJointRole(jointName as CanonicalJointName);
     ctx.fillStyle = role === "nose" ? UPLOAD_OVERLAY_STYLE.nose : role === "hip" ? UPLOAD_OVERLAY_STYLE.hip : UPLOAD_OVERLAY_STYLE.skeletonBase;
-    const { x, y } = toCanvasPoint(point, width, height);
+    const { x, y } = toCanvasPoint(point, width, height, options?.projection);
     ctx.beginPath();
     const baseRadius = Math.max(1, (width / 1280) * UPLOAD_OVERLAY_STYLE.jointRadiusBase);
     const radius = role === "nose" ? baseRadius * UPLOAD_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
