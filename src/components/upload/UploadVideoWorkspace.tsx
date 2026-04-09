@@ -404,7 +404,7 @@ export function UploadVideoWorkspace() {
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
-  const showReferencePanel = !shouldCollapseReferencePanel || isReferencePanelVisible;
+  const showReferencePanel = isReferencePanelVisible;
   const referenceToggleLabel = showReferencePanel ? "Hide reference animation" : "Show reference animation";
 
   return (
@@ -435,7 +435,7 @@ export function UploadVideoWorkspace() {
                 <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
                   {shouldCollapseReferencePanel
                     ? "Upload is active. Video and processing stay in the main workspace."
-                    : "Reference animation is visible while you set up the upload."}
+                    : "Reference animation is optional while you set up the upload."}
                 </p>
                 <button
                   type="button"
