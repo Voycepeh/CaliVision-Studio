@@ -135,7 +135,6 @@ type StudioStateValue = {
   renamePhase: (phaseId: string, title: string) => void;
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
-  setPhaseEditorView: (phaseId: string, view: PortableViewType) => void;
   setDrillTitle: (title: string) => void;
   setDrillSlug: (slug: string) => void;
   setDrillDescription: (description: string) => void;
@@ -344,7 +343,6 @@ export function StudioStateProvider({
   const [packageAssetBlobs, setPackageAssetBlobs] = useState<Record<string, Record<string, Blob>>>({});
   const [phaseDetectionState, setPhaseDetectionState] = useState<Record<string, DetectionWorkflowState>>({});
   const [phaseOverlayState, setPhaseOverlayState] = useState<Record<string, PhaseOverlayState>>({});
-  const [phaseEditorViewState, setPhaseEditorViewState] = useState<Record<string, PortableViewType>>({});
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
@@ -383,16 +381,8 @@ export function StudioStateProvider({
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
-  const selectedPhase = useMemo(() => {
-    if (!selectedPackage || !selectedPhaseId) {
-      return null;
-    }
-
-    const drill = getPrimaryDrill(selectedPackage.workingPackage);
-    return drill?.phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null;
-  }, [selectedPackage, selectedPhaseId]);
-  const selectedPhaseEditorView = selectedScopeKey
-    ? phaseEditorViewState[selectedScopeKey] ?? selectedPhase?.poseSequence[0]?.canvas.view ?? DEFAULT_EDITOR_VIEW
+  const selectedPhaseEditorView = selectedPackage
+    ? getPrimaryDrill(selectedPackage.workingPackage)?.primaryView ?? DEFAULT_EDITOR_VIEW
     : DEFAULT_EDITOR_VIEW;
 
   useEffect(() => {
@@ -1021,7 +1011,7 @@ export function StudioStateProvider({
 
         // Keep export/runtime contracts based on persisted package fields only.
         // Editor-only view controls are intentionally excluded from these writes.
-        const persistedView = phase.poseSequence[0]?.canvas.view ?? drill.primaryView;
+        const persistedView = drill.primaryView;
         callback(phase, persistedView);
       })
     );
@@ -1043,22 +1033,6 @@ export function StudioStateProvider({
     withPhaseUpdate(phaseId, (phase) => {
       phase.summary = summary;
     });
-  }
-
-  function setPhaseEditorView(phaseId: string, view: PortableViewType): void {
-    if (!selectedPackageKey) {
-      return;
-    }
-
-    const scopeKey = getPhaseScopeKey(selectedPackageKey, phaseId);
-    if (!scopeKey) {
-      return;
-    }
-
-    setPhaseEditorViewState((current) => ({
-      ...current,
-      [scopeKey]: view
-    }));
   }
 
   function setDrillTitle(title: string): void {
@@ -1136,6 +1110,16 @@ export function StudioStateProvider({
         }
 
         drill.primaryView = view;
+        drill.phases = drill.phases.map((phase) => ({
+          ...phase,
+          poseSequence: phase.poseSequence.map((pose) => ({
+            ...pose,
+            canvas: {
+              ...pose.canvas,
+              view
+            }
+          }))
+        }));
       })
     );
   }
@@ -1796,7 +1780,6 @@ export function StudioStateProvider({
     renamePhase,
     setPhaseDuration,
     setPhaseSummary,
-    setPhaseEditorView,
     setDrillTitle,
     setDrillSlug,
     setDrillDescription,
