@@ -6,9 +6,9 @@ export const metadata: Metadata = {
   title: "CaliVision",
   description: "Brand-first web workspace for Drill Studio, Upload Video, and Drill Exchange workflows",
   icons: {
-    icon: "/brand/calivision-home-logo.png?v=1",
-    shortcut: "/brand/calivision-home-logo.png?v=1",
-    apple: "/brand/calivision-home-logo.png?v=1"
+    icon: "/brand/calivision-favicon-optimized.png?v=2",
+    shortcut: "/brand/calivision-favicon-optimized.png?v=2",
+    apple: "/brand/calivision-favicon-optimized.png?v=2"
   }
 };
 
