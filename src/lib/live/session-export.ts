@@ -1,4 +1,4 @@
-import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
+import { buildReplayOverlaySamples, getOverlaySampleAtTime } from "../analysis/replay-state.ts";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "../upload/overlay.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { LiveSessionTrace } from "./types.ts";
@@ -40,6 +40,12 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
   });
 
   recorder.start(250);
+  const overlaySamples = buildReplayOverlaySamples(input.analysisSession, [
+    0,
+    input.trace.video.durationMs,
+    ...input.trace.captures.map((capture) => capture.timestampMs),
+    ...input.trace.events.map((event) => event.timestampMs)
+  ]);
   await video.play();
 
   await new Promise<void>((resolve) => {
@@ -48,7 +54,7 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(input.trace.captures.map((capture) => capture.frame), currentMs);
       drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
-      drawAnalysisOverlay(ctx, canvas.width, canvas.height, deriveReplayOverlayStateAtTime(input.analysisSession, currentMs), {
+      drawAnalysisOverlay(ctx, canvas.width, canvas.height, getOverlaySampleAtTime(overlaySamples, currentMs), {
         modeLabel: input.trace.drillSelection.drillBindingLabel,
         showDrillMetrics: input.trace.drillSelection.mode === "drill",
         phaseLabels: (input.trace.drillSelection.drill?.phases ?? []).reduce<Record<string, string>>((acc, phase) => {

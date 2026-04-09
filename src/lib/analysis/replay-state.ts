@@ -26,6 +26,11 @@ export type ReplayOverlayState = ReplayDerivedState & {
   statusLabel?: string;
 };
 
+export type ReplayOverlaySample = {
+  timestampMs: number;
+  state: ReplayOverlayState;
+};
+
 export type ReplaySessionOverview = {
   durationMs: number;
   phaseCoverage: Array<{ phaseId: string; percent: number }>;
@@ -191,6 +196,44 @@ export function deriveReplayOverlayStateAtTime(
     showHoldTimer: measurementType === "hold" || measurementType === "hybrid",
     statusLabel: session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined
   };
+}
+
+export function buildReplayOverlaySamples(
+  session: AnalysisSessionRecord | null | undefined,
+  timestampsMs: number[]
+): ReplayOverlaySample[] {
+  if (!session || timestampsMs.length === 0) {
+    return [];
+  }
+  const uniqueSorted = Array.from(new Set(timestampsMs.map((timestamp) => toSafeTimestampMs(timestamp))))
+    .sort((a, b) => a - b);
+  return uniqueSorted.map((timestampMs) => ({
+    timestampMs,
+    state: deriveReplayOverlayStateAtTime(session, timestampMs)
+  }));
+}
+
+export function getOverlaySampleAtTime(samples: ReplayOverlaySample[], timestampMs: number): ReplayOverlayState | null {
+  if (samples.length === 0) {
+    return null;
+  }
+  const target = toSafeTimestampMs(timestampMs);
+  let low = 0;
+  let high = samples.length - 1;
+  let candidate = samples[0];
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const current = samples[mid];
+    if (current.timestampMs <= target) {
+      candidate = current;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return candidate.state;
 }
 
 export function deriveReplayMarkers(session: AnalysisSessionRecord | null | undefined): ReplayTimelineMarker[] {

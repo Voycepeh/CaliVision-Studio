@@ -1,5 +1,5 @@
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
-import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
+import { buildReplayOverlaySamples, getOverlaySampleAtTime } from "@/lib/analysis/replay-state";
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import type { PoseTimeline } from "@/lib/upload/types";
@@ -484,6 +484,16 @@ export async function exportAnnotatedVideo(
 
   recorder.start(250);
 
+  const overlaySamples =
+    options?.includeAnalysisOverlay !== false && options?.analysisSession
+      ? buildReplayOverlaySamples(options.analysisSession, [
+          0,
+          timeline.video.durationMs,
+          ...timeline.frames.map((frame) => frame.timestampMs),
+          ...options.analysisSession.events.map((event) => event.timestampMs)
+        ])
+      : [];
+
   await video.play();
 
   await new Promise<void>((resolve) => {
@@ -493,11 +503,12 @@ export async function exportAnnotatedVideo(
       const frame = getNearestPoseFrame(timeline.frames, currentMs);
       drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
       if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
+        const overlayState = getOverlaySampleAtTime(overlaySamples, currentMs);
         drawAnalysisOverlay(
           ctx,
           canvas.width,
           canvas.height,
-          deriveReplayOverlayStateAtTime(options.analysisSession, currentMs),
+          overlayState,
           {
             modeLabel: options.overlayModeLabel,
             showDrillMetrics: options.includeDrillMetrics,

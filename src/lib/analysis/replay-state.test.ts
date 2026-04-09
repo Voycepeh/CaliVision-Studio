@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
-import { deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime } from "./replay-state.ts";
+import { buildReplayOverlaySamples, deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime, getOverlaySampleAtTime } from "./replay-state.ts";
 
 function createSession(): AnalysisSessionRecord {
   return {
@@ -184,4 +184,15 @@ test("replay state ignores invalid timestamps and durations", () => {
   const state = deriveReplayStateAtTime(session, Number.NaN);
   assert.equal(state.timestampMs, 0);
   assert.equal(state.repCount, 0);
+});
+
+test("overlay samples are time-indexed and queryable for replay/export rendering", () => {
+  const session = createSession();
+  const samples = buildReplayOverlaySamples(session, [0, 900, 1800, 2600]);
+  assert.equal(samples.length, 4);
+  assert.equal(samples[2]?.state.repCount, 1);
+
+  const at2s = getOverlaySampleAtTime(samples, 2000);
+  assert.equal(at2s?.repCount, 1);
+  assert.equal(at2s?.showRepCount, true);
 });
