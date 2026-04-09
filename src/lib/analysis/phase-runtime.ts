@@ -17,7 +17,11 @@ export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableD
   for (let index = 0; index < resolvedOrder.length - 1; index += 1) {
     allowedTransitionKeys.add(`${resolvedOrder[index]}->${resolvedOrder[index + 1]}`);
   }
-  if ((analysis.measurementType === "rep" || analysis.measurementType === "hybrid") && resolvedOrder.length > 1) {
+  if (
+    (analysis.measurementType === "rep" || analysis.measurementType === "hybrid")
+    && resolvedOrder.length > 1
+    && resolvedOrder[resolvedOrder.length - 1] !== resolvedOrder[0]
+  ) {
     allowedTransitionKeys.add(`${resolvedOrder[resolvedOrder.length - 1]}->${resolvedOrder[0]}`);
   }
   for (const skip of analysis.allowedPhaseSkips ?? []) {
