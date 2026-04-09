@@ -35,3 +35,10 @@ export {
   deriveReplayStateAtTime,
   getReplayDurationMs
 } from "./replay-state.ts";
+
+export {
+  buildPhaseRuntimeModel,
+  buildPhaseSimilarityWarnings,
+  filterPhaseIdsToRuntime,
+  resolveAuthoredPhaseLabel
+} from "./phase-runtime.ts";

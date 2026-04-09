@@ -314,3 +314,40 @@ test("phase scorer can match any authored pose in phase poseSequence", () => {
   assert.equal(result.scoredFrames[0].bestPhaseId, "top");
   assert.ok(result.scoredFrames[0].bestPhaseScore > 0.9);
 });
+
+test("rep drills with fewer than two phases do not count reps", () => {
+  const singlePhase = buildDrill({
+    phases: [buildDrill().phases[0]!],
+    analysis: {
+      ...buildDrill().analysis!,
+      orderedPhaseSequence: ["top"]
+    }
+  });
+
+  const frames = [poseFrame(0, 0.2), poseFrame(100, 0.2), poseFrame(200, 0.2)];
+  const result = runDrillAnalysisPipeline({ drill: singlePhase, sampledFrames: frames });
+
+  assert.equal(result.session.summary.repCount, 0);
+  assert.equal(result.session.events.some((event) => event.type === "partial_attempt" && event.details?.reason === "insufficient_phase_count_for_rep"), true);
+});
+
+test("stale sequence ids are ignored and runtime loop uses authored phases only", () => {
+  const drill = buildDrill({
+    analysis: {
+      ...buildDrill().analysis!,
+      orderedPhaseSequence: ["top", "stale", "bottom", "top"]
+    }
+  });
+
+  const frames = [
+    poseFrame(0, 0.2),
+    poseFrame(100, 0.2),
+    poseFrame(250, 0.8),
+    poseFrame(350, 0.8),
+    poseFrame(500, 0.2),
+    poseFrame(650, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 1);
+});

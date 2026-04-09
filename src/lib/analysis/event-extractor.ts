@@ -1,17 +1,18 @@
 import type { AnalysisEvent, AnalysisSession, PortableDrill, PortableDrillAnalysis } from "../schema/contracts.ts";
-import { buildPhaseRuntimeModel } from "./phase-runtime.ts";
+import { buildPhaseRuntimeModel, type PhaseRuntimeModel } from "./phase-runtime.ts";
 import type { SmoothedPhaseFrame, SmootherTransition } from "./types.ts";
 
 export function extractAnalysisEvents(
   drill: PortableDrill,
   smoothedFrames: SmoothedPhaseFrame[],
-  transitions: SmootherTransition[]
+  transitions: SmootherTransition[],
+  runtimeModel?: PhaseRuntimeModel
 ): { events: AnalysisEvent[]; summary: AnalysisSession["summary"] } {
   const analysis = drill.analysis;
   if (!analysis) {
     return { events: [], summary: {} };
   }
-  const runtimeModel = buildPhaseRuntimeModel(drill, analysis);
+  const resolvedRuntimeModel = runtimeModel ?? buildPhaseRuntimeModel(drill, analysis);
 
   const events: AnalysisEvent[] = [];
   const addEvent = (event: Omit<AnalysisEvent, "eventId">) => {
@@ -29,8 +30,8 @@ export function extractAnalysisEvents(
     });
   }
 
-  const repSummary = extractRepEvents(runtimeModel.orderedPhaseIds, analysis, transitions, addEvent);
-  const holdSummary = extractHoldEvents(analysis, drill, transitions, smoothedFrames, addEvent);
+  const repSummary = extractRepEvents(resolvedRuntimeModel, analysis, transitions, addEvent);
+  const holdSummary = extractHoldEvents(analysis, resolvedRuntimeModel, transitions, smoothedFrames, addEvent);
   const invalidTransitionCount = transitions.filter((item) => item.type === "invalid_transition").length;
 
   return {
@@ -45,7 +46,7 @@ export function extractAnalysisEvents(
 }
 
 function extractRepEvents(
-  orderedPhaseIds: string[],
+  runtimeModel: PhaseRuntimeModel,
   analysis: PortableDrillAnalysis,
   transitions: SmootherTransition[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
@@ -54,8 +55,17 @@ function extractRepEvents(
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
-  const sequence = orderedPhaseIds;
-  if (sequence.length === 0) {
+  if (runtimeModel.phaseCount < runtimeModel.repRequiresAtLeastPhaseCount) {
+    addEvent({
+      timestampMs: transitions.at(-1)?.timestampMs ?? 0,
+      type: "partial_attempt",
+      details: { reason: "insufficient_phase_count_for_rep" }
+    });
+    return { repCount: 0, partialAttemptCount: 1 };
+  }
+
+  const sequence = runtimeModel.loopPhaseIds;
+  if (sequence.length < 2) {
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
@@ -142,7 +152,7 @@ function extractRepEvents(
 
 function extractHoldEvents(
   analysis: PortableDrillAnalysis,
-  drill: PortableDrill,
+  runtimeModel: PhaseRuntimeModel,
   transitions: SmootherTransition[],
   smoothedFrames: SmoothedPhaseFrame[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
@@ -151,7 +161,7 @@ function extractHoldEvents(
     return { totalQualifiedHoldDurationMs: 0 };
   }
 
-  const targetPhaseId = analysis.targetHoldPhaseId ?? analysis.orderedPhaseSequence[0] ?? drill.phases[0]?.phaseId;
+  const targetPhaseId = runtimeModel.holdPhaseId ?? analysis.targetHoldPhaseId;
   if (!targetPhaseId) {
     return { totalQualifiedHoldDurationMs: 0 };
   }

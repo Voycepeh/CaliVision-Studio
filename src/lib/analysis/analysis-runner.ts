@@ -1,4 +1,5 @@
 import { extractAnalysisEvents } from "./event-extractor.ts";
+import { buildPhaseRuntimeModel } from "./phase-runtime.ts";
 import { scoreFramesAgainstDrillPhases } from "./frame-phase-scorer.ts";
 import { smoothPhaseTimeline } from "./temporal-phase-smoother.ts";
 import type { AnalysisRunInput, AnalysisRunOutput } from "./types.ts";
@@ -9,12 +10,14 @@ export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOu
   });
 
   const effectiveAnalysis = input.drill.analysis ?? createFallbackAnalysis();
+  const runtimeModel = buildPhaseRuntimeModel(input.drill, effectiveAnalysis);
   const smoothed = smoothPhaseTimeline(scoredFrames, effectiveAnalysis, {
+    runtimeModel,
     entryConfirmationFrames: effectiveAnalysis.measurementType === "hold"
       ? effectiveAnalysis.entryConfirmationFrames
       : effectiveAnalysis.minimumConfirmationFrames
   });
-  const extracted = extractAnalysisEvents(input.drill, smoothed.frames, smoothed.transitions);
+  const extracted = extractAnalysisEvents(input.drill, smoothed.frames, smoothed.transitions, runtimeModel);
 
   const startedAtIso = new Date().toISOString();
   const completedAtIso = new Date().toISOString();

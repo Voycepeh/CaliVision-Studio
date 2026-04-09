@@ -8,6 +8,7 @@ import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
+import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
 import {
@@ -79,11 +80,12 @@ function buildPhaseLabelMap(drill?: NonNullable<LiveDrillSelection["drill"]>): R
   if (!drill) {
     return {};
   }
-  return drill.phases.reduce<Record<string, string>>((acc, phase) => {
-    const label = (phase.name || phase.title || "").trim();
-    if (label) {
-      acc[phase.phaseId] = label;
-    }
+  if (drill.analysis) {
+    return buildPhaseRuntimeModel(drill, drill.analysis).phaseLabelById;
+  }
+  return drill.phases.reduce<Record<string, string>>((acc, phase, index) => {
+    const label = (phase.name || phase.title || "").trim() || phase.phaseId;
+    acc[phase.phaseId] = `${index + 1}. ${label}`;
     return acc;
   }, {});
 }

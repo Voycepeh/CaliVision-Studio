@@ -109,6 +109,22 @@ function resolvePhaseLabel(phaseId: string | null, phaseLabels?: Record<string, 
   return display || phaseId;
 }
 
+
+
+function toHudPhaseLabel(phaseLabel: string | null, phaseCount?: number): string | null {
+  if (!phaseLabel) {
+    return null;
+  }
+  const match = phaseLabel.match(/^(\d+)\.\s+(.+)$/);
+  if (!match) {
+    return phaseLabel;
+  }
+  const [, sequence, name] = match;
+  if (!phaseCount || phaseCount < 1) {
+    return `Phase ${sequence} · ${name}`;
+  }
+  return `Phase ${sequence}/${phaseCount} · ${name}`;
+}
 function drawOverlayBlock(ctx: CanvasRenderingContext2D, x: number, y: number, lines: string[], align: CanvasTextAlign): number {
   if (lines.length === 0) {
     return 0;
@@ -191,6 +207,7 @@ export function drawAnalysisOverlay(
     modeLabel?: string;
     showDrillMetrics?: boolean;
     phaseLabels?: Record<string, string>;
+    phaseCount?: number;
   }
 ): void {
   const sidePadding = Math.max(10, width * 0.025);
@@ -200,7 +217,8 @@ export function drawAnalysisOverlay(
   }
   if (options?.showDrillMetrics !== false && replayOverlayState) {
     const phaseLabel = resolvePhaseLabel(replayOverlayState.phaseLabel, options?.phaseLabels);
-    lines.push(phaseLabel ? `Phase: ${phaseLabel}` : "Phase: No phase detected");
+    const phaseHudLabel = toHudPhaseLabel(phaseLabel, options?.phaseCount);
+    lines.push(phaseHudLabel ?? "Phase: No phase detected");
     if (replayOverlayState.showHoldTimer && !replayOverlayState.showRepCount) {
       lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "No holds detected"}`);
     } else if (replayOverlayState.showRepCount && !replayOverlayState.showHoldTimer) {

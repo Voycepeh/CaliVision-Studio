@@ -1,5 +1,5 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
-import { buildPhaseRuntimeModel } from "../analysis/phase-runtime.ts";
+import { buildPhaseRuntimeModel, type PhaseRuntimeModel } from "../analysis/phase-runtime.ts";
 import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
@@ -22,9 +22,7 @@ type TraceState = {
   confidenceGateOpen: boolean;
   activeHoldStartMs: number | null;
   expectedSequenceIndex: number;
-  runtimeSequence: string[];
-  allowedTransitionKeys: Set<string>;
-  phaseLabelById: Record<string, string>;
+  runtimeModel: PhaseRuntimeModel | null;
 };
 const PHASE_CONFIRMATION_FRAMES = 2;
 const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
@@ -88,9 +86,9 @@ export function createLiveTraceAccumulator(input: {
     confidenceGateOpen: false,
     activeHoldStartMs: null,
     expectedSequenceIndex: 0,
-    runtimeSequence: [],
-    allowedTransitionKeys: new Set<string>(),
-    phaseLabelById: {}
+    runtimeModel: input.drillSelection.drill?.analysis
+      ? buildPhaseRuntimeModel(input.drillSelection.drill, input.drillSelection.drill.analysis)
+      : null
   };
 
   const addEvent = (event: Omit<AnalysisEvent, "eventId">) => {
@@ -102,16 +100,25 @@ export function createLiveTraceAccumulator(input: {
       return;
     }
 
-    if (drill?.analysis && state.runtimeSequence.length === 0) {
-      const runtimeModel = buildPhaseRuntimeModel(drill, drill.analysis);
-      state.runtimeSequence = runtimeModel.orderedPhaseIds;
-      state.allowedTransitionKeys = runtimeModel.allowedTransitionKeys;
-      state.phaseLabelById = runtimeModel.phaseLabelById;
+    if (drill?.analysis && !state.runtimeModel) {
+      state.runtimeModel = buildPhaseRuntimeModel(drill, drill.analysis);
+    }
+
+    if (nextPhaseId && state.runtimeModel && !state.runtimeModel.phaseById[nextPhaseId]) {
+      state.invalidTransitionCount += 1;
+      addEvent({
+        timestampMs,
+        type: "invalid_transition",
+        fromPhaseId: state.currentPhaseId ?? undefined,
+        toPhaseId: nextPhaseId,
+        details: { reason: "unknown_runtime_phase", message: "transition rejected: phase is outside authored loop" }
+      });
+      return;
     }
 
     if (state.currentPhaseId && nextPhaseId) {
       const key = `${state.currentPhaseId}->${nextPhaseId}`;
-      if (state.allowedTransitionKeys.size > 0 && !state.allowedTransitionKeys.has(key)) {
+      if (state.runtimeModel?.allowedTransitionKeys.size && !state.runtimeModel.allowedTransitionKeys.has(key)) {
         state.invalidTransitionCount += 1;
         addEvent({
           timestampMs,
@@ -132,8 +139,8 @@ export function createLiveTraceAccumulator(input: {
       addEvent({ timestampMs, type: "phase_enter", phaseId: nextPhaseId });
     }
 
-    if (state.runtimeSequence.length) {
-      const seq = state.runtimeSequence;
+    if (state.runtimeModel?.measurementMode === "rep") {
+      const seq = state.runtimeModel.orderedPhaseIds;
       const expectedPhase = seq[state.expectedSequenceIndex];
       const index = seq.indexOf(nextPhaseId ?? "");
 
@@ -151,8 +158,8 @@ export function createLiveTraceAccumulator(input: {
       }
     }
 
-    const targetHold = drill?.analysis?.targetHoldPhaseId ?? drill?.analysis?.orderedPhaseSequence?.[0];
-    if (targetHold) {
+    const targetHold = state.runtimeModel?.holdPhaseId;
+    if (state.runtimeModel?.measurementMode === "hold" && targetHold) {
       if (nextPhaseId === targetHold && state.activeHoldStartMs === null) {
         state.activeHoldStartMs = timestampMs;
         addEvent({ timestampMs, type: "hold_start", phaseId: targetHold });
@@ -235,7 +242,10 @@ export function createLiveTraceAccumulator(input: {
         state.confidenceGateOpen = frameSample.confidence >= PHASE_CONFIDENCE_GATE_ENTER;
       }
 
-      const candidatePhaseId = state.confidenceGateOpen ? (frameSample.classifiedPhaseId ?? null) : null;
+      const rawCandidatePhaseId = state.confidenceGateOpen ? (frameSample.classifiedPhaseId ?? null) : null;
+      const candidatePhaseId = rawCandidatePhaseId && state.runtimeModel && !state.runtimeModel.phaseById[rawCandidatePhaseId]
+        ? null
+        : rawCandidatePhaseId;
       if (candidatePhaseId === state.currentPhaseId) {
         state.pendingPhaseId = null;
         state.pendingPhaseFrameCount = 0;
@@ -291,7 +301,7 @@ export function createLiveTraceAccumulator(input: {
     ): LiveSessionTrace {
       if (state.activeHoldStartMs !== null) {
         const endMs = Math.max(video.durationMs, state.activeHoldStartMs);
-        const targetHold = input.drillSelection.drill?.analysis?.targetHoldPhaseId ?? input.drillSelection.drill?.analysis?.orderedPhaseSequence?.[0];
+        const targetHold = state.runtimeModel?.holdPhaseId;
         const durationMs = endMs - state.activeHoldStartMs;
         state.holdDurationMs += durationMs;
         if (targetHold) {
