@@ -54,6 +54,7 @@ export function normalizeTraceToVideoDuration(
       const timestampMs = scaleTimestamp(capture.timestampMs, scale, durationMs);
       return {
         ...capture,
+        sourceMediaTimeMs: capture.sourceMediaTimeMs,
         timestampMs,
         frame: { ...capture.frame, timestampMs },
         frameSample: { ...capture.frameSample, timestampMs }
@@ -220,9 +221,14 @@ export function createLiveTraceAccumulator(input: {
   };
 
   return {
-    pushFrame(frame: PoseFrame) {
+    pushFrame(frame: PoseFrame, options?: { sourceMediaTimeMs?: number }) {
       const frameSample = inferFrameSample(frame, input.drillSelection.drill);
-      state.captures.push({ timestampMs: frame.timestampMs, frame, frameSample });
+      state.captures.push({
+        timestampMs: frame.timestampMs,
+        sourceMediaTimeMs: options?.sourceMediaTimeMs,
+        frame,
+        frameSample
+      });
       state.confidenceTotal += frameSample.confidence;
       state.confidenceCount += 1;
       if (frameSample.confidence < 0.35) {
