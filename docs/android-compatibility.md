@@ -35,5 +35,6 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 
 - Contract baseline: `0.1.0`
 - `PortableDrill.drillType` remains required (`hold | rep`).
+- `PortableDrill.title` remains the primary user-authored drill identity; legacy `slug` is tolerated on import but no longer required in Studio-authored payloads.
 - `PortableDrill.analysis.measurementType` supports `rep | hold | hybrid` when present.
 - Sample payloads now include rep, hold, and hybrid analysis examples while remaining portable.

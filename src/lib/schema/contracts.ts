@@ -111,7 +111,8 @@ export type PortablePhase = {
 
 export type PortableDrill = {
   drillId: string;
-  slug: string;
+  /** @deprecated legacy import-only alias; internal identifiers are system-generated */
+  slug?: string;
   title: string;
   drillType: "hold" | "rep";
   description?: string;

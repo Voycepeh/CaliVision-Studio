@@ -79,7 +79,7 @@ This is intentionally a typed placeholder and does not implement scoring logic.
 
 ## Field ownership (final cleanup baseline)
 
-- **Drill-level persisted fields**: `drillId`, `title`, `slug`, `drillType`, `description`, `difficulty`, `primaryView`, tags, analysis, and publication/version metadata where applicable.
+- **Drill-level persisted fields**: `drillId`, `title`, optional legacy `slug` (import-compatible), `drillType`, `description`, `difficulty`, `primaryView`, tags, analysis, and publication/version metadata where applicable.
 - **Phase-level persisted fields**: `phaseId`, `name`, `order`, timing (`durationMs`/`startOffsetMs`), authored pose sequence, optional analysis metadata, and explicit asset references when they are truly part of saved phase data.
 - **Editor-only non-persisted fields**: transient authoring UI state (`selectedJoint`, `focusRegion`, `canvasSize`, `focusCanvas`, temporary view controls) must not be exported or treated as canonical schema fields.
 
@@ -125,7 +125,8 @@ Studio registry/listing concepts live outside the package payload in `src/lib/re
 
 Identity note for Drill Studio authoring UX:
 - `drillId`: internal authored-drill identifier (system-managed).
-- `slug`: user-facing friendly identifier for naming/linkability.
+- `title`: the single user-authored drill identity field shown in Studio.
+- `slug`: optional legacy import-compatible field, normalized internally when missing and hidden from authoring UI.
 - package/export identifiers (`manifest.packageId`, bundle/distribution references): portability/distribution concern, not primary authoring identity fields.
 
 ## Sample payloads and fixtures

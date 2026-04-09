@@ -26,6 +26,12 @@ type HostedLibraryRow = {
 };
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+type PostgrestErrorPayload = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string;
+};
 
 function headers(session: AuthSession): HeadersInit {
   const env = getSupabasePublicEnv();
@@ -47,6 +53,24 @@ function mapRow(row: HostedLibraryRow): HostedLibraryItem {
     createdAtIso: row.created_at,
     updatedAtIso: row.updated_at
   };
+}
+
+async function readBackendError(response: Response): Promise<string> {
+  const fallback = `Request failed (${response.status} ${response.statusText || "error"})`;
+  try {
+    const payload = (await response.json()) as PostgrestErrorPayload | null;
+    if (!payload || typeof payload !== "object") return fallback;
+    const parts = [payload.message?.trim(), payload.details?.trim(), payload.hint?.trim(), payload.code ? `code=${payload.code}` : null].filter(Boolean);
+    return parts.length > 0 ? parts.join(" | ") : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function logHostedLibraryFailure(operation: string, detail: string): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.error(`[hosted-library] ${operation} failed: ${detail}`);
+  }
 }
 
 export async function listHostedLibrary(session: AuthSession): Promise<Result<HostedLibraryItem[]>> {
@@ -77,7 +101,7 @@ export async function upsertHostedLibraryItem(
     content: packageJson
   };
 
-  const response = await fetch(`${env.url}/rest/v1/hosted_library`, {
+  const response = await fetch(`${env.url}/rest/v1/hosted_library?on_conflict=owner_user_id,package_id,package_version`, {
     method: "POST",
     headers: {
       ...headers(session),
@@ -86,7 +110,11 @@ export async function upsertHostedLibraryItem(
     body: JSON.stringify(payload)
   });
 
-  if (!response.ok) return { ok: false, error: "Failed to save hosted drill." };
+  if (!response.ok) {
+    const backendError = await readBackendError(response);
+    logHostedLibraryFailure("save", backendError);
+    return { ok: false, error: `Failed to save hosted drill: ${backendError}` };
+  }
   const rows = (await response.json()) as HostedLibraryRow[];
   if (!rows[0]) return { ok: false, error: "Hosted library save returned no row." };
   return { ok: true, value: mapRow(rows[0]) };
