@@ -659,7 +659,7 @@ export function LiveStreamingWorkspace() {
         liveCadenceStatsRef.current.detectionInvocations += 1;
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
-          traceRef.current.pushFrame(frame);
+          traceRef.current.pushFrame(frame, { sourceMediaTimeMs: mediaTraceTimestampMs });
           lastPoseFrameAtRef.current = traceTimestampMs;
           lastAcceptedLandmarkTimestampRef.current = traceTimestampMs;
           lastAcceptedLandmarkPerfNowRef.current = performance.now();
@@ -761,6 +761,7 @@ export function LiveStreamingWorkspace() {
 
     const recorder = recorderRef.current;
     const traceAccumulator = traceRef.current;
+    const cadenceStatsSnapshot = { ...liveCadenceStatsRef.current };
     const captureStopPerfNowMs = performance.now();
     const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
     const raw = await recorder.stop();
@@ -792,12 +793,12 @@ export function LiveStreamingWorkspace() {
     );
     const traceFreshness = summarizeLiveTraceFreshness(trace);
     const captureDurationMs = Math.max(1, Math.round(mediaStopMs - mediaStartMsRef.current));
-    const analysisCadence = Number(((liveCadenceStatsRef.current.analysisTicks * 1000) / captureDurationMs).toFixed(2));
-    const presentationCadence = Number(((liveCadenceStatsRef.current.presentationTicks * 1000) / captureDurationMs).toFixed(2));
+    const analysisCadence = Number(((cadenceStatsSnapshot.analysisTicks * 1000) / captureDurationMs).toFixed(2));
+    const presentationCadence = Number(((cadenceStatsSnapshot.presentationTicks * 1000) / captureDurationMs).toFixed(2));
     console.info("[live-overlay] cadence-summary", {
       analysisCadenceFps: analysisCadence,
       overlayPresentationCadenceFps: presentationCadence,
-      stalePoseReuseCount: liveCadenceStatsRef.current.stalePoseReuseCount,
+      stalePoseReuseCount: cadenceStatsSnapshot.stalePoseReuseCount,
       traceFreshness
     });
 
@@ -813,7 +814,7 @@ export function LiveStreamingWorkspace() {
     try {
       if (!traceFreshness.hasSufficientFreshness) {
         throw new Error(
-          `Pose not updating reliably (samples=${traceFreshness.sampleCount}, uniqueTimestamps=${traceFreshness.uniqueTimestampCount}, uniqueFrames=${traceFreshness.uniqueFingerprintCount}).`
+          `Pose not updating reliably (${traceFreshness.failureReasons.join("; ")}).`
         );
       }
       const annotated = await exportAnnotatedReplayFromLiveTrace({

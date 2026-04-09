@@ -24,6 +24,7 @@ export type LiveDrillSelection = {
 
 export type LiveTraceCapture = {
   timestampMs: number;
+  sourceMediaTimeMs?: number;
   frame: PoseFrame;
   frameSample: FramePhaseSample;
 };

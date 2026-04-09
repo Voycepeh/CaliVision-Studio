@@ -22,46 +22,39 @@ function createTrace(captures: LiveSessionTrace["captures"]): Pick<LiveSessionTr
   };
 }
 
-test("summarizeLiveTraceFreshness flags repeated stale frame samples", () => {
-  const frame = {
-    joints: {
-      nose: { x: 0.5, y: 0.4 },
-      leftWrist: { x: 0.2, y: 0.8 }
-    }
-  };
-  const summary = summarizeLiveTraceFreshness(
-    createTrace([
-      { timestampMs: 0, frame: { timestampMs: 0, ...frame }, frameSample: { timestampMs: 0, confidence: 0 } },
-      { timestampMs: 0, frame: { timestampMs: 0, ...frame }, frameSample: { timestampMs: 0, confidence: 0 } },
-      { timestampMs: 0, frame: { timestampMs: 0, ...frame }, frameSample: { timestampMs: 0, confidence: 0 } }
-    ])
-  );
+test("freshness fails when source frame time is frozen even if synthetic timestamps advance", () => {
+  const captures = Array.from({ length: 20 }, (_, index) => ({
+    timestampMs: index * 50,
+    sourceMediaTimeMs: 0,
+    frame: {
+      timestampMs: index * 50,
+      joints: {
+        nose: { x: 0.3 + index * 0.0002, y: 0.5 + index * 0.0002 }
+      }
+    },
+    frameSample: { timestampMs: index * 50, confidence: 0.4 }
+  })) satisfies LiveSessionTrace["captures"];
 
+  const summary = summarizeLiveTraceFreshness(createTrace(captures));
   assert.equal(summary.hasSufficientFreshness, false);
-  assert.equal(summary.uniqueTimestampCount, 1);
-  assert.equal(summary.uniqueFingerprintCount, 1);
+  assert.ok(summary.failureReasons.some((reason) => reason.startsWith("uniqueSourceTimestamps=")));
+  assert.ok(summary.failureReasons.some((reason) => reason.startsWith("sourceTimeAdvancementMs=")));
 });
 
-test("summarizeLiveTraceFreshness accepts evolving samples", () => {
-  const summary = summarizeLiveTraceFreshness(createTrace([
-    {
-      timestampMs: 0,
-      frame: { timestampMs: 0, joints: { nose: { x: 0.1, y: 0.2 } } },
-      frameSample: { timestampMs: 0, confidence: 0.4, classifiedPhaseId: "phase_a" }
+test("freshness passes for continuously advancing source frames", () => {
+  const captures = Array.from({ length: 24 }, (_, index) => ({
+    timestampMs: index * 50,
+    sourceMediaTimeMs: index * 45,
+    frame: {
+      timestampMs: index * 50,
+      joints: {
+        nose: { x: 0.2 + index * 0.01, y: 0.3 + index * 0.008 }
+      }
     },
-    {
-      timestampMs: 200,
-      frame: { timestampMs: 200, joints: { nose: { x: 0.3, y: 0.4 } } },
-      frameSample: { timestampMs: 200, confidence: 0.4, classifiedPhaseId: "phase_a" }
-    },
-    {
-      timestampMs: 400,
-      frame: { timestampMs: 400, joints: { nose: { x: 0.6, y: 0.5 } } },
-      frameSample: { timestampMs: 400, confidence: 0.4, classifiedPhaseId: "phase_b" }
-    }
-  ]));
+    frameSample: { timestampMs: index * 50, confidence: 0.5 }
+  })) satisfies LiveSessionTrace["captures"];
 
+  const summary = summarizeLiveTraceFreshness(createTrace(captures));
   assert.equal(summary.hasSufficientFreshness, true);
-  assert.equal(summary.uniqueTimestampCount, 3);
-  assert.equal(summary.uniqueFingerprintCount, 3);
+  assert.equal(summary.failureReasons.length, 0);
 });
