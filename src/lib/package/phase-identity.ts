@@ -14,18 +14,20 @@ function createOpaquePhaseId(existing: Set<string>): string {
   return candidate;
 }
 
-function deriveFallbackTitle(phase: PortablePhase, order: number): string {
-  const title = phase.title?.trim();
-  if (title) {
-    return title;
+function deriveFallbackName(phase: PortablePhase, order: number): string {
+  const canonicalName = phase.name?.trim();
+  if (canonicalName) {
+    return canonicalName;
   }
 
   const legacy = phase as PortablePhase & {
     phaseName?: unknown;
-    name?: unknown;
+    title?: unknown;
     label?: unknown;
+    key?: unknown;
+    slug?: unknown;
   };
-  const fallbackText = [legacy.phaseName, legacy.name, legacy.label].find(
+  const fallbackText = [legacy.phaseName, legacy.title, legacy.label, legacy.key, legacy.slug].find(
     (value): value is string => typeof value === "string" && value.trim().length > 0
   );
 
@@ -64,12 +66,26 @@ function remapAssetOwnerPhaseIds(assets: PortableAssetRef[], phaseIdMap: Map<str
   }));
 }
 
+function stripEditorOnlyPhaseFields(phase: PortablePhase): PortablePhase {
+  const {
+    selectedJoint: _selectedJoint,
+    focusRegion: _focusRegion,
+    canvasSize: _canvasSize,
+    focusCanvas: _focusCanvas,
+    transientUi: _transientUi,
+    ...rest
+  } = phase as PortablePhase & Record<string, unknown>;
+
+  return rest as PortablePhase;
+}
+
 export function normalizeDrillPhaseIdentity(drill: PortableDrill): PortableDrill {
   const existing = new Set<string>();
   const phaseIdMap = new Map<string, string>();
   const normalizedPhases = [...drill.phases]
     .sort((a, b) => a.order - b.order)
-    .map((phase, index) => {
+    .map((originalPhase, index) => {
+      const phase = stripEditorOnlyPhaseFields(originalPhase);
       const sourcePhaseId = phase.phaseId?.trim() ?? "";
       const requiresOpaqueId =
         sourcePhaseId.length === 0 || existing.has(sourcePhaseId) || isLegacySystemPhaseId(sourcePhaseId);
@@ -80,7 +96,8 @@ export function normalizeDrillPhaseIdentity(drill: PortableDrill): PortableDrill
       return {
         ...phase,
         phaseId,
-        title: deriveFallbackTitle(phase, index + 1)
+        name: deriveFallbackName(phase, index + 1),
+        title: undefined
       };
     });
 

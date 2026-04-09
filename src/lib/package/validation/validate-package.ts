@@ -152,33 +152,48 @@ export function normalizePortableDrillPackage(input: DrillPackage): DrillPackage
 }
 
 export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
-  const normalizedIdentity = normalizeDrillPhaseIdentity(drill);
+  const { selectedJoint: _selectedJoint, focusRegion: _focusRegion, canvasSize: _canvasSize, focusCanvas: _focusCanvas, ...rest } =
+    drill as PortableDrill & Record<string, unknown>;
+  const normalizedIdentity = normalizeDrillPhaseIdentity({
+    ...rest,
+    primaryView: drill.primaryView ?? drill.defaultView ?? "front"
+  } as PortableDrill);
 
   return {
     ...normalizedIdentity,
+    defaultView: undefined,
     analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
     phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase))
   };
 }
 
 export function normalizePortablePhase(phase: PortablePhase): PortablePhase {
-  if (!phase.analysis) {
-    return phase;
-  }
+  const {
+    selectedJoint: _selectedJoint,
+    focusRegion: _focusRegion,
+    canvasSize: _canvasSize,
+    focusCanvas: _focusCanvas,
+    transientUi: _transientUi,
+    ...rest
+  } = phase as PortablePhase & Record<string, unknown>;
 
   return {
-    ...phase,
-    analysis: {
-      ...phase.analysis,
-      matchHints: phase.analysis.matchHints
-        ? {
-            ...phase.analysis.matchHints,
-            requiredJoints: phase.analysis.matchHints.requiredJoints ?? [],
-            optionalJoints: phase.analysis.matchHints.optionalJoints ?? []
-          }
-        : undefined
-    }
-  };
+    ...rest,
+    title: undefined,
+    name: phase.name ?? phase.title ?? `Phase ${phase.order}`,
+    analysis: phase.analysis
+      ? {
+          ...phase.analysis,
+          matchHints: phase.analysis.matchHints
+            ? {
+                ...phase.analysis.matchHints,
+                requiredJoints: phase.analysis.matchHints.requiredJoints ?? [],
+                optionalJoints: phase.analysis.matchHints.optionalJoints ?? []
+              }
+            : undefined
+        }
+      : undefined
+  } as PortablePhase;
 }
 
 export function normalizePortableDrillAnalysis(
@@ -353,6 +368,10 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validateNonEmptyString(drill.drillId, `${drillPath}.drillId`, issues);
     validateNonEmptyString(drill.slug, `${drillPath}.slug`, issues);
     validateNonEmptyString(drill.title, `${drillPath}.title`, issues);
+    const drillView = typeof drill.primaryView === "string" ? drill.primaryView : drill.defaultView;
+    if (typeof drillView !== "string" || !PORTABLE_VIEW_SET.has(drillView)) {
+      issues.push(makeIssue("error", `${drillPath}.primaryView`, "primaryView must be front, side, or rear.", "type"));
+    }
     if (!["hold", "rep"].includes(String(drill.drillType))) {
       issues.push(makeIssue("error", `${drillPath}.drillType`, "drillType must be hold or rep.", "type"));
     }
@@ -386,7 +405,7 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
       validatePhase(phase, `${drillPath}.phases[${phaseIndex}]`, seenOrder, issues);
     });
 
-    validatePhaseOrderingAndTitles(drill.phases, drillPath, issues);
+    validatePhaseOrderingAndNames(drill.phases, drillPath, issues);
     validateDrillTimingConsistency(drill.phases, drillPath, issues);
   });
 }
@@ -497,13 +516,13 @@ function validateDrillAnalysis(
   }
 }
 
-function validatePhaseOrderingAndTitles(phases: unknown[], drillPath: string, issues: PackageValidationIssue[]): void {
+function validatePhaseOrderingAndNames(phases: unknown[], drillPath: string, issues: PackageValidationIssue[]): void {
   const parsed = phases
     .filter(isRecord)
     .filter((phase) => typeof phase.order === "number")
     .map((phase) => ({
       order: phase.order as number,
-      title: typeof phase.title === "string" ? phase.title.trim() : ""
+      name: typeof phase.name === "string" ? phase.name.trim() : typeof phase.title === "string" ? phase.title.trim() : ""
     }))
     .sort((a, b) => a.order - b.order);
 
@@ -521,22 +540,22 @@ function validatePhaseOrderingAndTitles(phases: unknown[], drillPath: string, is
     }
   });
 
-  const titleCounts = new Map<string, number>();
+  const nameCounts = new Map<string, number>();
   parsed.forEach((phase) => {
-    if (phase.title.length === 0) {
+    if (phase.name.length === 0) {
       return;
     }
 
-    titleCounts.set(phase.title.toLocaleLowerCase(), (titleCounts.get(phase.title.toLocaleLowerCase()) ?? 0) + 1);
+    nameCounts.set(phase.name.toLocaleLowerCase(), (nameCounts.get(phase.name.toLocaleLowerCase()) ?? 0) + 1);
   });
 
-  titleCounts.forEach((count, title) => {
+  nameCounts.forEach((count, name) => {
     if (count > 1) {
       issues.push(
         makeIssue(
           "warning",
           `${drillPath}.phases`,
-          `Duplicate phase title detected: '${title}'.`,
+          `Duplicate phase name detected: '${name}'.`,
           "phase-required"
         )
       );
@@ -556,7 +575,8 @@ function validatePhase(
   }
 
   validateNonEmptyString(input.phaseId, `${path}.phaseId`, issues);
-  validateNonEmptyString(input.title, `${path}.title`, issues);
+  const phaseName = typeof input.name === "string" ? input.name : input.title;
+  validateNonEmptyString(phaseName, `${path}.name`, issues);
 
   if (typeof input.order !== "number" || !Number.isFinite(input.order)) {
     issues.push(makeIssue("error", `${path}.order`, "Phase order must be a finite number.", "type"));
@@ -895,7 +915,7 @@ function validateDrillTimingConsistency(phases: unknown[], drillPath: string, is
         order: typeof phase.order === "number" ? phase.order : Number.NaN,
         durationMs: typeof phase.durationMs === "number" ? phase.durationMs : Number.NaN,
         startOffsetMs: typeof phase.startOffsetMs === "number" ? phase.startOffsetMs : null,
-        title: typeof phase.title === "string" ? phase.title : ""
+        name: typeof phase.name === "string" ? phase.name : typeof phase.title === "string" ? phase.title : ""
       };
     })
     .filter((phase): phase is NonNullable<typeof phase> => phase !== null)
@@ -918,7 +938,7 @@ function validateDrillTimingConsistency(phases: unknown[], drillPath: string, is
         makeIssue(
           "warning",
           `${drillPath}.phases[${phase.index}].startOffsetMs`,
-          `Phase '${phase.title || phase.order}' starts before the previous phase window completes.`,
+          `Phase '${phase.name || phase.order}' starts before the previous phase window completes.`,
           "timing"
         )
       );
@@ -933,7 +953,7 @@ function validateDrillTimingConsistency(phases: unknown[], drillPath: string, is
           makeIssue(
             "warning",
             `${drillPath}.phases[${phase.index}].startOffsetMs`,
-            `Gap detected before phase '${phase.title || phase.order}' (${phase.startOffsetMs - expected}ms).`,
+            `Gap detected before phase '${phase.name || phase.order}' (${phase.startOffsetMs - expected}ms).`,
             "timing"
           )
         );

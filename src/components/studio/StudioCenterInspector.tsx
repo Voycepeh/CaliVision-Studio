@@ -202,7 +202,7 @@ export function StudioCenterInspector() {
                     <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>
                       <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle} className="studio-phase-select-button">
                         <div className="studio-phase-list-heading">
-                          <strong className="studio-phase-list-title">{phase.order}. {phase.title}</strong>
+                          <strong className="studio-phase-list-title">{phase.order}. {phase.name}</strong>
                           <span className="muted studio-phase-list-meta">{formatDurationShort(phase.durationMs)} • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
                         </div>
                         <small className="muted studio-phase-list-subline">{phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}</small>

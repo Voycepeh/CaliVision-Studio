@@ -25,7 +25,7 @@ function createPhase(phaseId: string, order: number, durationMs: number, pose: P
   return {
     phaseId,
     order,
-    title: phaseId,
+    name: phaseId,
     durationMs,
     poseSequence: [pose],
     assetRefs: []

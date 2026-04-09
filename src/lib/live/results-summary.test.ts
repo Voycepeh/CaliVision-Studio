@@ -20,7 +20,7 @@ const trace: LiveSessionTrace = {
       drillType: "rep",
       difficulty: "beginner",
       tags: [],
-      defaultView: "side",
+      primaryView: "side",
       phases: []
     }
   },

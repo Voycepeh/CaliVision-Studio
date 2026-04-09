@@ -45,7 +45,6 @@
         "strength",
         "reps"
       ],
-      "defaultView": "side",
       "analysis": {
         "measurementType": "rep",
         "orderedPhaseSequence": [
@@ -69,7 +68,6 @@
         {
           "phaseId": "phase_001",
           "order": 1,
-          "title": "Top plank",
           "durationMs": 1200,
           "startOffsetMs": 0,
           "analysis": {
@@ -120,12 +118,12 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Top plank"
         },
         {
           "phaseId": "phase_002",
           "order": 2,
-          "title": "Bottom",
           "durationMs": 900,
           "startOffsetMs": 1200,
           "analysis": {
@@ -172,9 +170,11 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Bottom"
         }
-      ]
+      ],
+      "primaryView": "side"
     },
     {
       "drillId": "drill_front_plank_001",
@@ -187,7 +187,6 @@
         "core",
         "hold"
       ],
-      "defaultView": "side",
       "analysis": {
         "measurementType": "hold",
         "orderedPhaseSequence": [
@@ -210,7 +209,6 @@
         {
           "phaseId": "phase_101",
           "order": 1,
-          "title": "Entry",
           "durationMs": 1500,
           "startOffsetMs": 0,
           "analysis": {
@@ -242,12 +240,12 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Entry"
         },
         {
           "phaseId": "phase_102",
           "order": 2,
-          "title": "Hold line",
           "durationMs": 12000,
           "startOffsetMs": 1500,
           "analysis": {
@@ -289,9 +287,11 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Hold line"
         }
-      ]
+      ],
+      "primaryView": "side"
     },
     {
       "drillId": "drill_burpee_combo_001",
@@ -304,7 +304,6 @@
         "conditioning",
         "hybrid"
       ],
-      "defaultView": "front",
       "analysis": {
         "measurementType": "hybrid",
         "orderedPhaseSequence": [
@@ -339,7 +338,6 @@
         {
           "phaseId": "phase_201",
           "order": 1,
-          "title": "Squat",
           "durationMs": 900,
           "startOffsetMs": 0,
           "analysis": {
@@ -375,12 +373,12 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Squat"
         },
         {
           "phaseId": "phase_202",
           "order": 2,
-          "title": "Plank",
           "durationMs": 800,
           "startOffsetMs": 900,
           "analysis": {
@@ -417,12 +415,12 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Plank"
         },
         {
           "phaseId": "phase_203",
           "order": 3,
-          "title": "Jump",
           "durationMs": 700,
           "startOffsetMs": 1700,
           "analysis": {
@@ -458,12 +456,12 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Jump"
         },
         {
           "phaseId": "phase_204",
           "order": 4,
-          "title": "Lockout",
           "durationMs": 900,
           "startOffsetMs": 2400,
           "analysis": {
@@ -500,9 +498,11 @@
               }
             }
           ],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Lockout"
         }
-      ]
+      ],
+      "primaryView": "front"
     }
   ],
   "assets": []

@@ -145,7 +145,7 @@ export async function validatePackagePublishReadiness(drillPackage: DrillPackage
         severity: "warning",
         code: "missing-phase-pose",
         path: `drills[0].phases[${phaseIndex}].poseSequence`,
-        message: `Phase '${phase.title}' has no pose sequence yet.`
+        message: `Phase '${phase.name}' has no pose sequence yet.`
       });
     }
 
@@ -154,7 +154,7 @@ export async function validatePackagePublishReadiness(drillPackage: DrillPackage
         severity: "warning",
         code: "missing-phase-summary",
         path: `drills[0].phases[${phaseIndex}].summary`,
-        message: `Phase '${phase.title}' is missing a summary.`
+        message: `Phase '${phase.name}' is missing a summary.`
       });
     }
 
@@ -163,7 +163,7 @@ export async function validatePackagePublishReadiness(drillPackage: DrillPackage
         severity: "warning",
         code: "phase-missing-assets",
         path: `drills[0].phases[${phaseIndex}].assetRefs`,
-        message: `Phase '${phase.title}' has no source assets attached.`
+        message: `Phase '${phase.name}' has no source assets attached.`
       });
     }
   });

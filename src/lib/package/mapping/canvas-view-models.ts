@@ -154,7 +154,7 @@ export function mapPortablePhaseToInspectorViewModel(phase: PortablePhase): Insp
   return {
     phaseId: phase.phaseId,
     order: phase.order,
-    title: phase.title,
+    title: phase.name,
     durationMs: phase.durationMs,
     viewSummary: uniqueViews.size === 0 ? "No pose view metadata" : [...uniqueViews].join(", "),
     poseCount: phase.poseSequence.length,

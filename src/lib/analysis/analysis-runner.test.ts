@@ -60,7 +60,7 @@ function buildDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
     {
       phaseId: "top",
       order: 1,
-      title: "Top",
+      name: "Top",
       durationMs: 500,
       poseSequence: [makePose("p_top", 0, 0.2)],
       assetRefs: [],
@@ -69,7 +69,7 @@ function buildDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
     {
       phaseId: "bottom",
       order: 2,
-      title: "Bottom",
+      name: "Bottom",
       durationMs: 500,
       poseSequence: [makePose("p_bottom", 500, 0.8)],
       assetRefs: [],
@@ -84,7 +84,7 @@ function buildDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
     drillType: "rep",
     difficulty: "beginner",
     tags: [],
-    defaultView: "side",
+    primaryView: "side",
     phases,
     analysis: {
       measurementType: "rep",
@@ -125,7 +125,7 @@ test("rep completion with valid explicit skip", () => {
       {
         phaseId: "mid",
         order: 2,
-        title: "Mid",
+        name: "Mid",
         durationMs: 400,
         poseSequence: [makePose("p_mid", 250, 0.5)],
         assetRefs: []
@@ -150,7 +150,7 @@ test("invalid transition is not counted as rep", () => {
       {
         phaseId: "rogue",
         order: 3,
-        title: "Rogue",
+        name: "Rogue",
         durationMs: 500,
         poseSequence: [{ ...makePose("p_rogue", 0, 0.4), joints: { ...makePose("p_rogue", 0, 0.4).joints, leftWrist: { x: 0.1, y: 0.45 }, rightWrist: { x: 0.9, y: 0.45 } } }],
         assetRefs: []

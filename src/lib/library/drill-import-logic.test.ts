@@ -33,7 +33,7 @@ function makePackage(overrides: { packageId: string; revision: number; title: st
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "front",
+        primaryView: "front",
         phases: []
       }
     ],
@@ -95,7 +95,7 @@ test("legacy package imports with same packageId but different packageVersion ar
         androidTargetContract: "drill-package-0.1.0"
       }
     },
-    drills: [{ drillId: "legacy-drill", slug: "legacy-drill", title: "Legacy Drill", drillType: "rep", difficulty: "beginner", tags: [], defaultView: "front", phases: [] }],
+    drills: [{ drillId: "legacy-drill", slug: "legacy-drill", title: "Legacy Drill", drillType: "rep", difficulty: "beginner", tags: [], primaryView: "front", phases: [] }],
     assets: []
   };
   const legacyV2: DrillPackage = {

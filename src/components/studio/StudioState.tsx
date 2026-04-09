@@ -1021,14 +1021,14 @@ export function StudioStateProvider({
 
         const scopeKey = getPhaseScopeKey(entry.packageKey, phaseId);
         const editorView = scopeKey ? phaseEditorViewState[scopeKey] : null;
-        callback(phase, editorView ?? drill.defaultView);
+        callback(phase, editorView ?? drill.primaryView);
       })
     );
   }
 
   function renamePhase(phaseId: string, title: string): void {
     withPhaseUpdate(phaseId, (phase) => {
-      phase.title = title;
+      phase.name = title;
     });
   }
 
@@ -1134,7 +1134,7 @@ export function StudioStateProvider({
           return;
         }
 
-        drill.defaultView = view;
+        drill.primaryView = view;
       })
     );
   }
@@ -1171,7 +1171,7 @@ export function StudioStateProvider({
           const nextOrder = phases.length + 1;
           const phaseId = createStablePhaseId(phases);
           createdPhaseId = phaseId;
-          drill.phases.push(createNewPhase(phaseId, nextOrder, drill.defaultView));
+          drill.phases.push(createNewPhase(phaseId, nextOrder, drill.primaryView));
           normalizePhaseOrder(draft);
         }),
       (updated) => {

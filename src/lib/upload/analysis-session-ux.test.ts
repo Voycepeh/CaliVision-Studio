@@ -31,7 +31,7 @@ function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
         drillType: "rep",
         difficulty: "beginner",
         tags: [],
-        defaultView: "side",
+        primaryView: "side",
         phases: []
       },
       drillVersion: "sample-v1",

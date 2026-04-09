@@ -29,12 +29,10 @@
       "title": "Invalid Drill",
       "difficulty": "intermediate",
       "tags": [],
-      "defaultView": "side",
       "phases": [
         {
           "phaseId": "phase_dup_order",
           "order": 1,
-          "title": "Bad phase A",
           "durationMs": -300,
           "poseSequence": [
             {
@@ -64,18 +62,20 @@
               "type": "image",
               "uri": ""
             }
-          ]
+          ],
+          "name": "Bad phase A"
         },
         {
           "phaseId": "phase_dup_order_2",
           "order": 1,
-          "title": "Bad phase B",
           "durationMs": 500,
           "poseSequence": [],
-          "assetRefs": []
+          "assetRefs": [],
+          "name": "Bad phase B"
         }
       ],
-      "drillType": "hold"
+      "drillType": "hold",
+      "primaryView": "side"
     }
   ],
   "assets": []

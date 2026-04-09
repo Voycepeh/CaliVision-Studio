@@ -76,7 +76,7 @@ export function StudioMetadataEditor() {
 
         <label style={labelStyle}>
           <span>Primary view</span>
-          <select value={drill.defaultView} onChange={(event) => setDrillDefaultView(event.target.value as typeof drill.defaultView)} style={inputStyle}>
+          <select value={drill.primaryView} onChange={(event) => setDrillDefaultView(event.target.value as typeof drill.primaryView)} style={inputStyle}>
             <option value="front">front</option>
             <option value="side">side</option>
             <option value="rear">rear</option>

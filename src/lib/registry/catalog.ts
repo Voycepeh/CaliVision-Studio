@@ -86,7 +86,7 @@ export function createRegistryEntryFromPackage(input: {
     summary,
     packageJson: normalizedPackage,
     description: publishing?.description ?? publishing?.summary ?? drill?.description ?? "No package description provided yet.",
-    phaseTitles: drill?.phases.map((phase) => phase.title) ?? [],
+    phaseTitles: drill?.phases.map((phase) => phase.name) ?? [],
     origin,
     lineageEntryIds: [],
     compatibility: {

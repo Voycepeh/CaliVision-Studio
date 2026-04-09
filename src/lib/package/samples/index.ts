@@ -49,7 +49,7 @@ const SIMPLE_REP_VALIDATION_PACKAGE: DrillPackage = {
       drillType: "rep",
       difficulty: "beginner",
       tags: ["validation", "rep"],
-      defaultView: "front",
+      primaryView: "front",
       analysis: {
         measurementType: "rep",
         orderedPhaseSequence: ["phase_a", "phase_b", "phase_a"],
@@ -63,8 +63,8 @@ const SIMPLE_REP_VALIDATION_PACKAGE: DrillPackage = {
         minimumHoldDurationMs: 300
       },
       phases: [
-        { phaseId: "phase_a", order: 1, title: "Phase A", durationMs: 500, poseSequence: [], assetRefs: [] },
-        { phaseId: "phase_b", order: 2, title: "Phase B", durationMs: 500, poseSequence: [], assetRefs: [] }
+        { phaseId: "phase_a", order: 1, name: "Phase A", durationMs: 500, poseSequence: [], assetRefs: [] },
+        { phaseId: "phase_b", order: 2, name: "Phase B", durationMs: 500, poseSequence: [], assetRefs: [] }
       ]
     }
   ],
@@ -93,7 +93,7 @@ const SIMPLE_HOLD_VALIDATION_PACKAGE: DrillPackage = {
       drillType: "hold",
       difficulty: "beginner",
       tags: ["validation", "hold"],
-      defaultView: "front",
+      primaryView: "front",
       analysis: {
         measurementType: "hold",
         orderedPhaseSequence: ["phase_entry", "phase_hold"],
@@ -108,8 +108,8 @@ const SIMPLE_HOLD_VALIDATION_PACKAGE: DrillPackage = {
         targetHoldPhaseId: "phase_hold"
       },
       phases: [
-        { phaseId: "phase_entry", order: 1, title: "Entry", durationMs: 600, poseSequence: [], assetRefs: [] },
-        { phaseId: "phase_hold", order: 2, title: "Hold", durationMs: 3000, poseSequence: [], assetRefs: [] }
+        { phaseId: "phase_entry", order: 1, name: "Entry", durationMs: 600, poseSequence: [], assetRefs: [] },
+        { phaseId: "phase_hold", order: 2, name: "Hold", durationMs: 3000, poseSequence: [], assetRefs: [] }
       ]
     }
   ],

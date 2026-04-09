@@ -23,8 +23,8 @@ function makePose(poseId: string, timestampMs: number, wristY: number): Portable
 
 function buildDrill(): PortableDrill {
   const phases: PortablePhase[] = [
-    { phaseId: "top", order: 1, title: "Top", durationMs: 500, poseSequence: [makePose("top", 0, 0.2)], assetRefs: [] },
-    { phaseId: "bottom", order: 2, title: "Bottom", durationMs: 500, poseSequence: [makePose("bottom", 500, 0.8)], assetRefs: [] }
+    { phaseId: "top", order: 1, name: "Top", durationMs: 500, poseSequence: [makePose("top", 0, 0.2)], assetRefs: [] },
+    { phaseId: "bottom", order: 2, name: "Bottom", durationMs: 500, poseSequence: [makePose("bottom", 500, 0.8)], assetRefs: [] }
   ];
 
   return {
@@ -34,7 +34,7 @@ function buildDrill(): PortableDrill {
     drillType: "rep",
     difficulty: "beginner",
     tags: [],
-    defaultView: "side",
+    primaryView: "side",
     phases,
     analysis: {
       measurementType: "rep",
