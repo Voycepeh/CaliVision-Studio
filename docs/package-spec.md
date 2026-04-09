@@ -68,6 +68,14 @@ Design intent:
 
 This is intentionally a typed placeholder and does not implement scoring logic.
 
+## Phase identity and naming discipline
+
+- `PortablePhase.phaseId` is the stable internal identity for persistence, ordering references, and analysis wiring.
+- `PortablePhase.title` is the canonical user-facing phase name shown in Drill Studio.
+- Rep/hold/classification wiring must reference `phaseId` (or explicit ordered/role metadata), not user-facing text labels.
+- Drill Studio normalization now migrates legacy generated IDs such as `phase_top`, `phase_bottom`, and `phase_new` to opaque stable IDs on load.
+- If semantic meaning is needed, use explicit fields (`PortablePhase.analysis.semanticRole`) instead of encoding meaning in `phaseId` or title strings.
+
 ## Analysis output models (schema-only for now)
 
 To support future Upload Video and live-analysis flows, typed models are defined for:

@@ -13,12 +13,12 @@
   "analysis": {
     "measurementType": "rep",
     "orderedPhaseSequence": [
-      "phase_top",
-      "phase_bottom",
-      "phase_top"
+      "phase_001",
+      "phase_002",
+      "phase_001"
     ],
     "criticalPhaseIds": [
-      "phase_bottom"
+      "phase_002"
     ],
     "allowedPhaseSkips": [],
     "minimumConfirmationFrames": 2,
@@ -31,7 +31,7 @@
   },
   "phases": [
     {
-      "phaseId": "phase_top",
+      "phaseId": "phase_001",
       "order": 1,
       "title": "Top plank",
       "durationMs": 1200,
@@ -72,7 +72,7 @@
       "assetRefs": []
     },
     {
-      "phaseId": "phase_bottom",
+      "phaseId": "phase_002",
       "order": 2,
       "title": "Bottom",
       "durationMs": 900,
