@@ -1,4 +1,5 @@
 import type { AnalysisEvent, AnalysisSession, PortableDrill, PortableDrillAnalysis } from "../schema/contracts.ts";
+import { buildPhaseRuntimeModel } from "./phase-runtime.ts";
 import type { SmoothedPhaseFrame, SmootherTransition } from "./types.ts";
 
 export function extractAnalysisEvents(
@@ -10,6 +11,7 @@ export function extractAnalysisEvents(
   if (!analysis) {
     return { events: [], summary: {} };
   }
+  const runtimeModel = buildPhaseRuntimeModel(drill, analysis);
 
   const events: AnalysisEvent[] = [];
   const addEvent = (event: Omit<AnalysisEvent, "eventId">) => {
@@ -27,7 +29,7 @@ export function extractAnalysisEvents(
     });
   }
 
-  const repSummary = extractRepEvents(analysis, transitions, addEvent);
+  const repSummary = extractRepEvents(runtimeModel.orderedPhaseIds, analysis, transitions, addEvent);
   const holdSummary = extractHoldEvents(analysis, drill, transitions, smoothedFrames, addEvent);
   const invalidTransitionCount = transitions.filter((item) => item.type === "invalid_transition").length;
 
@@ -43,6 +45,7 @@ export function extractAnalysisEvents(
 }
 
 function extractRepEvents(
+  orderedPhaseIds: string[],
   analysis: PortableDrillAnalysis,
   transitions: SmootherTransition[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
@@ -51,7 +54,7 @@ function extractRepEvents(
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
-  const sequence = analysis.orderedPhaseSequence;
+  const sequence = orderedPhaseIds;
   if (sequence.length === 0) {
     return { repCount: 0, partialAttemptCount: 0 };
   }
@@ -70,6 +73,9 @@ function extractRepEvents(
     const entered = transition.phaseId;
     const exactExpected = sequence[expectedIndex];
     const enteredIndex = sequence.indexOf(entered);
+    if (enteredIndex < 0) {
+      continue;
+    }
 
     if (entered === exactExpected) {
       if (expectedIndex === 0) {

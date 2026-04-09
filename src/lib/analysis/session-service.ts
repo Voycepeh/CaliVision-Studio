@@ -1,4 +1,5 @@
 import { runDrillAnalysisPipeline } from "./analysis-runner.ts";
+import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "./phase-runtime.ts";
 import type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 import type { PoseTimeline } from "../upload/types.ts";
@@ -26,6 +27,37 @@ type PersistUploadInput = {
   sourceLabel?: string;
   annotatedVideoUri?: string;
 };
+
+function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeof runDrillAnalysisPipeline>) {
+  const analysis = drill.analysis;
+  if (!analysis) {
+    return undefined;
+  }
+  const runtimeModel = buildPhaseRuntimeModel(drill, analysis);
+  const rejectedTransition = output.transitions
+    .filter((transition) => transition.type === "invalid_transition")
+    .at(-1);
+  const lastTransition = output.transitions
+    .filter((transition) => transition.type === "phase_enter")
+    .at(-1);
+  const prevTransition = [...output.transitions]
+    .reverse()
+    .find((transition) => transition.type === "phase_enter" && transition.phaseId && transition.phaseId !== lastTransition?.phaseId);
+  const repEvent = [...output.session.events].reverse().find((event) => event.type === "rep_complete");
+
+  return {
+    expectedPhaseOrder: runtimeModel.orderedPhaseIds.map((phaseId) => resolveAuthoredPhaseLabel(phaseId, runtimeModel.phaseLabelById) ?? phaseId),
+    allowedTransitions: [...runtimeModel.allowedTransitionKeys].map((key) => {
+      const [fromPhaseId, toPhaseId] = key.split("->");
+      return `${resolveAuthoredPhaseLabel(fromPhaseId, runtimeModel.phaseLabelById) ?? fromPhaseId} -> ${resolveAuthoredPhaseLabel(toPhaseId, runtimeModel.phaseLabelById) ?? toPhaseId}`;
+    }),
+    currentPhase: resolveAuthoredPhaseLabel(lastTransition?.phaseId, runtimeModel.phaseLabelById),
+    previousPhase: resolveAuthoredPhaseLabel(prevTransition?.phaseId, runtimeModel.phaseLabelById),
+    attemptedNextPhase: resolveAuthoredPhaseLabel(rejectedTransition?.toPhaseId, runtimeModel.phaseLabelById),
+    rejectedReason: rejectedTransition?.details?.reason ? String(rejectedTransition.details.reason) : undefined,
+    lastRepCompleted: repEvent?.repIndex ?? null
+  };
+}
 
 function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>): { cause?: string; details: string[] } {
   const details: string[] = [];
@@ -110,6 +142,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
       sourceVideoFileName: input.timeline.video.fileName,
       smootherTransitions: output.transitions,
       smoothedFrames: output.smoothedFrames,
+      runtimeDiagnostics: createRuntimeDiagnostics(input.drill, output),
       ...deriveNoEventCause(output)
     },
     drillBinding: input.drillBinding ?? {

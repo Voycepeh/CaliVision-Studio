@@ -118,6 +118,26 @@ test("simple rep completion top->bottom->top", () => {
   assert.equal(result.session.events.filter((event) => event.type === "rep_complete").length, 1);
 });
 
+test("two-phase ordered loop counts rep via implicit return transition", () => {
+  const drill = buildDrill({
+    analysis: {
+      ...buildDrill().analysis!,
+      orderedPhaseSequence: ["top", "bottom"]
+    }
+  });
+  const frames = [
+    poseFrame(0, 0.2),
+    poseFrame(100, 0.2),
+    poseFrame(300, 0.8),
+    poseFrame(400, 0.8),
+    poseFrame(600, 0.2),
+    poseFrame(700, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 1);
+});
+
 test("rep completion with valid explicit skip", () => {
   const drill = buildDrill({
     phases: [
@@ -231,6 +251,24 @@ test("unknown/low-confidence frames do not create false reps", () => {
 
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
   assert.equal(result.session.summary.repCount, 0);
+});
+
+test("temporary confidence drop still allows rep completion after stable recovery", () => {
+  const drill = buildDrill();
+  const frames = [
+    poseFrame(0, 0.2),
+    poseFrame(100, 0.2),
+    poseFrame(200, 0.8),
+    poseFrame(300, 0.8, false),
+    poseFrame(400, 0.8),
+    poseFrame(500, 0.8),
+    poseFrame(700, 0.2),
+    poseFrame(800, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 1);
+  assert.equal(result.session.events.some((event) => event.type === "rep_complete"), true);
 });
 
 test("hold entryConfirmationFrames overrides generic confirmation for hold entry", () => {

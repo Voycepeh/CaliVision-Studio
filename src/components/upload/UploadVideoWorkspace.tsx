@@ -96,7 +96,16 @@ function createUploadSourceUri(jobId: string, fileName: string): string {
   return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
 }
 
-function summarizeTrace(session: AnalysisSessionRecord, stepMs: number): Array<{ timestampMs: number; phase: string; confidence: number; repCount: number }> {
+function resolvePhaseLabel(phaseId: string | undefined | null, labels: Record<string, string>): string {
+  if (!phaseId) return "none";
+  return labels[phaseId] ?? phaseId;
+}
+
+function summarizeTrace(
+  session: AnalysisSessionRecord,
+  stepMs: number,
+  phaseLabels: Record<string, string>
+): Array<{ timestampMs: number; phase: string; confidence: number; repCount: number }> {
   const frames = [...session.frameSamples].sort((a, b) => a.timestampMs - b.timestampMs);
   if (frames.length === 0) {
     return [];
@@ -114,7 +123,7 @@ function summarizeTrace(session: AnalysisSessionRecord, stepMs: number): Array<{
     const repCount = session.events.filter((event) => event.type === "rep_complete" && event.timestampMs <= cursor).length;
     rows.push({
       timestampMs: cursor,
-      phase: nearest?.classifiedPhaseId ?? "none",
+      phase: resolvePhaseLabel(nearest?.classifiedPhaseId, phaseLabels),
       confidence: nearest?.confidence ?? 0,
       repCount
     });
@@ -127,6 +136,43 @@ function isMeaningfullyVariant(traceRows: Array<{ phase: string; repCount: numbe
   const uniquePhases = new Set(traceRows.map((row) => row.phase));
   const uniqueRepCounts = new Set(traceRows.map((row) => row.repCount));
   return uniquePhases.size > 1 || uniqueRepCounts.size > 1;
+}
+
+function formatTransitionReason(reason: string | undefined): string {
+  switch (reason) {
+    case "transition_not_ordered_or_allowed_skip":
+      return "off authored path";
+    case "below_minimum_rep_duration":
+      return "rep duration too short";
+    case "cooldown_active":
+      return "cooldown active";
+    case "insufficient_confirmed_transitions":
+      return "confidence unstable";
+    case "off_path_transition":
+      return "off authored path";
+    default:
+      return reason ?? "unknown";
+  }
+}
+
+function formatDiagnosticEvent(event: AnalysisSessionRecord["events"][number], phaseLabels: Record<string, string>): string {
+  const from = resolvePhaseLabel(event.fromPhaseId, phaseLabels);
+  const to = resolvePhaseLabel(event.toPhaseId, phaseLabels);
+  const phase = resolvePhaseLabel(event.phaseId, phaseLabels);
+  if (event.type === "phase_enter") return `entered phase: ${phase}`;
+  if (event.type === "phase_exit") return `exited phase: ${phase}`;
+  if (event.type === "invalid_transition") {
+    const reason = formatTransitionReason(typeof event.details?.reason === "string" ? event.details.reason : undefined);
+    return `transition rejected: ${from} -> ${to} (${reason})`;
+  }
+  if (event.type === "rep_complete") return `rep completed: ${event.repIndex ?? "?"}`;
+  if (event.type === "partial_attempt") {
+    const reason = formatTransitionReason(typeof event.details?.reason === "string" ? event.details.reason : undefined);
+    return `partial attempt: ${reason}`;
+  }
+  if (event.type === "hold_start") return `hold started: ${phase}`;
+  if (event.type === "hold_end") return `hold ended: ${phase}`;
+  return event.type;
 }
 
 export function UploadVideoWorkspace() {
@@ -152,6 +198,7 @@ export function UploadVideoWorkspace() {
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
     [drillOptions, selectedDrillKey]
   );
+  const phaseLabels = useMemo(() => buildPhaseLabelMap(selectedDrill?.drill), [selectedDrill?.drill]);
 
   const refreshDrillOptions = useCallback(async () => {
     setDrillOptionsLoading(true);
@@ -810,12 +857,30 @@ export function UploadVideoWorkspace() {
               <ol className="muted">
                 {activeSession.events.map((event) => (
                   <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
-                    {event.type} @ {formatDurationShort(event.timestampMs)}
-                    {event.phaseId ? ` • phase=${event.phaseId}` : ""}
-                    {event.repIndex ? ` • rep=${event.repIndex}` : ""}
+                    {formatDiagnosticEvent(event, phaseLabels)} @ {formatDurationShort(event.timestampMs)}
                   </li>
                 ))}
               </ol>
+            </details>
+          ) : null}
+
+          {activeSession.debug?.runtimeDiagnostics ? (
+            <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
+              <summary style={{ cursor: "pointer" }}>Runtime diagnostic summary</summary>
+              <ul className="muted" style={{ marginTop: "0.35rem" }}>
+                <li>Expected order: {activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.join(" → ") || "n/a"}</li>
+                <li>Allowed transitions: {activeSession.debug.runtimeDiagnostics.allowedTransitions.join(", ") || "n/a"}</li>
+                <li>Current phase: {activeSession.debug.runtimeDiagnostics.currentPhase ?? "none"}</li>
+                <li>Previous phase: {activeSession.debug.runtimeDiagnostics.previousPhase ?? "none"}</li>
+                <li>Attempted next phase: {activeSession.debug.runtimeDiagnostics.attemptedNextPhase ?? "n/a"}</li>
+                <li>
+                  Rejected reason:{" "}
+                  {activeSession.debug.runtimeDiagnostics.rejectedReason
+                    ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.rejectedReason)
+                    : "n/a"}
+                </li>
+                <li>Last rep event: {activeSession.debug.runtimeDiagnostics.lastRepCompleted ?? "none"}</li>
+              </ul>
             </details>
           ) : null}
 
@@ -834,7 +899,7 @@ export function UploadVideoWorkspace() {
                   {activeSession.frameSamples.slice(0, 120).map((sample) => (
                     <tr key={`sample-${sample.timestampMs}`}>
                       <td>{formatDurationShort(sample.timestampMs)}</td>
-                      <td>{sample.classifiedPhaseId ?? "unknown"}</td>
+                      <td>{resolvePhaseLabel(sample.classifiedPhaseId, phaseLabels)}</td>
                       <td>{sample.confidence.toFixed(2)}</td>
                     </tr>
                   ))}

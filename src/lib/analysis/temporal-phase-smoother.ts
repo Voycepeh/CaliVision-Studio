@@ -8,10 +8,8 @@ export function smoothPhaseTimeline(
 ): TemporalSmoothingResult {
   const minimumConfirmationFrames = Math.max(1, options.entryConfirmationFrames ?? analysis.minimumConfirmationFrames ?? 1);
   const exitGraceFrames = Math.max(0, analysis.exitGraceFrames || 0);
-  const allowedSkipKeys = new Set(
-    analysis.allowedPhaseSkips.map((skip) => `${skip.fromPhaseId}->${skip.toPhaseId}`)
-  );
-  const orderedTransitionKeys = buildOrderedTransitionKeys(analysis.orderedPhaseSequence);
+  const allowedSkipKeys = new Set(analysis.allowedPhaseSkips.map((skip) => `${skip.fromPhaseId}->${skip.toPhaseId}`));
+  const orderedTransitionKeys = buildOrderedTransitionKeys(analysis.orderedPhaseSequence, analysis.measurementType);
 
   let stablePhaseId: string | null = null;
   let candidatePhaseId: string | null = null;
@@ -123,10 +121,16 @@ function isAllowedTransition(
   return { ok: false, reason: "transition_not_ordered_or_allowed_skip" };
 }
 
-function buildOrderedTransitionKeys(orderedPhaseSequence: string[]): Set<string> {
+function buildOrderedTransitionKeys(
+  orderedPhaseSequence: string[],
+  measurementType: PortableDrillAnalysis["measurementType"]
+): Set<string> {
   const keys = new Set<string>();
   for (let index = 0; index < orderedPhaseSequence.length - 1; index += 1) {
     keys.add(`${orderedPhaseSequence[index]}->${orderedPhaseSequence[index + 1]}`);
+  }
+  if ((measurementType === "rep" || measurementType === "hybrid") && orderedPhaseSequence.length > 1) {
+    keys.add(`${orderedPhaseSequence[orderedPhaseSequence.length - 1]}->${orderedPhaseSequence[0]}`);
   }
   return keys;
 }
