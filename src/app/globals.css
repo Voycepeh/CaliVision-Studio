@@ -962,6 +962,10 @@ main {
   align-items: start;
 }
 
+.upload-workflow-layout--collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .upload-workflow-primary,
 .upload-workflow-preview {
   min-width: 0;
