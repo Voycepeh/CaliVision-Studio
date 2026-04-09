@@ -10,12 +10,13 @@
 ## Current Drill Studio flow
 
 1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
-2. Edit drill metadata (title, slug, required drill type, difficulty, view).
-3. Create/edit/reorder phases.
-4. Upload a phase image.
-5. Run detection and apply/refine pose.
-6. Preview and validation review.
-7. Open advanced diagnostics only when needed (collapsible, hidden by default).
+2. Edit drill metadata (title, slug, required drill type, difficulty, primary/default view).
+3. Create/edit/reorder phases and update saved phase fields (phase name, order, duration, authored pose data).
+4. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
+5. Upload a phase image.
+6. Run detection and apply/refine pose.
+7. Preview and validation review.
+8. Open advanced diagnostics only when needed (collapsible, hidden by default).
 
 ## Current Upload Video flow
 

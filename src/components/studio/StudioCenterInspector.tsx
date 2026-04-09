@@ -96,7 +96,8 @@ export function StudioCenterInspector() {
     renamePhase,
     setPhaseDuration,
     setPhaseSummary,
-    setPhaseView,
+    selectedPhaseEditorView,
+    setPhaseEditorView,
     addPhase,
     deletePhase,
     duplicatePhase,
@@ -118,7 +119,21 @@ export function StudioCenterInspector() {
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
   const selectedPose = selectedPhase?.poseSequence[0] ?? null;
-  const poseModel = mapPortablePoseToCanvasPoseModel(selectedPose);
+  const poseModel = useMemo(
+    () =>
+      mapPortablePoseToCanvasPoseModel(
+        selectedPose
+          ? {
+              ...selectedPose,
+              canvas: {
+                ...selectedPose.canvas,
+                view: selectedPhaseEditorView
+              }
+            }
+          : null
+      ),
+    [selectedPose, selectedPhaseEditorView]
+  );
   const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
   const selectedJoint = selectedJointName ? selectedPose?.joints[selectedJointName] : null;
 
@@ -206,7 +221,7 @@ export function StudioCenterInspector() {
                 {selectedPhase ? (
                   <div className="card studio-selected-phase-basics">
                     <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected phase</h4>
-                    <p className="muted" style={{ margin: 0 }}>Update phase name, duration, and author notes.</p>
+                    <p className="muted" style={{ margin: 0 }}>Saved to the drill file: phase name, duration, and author notes.</p>
                     <div className="field-grid">
                       <label style={labelStyle}>
                         <span>Phase name</span>
@@ -252,6 +267,9 @@ export function StudioCenterInspector() {
             {selectedPhase ? (
               <>
                 <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
+                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1" }}>
+                    Editor-only controls (not saved to the drill file).
+                  </p>
                   <label style={labelStyle}>
                     <span>Selected joint</span>
                     <select value={selectedJointName ?? ""} style={inputStyle} onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}>
@@ -268,8 +286,8 @@ export function StudioCenterInspector() {
                   </label>
 
                   <label style={labelStyle}>
-                    <span>Phase view</span>
-                    <select value={selectedPose?.canvas.view ?? "front"} style={inputStyle} onChange={(event) => setPhaseView(selectedPhase.phaseId, event.target.value as PortableViewType)}>
+                    <span>Editor view</span>
+                    <select value={selectedPhaseEditorView} style={inputStyle} onChange={(event) => setPhaseEditorView(selectedPhase.phaseId, event.target.value as PortableViewType)}>
                       <option value="front">front</option>
                       <option value="side">side</option>
                       <option value="rear">rear</option>
