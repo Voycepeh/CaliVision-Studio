@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
@@ -28,6 +29,10 @@ import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor
 const LIVE_OVERLAY_CADENCE_FPS = 10;
 const LIVE_SAMPLE_INTERVAL_MS = Math.round(1000 / LIVE_OVERLAY_CADENCE_FPS);
 const FREESTYLE_KEY = "freestyle";
+const LANDMARK_SMOOTHING_ALPHA = 0.38;
+const JOINT_VISIBILITY_ENTER_THRESHOLD = 0.52;
+const JOINT_VISIBILITY_EXIT_THRESHOLD = 0.42;
+const JOINT_VISIBILITY_GRACE_SAMPLES = 2;
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -104,6 +109,10 @@ export function LiveStreamingWorkspace() {
   const landmarkerRef = useRef<Awaited<ReturnType<typeof createPoseLandmarkerForJob>> | null>(null);
   const startedAtRef = useRef<number>(0);
   const mediaStartMsRef = useRef<number>(0);
+  const smoothedFrameRef = useRef<ReturnType<typeof mapLandmarksToPoseFrame> | null>(null);
+  const jointVisibleRef = useRef<Record<string, boolean>>({});
+  const jointGraceSamplesRef = useRef<Record<string, number>>({});
+  const overlayNeedsResizeSyncRef = useRef(true);
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -215,6 +224,9 @@ export function LiveStreamingWorkspace() {
     landmarkerRef.current = null;
     recorderRef.current = null;
     traceRef.current = null;
+    smoothedFrameRef.current = null;
+    jointVisibleRef.current = {};
+    jointGraceSamplesRef.current = {};
     const canvas = previewCanvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
@@ -227,7 +239,10 @@ export function LiveStreamingWorkspace() {
     }
   }, []);
 
-  const syncOverlayCanvasSize = useCallback(() => {
+  const syncOverlayCanvasSize = useCallback((force = false) => {
+    if (!force && !overlayNeedsResizeSyncRef.current) {
+      return;
+    }
     const canvas = previewCanvasRef.current;
     const container = mediaContainerRef.current;
     if (!canvas || !container) return;
@@ -239,6 +254,7 @@ export function LiveStreamingWorkspace() {
       canvas.width = width;
       canvas.height = height;
     }
+    overlayNeedsResizeSyncRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -246,7 +262,7 @@ export function LiveStreamingWorkspace() {
     if (!container || typeof ResizeObserver === "undefined") return;
 
     const resizeObserver = new ResizeObserver(() => {
-      syncOverlayCanvasSize();
+      overlayNeedsResizeSyncRef.current = true;
     });
     resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
@@ -259,6 +275,52 @@ export function LiveStreamingWorkspace() {
       if (rawReplayUrl) URL.revokeObjectURL(rawReplayUrl);
     };
   }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
+
+  const buildStabilizedPoseFrame = useCallback(
+    (landmarks: Array<{ x: number; y: number; visibility?: number }>, timestampMs: number) => {
+      const incoming = mapLandmarksToPoseFrame(landmarks, timestampMs);
+      const previous = smoothedFrameRef.current;
+      const nextJoints: ReturnType<typeof mapLandmarksToPoseFrame>["joints"] = {};
+
+      for (const [jointName, point] of Object.entries(incoming.joints)) {
+        if (!point) {
+          continue;
+        }
+        const canonicalJointName = jointName as CanonicalJointName;
+        const confidence = point.confidence ?? 1;
+        const wasVisible = jointVisibleRef.current[jointName] ?? false;
+        const nowVisible = wasVisible ? confidence >= JOINT_VISIBILITY_EXIT_THRESHOLD : confidence >= JOINT_VISIBILITY_ENTER_THRESHOLD;
+        jointVisibleRef.current[jointName] = nowVisible;
+
+        const previousPoint = previous?.joints[canonicalJointName];
+        if (!nowVisible) {
+          const graceCount = jointGraceSamplesRef.current[jointName] ?? 0;
+          if (previousPoint && graceCount < JOINT_VISIBILITY_GRACE_SAMPLES) {
+            jointGraceSamplesRef.current[jointName] = graceCount + 1;
+            nextJoints[canonicalJointName] = previousPoint;
+          }
+          continue;
+        }
+
+        jointGraceSamplesRef.current[jointName] = 0;
+        if (!previousPoint) {
+          nextJoints[canonicalJointName] = point;
+          continue;
+        }
+
+        nextJoints[canonicalJointName] = {
+          x: previousPoint.x + (point.x - previousPoint.x) * LANDMARK_SMOOTHING_ALPHA,
+          y: previousPoint.y + (point.y - previousPoint.y) * LANDMARK_SMOOTHING_ALPHA,
+          confidence
+        };
+      }
+
+      const stabilized = { timestampMs, joints: nextJoints };
+      smoothedFrameRef.current = stabilized;
+      return stabilized;
+    },
+    []
+  );
 
   const requestPreview = useCallback(async () => {
     setErrorMessage(null);
@@ -323,7 +385,8 @@ export function LiveStreamingWorkspace() {
       drillSelection: selection
     });
 
-    syncOverlayCanvasSize();
+    overlayNeedsResizeSyncRef.current = true;
+    syncOverlayCanvasSize(true);
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -343,7 +406,7 @@ export function LiveStreamingWorkspace() {
         const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
         if (landmarks) {
-          const frame = mapLandmarksToPoseFrame(landmarks, traceTimestampMs);
+          const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
           drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
         }
@@ -361,7 +424,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, rawReplayUrl, selection, syncOverlayCanvasSize]);
+  }, [annotatedReplayUrl, buildStabilizedPoseFrame, rawReplayUrl, selection, syncOverlayCanvasSize]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
@@ -421,7 +484,7 @@ export function LiveStreamingWorkspace() {
   }, [cleanupSession]);
 
   return (
-    <section className="panel-content" style={{ display: "grid", gap: "0.9rem" }}>
+    <section className="panel-content live-streaming-layout">
       <article className="card" style={{ display: "grid", gap: "0.8rem" }}>
         <h2 style={{ margin: 0 }}>Live Streaming</h2>
         <p className="muted" style={{ margin: 0 }}>
@@ -463,10 +526,12 @@ export function LiveStreamingWorkspace() {
         {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
       </article>
 
-      <article className="card" style={{ display: "grid", gap: "0.7rem" }}>
-        <div style={{ position: "relative", borderRadius: "0.8rem", overflow: "hidden", border: "1px solid var(--border)" }}>
-          <video ref={previewVideoRef} muted playsInline style={{ width: "100%", display: status === "completed" ? "none" : "block" }} />
-          <canvas ref={previewCanvasRef} style={{ width: "100%", display: status === "live-session-running" ? "block" : "none" }} />
+      <article className="card live-streaming-results-card">
+        <div className="live-streaming-preview-shell">
+          <div ref={mediaContainerRef} className="live-streaming-media-container">
+            <video ref={previewVideoRef} muted playsInline className="live-streaming-video" style={{ display: status === "completed" ? "none" : "block" }} />
+            <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
+          </div>
         </div>
 
         {liveTrace ? (
