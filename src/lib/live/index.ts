@@ -4,3 +4,4 @@ export * from "./media-recorder";
 export * from "./session-trace";
 export * from "./session-compositor";
 export * from "./session-export";
+export * from "./results-summary";
