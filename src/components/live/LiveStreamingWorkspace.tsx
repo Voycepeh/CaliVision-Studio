@@ -35,6 +35,7 @@ const LANDMARK_SMOOTHING_ALPHA = 0.38;
 const JOINT_VISIBILITY_ENTER_THRESHOLD = 0.52;
 const JOINT_VISIBILITY_EXIT_THRESHOLD = 0.42;
 const JOINT_VISIBILITY_GRACE_SAMPLES = 2;
+const LIVE_POSE_STALE_HOLD_MS = 420;
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -99,6 +100,7 @@ export function LiveStreamingWorkspace() {
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
+  const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -118,6 +120,8 @@ export function LiveStreamingWorkspace() {
   const overlayPixelRatioRef = useRef(1);
   const overlayProjectionRef = useRef<OverlayProjection | null>(null);
   const lastOverlayDiagnosticsAtRef = useRef(0);
+  const lastPoseFrameAtRef = useRef<number>(0);
+  const stalePoseLoggedRef = useRef(false);
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -258,6 +262,8 @@ export function LiveStreamingWorkspace() {
     recorderRef.current = null;
     traceRef.current = null;
     smoothedFrameRef.current = null;
+    lastPoseFrameAtRef.current = 0;
+    stalePoseLoggedRef.current = false;
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
     const canvas = previewCanvasRef.current;
@@ -493,6 +499,7 @@ export function LiveStreamingWorkspace() {
 
     setStatus("live-session-running");
     setReplayState("idle");
+    setReplayExportStageLabel(null);
     setLiveTrace(null);
     setSelectedMarkerId(null);
     setErrorMessage(null);
@@ -567,14 +574,31 @@ export function LiveStreamingWorkspace() {
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame);
+          lastPoseFrameAtRef.current = traceTimestampMs;
+          stalePoseLoggedRef.current = false;
           logOverlayDiagnostics("draw-pose-frame");
+        } else if (!stalePoseLoggedRef.current) {
+          console.debug("[live-overlay] pose miss; reusing last stabilized frame", {
+            traceTimestampMs,
+            staleForMs: Math.max(0, traceTimestampMs - lastPoseFrameAtRef.current)
+          });
+          stalePoseLoggedRef.current = true;
         }
         lastSampleAt = elapsedMs;
       }
 
       const analyzedFrameState = traceRef.current.getAnalyzedFrameState(traceTimestampMs);
-      if (analyzedFrameState.poseFrame) {
+      const staleForMs = Math.max(0, traceTimestampMs - lastPoseFrameAtRef.current);
+      const canReuseStalePose = lastPoseFrameAtRef.current > 0 && staleForMs <= LIVE_POSE_STALE_HOLD_MS;
+      if (analyzedFrameState.poseFrame && canReuseStalePose) {
         drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+      } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
+        console.info("[live-overlay] stale pose timeout reached; clearing overlay skeleton", {
+          traceTimestampMs,
+          staleForMs,
+          staleTimeoutMs: LIVE_POSE_STALE_HOLD_MS
+        });
+        stalePoseLoggedRef.current = false;
       }
       drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
@@ -628,18 +652,30 @@ export function LiveStreamingWorkspace() {
     const rawUrl = URL.createObjectURL(raw.blob);
     setRawReplayUrl(rawUrl);
     setReplayState("export-in-progress");
+    setReplayExportStageLabel("Preparing export…");
 
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
 
     try {
-      const annotated = await exportAnnotatedReplayFromLiveTrace({ rawVideo: rawFile, trace, analysisSession });
+      const annotated = await exportAnnotatedReplayFromLiveTrace({
+        rawVideo: rawFile,
+        trace,
+        analysisSession,
+        onProgress: (_progress, stageLabel) => {
+          setReplayExportStageLabel(stageLabel);
+        }
+      });
       const annotatedUrl = URL.createObjectURL(annotated.blob);
       setAnnotatedReplayUrl(annotatedUrl);
+      setReplayExportStageLabel("Annotated export complete");
       setReplayState("annotated-ready");
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Annotated replay generation failed.";
+      console.error("[live-overlay] annotated export failed", { message });
       setReplayState("raw-fallback");
-      setErrorMessage("Annotated replay generation failed. Showing raw session recording fallback.");
+      setReplayExportStageLabel("Annotated export failed");
+      setErrorMessage(`${message} Showing raw session recording fallback.`);
     }
 
     setStatus("completed");
@@ -737,6 +773,7 @@ export function LiveStreamingWorkspace() {
                 }}
               >
                 Replay: {getReplayStateMessage(replayState)}
+                {replayState === "export-in-progress" && replayExportStageLabel ? ` · ${replayExportStageLabel}` : ""}
               </div>
             </div>
 

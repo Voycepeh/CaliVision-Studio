@@ -11,9 +11,9 @@ const UPLOAD_OVERLAY_STYLE = {
   skeletonBase: PREVIEW_OVERLAY_STYLE.skeletonBase,
   nose: PREVIEW_OVERLAY_STYLE.nose,
   hip: PREVIEW_OVERLAY_STYLE.hip,
-  jointRadiusBase: PREVIEW_OVERLAY_STYLE.jointRadiusBase * 0.5,
+  jointRadiusBase: PREVIEW_OVERLAY_STYLE.jointRadiusBase,
   jointRadiusLargeMultiplier: PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier,
-  skeletonStrokeWidth: PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth * 0.5
+  skeletonStrokeWidth: PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth
 } as const;
 
 function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number, projection?: OverlayProjection) {
