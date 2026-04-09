@@ -174,3 +174,14 @@ test("overlay state keeps rep count visible even when no rep events exist", () =
   assert.equal(overlay.repCount, 0);
   assert.equal(overlay.showRepCount, true);
 });
+
+test("replay state ignores invalid timestamps and durations", () => {
+  const session = createSession();
+  session.summary.analyzedDurationMs = Number.POSITIVE_INFINITY;
+  session.frameSamples.push({ timestampMs: Number.NaN, classifiedPhaseId: "bad", confidence: 0.1 });
+  session.events.push({ eventId: "bad", timestampMs: Number.NaN, type: "phase_enter", phaseId: "bad" });
+
+  const state = deriveReplayStateAtTime(session, Number.NaN);
+  assert.equal(state.timestampMs, 0);
+  assert.equal(state.repCount, 0);
+});

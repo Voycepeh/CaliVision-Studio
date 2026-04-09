@@ -13,6 +13,7 @@ import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
+import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
@@ -38,10 +39,10 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDuration(durationMs?: number): string {
-  if (durationMs === undefined || durationMs === null) {
-    return "Unknown";
+  if (toFiniteNonNegativeMs(durationMs) === null) {
+    return "Duration unavailable";
   }
-  return formatDurationShort(durationMs);
+  return durationMs !== undefined && durationMs < 10000 ? formatDurationShort(durationMs) : formatDurationClock(durationMs);
 }
 
 function formatConfidence(value?: number): string {
@@ -709,7 +710,7 @@ export function UploadVideoWorkspace() {
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
                   <span className="pill">Phase: {activeSession.events.at(-1)?.phaseId ?? "none"}</span>
                   <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
-                  <span className="pill">Hold: {activeSession.summary.holdDurationMs ? formatDuration(activeSession.summary.holdDurationMs) : "inactive"}</span>
+                  <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
                   <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
                   <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
                   <span className="pill">Result: {activeSession.status}</span>

@@ -1,7 +1,9 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
+import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
+import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
-import type { LiveDrillSelection, LiveSessionTrace } from "./types.ts";
+import type { LiveAnalyzedFrameState, LiveDrillSelection, LiveSessionTrace } from "./types.ts";
 
 type TraceState = {
   captures: LiveSessionTrace["captures"];
@@ -149,6 +151,45 @@ export function createLiveTraceAccumulator(input: {
     };
   };
 
+  const toReplayCompatibleSession = (): AnalysisSessionRecord => {
+    const drill = input.drillSelection.drill;
+    return {
+      sessionId: `${input.traceId}_live_overlay`,
+      drillId: drill?.drillId ?? "freestyle",
+      drillTitle: drill?.title ?? "No drill",
+      drillVersion: input.drillSelection.drillVersion,
+      drillMeasurementType: drill?.analysis?.measurementType ?? drill?.drillType,
+      pipelineVersion: "live-session-trace-v1",
+      scorerVersion: "frame-phase-scorer-v1",
+      sourceKind: "live",
+      sourceId: input.traceId,
+      sourceLabel: "Live overlay",
+      status: "partial",
+      createdAtIso: input.startedAtIso,
+      summary: {
+        repCount: state.repCount,
+        holdDurationMs: Math.round(state.holdDurationMs),
+        analyzedDurationMs: state.captures.at(-1)?.timestampMs ?? 0
+      },
+      frameSamples: state.captures.map((capture) => capture.frameSample),
+      events: state.events
+    };
+  };
+
+  const getCaptureAtTime = (timestampMs: number): LiveSessionTrace["captures"][number] | null => {
+    if (state.captures.length === 0) {
+      return null;
+    }
+    let candidate = state.captures[0];
+    for (const capture of state.captures) {
+      if (capture.timestampMs > timestampMs) {
+        break;
+      }
+      candidate = capture;
+    }
+    return candidate ?? null;
+  };
+
   return {
     pushFrame(frame: PoseFrame) {
       const frameSample = inferFrameSample(frame, input.drillSelection.drill);
@@ -189,18 +230,17 @@ export function createLiveTraceAccumulator(input: {
     },
 
     getOverlayState(timestampMs: number) {
-      const measurementType = input.drillSelection.drill?.analysis?.measurementType ?? input.drillSelection.drill?.drillType ?? null;
+      return deriveReplayOverlayStateAtTime(toReplayCompatibleSession(), timestampMs);
+    },
+
+    getAnalyzedFrameState(timestampMs: number): LiveAnalyzedFrameState {
+      const overlay = deriveReplayOverlayStateAtTime(toReplayCompatibleSession(), timestampMs);
+      const capture = getCaptureAtTime(overlay.timestampMs);
       return {
-        timestampMs,
-        activePhaseId: state.currentPhaseId,
-        phaseLabel: state.currentPhaseId,
-        repCount: state.repCount,
-        holdActive: state.activeHoldStartMs !== null,
-        holdElapsedMs: state.activeHoldStartMs === null ? 0 : Math.max(0, timestampMs - state.activeHoldStartMs),
-        nearestEvent: state.events.at(-1) ?? null,
-        measurementType,
-        showRepCount: measurementType === "rep" || measurementType === "hybrid",
-        showHoldTimer: measurementType === "hold" || measurementType === "hybrid"
+        timestampMs: overlay.timestampMs,
+        poseFrame: capture?.frame ?? null,
+        frameConfidence: typeof capture?.frameSample.confidence === "number" ? capture.frameSample.confidence : null,
+        overlay
       };
     },
 

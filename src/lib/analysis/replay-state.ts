@@ -45,23 +45,34 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+function toSafeTimestampMs(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+  return value;
+}
+
 function getSortedFrameSamples(session: AnalysisSessionRecord) {
-  return [...session.frameSamples].sort((a, b) => a.timestampMs - b.timestampMs);
+  return session.frameSamples
+    .filter((frame) => Number.isFinite(frame.timestampMs) && frame.timestampMs >= 0)
+    .sort((a, b) => a.timestampMs - b.timestampMs);
 }
 
 function getSortedEvents(session: AnalysisSessionRecord) {
-  return [...session.events].sort((a, b) => a.timestampMs - b.timestampMs);
+  return session.events
+    .filter((event) => Number.isFinite(event.timestampMs) && event.timestampMs >= 0)
+    .sort((a, b) => a.timestampMs - b.timestampMs);
 }
 
 export function getReplayDurationMs(session?: AnalysisSessionRecord | null): number {
   if (!session) {
     return 0;
   }
-  const fromSummary = session.summary.analyzedDurationMs ?? 0;
+  const fromSummary = toSafeTimestampMs(session.summary.analyzedDurationMs ?? 0);
   const sortedFrames = getSortedFrameSamples(session);
   const sortedEvents = getSortedEvents(session);
-  const fromFrames = sortedFrames.at(-1)?.timestampMs ?? 0;
-  const fromEvents = sortedEvents.at(-1)?.timestampMs ?? 0;
+  const fromFrames = toSafeTimestampMs(sortedFrames.at(-1)?.timestampMs ?? 0);
+  const fromEvents = toSafeTimestampMs(sortedEvents.at(-1)?.timestampMs ?? 0);
   return Math.max(fromSummary, fromFrames, fromEvents, 0);
 }
 
@@ -128,8 +139,8 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
     };
   }
 
-  const durationMs = getReplayDurationMs(session);
-  const clampedTimestamp = clamp(timestampMs, 0, durationMs);
+  const durationMs = toSafeTimestampMs(getReplayDurationMs(session));
+  const clampedTimestamp = clamp(toSafeTimestampMs(timestampMs), 0, durationMs);
   const sortedEvents = getSortedEvents(session);
   const sortedFrameSamples = getSortedFrameSamples(session);
   const nearestEvent =

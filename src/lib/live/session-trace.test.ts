@@ -104,3 +104,25 @@ test("phase transitions require confirmation and ignore confidence gate jitter",
   assert.equal(phaseEnterEvents[1]?.phaseId, "down");
   assert.equal(phaseEnterEvents[1]?.timestampMs, 500);
 });
+
+test("analyzed frame state keeps pose and overlay synchronized by timestamp", () => {
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_sync",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: drill as never,
+      drillBindingLabel: drill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: drill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 250, joints: drill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 500, joints: drill.phases[1].poseSequence[0].joints });
+
+  const analyzed = trace.getAnalyzedFrameState(400);
+  assert.equal(analyzed.poseFrame?.timestampMs, 250);
+  assert.ok(analyzed.overlay.timestampMs >= 0);
+});

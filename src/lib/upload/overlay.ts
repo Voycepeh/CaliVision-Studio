@@ -2,6 +2,7 @@ import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, get
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
@@ -99,14 +100,7 @@ export function getNearestPoseFrame(frames: PoseFrame[], currentMs: number): Pos
 }
 
 function formatOverlayDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, durationMs / 1000);
-  if (totalSeconds < 60) {
-    return `${totalSeconds.toFixed(1)}s`;
-  }
-  const floored = Math.floor(totalSeconds);
-  const minutes = Math.floor(floored / 60);
-  const seconds = floored % 60;
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  return formatDurationStopwatch(durationMs);
 }
 
 function resolvePhaseLabel(phaseId: string | null, phaseLabels?: Record<string, string>): string | null {
@@ -206,16 +200,18 @@ export function drawAnalysisOverlay(
   }
   if (options?.showDrillMetrics !== false && replayOverlayState) {
     const phaseLabel = resolvePhaseLabel(replayOverlayState.phaseLabel, options?.phaseLabels);
-    lines.push(phaseLabel ? `Phase: ${phaseLabel}` : "Phase: —");
+    lines.push(phaseLabel ? `Phase: ${phaseLabel}` : "Phase: No phase detected");
     if (replayOverlayState.showHoldTimer && !replayOverlayState.showRepCount) {
-      lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "0.0s"}`);
+      lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "No holds detected"}`);
     } else if (replayOverlayState.showRepCount && !replayOverlayState.showHoldTimer) {
-      lines.push(`Reps: ${replayOverlayState.repCount}`);
+      lines.push(replayOverlayState.repCount > 0 ? `Reps: ${replayOverlayState.repCount}` : "Reps: No reps detected");
     } else if (replayOverlayState.showRepCount && replayOverlayState.showHoldTimer) {
       lines.push(
         replayOverlayState.holdActive
           ? `Reps: ${replayOverlayState.repCount} · Hold: ${formatOverlayDuration(replayOverlayState.holdElapsedMs)}`
-          : `Reps: ${replayOverlayState.repCount}`
+          : replayOverlayState.repCount > 0
+            ? `Reps: ${replayOverlayState.repCount} · Hold: No holds detected`
+            : "Reps: No reps detected · Hold: No holds detected"
       );
     }
   }

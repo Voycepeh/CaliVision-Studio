@@ -1,5 +1,6 @@
 import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableDrill } from "../schema/contracts.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
+import type { ReplayOverlayState } from "../analysis/replay-state.ts";
 import type { PoseFrame, PoseTimeline } from "../upload/types.ts";
 
 export type LiveSessionStatus =
@@ -26,6 +27,13 @@ export type LiveTraceCapture = {
   timestampMs: number;
   frame: PoseFrame;
   frameSample: FramePhaseSample;
+};
+
+export type LiveAnalyzedFrameState = {
+  timestampMs: number;
+  poseFrame: PoseFrame | null;
+  frameConfidence: number | null;
+  overlay: ReplayOverlayState;
 };
 
 export type LiveSessionTrace = {
