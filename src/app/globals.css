@@ -331,6 +331,58 @@ main {
   flex: 0 1 auto;
 }
 
+.live-streaming-workspace {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.live-streaming-surface-card {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.live-streaming-main-layout {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.live-streaming-media-shell {
+  display: grid;
+  place-items: center;
+}
+
+.live-streaming-media-container {
+  position: relative;
+  width: min(100%, 460px);
+  aspect-ratio: 9 / 16;
+  max-height: min(72vh, 780px);
+  border-radius: 0.8rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #04070c;
+}
+
+.live-streaming-video,
+.live-streaming-overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.live-streaming-video {
+  object-fit: cover;
+}
+
+.live-streaming-overlay-canvas {
+  pointer-events: none;
+}
+
+.live-streaming-results-column {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .studio-workflow-section {
   padding: 0.6rem;
 }
@@ -513,6 +565,11 @@ main {
     grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.25fr);
     align-items: start;
   }
+
+  .live-streaming-main-layout {
+    grid-template-columns: minmax(300px, 480px) minmax(0, 1fr);
+    align-items: start;
+  }
 }
 
 @media (max-width: 1280px) {
@@ -664,6 +721,11 @@ main {
 
   .pose-canvas-svg {
     margin-inline: auto;
+  }
+
+  .live-streaming-media-container {
+    width: min(100%, 420px);
+    max-height: min(64vh, 640px);
   }
 }
 

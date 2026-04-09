@@ -21,7 +21,8 @@ import {
   type LiveDrillSelection,
   type LiveSessionStatus,
   type LiveSessionTrace,
-  type ReplayTerminalState
+  type ReplayTerminalState,
+  createLiveOverlayStabilizer
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 
@@ -91,6 +92,9 @@ export function LiveStreamingWorkspace() {
   const landmarkerRef = useRef<Awaited<ReturnType<typeof createPoseLandmarkerForJob>> | null>(null);
   const startedAtRef = useRef<number>(0);
   const mediaStartMsRef = useRef<number>(0);
+  const overlayFrameRef = useRef<ReturnType<typeof mapLandmarksToPoseFrame> | null>(null);
+  const overlayStabilizerRef = useRef(createLiveOverlayStabilizer());
+  const overlaySizeRef = useRef<{ width: number; height: number }>({ width: 1, height: 1 });
 
   const selectedDrill = useMemo(
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
@@ -202,6 +206,8 @@ export function LiveStreamingWorkspace() {
     landmarkerRef.current = null;
     recorderRef.current = null;
     traceRef.current = null;
+    overlayFrameRef.current = null;
+    overlayStabilizerRef.current.reset();
     const canvas = previewCanvasRef.current;
     if (canvas) {
       const ctx = canvas.getContext("2d");
@@ -222,6 +228,7 @@ export function LiveStreamingWorkspace() {
     const bounds = container.getBoundingClientRect();
     const width = Math.max(1, Math.round(bounds.width));
     const height = Math.max(1, Math.round(bounds.height));
+    overlaySizeRef.current = { width, height };
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width;
       canvas.height = height;
@@ -321,8 +328,8 @@ export function LiveStreamingWorkspace() {
       }
 
       const elapsedMs = performance.now() - startedAtRef.current;
-      syncOverlayCanvasSize();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const { width, height } = overlaySizeRef.current;
+      ctx.clearRect(0, 0, width, height);
 
       if (elapsedMs - lastSampleAt >= LIVE_SAMPLE_INTERVAL_MS) {
         const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
@@ -330,14 +337,15 @@ export function LiveStreamingWorkspace() {
         const result = landmarkerRef.current.detectForVideo(previewVideoRef.current, mediaTimeMs);
         const landmarks = result.landmarks?.[0];
         if (landmarks) {
-          const frame = mapLandmarksToPoseFrame(landmarks, traceTimestampMs);
-          traceRef.current.pushFrame(frame);
-          drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+          const rawFrame = mapLandmarksToPoseFrame(landmarks, traceTimestampMs);
+          traceRef.current.pushFrame(rawFrame);
+          overlayFrameRef.current = overlayStabilizerRef.current.stabilize(rawFrame);
         }
         lastSampleAt = elapsedMs;
       }
 
-      drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+      drawPoseOverlay(ctx, width, height, overlayFrameRef.current ?? undefined);
+      drawAnalysisOverlay(ctx, width, height, null, {
         modeLabel: `LIVE · ${selection.drillBindingLabel}`,
         showDrillMetrics: false,
         confidenceLabel: `${LIVE_OVERLAY_CADENCE_FPS} FPS overlay cadence`
@@ -347,7 +355,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, rawReplayUrl, selection]);
+  }, [annotatedReplayUrl, rawReplayUrl, selection, syncOverlayCanvasSize]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
@@ -407,7 +415,7 @@ export function LiveStreamingWorkspace() {
   }, [cleanupSession]);
 
   return (
-    <section className="panel-content" style={{ display: "grid", gap: "0.9rem" }}>
+    <section className="panel-content live-streaming-workspace">
       <article className="card" style={{ display: "grid", gap: "0.8rem" }}>
         <h2 style={{ margin: 0 }}>Live Streaming</h2>
         <p className="muted" style={{ margin: 0 }}>
@@ -449,107 +457,111 @@ export function LiveStreamingWorkspace() {
         {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
       </article>
 
-      <article className="card" style={{ display: "grid", gap: "0.7rem" }}>
-        <div style={{ position: "relative", borderRadius: "0.8rem", overflow: "hidden", border: "1px solid var(--border)" }}>
-          <video ref={previewVideoRef} muted playsInline style={{ width: "100%", display: status === "completed" ? "none" : "block" }} />
-          <canvas ref={previewCanvasRef} style={{ width: "100%", display: status === "live-session-running" ? "block" : "none" }} />
-        </div>
-
-        {liveTrace ? (
-          <>
-            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-              <div className="pill">Drill: {summary?.drillLabel ?? "Freestyle"}</div>
-              <div className="pill">Duration: {summary?.durationLabel ?? "0s"}</div>
-              <div className="pill">Reps: {summary?.repCount ?? 0}</div>
-              <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
-              <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
-              <div
-                className="pill"
-                style={{
-                  color: replayTone === "success" ? "#8ce7bf" : replayTone === "warning" ? "#f7d58b" : replayTone === "danger" ? "#f2bbbb" : undefined
-                }}
-              >
-                Replay: {getReplayStateMessage(replayState)}
-              </div>
+      <article className="card live-streaming-surface-card">
+        <div className="live-streaming-main-layout">
+          <div className="live-streaming-media-shell">
+            <div ref={mediaContainerRef} className="live-streaming-media-container">
+              <video ref={previewVideoRef} muted playsInline className="live-streaming-video" style={{ display: status === "completed" ? "none" : "block" }} />
+              <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
             </div>
+          </div>
 
-            {replayUrl ? <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} /> : null}
-
-            <section style={{ display: "grid", gap: "0.45rem" }}>
-              <strong>Timeline</strong>
-              <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
-                {timelineMarkers.map((marker) => {
-                  const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
-                  return (
-                    <button
-                      key={marker.id}
-                      type="button"
-                      title={marker.label}
-                      aria-label={marker.label}
-                      aria-pressed={marker.id === selectedMarkerId}
-                      onClick={() => setSelectedMarkerId(marker.id)}
-                      style={{
-                        position: "absolute",
-                        left: `${Math.min(99, Math.max(0, leftPercent))}%`,
-                        top: "50%",
-                        transform: "translate(-50%, -50%)",
-                        border: 0,
-                        borderRadius: "999px",
-                        width: "0.7rem",
-                        height: "0.7rem",
-                        background: marker.kind === "rep" ? "#9b9dff" : marker.kind === "hold" ? "#8ce7bf" : "#f7d58b"
-                      }}
-                    />
-                  );
-                })}
-              </div>
-              {selectedMarker ? (
-                <div className="pill" style={{ borderColor: "var(--border-strong)" }}>
-                  Selected event: {selectedMarker.label}
+          {liveTrace ? (
+            <div className="live-streaming-results-column">
+              <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                <div className="pill">Drill: {summary?.drillLabel ?? "Freestyle"}</div>
+                <div className="pill">Duration: {summary?.durationLabel ?? "0s"}</div>
+                <div className="pill">Reps: {summary?.repCount ?? 0}</div>
+                <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
+                <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
+                <div
+                  className="pill"
+                  style={{
+                    color: replayTone === "success" ? "#8ce7bf" : replayTone === "warning" ? "#f7d58b" : replayTone === "danger" ? "#f2bbbb" : undefined
+                  }}
+                >
+                  Replay: {getReplayStateMessage(replayState)}
                 </div>
-              ) : null}
-              <div style={{ display: "grid", gap: "0.35rem" }}>
-                {timelineMarkers.slice(0, 12).map((marker) => {
-                  const isActive = marker.id === selectedMarkerId;
-                  return (
-                    <button
-                      key={`${marker.id}_label`}
-                      type="button"
-                      className="studio-button"
-                      onClick={() => setSelectedMarkerId(marker.id)}
-                      style={{
-                        justifyContent: "flex-start",
-                        borderColor: isActive ? "var(--border-strong)" : "var(--border)",
-                        background: isActive ? "rgba(255,255,255,0.12)" : undefined
-                      }}
-                    >
-                      {marker.label}
-                    </button>
-                  );
-                })}
               </div>
-            </section>
 
-            <section style={{ display: "grid", gap: "0.45rem" }}>
-              <strong>Next actions</strong>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-                {annotatedReplayUrl ? (
-                  <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace.traceId}-annotated.webm`)}>
-                    Save annotated replay
-                  </button>
+              {replayUrl ? <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} /> : null}
+
+              <section style={{ display: "grid", gap: "0.45rem" }}>
+                <strong>Timeline</strong>
+                <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
+                  {timelineMarkers.map((marker) => {
+                    const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
+                    return (
+                      <button
+                        key={marker.id}
+                        type="button"
+                        title={marker.label}
+                        aria-label={marker.label}
+                        aria-pressed={marker.id === selectedMarkerId}
+                        onClick={() => setSelectedMarkerId(marker.id)}
+                        style={{
+                          position: "absolute",
+                          left: `${Math.min(99, Math.max(0, leftPercent))}%`,
+                          top: "50%",
+                          transform: "translate(-50%, -50%)",
+                          border: 0,
+                          borderRadius: "999px",
+                          width: "0.7rem",
+                          height: "0.7rem",
+                          background: marker.kind === "rep" ? "#9b9dff" : marker.kind === "hold" ? "#8ce7bf" : "#f7d58b"
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                {selectedMarker ? (
+                  <div className="pill" style={{ borderColor: "var(--border-strong)" }}>
+                    Selected event: {selectedMarker.label}
+                  </div>
                 ) : null}
-                {rawReplayUrl ? (
-                  <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace.traceId}-raw.webm`)}>
-                    Save raw recording
+                <div style={{ display: "grid", gap: "0.35rem" }}>
+                  {timelineMarkers.slice(0, 12).map((marker) => {
+                    const isActive = marker.id === selectedMarkerId;
+                    return (
+                      <button
+                        key={`${marker.id}_label`}
+                        type="button"
+                        className="studio-button"
+                        onClick={() => setSelectedMarkerId(marker.id)}
+                        style={{
+                          justifyContent: "flex-start",
+                          borderColor: isActive ? "var(--border-strong)" : "var(--border)",
+                          background: isActive ? "rgba(255,255,255,0.12)" : undefined
+                        }}
+                      >
+                        {marker.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section style={{ display: "grid", gap: "0.45rem" }}>
+                <strong>Next actions</strong>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                  {annotatedReplayUrl ? (
+                    <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace.traceId}-annotated.webm`)}>
+                      Save annotated replay
+                    </button>
+                  ) : null}
+                  {rawReplayUrl ? (
+                    <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace.traceId}-raw.webm`)}>
+                      Save raw recording
+                    </button>
+                  ) : null}
+                  <button type="button" className="studio-button" onClick={() => void requestPreview()} disabled={status === "requesting-permission" || status === "live-session-running"}>
+                    Start another live session
                   </button>
-                ) : null}
-                <button type="button" className="studio-button" onClick={() => void requestPreview()} disabled={status === "requesting-permission" || status === "live-session-running"}>
-                  Start another live session
-                </button>
-              </div>
-            </section>
-          </>
-        ) : null}
+                </div>
+              </section>
+            </div>
+          ) : null}
+        </div>
       </article>
     </section>
   );
