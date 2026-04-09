@@ -347,7 +347,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, rawReplayUrl, selection]);
+  }, [annotatedReplayUrl, rawReplayUrl, selection, syncOverlayCanvasSize]);
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
