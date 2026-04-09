@@ -8,6 +8,7 @@ import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
 import type { UploadJob } from "@/lib/upload/types";
+import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, type AnalysisSessionRecord } from "@/lib/analysis";
@@ -121,7 +122,7 @@ export function UploadVideoWorkspace() {
   const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
   const [activeSession, setActiveSession] = useState<AnalysisSessionRecord | null>(null);
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
-  const [traceStepMs, setTraceStepMs] = useState<number>(1000);
+  const [traceStepMs, setTraceStepMs] = useState<number>(DEFAULT_TRACE_STEP_MS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -132,6 +133,7 @@ export function UploadVideoWorkspace() {
   const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
+  const [workflowResetKey, setWorkflowResetKey] = useState(0);
 
   const selectedDrill = useMemo(
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
@@ -409,6 +411,30 @@ export function UploadVideoWorkspace() {
     await startSingleRun(firstVideo);
   }, [startSingleRun]);
 
+  const openFileChooser = useCallback(() => {
+    const fileInput = fileInputRef.current;
+    if (!fileInput) return;
+    clearFileInputValue(fileInput);
+    fileInput.click();
+  }, []);
+
+  const resetUploadWorkflow = useCallback(() => {
+    activeAbortRef.current?.abort();
+    activeAbortRef.current = null;
+    setActiveJob(null);
+    setActiveSession(null);
+    setIsReferencePanelVisible(true);
+    setTraceStepMs(DEFAULT_TRACE_STEP_MS);
+    if (previewVideoRef.current) {
+      previewVideoRef.current.pause();
+      previewVideoRef.current.currentTime = 0;
+    }
+    if (fileInputRef.current) {
+      clearFileInputValue(fileInputRef.current);
+    }
+    setWorkflowResetKey((current) => nextUploadWorkflowResetKey(current));
+  }, []);
+
   const traceRows = useMemo(() => {
     if (!activeSession) return [];
     return summarizeTrace(activeSession, traceStepMs);
@@ -433,13 +459,13 @@ export function UploadVideoWorkspace() {
         </p>
       </div>
 
-      <div className={`upload-workflow-layout${showReferencePanel ? "" : " upload-workflow-layout--collapsed"}`}>
+      <div key={workflowResetKey} className={`upload-workflow-layout${showReferencePanel ? "" : " upload-workflow-layout--collapsed"}`}>
         <div className="upload-workflow-primary">
           <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
                 <strong style={{ fontSize: "0.95rem" }}>Upload Video workflow</strong>
-                <button type="button" onClick={() => fileInputRef.current?.click()} style={{ padding: "0.45rem 0.75rem", fontSize: "0.86rem" }}>
+                <button type="button" onClick={openFileChooser} style={{ padding: "0.45rem 0.75rem", fontSize: "0.86rem" }}>
                   Choose video
                 </button>
               </div>
@@ -496,11 +522,11 @@ export function UploadVideoWorkspace() {
                   event.preventDefault();
                   void enqueueFiles(event.dataTransfer.files);
                 }}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={openFileChooser}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
-                    fileInputRef.current?.click();
+                    openFileChooser();
                   }
                 }}
                 role="button"
@@ -520,7 +546,13 @@ export function UploadVideoWorkspace() {
                 accept="video/*"
                 multiple
                 style={{ display: "none" }}
-                onChange={(event) => event.target.files && enqueueFiles(event.target.files)}
+                onChange={(event) => {
+                  const files = event.currentTarget.files;
+                  clearFileInputValue(event.currentTarget);
+                  if (files) {
+                    void enqueueFiles(files);
+                  }
+                }}
               />
             </div>
           </div>
@@ -550,7 +582,7 @@ export function UploadVideoWorkspace() {
                   {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
                     <button type="button" className="pill" onClick={() => void startSingleRun(activeJob.file)}>Retry</button>
                   ) : null}
-                  <button type="button" className="pill" onClick={() => { setActiveJob(null); setActiveSession(null); }}>Start fresh</button>
+                  <button type="button" className="pill" onClick={resetUploadWorkflow}>Start fresh</button>
                 </div>
               </div>
               <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.4rem" }} />
