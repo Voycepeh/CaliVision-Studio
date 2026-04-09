@@ -4,7 +4,12 @@ import { AppProviders } from "@/components/layout/AppProviders";
 
 export const metadata: Metadata = {
   title: "CaliVision",
-  description: "Brand-first web workspace for Drill Studio, Upload Video, and Drill Exchange workflows"
+  description: "Brand-first web workspace for Drill Studio, Upload Video, and Drill Exchange workflows",
+  icons: {
+    icon: "/brand/calivision-home-logo.png?v=1",
+    shortcut: "/brand/calivision-home-logo.png?v=1",
+    apple: "/brand/calivision-home-logo.png?v=1"
+  }
 };
 
 export default function RootLayout({
