@@ -291,7 +291,7 @@ export function UploadVideoWorkspace() {
     activeAbortRef.current = controller;
 
     try {
-      const timeline = await processVideoFile(nextJob.file, {
+      const { timeline, analysisFile, analysisSourceKind } = await processVideoFile(nextJob.file, {
         cadenceFps,
         signal: controller.signal,
         onProgress: (progress, stageLabel) => setActiveJob((current) => (current ? { ...current, progress, stageLabel } : current))
@@ -317,9 +317,13 @@ export function UploadVideoWorkspace() {
           })
         : null;
 
-      setActiveJob((current) => (current ? { ...current, progress: 0.97, stageLabel: "Rendering annotated video" } : current));
+      setActiveJob((current) => (current ? {
+        ...current,
+        progress: 0.97,
+        stageLabel: analysisSourceKind === "normalized" ? "Rendering annotated video (normalized source)" : "Rendering annotated video"
+      } : current));
 
-      const annotated = await exportAnnotatedVideo(nextJob.file, timeline, {
+      const overlayOptions = {
         includeAnalysisOverlay: true,
         analysisSession: completedSession,
         overlayModeLabel: (nextJob.drillSelection.mode ?? "drill") === "drill"
@@ -327,7 +331,21 @@ export function UploadVideoWorkspace() {
           : "No drill · Freestyle overlay",
         includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
         overlayConfidenceLabel: completedSession ? `Confidence: ${formatConfidence(completedSession.summary.confidenceAvg)}` : undefined
-      });
+      };
+
+      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
+      try {
+        annotated = await exportAnnotatedVideo(nextJob.file, timeline, overlayOptions);
+      } catch (error) {
+        if (analysisSourceKind !== "normalized") {
+          throw error;
+        }
+        console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+          fileName: nextJob.fileName,
+          reason: error instanceof Error ? error.message : "unknown"
+        });
+        annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
+      }
 
       setActiveJob((current) =>
         current
@@ -356,7 +374,11 @@ export function UploadVideoWorkspace() {
               ...current,
               status: cancelled ? "cancelled" : "failed",
               stageLabel: cancelled ? "Cancelled" : "Failed",
-              errorMessage: cancelled ? "Processing was cancelled for this video." : "Processing failed. Retry to start a fresh local processing context.",
+              errorMessage: cancelled
+                ? "Processing was cancelled for this video."
+                : message === "Video preprocessing failed"
+                  ? "Video preprocessing failed"
+                  : "Processing failed. Retry to start a fresh local processing context.",
               errorDetails: message
             }
           : current
