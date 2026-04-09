@@ -144,6 +144,8 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
 
   assert.equal(built.sourceId, "upload-job-build-only");
   assert.equal(built.status, "completed");
+  assert.deepEqual(built.debug?.runtimeDiagnostics?.expectedPhaseOrder, ["Top", "Bottom", "Top"]);
+  assert.equal(built.debug?.runtimeDiagnostics?.allowedTransitions.includes("Bottom -> Top"), true);
   assert.equal((await repository.listRecentSessions()).length, 0);
 });
 

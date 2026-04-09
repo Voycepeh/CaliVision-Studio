@@ -1,4 +1,5 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
+import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "../analysis/phase-runtime.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { LiveDrillSelection, LiveSessionTrace } from "./types.ts";
@@ -19,6 +20,9 @@ type TraceState = {
   confidenceGateOpen: boolean;
   activeHoldStartMs: number | null;
   expectedSequenceIndex: number;
+  runtimeSequence: string[];
+  allowedTransitionKeys: Set<string>;
+  phaseLabelById: Record<string, string>;
 };
 const PHASE_CONFIRMATION_FRAMES = 2;
 const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
@@ -81,7 +85,10 @@ export function createLiveTraceAccumulator(input: {
     pendingPhaseFrameCount: 0,
     confidenceGateOpen: false,
     activeHoldStartMs: null,
-    expectedSequenceIndex: 0
+    expectedSequenceIndex: 0,
+    runtimeSequence: [],
+    allowedTransitionKeys: new Set<string>(),
+    phaseLabelById: {}
   };
 
   const addEvent = (event: Omit<AnalysisEvent, "eventId">) => {
@@ -93,6 +100,28 @@ export function createLiveTraceAccumulator(input: {
       return;
     }
 
+    if (drill?.analysis && state.runtimeSequence.length === 0) {
+      const runtimeModel = buildPhaseRuntimeModel(drill, drill.analysis);
+      state.runtimeSequence = runtimeModel.orderedPhaseIds;
+      state.allowedTransitionKeys = runtimeModel.allowedTransitionKeys;
+      state.phaseLabelById = runtimeModel.phaseLabelById;
+    }
+
+    if (state.currentPhaseId && nextPhaseId) {
+      const key = `${state.currentPhaseId}->${nextPhaseId}`;
+      if (state.allowedTransitionKeys.size > 0 && !state.allowedTransitionKeys.has(key)) {
+        state.invalidTransitionCount += 1;
+        addEvent({
+          timestampMs,
+          type: "invalid_transition",
+          fromPhaseId: state.currentPhaseId,
+          toPhaseId: nextPhaseId,
+          details: { reason: "off_path_transition", message: "transition rejected: off authored path" }
+        });
+        return;
+      }
+    }
+
     if (state.currentPhaseId) {
       addEvent({ timestampMs, type: "phase_exit", phaseId: state.currentPhaseId });
     }
@@ -101,8 +130,8 @@ export function createLiveTraceAccumulator(input: {
       addEvent({ timestampMs, type: "phase_enter", phaseId: nextPhaseId });
     }
 
-    if (drill?.analysis?.orderedPhaseSequence?.length) {
-      const seq = drill.analysis.orderedPhaseSequence;
+    if (state.runtimeSequence.length) {
+      const seq = state.runtimeSequence;
       const expectedPhase = seq[state.expectedSequenceIndex];
       const index = seq.indexOf(nextPhaseId ?? "");
 
@@ -193,7 +222,7 @@ export function createLiveTraceAccumulator(input: {
       return {
         timestampMs,
         activePhaseId: state.currentPhaseId,
-        phaseLabel: state.currentPhaseId,
+        phaseLabel: resolveAuthoredPhaseLabel(state.currentPhaseId, state.phaseLabelById) ?? state.currentPhaseId,
         repCount: state.repCount,
         holdActive: state.activeHoldStartMs !== null,
         holdElapsedMs: state.activeHoldStartMs === null ? 0 : Math.max(0, timestampMs - state.activeHoldStartMs),
