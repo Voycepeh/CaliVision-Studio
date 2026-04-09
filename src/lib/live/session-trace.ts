@@ -1,4 +1,5 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
+import { buildPhaseRuntimeModel } from "../analysis/phase-runtime.ts";
 import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";

@@ -540,11 +540,11 @@ export function UploadVideoWorkspace() {
     setWorkflowResetKey((current) => nextUploadWorkflowResetKey(current));
   }, []);
 
+  const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
   const traceRows = useMemo(() => {
     if (!activeSession) return [];
-    return summarizeTrace(activeSession, traceStepMs);
-  }, [activeSession, traceStepMs]);
-  const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
+    return summarizeTrace(activeSession, traceStepMs, activePhaseLabels);
+  }, [activePhaseLabels, activeSession, traceStepMs]);
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
