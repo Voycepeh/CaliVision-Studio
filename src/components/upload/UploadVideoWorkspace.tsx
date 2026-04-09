@@ -497,6 +497,7 @@ export function UploadVideoWorkspace() {
     if (!activeSession) return [];
     return summarizeTrace(activeSession, traceStepMs);
   }, [activeSession, traceStepMs]);
+  const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
@@ -708,7 +709,13 @@ export function UploadVideoWorkspace() {
 
               {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                  <span className="pill">Phase: {activeSession.events.at(-1)?.phaseId ?? "none"}</span>
+                  <span className="pill">
+                    Phase: {(() => {
+                      const phaseId = activeSession.events.at(-1)?.phaseId;
+                      if (!phaseId) return "No phase detected";
+                      return activePhaseLabels[phaseId] ?? phaseId;
+                    })()}
+                  </span>
                   <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
                   <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
                   <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>

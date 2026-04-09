@@ -375,9 +375,11 @@ export function LiveStreamingWorkspace() {
     };
     window.addEventListener("resize", onWindowResize);
     window.addEventListener("orientationchange", onOrientationChange);
+    window.visualViewport?.addEventListener("resize", onWindowResize);
     return () => {
       window.removeEventListener("resize", onWindowResize);
       window.removeEventListener("orientationchange", onOrientationChange);
+      window.visualViewport?.removeEventListener("resize", onWindowResize);
     };
   }, []);
 
@@ -710,6 +712,9 @@ export function LiveStreamingWorkspace() {
               onLoadedMetadata={() => {
                 overlayNeedsResizeSyncRef.current = true;
                 syncOverlayCanvasSize(true);
+              }}
+              onResize={() => {
+                overlayNeedsResizeSyncRef.current = true;
               }}
               style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
             />
