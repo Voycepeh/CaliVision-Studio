@@ -35,9 +35,11 @@ const SEEK_TIMEOUT_MS = 8000;
 const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
-const EXPORT_MIN_FPS = 24;
-const EXPORT_MAX_FPS = 30;
-const EXPORT_MAX_FRAME_COUNT = 5400;
+const EXPORT_STABLE_FPS = 15;
+const EXPORT_HIGH_FPS = 24;
+const EXPORT_MIN_FPS = 12;
+const EXPORT_MAX_FPS = EXPORT_HIGH_FPS;
+const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 function logUploadEvent(event: string, payload?: Record<string, unknown>): void {
@@ -472,16 +474,19 @@ export async function exportAnnotatedVideo(
     throw new Error("2D canvas context unavailable for annotated export.");
   }
 
-  const stream = canvas.captureStream(0);
+  const durationMs = Math.max(1, Math.round(timeline.video.durationMs || (Number.isFinite(video.duration) ? video.duration * 1000 : 0)));
+  const timelineCadenceFps = Math.round(timeline.cadenceFps || EXPORT_STABLE_FPS);
+  const targetFps = timelineCadenceFps >= EXPORT_HIGH_FPS ? EXPORT_HIGH_FPS : EXPORT_STABLE_FPS;
+  const exportFps = Math.min(EXPORT_MAX_FPS, Math.max(EXPORT_MIN_FPS, targetFps));
+  const frameDurationMs = 1000 / exportFps;
+  const expectedFrameCount = Math.max(1, Math.floor(durationMs / frameDurationMs) + 1);
+  const stream = canvas.captureStream(exportFps);
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
   const recorder = new MediaRecorder(stream, { mimeType });
   const [videoTrack] = stream.getVideoTracks();
   const requestFrame = videoTrack && "requestFrame" in videoTrack ? () => (videoTrack as CanvasCaptureMediaStreamTrack).requestFrame() : null;
   const chunks: BlobPart[] = [];
-  const durationMs = Math.max(1, Math.round(timeline.video.durationMs || (Number.isFinite(video.duration) ? video.duration * 1000 : 0)));
-  const targetFps = Math.min(EXPORT_MAX_FPS, Math.max(EXPORT_MIN_FPS, Math.round(timeline.cadenceFps || EXPORT_MIN_FPS)));
-  const frameStepMs = Math.max(1, Math.round(1000 / targetFps));
-  const estimatedFrameCount = Math.max(1, Math.min(EXPORT_MAX_FRAME_COUNT, Math.ceil(durationMs / frameStepMs)));
+  let actualRenderedFrameCount = 0;
   const phaseLabels = options?.phaseLabels;
   const sourceFrames = timeline.frames;
 
@@ -508,11 +513,17 @@ export async function exportAnnotatedVideo(
 
   try {
     options?.onProgress?.(0.02, "Preparing export…");
-    recorder.start(100);
-    logUploadEvent("ANNOTATED_EXPORT_START", { durationMs, targetFps, estimatedFrameCount, hasRequestFrame: Boolean(requestFrame) });
+    recorder.start();
+    logUploadEvent("ANNOTATED_EXPORT_START", {
+      sourceDurationMs: durationMs,
+      targetExportFps: exportFps,
+      expectedFrameCount,
+      hasRequestFrame: Boolean(requestFrame)
+    });
     try {
-      for (let index = 0; index < estimatedFrameCount; index += 1) {
-        const timestampMs = Math.min(durationMs, index * frameStepMs);
+      const exportStartedAtMs = performance.now();
+      for (let frameIndex = 0; frameIndex < expectedFrameCount; frameIndex += 1) {
+        const timestampMs = Math.min(durationMs, Math.round(frameIndex * frameDurationMs));
         await seekVideo(video, timestampMs / 1000);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -533,12 +544,26 @@ export async function exportAnnotatedVideo(
         }
 
         requestFrame?.();
+        actualRenderedFrameCount += 1;
 
-        if (index % Math.max(1, Math.floor(estimatedFrameCount / 12)) === 0 || index === estimatedFrameCount - 1) {
-          logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", { index: index + 1, estimatedFrameCount, timestampMs });
+        if (frameIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 || frameIndex === expectedFrameCount - 1) {
+          logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
+            frameIndex: frameIndex + 1,
+            expectedFrameCount,
+            timestampMs
+          });
         }
-        options?.onProgress?.(0.05 + ((index + 1) / estimatedFrameCount) * 0.87, `Rendering frames (${index + 1}/${estimatedFrameCount})…`);
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        options?.onProgress?.(
+          0.05 + ((frameIndex + 1) / expectedFrameCount) * 0.87,
+          `Rendering frames (${frameIndex + 1}/${expectedFrameCount})…`
+        );
+
+        const targetElapsedMs = (frameIndex + 1) * frameDurationMs;
+        const renderElapsedMs = performance.now() - exportStartedAtMs;
+        const pacingDelayMs = Math.max(0, targetElapsedMs - renderElapsedMs);
+        if (pacingDelayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, pacingDelayMs));
+        }
       }
     } catch (error) {
       logUploadEvent("ANNOTATED_EXPORT_RENDER_FAILED", { message: error instanceof Error ? error.message : String(error) });
@@ -558,6 +583,21 @@ export async function exportAnnotatedVideo(
 
     if (blob.size === 0) {
       throw new Error("Annotated export failed: recorder produced an empty file.");
+    }
+
+    logUploadEvent("ANNOTATED_EXPORT_SUMMARY", {
+      sourceDurationMs: durationMs,
+      targetExportFps: exportFps,
+      expectedFrameCount,
+      actualRenderedFrameCount,
+      actualRecorderMimeType: recorder.mimeType || mimeType
+    });
+    if (actualRenderedFrameCount > expectedFrameCount + EXPORT_FRAME_OVERRUN_TOLERANCE) {
+      logUploadEvent("ANNOTATED_EXPORT_FRAME_OVERRUN_WARNING", {
+        expectedFrameCount,
+        actualRenderedFrameCount,
+        toleranceFrames: EXPORT_FRAME_OVERRUN_TOLERANCE
+      });
     }
 
     options?.onProgress?.(1, "Annotated export complete");
