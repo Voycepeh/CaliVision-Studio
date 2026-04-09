@@ -52,7 +52,7 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
   const entryPhase: PortablePhase = {
     ...entrySource,
     phaseId: `${entrySource.phaseId}_entry_preview`,
-    title: "Entry",
+    name: "Entry",
     durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
   };
   const holdPlateauPhase: PortablePhase = {

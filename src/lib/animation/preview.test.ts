@@ -86,3 +86,22 @@ test("durations below minimum are sanitized and surfaced in timeline metadata", 
   assert.equal(timeline.segments[0]?.durationAdjusted, true);
   assert.match(timeline.warnings.map((warning) => warning.message).join("\n"), /clamps to 0.1s/);
 });
+
+
+test("phase preview labels use canonical name even when legacy title differs", () => {
+  const phase = {
+    phaseId: "phase_named",
+    order: 1,
+    name: "Canonical Name",
+    title: "Legacy Title",
+    durationMs: 1000,
+    poseSequence: [createPose("pose_named", 0.3, 0.4)],
+    assetRefs: []
+  } as PortablePhase;
+
+  const timeline = buildAnimationTimeline([phase]);
+  const frame = sampleAnimationTimeline(timeline, 500);
+
+  assert.equal(frame.phaseTitle, "Canonical Name");
+  assert.match(timeline.segments[0]?.title ?? "", /Canonical Name/);
+});

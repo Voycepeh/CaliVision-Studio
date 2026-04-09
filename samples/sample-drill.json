@@ -3,7 +3,6 @@
   "slug": "push-up-rep-baseline",
   "title": "Push-Up Baseline",
   "difficulty": "beginner",
-  "defaultView": "side",
   "drillType": "rep",
   "tags": [
     "push",
@@ -33,7 +32,6 @@
     {
       "phaseId": "phase_001",
       "order": 1,
-      "title": "Top plank",
       "durationMs": 1200,
       "analysis": {
         "semanticRole": "top",
@@ -69,12 +67,12 @@
           }
         }
       ],
-      "assetRefs": []
+      "assetRefs": [],
+      "name": "Top plank"
     },
     {
       "phaseId": "phase_002",
       "order": 2,
-      "title": "Bottom",
       "durationMs": 900,
       "poseSequence": [
         {
@@ -106,7 +104,9 @@
           }
         }
       ],
-      "assetRefs": []
+      "assetRefs": [],
+      "name": "Bottom"
     }
-  ]
+  ],
+  "primaryView": "side"
 }

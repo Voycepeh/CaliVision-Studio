@@ -205,7 +205,7 @@ export function StudioCenterInspector() {
                           <strong className="studio-phase-list-title">{phase.order}. {phase.name}</strong>
                           <span className="muted studio-phase-list-meta">{formatDurationShort(phase.durationMs)} • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
                         </div>
-                        <small className="muted studio-phase-list-subline">{phase.phaseId} • {phase.poseSequence[0] ? "pose ready" : "pose missing"}</small>
+                        <small className="muted studio-phase-list-subline">{phase.summary?.trim() ? phase.summary : "Add notes or source image for this phase."}</small>
                       </button>
 
                       <div className="studio-action-row">
@@ -225,7 +225,7 @@ export function StudioCenterInspector() {
                     <div className="field-grid">
                       <label style={labelStyle}>
                         <span>Phase name</span>
-                        <input value={selectedPhase.title} onChange={(event) => renamePhase(selectedPhase.phaseId, event.target.value)} style={inputStyle} />
+                        <input value={selectedPhase.name} onChange={(event) => renamePhase(selectedPhase.phaseId, event.target.value)} style={inputStyle} />
                       </label>
 
                       <label style={labelStyle}>
@@ -305,7 +305,7 @@ export function StudioCenterInspector() {
                 <PoseCanvas
                   pose={poseModel}
                   title="Phase pose editor"
-                  subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.title}`}
+                  subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.name}`}
                   selected
                   editable
                   selectedJointName={selectedJointName}
