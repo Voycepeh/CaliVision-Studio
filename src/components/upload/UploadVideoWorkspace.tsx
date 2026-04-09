@@ -6,6 +6,7 @@ import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
+import { fitVideoContainRect } from "@/lib/upload/video-layout";
 import type { UploadJob } from "@/lib/upload/types";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
@@ -205,34 +206,58 @@ export function UploadVideoWorkspace() {
   useEffect(() => {
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
-    if (!video || !canvas || !activeJob?.artefacts || !previewObjectUrl) {
+    const container = fullscreenContainerRef.current;
+    if (!video || !canvas || !container || !activeJob?.artefacts || !previewObjectUrl) {
       return;
     }
-
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     let raf = 0;
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      const dpr = window.devicePixelRatio || 1;
+      const targetWidth = Math.max(1, Math.round(containerWidth * dpr));
+      const targetHeight = Math.max(1, Math.round(containerHeight * dpr));
+
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+      }
+
+      // Keep drawing in CSS pixels; the transform maps to device pixels for crisp overlay rendering.
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, containerWidth, containerHeight);
+
+      // Map normalized landmarks into the real rendered video rectangle (object-fit: contain),
+      // including pillar/letterbox offsets, so portrait overlays align with displayed video.
+      const videoRect = fitVideoContainRect({
+        containerWidth,
+        containerHeight,
+        videoWidth: video.videoWidth || 0,
+        videoHeight: video.videoHeight || 0
+      });
+
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
-      drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+      ctx.save();
+      ctx.translate(videoRect.offsetX, videoRect.offsetY);
+      drawPoseOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, frame);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
-        drawAnalysisOverlay(ctx, canvas.width, canvas.height, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
+        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
           modeLabel: activeJob.drillSelection.drillBinding.drillName,
           showDrillMetrics: true,
           confidenceLabel: `Confidence: ${formatConfidence(activeSession.summary.confidenceAvg)}`
         });
       } else {
-        drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
           modeLabel: "No drill · Freestyle overlay",
           showDrillMetrics: false
         });
       }
+      ctx.restore();
       raf = requestAnimationFrame(draw);
     };
 
@@ -493,7 +518,15 @@ export function UploadVideoWorkspace() {
             ref={fullscreenContainerRef}
             style={{ position: "relative", width: "100%", maxWidth: 960, maxHeight: "68vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
           >
-            <video ref={previewVideoRef} src={previewObjectUrl ?? undefined} controls style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }} />
+            <video
+              ref={previewVideoRef}
+              src={previewObjectUrl ?? undefined}
+              controls
+              playsInline
+              disablePictureInPicture
+              controlsList="nofullscreen noremoteplayback"
+              style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
+            />
             <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
           </div>
           <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
