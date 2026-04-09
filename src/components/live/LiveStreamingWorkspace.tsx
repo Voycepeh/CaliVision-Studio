@@ -79,6 +79,7 @@ export function LiveStreamingWorkspace() {
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -118,6 +119,15 @@ export function LiveStreamingWorkspace() {
   const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace) : []), [liveTrace]);
   const replayUrl = annotatedReplayUrl ?? rawReplayUrl;
   const replayTone = getReplayStateTone(replayState);
+  const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
+
+  useEffect(() => {
+    if (timelineMarkers.length === 0) {
+      setSelectedMarkerId(null);
+      return;
+    }
+    setSelectedMarkerId((current) => (current && timelineMarkers.some((marker) => marker.id === current) ? current : timelineMarkers[0].id));
+  }, [timelineMarkers]);
 
   const refreshDrillOptions = useCallback(async () => {
     const options: DrillSelectionOption[] = [];
@@ -242,6 +252,7 @@ export function LiveStreamingWorkspace() {
     setStatus("live-session-running");
     setReplayState("idle");
     setLiveTrace(null);
+    setSelectedMarkerId(null);
     setErrorMessage(null);
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
@@ -444,6 +455,8 @@ export function LiveStreamingWorkspace() {
                       type="button"
                       title={marker.label}
                       aria-label={marker.label}
+                      aria-pressed={marker.id === selectedMarkerId}
+                      onClick={() => setSelectedMarkerId(marker.id)}
                       style={{
                         position: "absolute",
                         left: `${Math.min(99, Math.max(0, leftPercent))}%`,
@@ -459,12 +472,30 @@ export function LiveStreamingWorkspace() {
                   );
                 })}
               </div>
-              <div style={{ display: "grid", gap: "0.3rem" }}>
-                {timelineMarkers.slice(0, 10).map((marker) => (
-                  <span key={`${marker.id}_label`} className="muted" style={{ fontSize: "0.85rem" }}>
-                    {marker.label}
-                  </span>
-                ))}
+              {selectedMarker ? (
+                <div className="pill" style={{ borderColor: "var(--border-strong)" }}>
+                  Selected event: {selectedMarker.label}
+                </div>
+              ) : null}
+              <div style={{ display: "grid", gap: "0.35rem" }}>
+                {timelineMarkers.slice(0, 12).map((marker) => {
+                  const isActive = marker.id === selectedMarkerId;
+                  return (
+                    <button
+                      key={`${marker.id}_label`}
+                      type="button"
+                      className="studio-button"
+                      onClick={() => setSelectedMarkerId(marker.id)}
+                      style={{
+                        justifyContent: "flex-start",
+                        borderColor: isActive ? "var(--border-strong)" : "var(--border)",
+                        background: isActive ? "rgba(255,255,255,0.12)" : undefined
+                      }}
+                    >
+                      {marker.label}
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
