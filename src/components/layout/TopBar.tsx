@@ -29,7 +29,6 @@ export function TopBar() {
     forkSelectedPackage,
     createSelectedPackageNewVersion,
     saveSelectedToHosted,
-    hostedSaveStatusMessage,
     persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
@@ -88,7 +87,6 @@ export function TopBar() {
 
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
         <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
-        <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>{hostedSaveStatusMessage}</span>
         <input
           ref={fileInputRef}
           type="file"

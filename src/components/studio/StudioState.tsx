@@ -11,11 +11,13 @@ import {
   createStablePhaseId,
   getPrimaryDrill,
   getSortedPhases,
+  markPackagePersisted,
   normalizePhaseOrder,
   setJointCoordinate,
   updateWorkingPackage,
   type EditablePackageEntry
 } from "@/lib/editor/package-editor";
+import { deriveEditorSaveStatus } from "@/lib/editor/save-status";
 import {
   buildBundleForExport,
   createDerivedPackage,
@@ -119,7 +121,6 @@ type StudioStateValue = {
   saveStatusLabel: string;
   localSaveState: LocalSaveState;
   hostedSaveState: HostedSaveState;
-  hostedSaveStatusMessage: string;
   draftVersionLabel: string;
   selectedPackage: EditablePackageEntry | null;
   selectedPhaseSourceImage: PhaseSourceImage | null;
@@ -345,7 +346,7 @@ export function StudioStateProvider({
   const [publishWorkflow, setPublishWorkflow] = useState<PublishWorkflowState>(DEFAULT_PUBLISH_WORKFLOW_STATE);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [hostedSaveState, setHostedSaveState] = useState<HostedSaveState>("idle");
-  const [hostedSaveStatusMessage, setHostedSaveStatusMessage] = useState("Cloud save is available when signed in.");
+  const [lastSavedAtByPackageKey, setLastSavedAtByPackageKey] = useState<Record<string, string>>({});
   const [, setHostedVersionIdsByPackageKey] = useState<Record<string, string>>({});
   const { session, isConfigured, persistenceMode } = useAuth();
   const router = useRouter();
@@ -407,6 +408,7 @@ export function StudioStateProvider({
         const nextEntries: EditablePackageEntry[] = [];
         const nextPackageAssetBlobs: Record<string, Record<string, Blob>> = {};
         const nextDraftIds: Record<string, string> = {};
+        const nextSavedAtByPackageKey: Record<string, string> = {};
         const draftToPackageKey: Record<string, string> = {};
 
         for (const summary of summaries) {
@@ -417,6 +419,7 @@ export function StudioStateProvider({
 
           const packageKey = `draft:${summary.draftId}`;
           nextDraftIds[packageKey] = summary.draftId;
+          nextSavedAtByPackageKey[packageKey] = loaded.record.updatedAtIso;
           draftToPackageKey[summary.draftId] = packageKey;
           nextEntries.push(createEditablePackageEntry(packageKey, summary.sourceLabel, loaded.record.packageJson));
           nextPackageAssetBlobs[packageKey] = loaded.assetsById;
@@ -463,6 +466,7 @@ export function StudioStateProvider({
 
         setPackages(nextEntries);
         setDraftIdsByPackageKey(nextDraftIds);
+        setLastSavedAtByPackageKey(nextSavedAtByPackageKey);
         setPackageAssetBlobs(nextPackageAssetBlobs);
         setPhaseSourceImages(nextPhaseSourceImages);
         setSelectedPackageKey(preferredEntry?.packageKey ?? null);
@@ -496,7 +500,6 @@ export function StudioStateProvider({
 
       if (!resolved) {
         setHostedSaveState("error");
-        setHostedSaveStatusMessage("Unable to load selected drill in cloud workspace.");
         return;
       }
 
@@ -504,9 +507,9 @@ export function StudioStateProvider({
       const entry = createEditablePackageEntry(packageKey, `hosted:${resolved.versionId}`, resolved.packageJson);
       setPackages((current) => [entry, ...current.filter((item) => item.packageKey !== packageKey)]);
       setHostedVersionIdsByPackageKey((current) => ({ ...current, [packageKey]: resolved.versionId }));
+      setLastSavedAtByPackageKey((current) => ({ ...current, [packageKey]: resolved.updatedAtIso }));
       setSelectedPackageKey(packageKey);
       setSelectedPhaseId(getSortedPhases(entry.workingPackage)[0]?.phaseId ?? null);
-      setHostedSaveStatusMessage(`Opened ${resolved.title}.`);
     })();
   }, [initialDraftId, initialDrillId, initialHostedDraftId, initialVersionId, isConfigured, persistenceMode, session]);
 
@@ -647,20 +650,38 @@ export function StudioStateProvider({
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
+          const saveResults: Record<string, string> = {};
           for (const entry of packages) {
             const fallbackDraftId = toDraftIdFromPackage(entry);
             const packageKeyDraftId = draftIdFromPackageKey(entry.packageKey);
             const draftId = draftIdsByPackageKey[entry.packageKey] ?? packageKeyDraftId ?? fallbackDraftId;
-            await saveDraft({
+            const result = await saveDraft({
               draftId,
               sourceLabel: entry.sourceLabel,
               packageJson: entry.workingPackage,
               assetsById: packageAssetBlobs[entry.packageKey] ?? {}
             });
+            saveResults[entry.packageKey] = result.updatedAtIso;
             if (!draftIdsByPackageKey[entry.packageKey]) {
               setDraftIdsByPackageKey((current) => ({ ...current, [entry.packageKey]: draftId }));
             }
           }
+          setPackages((current) =>
+            current.map((entry) => {
+              const savedSnapshot = packages.find((candidate) => candidate.packageKey === entry.packageKey);
+              if (!savedSnapshot) {
+                return entry;
+              }
+
+              const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(savedSnapshot.workingPackage);
+              if (hasNewerEdits) {
+                return entry;
+              }
+
+              return markPackagePersisted(entry, savedSnapshot.workingPackage);
+            })
+          );
+          setLastSavedAtByPackageKey((current) => ({ ...current, ...saveResults }));
           setLocalSaveState("saved");
         } catch {
           setLocalSaveState("error");
@@ -706,27 +727,18 @@ export function StudioStateProvider({
 
     setHostedVersionIdsByPackageKey({});
     setHostedSaveState("idle");
-    setHostedSaveStatusMessage("Browser-local save mode active.");
     setPackages((current) => current.filter((entry) => !entry.packageKey.startsWith("hosted:")));
     hasLoadedDraftsRef.current = false;
   }, [persistenceMode]);
 
   const saveStatusLabel = selectedPackage
-    ? persistenceMode === "cloud"
-      ? hostedSaveState === "saving"
-        ? "Saving draft to cloud…"
-        : hostedSaveState === "error"
-          ? "Cloud save failed"
-          : selectedPackage.isDirty
-            ? "Unsaved cloud changes"
-            : "Cloud draft ready"
-      : localSaveState === "saving"
-        ? "Saving draft on this browser…"
-        : localSaveState === "error"
-          ? "Local save failed on this browser."
-          : selectedPackage.isDirty
-            ? "Unsaved local changes"
-            : "Draft saved on this browser"
+    ? deriveEditorSaveStatus({
+      workspace: persistenceMode,
+      isDirty: selectedPackage.isDirty,
+      isSaving: persistenceMode === "cloud" ? hostedSaveState === "saving" : localSaveState === "saving",
+      hasError: persistenceMode === "cloud" ? hostedSaveState === "error" : localSaveState === "error",
+      lastSavedAtIso: lastSavedAtByPackageKey[selectedPackage.packageKey] ?? null
+    }).label
     : "No drill loaded";
 
   const draftVersionLabel = selectedPackage
@@ -740,7 +752,6 @@ export function StudioStateProvider({
     }
     if (!isConfigured || !session) {
       setHostedSaveState("error");
-      setHostedSaveStatusMessage("Sign in to switch to cloud save.");
       return;
     }
 
@@ -755,14 +766,27 @@ export function StudioStateProvider({
         });
       }
       setHostedSaveState("error");
-      setHostedSaveStatusMessage(`Cloud save failed: ${upsert.error}. Edits are still safe on this device.`);
       return;
     }
 
     const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId ?? upsert.value.id;
     setHostedVersionIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: versionId }));
+    setPackages((current) =>
+      current.map((entry) => {
+        if (entry.packageKey !== selectedPackage.packageKey) {
+          return entry;
+        }
+
+        const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(selectedPackage.workingPackage);
+        if (hasNewerEdits) {
+          return entry;
+        }
+
+        return markPackagePersisted(entry, selectedPackage.workingPackage);
+      })
+    );
+    setLastSavedAtByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.updatedAtIso }));
     setHostedSaveState("saved");
-    setHostedSaveStatusMessage(`Saved to account at ${new Date(upsert.value.updatedAtIso).toLocaleString()}.`);
   }
 
   async function markSelectedVersionReady(): Promise<void> {
@@ -1756,7 +1780,6 @@ export function StudioStateProvider({
     saveStatusLabel,
     localSaveState,
     hostedSaveState,
-    hostedSaveStatusMessage,
     draftVersionLabel,
     selectedPackage,
     selectedPhaseSourceImage,

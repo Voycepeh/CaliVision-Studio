@@ -49,6 +49,18 @@ export function updateWorkingPackage(entry: EditablePackageEntry, mutator: (draf
   };
 }
 
+export function markPackagePersisted(entry: EditablePackageEntry, persistedPackage?: DrillPackage): EditablePackageEntry {
+  const nextBaseline = clonePackage(persistedPackage ?? entry.workingPackage);
+
+  return {
+    ...entry,
+    sourcePackage: nextBaseline,
+    workingPackage: clonePackage(nextBaseline),
+    validation: validatePortableDrillPackage(nextBaseline),
+    isDirty: false
+  };
+}
+
 export function getPrimaryDrill(drillPackage: DrillPackage) {
   return drillPackage.drills[0] ?? null;
 }

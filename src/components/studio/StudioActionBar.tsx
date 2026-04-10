@@ -11,7 +11,6 @@ export function StudioActionBar() {
     selectedPackage,
     saveSelectedToHosted,
     markSelectedVersionReady,
-    hostedSaveStatusMessage,
     persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
@@ -24,7 +23,6 @@ export function StudioActionBar() {
         <span className="pill">{persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}</span>
         <span className="muted" style={{ fontSize: "0.8rem" }}>{draftVersionLabel}</span>
         <span style={{ color: isDirty ? "#f0b47d" : "var(--success)", fontSize: "0.85rem" }}>{saveStatusLabel}</span>
-        <span className="muted" style={{ fontSize: "0.78rem" }}>{hostedSaveStatusMessage}</span>
       </div>
 
       <div className="studio-action-groups" role="group" aria-label="Editing actions">
