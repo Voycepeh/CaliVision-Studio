@@ -321,7 +321,8 @@ export function StudioStateProvider({
   initialDraftId,
   initialDrillId,
   initialVersionId,
-  initialHostedDraftId
+  initialHostedDraftId,
+  requireDrillContext = false
 }: {
   children: React.ReactNode;
   initialPackageId?: string;
@@ -329,10 +330,14 @@ export function StudioStateProvider({
   initialDrillId?: string;
   initialVersionId?: string;
   initialHostedDraftId?: string;
+  requireDrillContext?: boolean;
 }) {
   const [packages, setPackages] = useState<EditablePackageEntry[]>(() => createInitialPackages());
-  const [selectedPackageKey, setSelectedPackageKey] = useState<string | null>(() => createInitialPackages()[0]?.packageKey ?? null);
+  const [selectedPackageKey, setSelectedPackageKey] = useState<string | null>(() => (requireDrillContext ? null : createInitialPackages()[0]?.packageKey ?? null));
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(() => {
+    if (requireDrillContext) {
+      return null;
+    }
     const first = createInitialPackages()[0];
     const firstPhase = first ? getSortedPhases(first.workingPackage)[0] : null;
     return firstPhase?.phaseId ?? null;
@@ -460,7 +465,7 @@ export function StudioStateProvider({
           }
         }
 
-        const lastOpenedDraftId = initialDraftId ?? (await getLastOpenedDraft());
+        const lastOpenedDraftId = requireDrillContext ? initialDraftId ?? null : initialDraftId ?? (await getLastOpenedDraft());
         const preferredPackageKey = lastOpenedDraftId ? draftToPackageKey[lastOpenedDraftId] : nextEntries[0]?.packageKey ?? null;
         const preferredEntry = nextEntries.find((entry) => entry.packageKey === preferredPackageKey) ?? nextEntries[0] ?? null;
 
@@ -469,15 +474,16 @@ export function StudioStateProvider({
         setLastSavedAtByPackageKey(nextSavedAtByPackageKey);
         setPackageAssetBlobs(nextPackageAssetBlobs);
         setPhaseSourceImages(nextPhaseSourceImages);
-        setSelectedPackageKey(preferredEntry?.packageKey ?? null);
-        setSelectedPhaseId(preferredEntry ? getSortedPhases(preferredEntry.workingPackage)[0]?.phaseId ?? null : null);
+        const canAutoSelect = !requireDrillContext || Boolean(initialDraftId || initialDrillId || initialVersionId || initialHostedDraftId);
+        setSelectedPackageKey(canAutoSelect ? preferredEntry?.packageKey ?? null : null);
+        setSelectedPhaseId(canAutoSelect && preferredEntry ? getSortedPhases(preferredEntry.workingPackage)[0]?.phaseId ?? null : null);
       } catch {
         setLocalSaveState("error");
       } finally {
         setHydrationComplete(true);
       }
     })();
-  }, [initialDraftId, persistenceMode]);
+  }, [initialDraftId, initialDrillId, initialHostedDraftId, initialVersionId, persistenceMode, requireDrillContext]);
 
   useEffect(() => {
     if (persistenceMode !== "cloud" || !session || !isConfigured) {
@@ -608,6 +614,10 @@ export function StudioStateProvider({
     const selectedPackageEntry = selectedPackageKey ? packages.find((entry) => entry.packageKey === selectedPackageKey) : null;
 
     if (!selectedPackageEntry) {
+      if (requireDrillContext) {
+        previousPhaseIndexesRef.current = buildPhaseIndexMap(packages);
+        return;
+      }
       const fallbackPackage = packages[0] ?? null;
       const fallbackPhaseId = fallbackPackage ? getSortedPhases(fallbackPackage.workingPackage)[0]?.phaseId ?? null : null;
 
@@ -639,7 +649,7 @@ export function StudioStateProvider({
     }
 
     previousPhaseIndexesRef.current = buildPhaseIndexMap(packages);
-  }, [packages, selectedJointName, selectedPackageKey, selectedPhaseId]);
+  }, [packages, requireDrillContext, selectedJointName, selectedPackageKey, selectedPhaseId]);
 
   useEffect(() => {
     if (persistenceMode !== "local" || !hydrationComplete || packages.length === 0) {

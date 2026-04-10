@@ -19,6 +19,12 @@ import {
 import { getOrBuildKnowledgeForPackage, type DrillKnowledgeDocument } from "@/lib/knowledge";
 import { buildBundleForExport, downloadPackageBundle, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import { type PackageListingSort } from "@/lib/registry";
+import {
+  ACTIVE_DRILL_CONTEXT_STORAGE_KEY,
+  buildWorkflowDrillKey,
+  serializeActiveDrillContext,
+  type ActiveDrillContext
+} from "@/lib/workflow/drill-context";
 
 type FeedbackTone = "success" | "error";
 type ItemActionState = {
@@ -48,6 +54,7 @@ export function LibraryOverview() {
   const [drills, setDrills] = useState<DrillLibraryItem[]>([]);
   const [versionsByDrillId, setVersionsByDrillId] = useState<Record<string, DrillVersionSnapshot[]>>({});
   const [searchText, setSearchText] = useState("");
+  const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
@@ -149,20 +156,61 @@ export function LibraryOverview() {
 
   async function onCreateDraft(): Promise<void> {
     const created = await createDrill(repositoryContext);
+    persistActiveDrillContext({
+      drillId: created.drillId,
+      sourceKind: signedInMode ? "hosted" : "local",
+      sourceId: created.draftVersionId
+    });
     setItemFeedback("global:create", "Created a new drill draft.");
     await refreshLibrary();
     router.push(`/studio?drillId=${encodeURIComponent(created.drillId)}`);
   }
 
   async function onOpenForEdit(drill: DrillLibraryItem): Promise<void> {
-    if (!drill.latestDraftVersionId && drill.activeReadyVersion) {
-      const drafted = await createDraftVersion(drill.drillId, repositoryContext);
-      const nextVersion = (drill.activeReadyVersion.versionNumber ?? 0) + 1;
-      setItemFeedback(`drill:${drill.drillId}`, drafted.resumed ? `Resumed open draft for v${nextVersion}.` : `Opened new draft for v${nextVersion}.`);
-      await refreshLibrary();
+    const selectedContext = await resolveDrillContext(drill, true);
+    persistActiveDrillContext(selectedContext);
+    router.push(`/studio?drillId=${encodeURIComponent(drill.drillId)}`);
+  }
+
+  function persistActiveDrillContext(context: ActiveDrillContext): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY, serializeActiveDrillContext(context));
+  }
+
+  async function resolveDrillContext(drill: DrillLibraryItem, requireEditableDraft: boolean): Promise<ActiveDrillContext> {
+    const sourceVersion = drill.openDraftVersion ?? drill.currentVersion;
+    if (!requireEditableDraft && sourceVersion.sourceId) {
+      return {
+        drillId: drill.drillId,
+        sourceKind: signedInMode ? "hosted" : "local",
+        sourceId: sourceVersion.sourceId
+      };
     }
 
-    router.push(`/studio?drillId=${encodeURIComponent(drill.drillId)}`);
+    if (sourceVersion.source === "draft" && sourceVersion.sourceId) {
+      return {
+        drillId: drill.drillId,
+        sourceKind: signedInMode ? "hosted" : "local",
+        sourceId: sourceVersion.sourceId
+      };
+    }
+
+    const drafted = await createDraftVersion(drill.drillId, repositoryContext);
+    await refreshLibrary();
+    return {
+      drillId: drill.drillId,
+      sourceKind: signedInMode ? "hosted" : "local",
+      sourceId: drafted.draftVersionId
+    };
+  }
+
+  async function onOpenWorkflow(drill: DrillLibraryItem, destination: "upload" | "live"): Promise<void> {
+    const context = await resolveDrillContext(drill, false);
+    persistActiveDrillContext(context);
+    const workflowKey = buildWorkflowDrillKey(context);
+    router.push(`/${destination}?drillKey=${encodeURIComponent(workflowKey)}`);
   }
 
   async function onDeleteDrill(drill: DrillLibraryItem): Promise<void> {
@@ -283,7 +331,15 @@ export function LibraryOverview() {
             {filteredDrills.map((drill) => {
               const versions = versionsByDrillId[drill.drillId] ?? [];
               return (
-                <article key={drill.drillId} className="card" style={listCardStyle}>
+                <article
+                  key={drill.drillId}
+                  className="card"
+                  style={{
+                    ...listCardStyle,
+                    borderColor: selectedDrillId === drill.drillId ? "rgba(114, 168, 255, 0.6)" : undefined
+                  }}
+                  onClick={() => setSelectedDrillId(drill.drillId)}
+                >
                   <div style={rowTitleWrapStyle}>
                     <strong>{drill.title}</strong>
                     <p className="muted" style={{ margin: 0 }}>
@@ -298,7 +354,27 @@ export function LibraryOverview() {
                   </p>
 
                   <div style={compactActionRowStyle}>
-                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening editor…", () => onOpenForEdit(drill))}>Edit</button>
+                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coach…", () => onOpenWorkflow(drill, "live"))}>Live Coach</button>
+                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>Upload Video</button>
+                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>Edit in Studio</button>
+                    {drill.activeReadyVersion ? (
+                      <button
+                        type="button"
+                        style={chipStyle(false)}
+                        onClick={() =>
+                          void runItemAction(`preview:${drill.drillId}`, "Opening preview…", async () => {
+                            const context = await resolveDrillContext(drill, false);
+                            persistActiveDrillContext(context);
+                            router.push(`/upload?drillKey=${encodeURIComponent(buildWorkflowDrillKey(context))}`);
+                          })
+                        }
+                      >
+                        Preview
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div style={compactActionRowStyle}>
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
                       Mark Ready
                     </button>
@@ -334,6 +410,9 @@ export function LibraryOverview() {
                   </details>
 
                   <InlineItemFeedback itemId={`drill:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+                  <InlineItemFeedback itemId={`live:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+                  <InlineItemFeedback itemId={`upload:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
+                  <InlineItemFeedback itemId={`preview:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`ready:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`publish:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`export:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
