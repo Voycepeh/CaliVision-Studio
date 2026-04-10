@@ -7,6 +7,7 @@ import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 import {
   buildDeterministicFrameSchedule,
+  buildEmissionPlanFromSourceTimes,
   measureFramePacingStats,
   selectLatestEligibleScheduledFrame
 } from "@/lib/upload/export-frame-pacing";
@@ -327,6 +328,30 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
   });
 }
 
+async function readBlobVideoDurationMs(blob: Blob): Promise<number | null> {
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.playsInline = true;
+  const objectUrl = URL.createObjectURL(blob);
+  video.src = objectUrl;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("Unable to read annotated output metadata."));
+    });
+    if (!Number.isFinite(video.duration)) {
+      return null;
+    }
+    return Math.max(0, Math.round(video.duration * 1000));
+  } catch {
+    return null;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 export async function readVideoMetadata(file: File): Promise<{ durationMs?: number; width?: number; height?: number }> {
   try {
     const { video, objectUrl } = await loadVideoElement(file);
@@ -518,11 +543,14 @@ export async function exportAnnotatedVideo(
   let actualRenderedFrameCount = 0;
   const renderedTimestampsMs: number[] = [];
   const sampledSourceFrameIndices: number[] = [];
+  let decodedSourceFrameCount = 0;
   let sourceFrameDeltaCount = 0;
   let sourceFrameDeltaSumMs = 0;
   let scheduledFrameDrops = 0;
   let previousSourceMediaTimeMs: number | null = null;
   let inferredSourceFps: number | null = null;
+  let firstDecodedTimestampMs: number | null = null;
+  let lastDecodedTimestampMs: number | null = null;
   const phaseLabels = options?.phaseLabels;
   const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
@@ -602,104 +630,114 @@ export async function exportAnnotatedVideo(
 
     try {
       const hasVideoFrameCallback = typeof video.requestVideoFrameCallback === "function";
-      let usedSourceFrameCallback = false;
-      if (hasVideoFrameCallback) {
-        let scheduleIndex = 0;
-        video.currentTime = 0;
-        try {
-          await video.play();
-          usedSourceFrameCallback = true;
-          const requestSourceFrame = video.requestVideoFrameCallback.bind(video) as RequestVideoFrameCallback;
+      let scheduleIndex = 0;
+      video.currentTime = 0;
 
-          await new Promise<void>((resolve) => {
-            const onComplete = () => {
-              const trailingStart = Math.max(0, expectedFrameScheduleMs.length - 2);
-              while (scheduleIndex < expectedFrameScheduleMs.length && scheduleIndex >= trailingStart) {
-                renderFrameAtTimestamp(expectedFrameScheduleMs[scheduleIndex], previousSourceMediaTimeMs ?? durationMs);
-                scheduleIndex += 1;
-              }
-              resolve();
-            };
-
-            const processSourceFrame = (_now: number, metadata: VideoFrameMetadata) => {
-              const sourceMediaTimeMs = Math.max(0, Math.round((metadata.mediaTime ?? video.currentTime) * 1000));
-              if (previousSourceMediaTimeMs !== null && sourceMediaTimeMs > previousSourceMediaTimeMs) {
-                sourceFrameDeltaCount += 1;
-                sourceFrameDeltaSumMs += sourceMediaTimeMs - previousSourceMediaTimeMs;
-              }
-              previousSourceMediaTimeMs = sourceMediaTimeMs;
-
-              const selection = selectLatestEligibleScheduledFrame(expectedFrameScheduleMs, scheduleIndex, sourceMediaTimeMs);
-              const latestEligibleIndex = selection.renderScheduleIndex;
-              scheduleIndex = selection.nextScheduleIndex;
-              scheduledFrameDrops += selection.skippedScheduledFrames;
-
-              if (latestEligibleIndex !== null) {
-                renderFrameAtTimestamp(expectedFrameScheduleMs[latestEligibleIndex], sourceMediaTimeMs);
-                if (
-                  latestEligibleIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 ||
-                  latestEligibleIndex === expectedFrameCount - 1
-                ) {
-                  logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
-                    frameIndex: latestEligibleIndex + 1,
-                    expectedFrameCount,
-                    timestampMs: expectedFrameScheduleMs[latestEligibleIndex]
-                  });
-                }
-                options?.onProgress?.(
-                  0.05 + ((latestEligibleIndex + 1) / expectedFrameCount) * 0.87,
-                  `Rendering frames ${latestEligibleIndex + 1}/${expectedFrameCount}`
-                );
-              }
-
-              if (scheduleIndex >= expectedFrameScheduleMs.length || video.ended) {
-                onComplete();
-                return;
-              }
-              requestSourceFrame(processSourceFrame);
-            };
-
-            video.addEventListener("ended", onComplete, { once: true });
-            requestSourceFrame(processSourceFrame);
-          });
-        } catch (error) {
-          logUploadEvent("ANNOTATED_EXPORT_SOURCE_CALLBACK_FALLBACK", {
-            reason: error instanceof Error ? error.message : String(error)
-          });
-        } finally {
-          video.pause();
-        }
-      } else {
+      if (!hasVideoFrameCallback) {
         logUploadEvent("ANNOTATED_EXPORT_SOURCE_CALLBACK_UNAVAILABLE");
       }
 
-      if (!usedSourceFrameCallback) {
-        const exportStartedAtMs = performance.now();
-        for (let frameIndex = 0; frameIndex < expectedFrameCount; frameIndex += 1) {
-          const timestampMs = expectedFrameScheduleMs[frameIndex];
-          await seekVideo(video, timestampMs / 1000);
-          renderFrameAtTimestamp(timestampMs);
+      await video.play();
 
-          if (frameIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 || frameIndex === expectedFrameCount - 1) {
-            logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
-              frameIndex: frameIndex + 1,
-              expectedFrameCount,
-              timestampMs
-            });
-          }
-          options?.onProgress?.(
-            0.05 + ((frameIndex + 1) / expectedFrameCount) * 0.87,
-            `Rendering frames ${frameIndex + 1}/${expectedFrameCount}`
-          );
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
 
-          const targetElapsedMs = (frameIndex + 1) * frameDurationMs;
-          const renderElapsedMs = performance.now() - exportStartedAtMs;
-          const pacingDelayMs = Math.max(0, targetElapsedMs - renderElapsedMs);
-          if (pacingDelayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, pacingDelayMs));
+        const finish = () => {
+          if (settled) {
+            return;
           }
+          settled = true;
+          cleanup();
+          resolve();
+        };
+
+        const fail = (error: Error) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          cleanup();
+          reject(error);
+        };
+
+        const processSourceMediaTime = (sourceMediaTimeMs: number) => {
+          const clampedSourceMediaTimeMs = Math.max(0, Math.min(durationMs, sourceMediaTimeMs));
+          decodedSourceFrameCount += 1;
+          if (firstDecodedTimestampMs === null) {
+            firstDecodedTimestampMs = clampedSourceMediaTimeMs;
+          }
+          lastDecodedTimestampMs = clampedSourceMediaTimeMs;
+
+          if (previousSourceMediaTimeMs !== null && clampedSourceMediaTimeMs > previousSourceMediaTimeMs) {
+            sourceFrameDeltaCount += 1;
+            sourceFrameDeltaSumMs += clampedSourceMediaTimeMs - previousSourceMediaTimeMs;
+          }
+          previousSourceMediaTimeMs = clampedSourceMediaTimeMs;
+
+          const selection = selectLatestEligibleScheduledFrame(expectedFrameScheduleMs, scheduleIndex, clampedSourceMediaTimeMs);
+          const latestEligibleIndex = selection.renderScheduleIndex;
+          scheduleIndex = selection.nextScheduleIndex;
+          scheduledFrameDrops += selection.skippedScheduledFrames;
+
+          if (latestEligibleIndex !== null) {
+            renderFrameAtTimestamp(expectedFrameScheduleMs[latestEligibleIndex], clampedSourceMediaTimeMs);
+            if (
+              latestEligibleIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 ||
+              latestEligibleIndex === expectedFrameCount - 1
+            ) {
+              logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
+                frameIndex: latestEligibleIndex + 1,
+                expectedFrameCount,
+                timestampMs: expectedFrameScheduleMs[latestEligibleIndex]
+              });
+            }
+            options?.onProgress?.(
+              0.05 + ((latestEligibleIndex + 1) / expectedFrameCount) * 0.87,
+              `Rendering frames ${latestEligibleIndex + 1}/${expectedFrameCount}`
+            );
+          }
+
+          if (scheduleIndex >= expectedFrameScheduleMs.length) {
+            finish();
+          }
+        };
+
+        const onEnded = () => {
+          processSourceMediaTime(durationMs);
+          finish();
+        };
+
+        const onError = () => fail(new Error("Annotated export failed while decoding source frames."));
+
+        const cleanup = () => {
+          video.removeEventListener("ended", onEnded);
+          video.removeEventListener("error", onError);
+        };
+
+        video.addEventListener("ended", onEnded, { once: true });
+        video.addEventListener("error", onError, { once: true });
+
+        if (hasVideoFrameCallback) {
+          const requestSourceFrame = video.requestVideoFrameCallback.bind(video) as RequestVideoFrameCallback;
+          const processSourceFrame = (_now: number, metadata: VideoFrameMetadata) => {
+            processSourceMediaTime(Math.round((metadata.mediaTime ?? video.currentTime) * 1000));
+            if (!settled && !video.ended) {
+              requestSourceFrame(processSourceFrame);
+            }
+          };
+          requestSourceFrame(processSourceFrame);
+          return;
         }
-      }
+
+        const rafLoop = () => {
+          processSourceMediaTime(Math.round(video.currentTime * 1000));
+          if (!settled && !video.ended) {
+            requestAnimationFrame(rafLoop);
+          }
+        };
+        requestAnimationFrame(rafLoop);
+      });
+      video.pause();
     } catch (error) {
       logUploadEvent("ANNOTATED_EXPORT_RENDER_FAILED", { message: error instanceof Error ? error.message : String(error) });
       throw error;
@@ -714,7 +752,8 @@ export async function exportAnnotatedVideo(
         setTimeout(() => reject(new Error("Annotated export timed out while finalizing recorder output.")), EXPORT_FINALIZE_TIMEOUT_MS);
       })
     ]);
-    logUploadEvent("ANNOTATED_EXPORT_COMPLETE", { sizeBytes: blob.size, mimeType });
+    const muxedDurationMs = await readBlobVideoDurationMs(blob);
+    logUploadEvent("ANNOTATED_EXPORT_COMPLETE", { sizeBytes: blob.size, mimeType, muxedDurationMs: muxedDurationMs ?? "unknown" });
 
     if (blob.size === 0) {
       throw new Error("Annotated export failed: recorder produced an empty file.");
@@ -732,13 +771,28 @@ export async function exportAnnotatedVideo(
         ? measureFramePacingStats(renderedTimestampsMs, sourceFrameIndices)
         : { duplicatedFrames: "unknown", skippedSourceFrames: "unknown", averageFrameDeltaMs: measureFramePacingStats(renderedTimestampsMs, sampledSourceFrameIndices).averageFrameDeltaMs };
 
+    const emissionPlan = buildEmissionPlanFromSourceTimes(expectedFrameScheduleMs, renderedTimestampsMs, durationMs);
+    const firstEmittedTimestampMs = renderedTimestampsMs[0] ?? null;
+    const lastEmittedTimestampMs = renderedTimestampsMs.at(-1) ?? null;
+
     logUploadEvent("ANNOTATED_EXPORT_SUMMARY", {
       sourceDurationMs: durationMs,
+      analyzedDurationMs: timeline.video.durationMs,
+      decodedFrameCount: decodedSourceFrameCount,
       sourceVideoFps: inferredSourceFps ?? "unknown",
       targetExportFps: exportFps,
+      outputFrameDurationMs: frameDurationMs,
+      outputTimebase: `1/${exportFps}`,
       expectedFrameCount,
       actualRenderedFrameCount,
+      emittedAnnotatedFrameCount: renderedTimestampsMs.length,
+      monotonicEmittedTimestampCount: emissionPlan.renderedTimestampsMs.length,
+      firstDecodedTimestampMs,
+      lastDecodedTimestampMs,
+      firstEmittedTimestampMs,
+      lastEmittedTimestampMs,
       encodedFrameCountEstimate: actualRenderedFrameCount,
+      finalAnnotatedMuxedDurationMs: muxedDurationMs ?? "unknown",
       exportDurationMs: durationMs,
       averageFrameDeltaMs: Math.round(Number(pacingStats.averageFrameDeltaMs) * 100) / 100,
       duplicatedFrames: pacingStats.duplicatedFrames,
