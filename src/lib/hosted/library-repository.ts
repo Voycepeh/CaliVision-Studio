@@ -1,6 +1,7 @@
 import type { AuthSession } from "@/lib/auth/supabase-auth";
 import type { DrillPackage } from "@/lib/schema/contracts";
 import { getSupabasePublicEnv } from "@/lib/supabase/public-env";
+import { refreshKnowledgeForPackage } from "@/lib/knowledge";
 
 export type HostedLibraryItem = {
   id: string;
@@ -117,6 +118,7 @@ export async function upsertHostedLibraryItem(
   }
   const rows = (await response.json()) as HostedLibraryRow[];
   if (!rows[0]) return { ok: false, error: "Hosted library save returned no row." };
+  void refreshKnowledgeForPackage({ packageJson });
   return { ok: true, value: mapRow(rows[0]) };
 }
 

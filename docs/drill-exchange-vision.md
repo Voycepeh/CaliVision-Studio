@@ -17,6 +17,13 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 - fork/remix/version lineage,
 - Studio/mobile ecosystem continuity.
 
+## Drill Knowledge Graph foundation (deterministic scaffolding)
+
+- Executable drill packages remain the runtime source of truth for scoring/coaching behavior.
+- Studio now includes a derived **Drill Knowledge Document** layer for Exchange discovery/explanation surfaces.
+- This knowledge layer is deterministic (rule-based generation from drill/package fields), read-only, and does not mutate executable drill rules.
+- The current implementation is scaffolding for future enrichment while preserving local-first and hosted-draft compatibility boundaries.
+
 Android runtime relationship: exported/published packages remain consumable by <https://github.com/Voycepeh/CaliVision>.
 
 > Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).

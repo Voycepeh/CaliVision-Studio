@@ -1,5 +1,6 @@
 import { ensureVersioningMetadata } from "@/lib/package";
 import type { DrillPackage } from "@/lib/schema/contracts";
+import { refreshKnowledgeForPackage } from "@/lib/knowledge";
 
 const DB_NAME = "calivision.studio.local";
 const DB_VERSION = 2;
@@ -210,6 +211,8 @@ export async function saveDraft(input: {
   });
 
   await transactionDone(tx);
+
+  void refreshKnowledgeForPackage({ packageJson: normalizedPackage });
 
   return {
     ok: true,
