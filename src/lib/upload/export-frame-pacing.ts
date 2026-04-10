@@ -4,6 +4,12 @@ export type FramePacingStats = {
   averageFrameDeltaMs: number;
 };
 
+export type SourceFrameSelection = {
+  nextScheduleIndex: number;
+  renderScheduleIndex: number | null;
+  skippedScheduledFrames: number;
+};
+
 export function buildDeterministicFrameSchedule(durationMs: number, fps: number): number[] {
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     throw new Error("Export frame schedule rejected: duration must be a finite positive number.");
@@ -56,5 +62,33 @@ export function measureFramePacingStats(
     duplicatedFrames,
     skippedSourceFrames,
     averageFrameDeltaMs: deltaTotalMs / (renderedTimestampsMs.length - 1)
+  };
+}
+
+export function selectLatestEligibleScheduledFrame(
+  scheduleMs: number[],
+  startIndex: number,
+  sourceMediaTimeMs: number
+): SourceFrameSelection {
+  let scanIndex = startIndex;
+  let latestEligibleIndex = -1;
+
+  while (scanIndex < scheduleMs.length && scheduleMs[scanIndex] <= sourceMediaTimeMs) {
+    latestEligibleIndex = scanIndex;
+    scanIndex += 1;
+  }
+
+  if (latestEligibleIndex < 0) {
+    return {
+      nextScheduleIndex: startIndex,
+      renderScheduleIndex: null,
+      skippedScheduledFrames: 0
+    };
+  }
+
+  return {
+    nextScheduleIndex: latestEligibleIndex + 1,
+    renderScheduleIndex: latestEligibleIndex,
+    skippedScheduledFrames: Math.max(0, latestEligibleIndex - startIndex)
   };
 }

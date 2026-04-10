@@ -5,7 +5,11 @@ import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
-import { buildDeterministicFrameSchedule, measureFramePacingStats } from "@/lib/upload/export-frame-pacing";
+import {
+  buildDeterministicFrameSchedule,
+  measureFramePacingStats,
+  selectLatestEligibleScheduledFrame
+} from "@/lib/upload/export-frame-pacing";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -510,6 +514,7 @@ export async function exportAnnotatedVideo(
   const sampledSourceFrameIndices: number[] = [];
   let sourceFrameDeltaCount = 0;
   let sourceFrameDeltaSumMs = 0;
+  let scheduledFrameDrops = 0;
   let previousSourceMediaTimeMs: number | null = null;
   let inferredSourceFps: number | null = null;
   const phaseLabels = options?.phaseLabels;
@@ -555,6 +560,10 @@ export async function exportAnnotatedVideo(
       fpsSource: exportPlan.fpsSource,
       expectedFrameCount,
       hasRequestFrame: Boolean(requestFrame)
+    });
+    logUploadEvent("ANNOTATED_EXPORT_TIMING_SCOPE", {
+      guarantee: "partial",
+      reason: "MediaRecorder controls encoded timestamps"
     });
 
     const renderFrameAtTimestamp = (timestampMs: number, sourceMediaTimeMs?: number) => {
@@ -614,13 +623,12 @@ export async function exportAnnotatedVideo(
               }
               previousSourceMediaTimeMs = sourceMediaTimeMs;
 
-              let latestEligibleIndex = -1;
-              while (scheduleIndex < expectedFrameScheduleMs.length && expectedFrameScheduleMs[scheduleIndex] <= sourceMediaTimeMs) {
-                latestEligibleIndex = scheduleIndex;
-                scheduleIndex += 1;
-              }
+              const selection = selectLatestEligibleScheduledFrame(expectedFrameScheduleMs, scheduleIndex, sourceMediaTimeMs);
+              const latestEligibleIndex = selection.renderScheduleIndex;
+              scheduleIndex = selection.nextScheduleIndex;
+              scheduledFrameDrops += selection.skippedScheduledFrames;
 
-              if (latestEligibleIndex >= 0) {
+              if (latestEligibleIndex !== null) {
                 renderFrameAtTimestamp(expectedFrameScheduleMs[latestEligibleIndex], sourceMediaTimeMs);
                 if (
                   latestEligibleIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 ||
@@ -729,6 +737,7 @@ export async function exportAnnotatedVideo(
       averageFrameDeltaMs: Math.round(Number(pacingStats.averageFrameDeltaMs) * 100) / 100,
       duplicatedFrames: pacingStats.duplicatedFrames,
       skippedFrames: pacingStats.skippedSourceFrames,
+      scheduledFrameDrops,
       timingDeterminism: "partial (MediaRecorder timestamps remain browser-controlled)",
       actualRecorderMimeType: recorder.mimeType || mimeType
     });
