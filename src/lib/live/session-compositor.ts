@@ -1,4 +1,5 @@
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
+import { formatCameraViewLabel } from "../analysis/camera-view.ts";
 import type { PoseTimeline } from "../upload/types.ts";
 import type { LiveSessionTrace } from "./types.ts";
 
@@ -45,7 +46,9 @@ export function buildAnalysisSessionFromLiveTrace(trace: LiveSessionTrace): Anal
     },
     debug: {
       detector: "mediapipe-pose-landmarker",
-      cadenceFps: trace.cadenceFps
+      cadenceFps: trace.cadenceFps,
+      cameraView: trace.drillSelection.cameraView,
+      cameraViewLabel: trace.drillSelection.cameraView ? formatCameraViewLabel(trace.drillSelection.cameraView) : undefined
     },
     drillBinding: {
       drillId: drill?.drillId ?? "freestyle",

@@ -179,7 +179,10 @@ export function createLiveTraceAccumulator(input: {
     if (!drill) {
       return { timestampMs: frame.timestampMs, confidence: 0, classifiedPhaseId: undefined };
     }
-    const score = scoreFramesAgainstDrillPhases([frame], drill.phases, { includePerPhaseScores: true })[0];
+    const score = scoreFramesAgainstDrillPhases([frame], drill.phases, {
+      includePerPhaseScores: true,
+      cameraView: input.drillSelection.cameraView
+    })[0];
     return {
       timestampMs: frame.timestampMs,
       confidence: score?.bestPhaseScore ?? 0,

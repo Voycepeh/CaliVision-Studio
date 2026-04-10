@@ -7,6 +7,7 @@ import type {
   PortablePose
 } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
+import type { DrillCameraView } from "./camera-view.ts";
 
 export type AnalysisFrameQuality = {
   missingRequiredJoints: CanonicalJointName[];
@@ -47,6 +48,7 @@ export type TemporalSmoothingResult = {
 export type AnalysisRunInput = {
   drill: PortableDrill;
   sampledFrames: PoseFrame[];
+  cameraView?: DrillCameraView;
   sourceLabel?: string;
   sourceType?: AnalysisSession["source"]["sourceType"];
 };
@@ -62,6 +64,7 @@ export type ScorerOptions = {
   minimumScoreThreshold?: number;
   includePerPhaseScores?: boolean;
   defaultTolerance?: number;
+  cameraView?: DrillCameraView;
 };
 
 export type PoseLike = PoseFrame | PortablePose;

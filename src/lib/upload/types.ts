@@ -1,9 +1,11 @@
 import type { CanonicalJointName, PortableDrill } from "@/lib/schema/contracts";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 
 export type UploadJobDrillSelection = {
   drill?: PortableDrill;
   drillVersion?: string;
   mode?: "freestyle" | "drill";
+  cameraView?: DrillCameraView;
   drillBinding: {
     drillId?: string;
     drillName: string;

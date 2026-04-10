@@ -147,7 +147,39 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
   assert.deepEqual(built.debug?.runtimeDiagnostics?.expectedPhaseOrder, ["1. Top", "2. Bottom", "1. Top"]);
   assert.equal(typeof built.debug?.runtimeDiagnostics?.modeSummary, "string");
   assert.equal(built.debug?.runtimeDiagnostics?.allowedTransitions.includes("2. Bottom -> 1. Top"), true);
+  assert.equal(built.debug?.cameraView, "side");
+  assert.equal(built.debug?.cameraViewLabel, "Side");
   assert.equal((await repository.listRecentSessions()).length, 0);
+});
+
+test("buildCompletedUploadAnalysisSession uses snapshotted resolvedCameraView when provided", () => {
+  const drill = buildDrill();
+  drill.primaryView = "front";
+
+  const built = buildCompletedUploadAnalysisSession({
+    drill,
+    resolvedCameraView: "side",
+    timeline: createTimeline(),
+    sourceId: "upload-camera-snapshot"
+  });
+
+  assert.equal(built.debug?.cameraView, "side");
+  assert.equal(built.debug?.cameraViewLabel, "Side");
+  assert.equal(built.debug?.cameraViewWarning, undefined);
+});
+
+test("buildCompletedUploadAnalysisSession reports fallback warning for invalid drill view", () => {
+  const drill = buildDrill();
+  Object.assign(drill as unknown as { primaryView: string }, { primaryView: "UNKNOWN" });
+
+  const built = buildCompletedUploadAnalysisSession({
+    drill,
+    timeline: createTimeline(),
+    sourceId: "upload-camera-invalid"
+  });
+
+  assert.equal(built.debug?.cameraView, "front");
+  assert.match(built.debug?.cameraViewWarning ?? "", /defaulting to front/i);
 });
 
 test("runtime diagnostics flag legacy analysis order mismatch without overriding authored order", () => {

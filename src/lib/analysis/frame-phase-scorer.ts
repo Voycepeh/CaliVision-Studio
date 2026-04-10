@@ -3,9 +3,33 @@ import { compareNormalizedJoints, winnerHasClearMargin } from "./pose-comparison
 import type { CanonicalJointName, PortablePhase } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { FramePhaseScore, ScorerOptions } from "./types.ts";
+import type { DrillCameraView } from "./camera-view.ts";
 
 const DEFAULT_MIN_SCORE_THRESHOLD = 0.35;
 const DEFAULT_DISTANCE_TOLERANCE = 0.4;
+const FRONT_VIEW_JOINTS: CanonicalJointName[] = CANONICAL_JOINT_NAMES;
+const SIDE_LEFT_PROFILE_JOINTS: CanonicalJointName[] = [
+  "nose",
+  "leftShoulder",
+  "leftElbow",
+  "leftWrist",
+  "leftHip",
+  "leftKnee",
+  "leftAnkle",
+  "rightShoulder",
+  "rightHip"
+];
+const SIDE_RIGHT_PROFILE_JOINTS: CanonicalJointName[] = [
+  "nose",
+  "rightShoulder",
+  "rightElbow",
+  "rightWrist",
+  "rightHip",
+  "rightKnee",
+  "rightAnkle",
+  "leftShoulder",
+  "leftHip"
+];
 
 export function scoreFramesAgainstDrillPhases(
   sampledFrames: PoseFrame[],
@@ -22,7 +46,7 @@ export function scoreFramesAgainstDrillPhases(
     let secondBestPhaseScore = 0;
 
     for (const phase of phases) {
-      const score = scoreFrameForPhase(frame, phase, tolerance);
+      const score = scoreFrameForPhase(frame, phase, tolerance, options.cameraView ?? "front");
       perPhaseScores[phase.phaseId] = score;
       if (score > bestPhaseScore) {
         secondBestPhaseScore = bestPhaseScore;
@@ -48,7 +72,7 @@ export function scoreFramesAgainstDrillPhases(
   });
 }
 
-function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: number): number {
+function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: number, cameraView: DrillCameraView): number {
   if (phase.poseSequence.length === 0) {
     return 0;
   }
@@ -57,7 +81,7 @@ function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: n
   // TODO: evolve toward sequence-aware intra-phase progression scoring.
   let bestTemplateScore = 0;
   for (const template of phase.poseSequence) {
-    const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance);
+    const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance, cameraView);
     if (templateScore > bestTemplateScore) {
       bestTemplateScore = templateScore;
     }
@@ -70,13 +94,38 @@ function scoreFrameForTemplate(
   frame: PoseFrame,
   phase: PortablePhase,
   template: NonNullable<PortablePhase["poseSequence"][number]>,
-  tolerance: number
+  tolerance: number,
+  cameraView: DrillCameraView
 ): number {
   const hintRequired = phase.analysis?.matchHints?.requiredJoints ?? [];
   const hintOptional = phase.analysis?.matchHints?.optionalJoints ?? [];
   const preferredJoints = hintRequired.length > 0 || hintOptional.length > 0
     ? Array.from(new Set([...hintRequired, ...hintOptional]))
-    : CANONICAL_JOINT_NAMES;
+    : null;
+
+  if (!preferredJoints) {
+    const defaultJointSets = getDefaultJointSetsForView(cameraView);
+    let bestDefaultScore = 0;
+    for (const jointSet of defaultJointSets) {
+      const candidateScore = computeTemplateScoreForJointSet(frame, phase, template, tolerance, jointSet, hintRequired);
+      if (candidateScore > bestDefaultScore) {
+        bestDefaultScore = candidateScore;
+      }
+    }
+    return bestDefaultScore;
+  }
+
+  return computeTemplateScoreForJointSet(frame, phase, template, tolerance, preferredJoints, hintRequired);
+}
+
+function computeTemplateScoreForJointSet(
+  frame: PoseFrame,
+  phase: PortablePhase,
+  template: NonNullable<PortablePhase["poseSequence"][number]>,
+  tolerance: number,
+  preferredJoints: CanonicalJointName[],
+  hintRequired: CanonicalJointName[]
+): number {
 
   let confidenceWeightedScoreTotal = 0;
   let contributing = 0;
@@ -125,8 +174,14 @@ function scoreFrameForTemplate(
   const discriminationPenalty = metrics.isMeaningfullyDissimilar
     ? Math.max(0.25, metrics.dissimilarityScore * 0.5)
     : metrics.dissimilarityScore * 0.3;
-
   return clamp01((confidenceScore - discriminationPenalty) * missingPenalty);
+}
+
+function getDefaultJointSetsForView(cameraView: DrillCameraView): CanonicalJointName[][] {
+  if (cameraView === "side") {
+    return [SIDE_LEFT_PROFILE_JOINTS, SIDE_RIGHT_PROFILE_JOINTS];
+  }
+  return [FRONT_VIEW_JOINTS];
 }
 
 function computeNormalizationDistance(frame: PoseFrame, template: NonNullable<PortablePhase["poseSequence"][number]>): number {
