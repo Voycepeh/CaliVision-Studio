@@ -7,6 +7,7 @@ import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
+import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
@@ -366,14 +367,21 @@ export function UploadVideoWorkspace() {
         videoWidth: video.videoWidth || 0,
         videoHeight: video.videoHeight || 0
       });
+      const projection = createOverlayProjection({
+        viewportWidth: containerWidth,
+        viewportHeight: containerHeight,
+        sourceWidth: video.videoWidth || 0,
+        sourceHeight: video.videoHeight || 0,
+        fitMode: "contain",
+        mirrored: false
+      });
 
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
+      // Draw in full viewport space; projection maps normalized landmarks into the rendered video rect.
+      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, { projection });
       ctx.save();
       ctx.translate(videoRect.offsetX, videoRect.offsetY);
-      // Intentionally draw only once in rendered video-space (not full canvas/device pixels)
-      // to avoid duplicate/ghost overlays on high-DPR screens.
-      drawPoseOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, frame);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
           modeLabel: activeJob.drillSelection.drillBinding.drillName,

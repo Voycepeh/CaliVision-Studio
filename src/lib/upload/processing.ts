@@ -3,6 +3,8 @@ import { buildReplayOverlaySamples, getOverlaySampleAtTime } from "@/lib/analysi
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import type { PoseTimeline } from "@/lib/upload/types";
+import { createOverlayProjection } from "@/lib/live/overlay-geometry";
+import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -35,10 +37,6 @@ const SEEK_TIMEOUT_MS = 8000;
 const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
-const EXPORT_STABLE_FPS = 15;
-const EXPORT_HIGH_FPS = 24;
-const EXPORT_MIN_FPS = 12;
-const EXPORT_MAX_FPS = EXPORT_HIGH_FPS;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
@@ -475,12 +473,24 @@ export async function exportAnnotatedVideo(
     throw new Error("2D canvas context unavailable for annotated export.");
   }
 
-  const durationMs = Math.max(1, Math.round(timeline.video.durationMs || (Number.isFinite(video.duration) ? video.duration * 1000 : 0)));
-  const timelineCadenceFps = Math.round(timeline.cadenceFps || EXPORT_STABLE_FPS);
-  const targetFps = timelineCadenceFps >= EXPORT_HIGH_FPS ? EXPORT_HIGH_FPS : EXPORT_STABLE_FPS;
-  const exportFps = Math.min(EXPORT_MAX_FPS, Math.max(EXPORT_MIN_FPS, targetFps));
-  const frameDurationMs = 1000 / exportFps;
-  const expectedFrameCount = Math.max(1, Math.floor(durationMs / frameDurationMs) + 1);
+  const mediaDurationMs = Number.isFinite(video.duration) ? Math.max(0, Math.round(video.duration * 1000)) : undefined;
+  let exportPlan: ReturnType<typeof resolveExportTimeline>;
+  try {
+    exportPlan = resolveExportTimeline(timeline, { mediaDurationMs });
+  } catch (error) {
+    logUploadEvent("ANNOTATED_EXPORT_REJECTED", {
+      reason: error instanceof Error ? error.message : String(error),
+      timelineDurationMs: timeline.video.durationMs,
+      mediaDurationMs,
+      timelineCadenceFps: timeline.cadenceFps
+    });
+    URL.revokeObjectURL(objectUrl);
+    throw error;
+  }
+  const durationMs = exportPlan.durationMs;
+  const exportFps = exportPlan.fps;
+  const frameDurationMs = exportPlan.frameDurationMs;
+  const expectedFrameCount = exportPlan.totalFrames;
   const stream = canvas.captureStream(exportFps);
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
   const recorder = new MediaRecorder(stream, { mimeType });
@@ -491,6 +501,14 @@ export async function exportAnnotatedVideo(
   const phaseLabels = options?.phaseLabels;
   const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
+  const exportProjection = createOverlayProjection({
+    viewportWidth: canvas.width,
+    viewportHeight: canvas.height,
+    sourceWidth: video.videoWidth,
+    sourceHeight: video.videoHeight,
+    fitMode: "contain",
+    mirrored: false
+  });
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
@@ -514,11 +532,13 @@ export async function exportAnnotatedVideo(
       : [];
 
   try {
-    options?.onProgress?.(0.02, "Preparing export…");
+    options?.onProgress?.(0.02, "Preparing export timeline");
     recorder.start();
     logUploadEvent("ANNOTATED_EXPORT_START", {
       sourceDurationMs: durationMs,
+      durationSource: exportPlan.durationSource,
       targetExportFps: exportFps,
+      fpsSource: exportPlan.fpsSource,
       expectedFrameCount,
       hasRequestFrame: Boolean(requestFrame)
     });
@@ -530,7 +550,7 @@ export async function exportAnnotatedVideo(
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         const frame = getNearestPoseFrame(sourceFrames, timestampMs);
-        drawPoseOverlay(ctx, canvas.width, canvas.height, frame);
+        drawPoseOverlay(ctx, canvas.width, canvas.height, frame, { projection: exportProjection });
         if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
           const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
           drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
@@ -558,7 +578,7 @@ export async function exportAnnotatedVideo(
         }
         options?.onProgress?.(
           0.05 + ((frameIndex + 1) / expectedFrameCount) * 0.87,
-          `Rendering frames (${frameIndex + 1}/${expectedFrameCount})…`
+          `Rendering frames ${frameIndex + 1}/${expectedFrameCount}`
         );
 
         const targetElapsedMs = (frameIndex + 1) * frameDurationMs;

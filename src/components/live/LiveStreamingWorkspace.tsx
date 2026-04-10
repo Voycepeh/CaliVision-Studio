@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { fitVideoCoverRect, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { buildDuplicateSafeDrillLabel, formatDrillSourceLabel, toDrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
@@ -367,16 +367,14 @@ export function LiveStreamingWorkspace() {
 
     const video = previewVideoRef.current;
     if (video?.videoWidth && video.videoHeight) {
-      const coverRect = fitVideoCoverRect({
-        containerWidth: resized.backingWidth,
-        containerHeight: resized.backingHeight,
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight
-      });
-      overlayProjectionRef.current = {
-        ...coverRect,
+      overlayProjectionRef.current = createOverlayProjection({
+        viewportWidth: resized.cssWidth,
+        viewportHeight: resized.cssHeight,
+        sourceWidth: video.videoWidth,
+        sourceHeight: video.videoHeight,
+        fitMode: "cover",
         mirrored: !isRearCamera
-      };
+      });
     }
     overlayNeedsResizeSyncRef.current = false;
   }, [isRearCamera]);
@@ -634,8 +632,8 @@ export function LiveStreamingWorkspace() {
           readyState: previewVideo.readyState,
           videoWidth: previewVideo.videoWidth,
           videoHeight: previewVideo.videoHeight,
-          containerWidth: Math.round((mediaContainerRef.current?.getBoundingClientRect().width ?? 0) * pixelRatio),
-          containerHeight: Math.round((mediaContainerRef.current?.getBoundingClientRect().height ?? 0) * pixelRatio),
+          containerWidth: Math.round(mediaContainerRef.current?.getBoundingClientRect().width ?? 0),
+          containerHeight: Math.round(mediaContainerRef.current?.getBoundingClientRect().height ?? 0),
           canvasWidth: canvas.width,
           canvasHeight: canvas.height
         })
