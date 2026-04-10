@@ -57,3 +57,33 @@ test("cameraView controls default joint subset used for scoring", () => {
     true
   );
 });
+
+test("side-view defaults remain profile-direction agnostic", () => {
+  const phases: PortablePhase[] = [
+    { phaseId: "down", order: 1, name: "Down", durationMs: 300, poseSequence: [makePose("down", 0.86)], assetRefs: [] },
+    { phaseId: "up", order: 2, name: "Up", durationMs: 300, poseSequence: [makePose("up", 0.2)], assetRefs: [] }
+  ];
+
+  const rightProfileFrame: PoseFrame = {
+    timestampMs: 0,
+    joints: {
+      nose: { x: 0.5, y: 0.2, confidence: 0.99 },
+      rightShoulder: { x: 0.6, y: 0.35, confidence: 0.99 },
+      rightElbow: { x: 0.65, y: 0.48, confidence: 0.99 },
+      rightWrist: { x: 0.67, y: 0.2, confidence: 0.99 },
+      rightHip: { x: 0.55, y: 0.68, confidence: 0.99 },
+      rightKnee: { x: 0.55, y: 0.82, confidence: 0.99 },
+      rightAnkle: { x: 0.55, y: 0.94, confidence: 0.99 },
+      leftShoulder: { x: 0.4, y: 0.35, confidence: 0.99 },
+      leftHip: { x: 0.45, y: 0.68, confidence: 0.99 }
+    }
+  };
+
+  const [sideScored] = scoreFramesAgainstDrillPhases([rightProfileFrame], phases, {
+    cameraView: "side",
+    includePerPhaseScores: true,
+    minimumScoreThreshold: 0
+  });
+
+  assert.equal((sideScored?.perPhaseScores.up ?? 0) > (sideScored?.perPhaseScores.down ?? 0), true);
+});

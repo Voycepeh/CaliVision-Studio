@@ -8,7 +8,7 @@ import type { DrillCameraView } from "./camera-view.ts";
 const DEFAULT_MIN_SCORE_THRESHOLD = 0.35;
 const DEFAULT_DISTANCE_TOLERANCE = 0.4;
 const FRONT_VIEW_JOINTS: CanonicalJointName[] = CANONICAL_JOINT_NAMES;
-const SIDE_VIEW_JOINTS: CanonicalJointName[] = [
+const SIDE_LEFT_PROFILE_JOINTS: CanonicalJointName[] = [
   "nose",
   "leftShoulder",
   "leftElbow",
@@ -18,6 +18,17 @@ const SIDE_VIEW_JOINTS: CanonicalJointName[] = [
   "leftAnkle",
   "rightShoulder",
   "rightHip"
+];
+const SIDE_RIGHT_PROFILE_JOINTS: CanonicalJointName[] = [
+  "nose",
+  "rightShoulder",
+  "rightElbow",
+  "rightWrist",
+  "rightHip",
+  "rightKnee",
+  "rightAnkle",
+  "leftShoulder",
+  "leftHip"
 ];
 
 export function scoreFramesAgainstDrillPhases(
@@ -90,7 +101,31 @@ function scoreFrameForTemplate(
   const hintOptional = phase.analysis?.matchHints?.optionalJoints ?? [];
   const preferredJoints = hintRequired.length > 0 || hintOptional.length > 0
     ? Array.from(new Set([...hintRequired, ...hintOptional]))
-    : getDefaultJointsForView(cameraView);
+    : null;
+
+  if (!preferredJoints) {
+    const defaultJointSets = getDefaultJointSetsForView(cameraView);
+    let bestDefaultScore = 0;
+    for (const jointSet of defaultJointSets) {
+      const candidateScore = computeTemplateScoreForJointSet(frame, phase, template, tolerance, jointSet, hintRequired);
+      if (candidateScore > bestDefaultScore) {
+        bestDefaultScore = candidateScore;
+      }
+    }
+    return bestDefaultScore;
+  }
+
+  return computeTemplateScoreForJointSet(frame, phase, template, tolerance, preferredJoints, hintRequired);
+}
+
+function computeTemplateScoreForJointSet(
+  frame: PoseFrame,
+  phase: PortablePhase,
+  template: NonNullable<PortablePhase["poseSequence"][number]>,
+  tolerance: number,
+  preferredJoints: CanonicalJointName[],
+  hintRequired: CanonicalJointName[]
+): number {
 
   let confidenceWeightedScoreTotal = 0;
   let contributing = 0;
@@ -139,12 +174,14 @@ function scoreFrameForTemplate(
   const discriminationPenalty = metrics.isMeaningfullyDissimilar
     ? Math.max(0.25, metrics.dissimilarityScore * 0.5)
     : metrics.dissimilarityScore * 0.3;
-
   return clamp01((confidenceScore - discriminationPenalty) * missingPenalty);
 }
 
-function getDefaultJointsForView(cameraView: DrillCameraView): CanonicalJointName[] {
-  return cameraView === "side" ? SIDE_VIEW_JOINTS : FRONT_VIEW_JOINTS;
+function getDefaultJointSetsForView(cameraView: DrillCameraView): CanonicalJointName[][] {
+  if (cameraView === "side") {
+    return [SIDE_LEFT_PROFILE_JOINTS, SIDE_RIGHT_PROFILE_JOINTS];
+  }
+  return [FRONT_VIEW_JOINTS];
 }
 
 function computeNormalizationDistance(frame: PoseFrame, template: NonNullable<PortablePhase["poseSequence"][number]>): number {
