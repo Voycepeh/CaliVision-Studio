@@ -972,9 +972,48 @@ main {
 }
 
 .drill-setup-shell-card {
-  border: 1px solid rgba(128, 157, 192, 0.36);
+  border: 1px solid rgba(128, 157, 192, 0.26);
   background: rgba(114, 168, 255, 0.06);
   margin: 0;
+}
+
+.drill-setup-header-card {
+  padding: 0.75rem 0.85rem;
+}
+
+.drill-setup-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.drill-setup-header-copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.drill-setup-header-title {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.drill-setup-header-description {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.drill-setup-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  flex: 0 1 auto;
 }
 
 .upload-workflow-action-card {

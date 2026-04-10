@@ -10,14 +10,14 @@ type DrillSetupHeaderProps = {
 
 export function DrillSetupHeader({ title, description, showReferencePanel, onToggleReferencePanel, actions }: DrillSetupHeaderProps) {
   return (
-    <div className="drill-setup-shell-card">
-      <div style={{ display: "grid", gap: "0.65rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
-          <strong style={{ fontSize: "0.95rem" }}>{title}</strong>
-          {actions}
+    <div className="drill-setup-shell-card drill-setup-header-card">
+      <div className="drill-setup-header-row">
+        <div className="drill-setup-header-copy">
+          <strong className="drill-setup-header-title">{title}</strong>
+          <p className="muted drill-setup-header-description">{description}</p>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
-          <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>{description}</p>
+        <div className="drill-setup-header-actions">
+          {actions}
           <button type="button" className="pill" onClick={onToggleReferencePanel} aria-expanded={showReferencePanel}>
             {showReferencePanel ? "Hide reference animation" : "Show reference animation"}
           </button>
