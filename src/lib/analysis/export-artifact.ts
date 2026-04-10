@@ -55,6 +55,13 @@ function stableSortEvents(events: AnalysisEvent[]): AnalysisEvent[] {
   });
 }
 
+function detectFormatFromUri(uri: string): string | undefined {
+  const normalized = uri.toLowerCase();
+  if (normalized.endsWith(".mp4")) return "mp4";
+  if (normalized.endsWith(".webm")) return "webm";
+  return undefined;
+}
+
 function stableSortFrameSamples(frameSamples: FramePhaseSample[]): FramePhaseSample[] {
   return [...frameSamples].sort((a, b) => a.timestampMs - b.timestampMs);
 }
@@ -101,7 +108,7 @@ export function createAnalysisSessionArtifact(
         ? {
             status: "generated",
             uri: session.annotatedVideoUri,
-            format: "webm"
+            format: detectFormatFromUri(session.annotatedVideoUri) ?? "unknown"
           }
         : {
             status: "not-generated"

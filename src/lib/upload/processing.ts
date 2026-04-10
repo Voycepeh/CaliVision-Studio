@@ -5,6 +5,7 @@ import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
+import { buildBrowserMediaCapabilities, extensionForVideoMimeType } from "@/lib/media/video-capabilities";
 import {
   buildDeterministicFrameSchedule,
   measureFramePacingStats,
@@ -192,13 +193,12 @@ async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; 
 }
 
 function pickNormalizationMimeType(): string {
-  const preferred = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
-  for (const candidate of preferred) {
-    if (MediaRecorder.isTypeSupported(candidate)) {
-      return candidate;
-    }
-  }
-  return "video/webm";
+  const capabilities = buildBrowserMediaCapabilities();
+  console.info(`${UPLOAD_DIAGNOSTICS_PREFIX} NORMALIZATION_CAPTURE_FORMAT_SELECTED`, {
+    captureMimeType: capabilities.capture.preferredMimeType,
+    processingMimeType: capabilities.processing.preferredMimeType
+  });
+  return capabilities.processing.preferredMimeType;
 }
 
 async function normalizeVideoForAnalysis(file: File, diagnostics: VideoDiagnostics, signal?: AbortSignal): Promise<File> {
@@ -272,7 +272,7 @@ async function normalizeVideoForAnalysis(file: File, diagnostics: VideoDiagnosti
       throw new Error("Video preprocessing failed: output file was empty.");
     }
 
-    const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+    const extension = extensionForVideoMimeType(mimeType);
     const stem = file.name.replace(/\.[^.]+$/, "");
     return new File([blob], `${stem}.analysis-normalized.${extension}`, {
       type: blob.type,
@@ -510,7 +510,9 @@ export async function exportAnnotatedVideo(
   const expectedFrameScheduleMs = buildDeterministicFrameSchedule(durationMs, exportFps);
   const expectedFrameCount = expectedFrameScheduleMs.length;
   const stream = canvas.captureStream(0);
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+  const capabilities = buildBrowserMediaCapabilities();
+  const mimeType = capabilities.capture.preferredMimeType;
+  console.info(`${UPLOAD_DIAGNOSTICS_PREFIX} ANNOTATED_EXPORT_FORMAT_SELECTED`, { captureFormat: capabilities.capture.preferredMimeType, deliveryPreference: capabilities.delivery.preferredFamily });
   const recorder = new MediaRecorder(stream, { mimeType });
   const [videoTrack] = stream.getVideoTracks();
   const requestFrame = videoTrack && "requestFrame" in videoTrack ? () => (videoTrack as CanvasCaptureMediaStreamTrack).requestFrame() : null;

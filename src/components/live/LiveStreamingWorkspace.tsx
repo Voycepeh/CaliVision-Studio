@@ -18,6 +18,7 @@ import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { buildBrowserMediaCapabilities, canPlayVideoMimeType, extensionForVideoMimeType, isUserFacingDeliveryAllowed } from "@/lib/media/video-capabilities";
 import {
   buildLiveResultsSummary,
   classifyCameraError,
@@ -129,6 +130,8 @@ export function LiveStreamingWorkspace() {
   const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
+  const [rawReplayMimeType, setRawReplayMimeType] = useState<string | null>(null);
+  const [annotatedReplayMimeType, setAnnotatedReplayMimeType] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
@@ -244,21 +247,35 @@ export function LiveStreamingWorkspace() {
 
   const summary = useMemo(() => (liveTrace ? buildLiveResultsSummary(liveTrace) : null), [liveTrace]);
   const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace) : []), [liveTrace]);
+  const mediaCapabilities = useMemo(() => buildBrowserMediaCapabilities(), []);
+  const canPlayRawReplay = canPlayVideoMimeType(rawReplayMimeType);
+  const canPlayAnnotatedReplay = canPlayVideoMimeType(annotatedReplayMimeType);
+  const canDeliverRawReplay = isUserFacingDeliveryAllowed(rawReplayMimeType);
+  const canDeliverAnnotatedReplay = isUserFacingDeliveryAllowed(annotatedReplayMimeType);
   const replayPreviewState = resolveUnifiedResultPreviewState({
-    hasRaw: Boolean(rawReplayUrl),
-    hasAnnotated: Boolean(annotatedReplayUrl),
+    hasRaw: Boolean(rawReplayUrl) && canPlayRawReplay,
+    hasAnnotated: Boolean(annotatedReplayUrl) && canPlayAnnotatedReplay,
     isProcessingAnnotated: replayState === "export-in-progress",
     annotatedFailed: replayState === "raw-fallback" || replayState === "export-failed",
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
   const replayUrl = replayPreviewState === "showing_annotated_completed" ? annotatedReplayUrl : rawReplayUrl;
-  const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl), hasAnnotated: Boolean(annotatedReplayUrl) });
+  const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl) && canDeliverRawReplay, hasAnnotated: Boolean(annotatedReplayUrl) && canDeliverAnnotatedReplay });
   const canToggleReplayPreview = canToggleCompletedPreview({
-    hasRaw: Boolean(rawReplayUrl),
-    hasAnnotated: Boolean(annotatedReplayUrl),
+    hasRaw: Boolean(rawReplayUrl) && canPlayRawReplay,
+    hasAnnotated: Boolean(annotatedReplayUrl) && canPlayAnnotatedReplay,
     isProcessingAnnotated: replayState === "export-in-progress"
   });
+  const replayCompatibilityMessage = useMemo(() => {
+    if (replayPreviewState === "showing_annotated_completed" && !canPlayAnnotatedReplay) {
+      return "Annotated replay is unavailable in this browser because this format is unsupported.";
+    }
+    if (replayPreviewState !== "showing_annotated_completed" && rawReplayUrl && !canPlayRawReplay) {
+      return "Raw replay is unavailable in this browser because this format is unsupported.";
+    }
+    return null;
+  }, [canPlayAnnotatedReplay, canPlayRawReplay, rawReplayUrl, replayPreviewState]);
   const replayTone = getReplayStateTone(replayState);
   const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
 
@@ -600,10 +617,12 @@ export function LiveStreamingWorkspace() {
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
       setAnnotatedReplayUrl(null);
+      setAnnotatedReplayMimeType(null);
     }
     if (rawReplayUrl) {
       URL.revokeObjectURL(rawReplayUrl);
       setRawReplayUrl(null);
+      setRawReplayMimeType(null);
     }
 
     await cleanupSession({ stopRecorder: true, discardRecording: true });
@@ -827,10 +846,12 @@ export function LiveStreamingWorkspace() {
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
       setAnnotatedReplayUrl(null);
+      setAnnotatedReplayMimeType(null);
     }
     if (rawReplayUrl) {
       URL.revokeObjectURL(rawReplayUrl);
       setRawReplayUrl(null);
+      setRawReplayMimeType(null);
     }
     setLiveTrace(null);
     setReplayState("idle");
@@ -893,6 +914,7 @@ export function LiveStreamingWorkspace() {
     setLiveTrace(trace);
     const rawUrl = URL.createObjectURL(raw.blob);
     setRawReplayUrl(rawUrl);
+    setRawReplayMimeType(raw.mimeType);
     setReplayState("export-in-progress");
     setReplayExportStageLabel("Preparing export…");
     setShowRawDuringProcessing(false);
@@ -901,7 +923,12 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayFailureDetails(null);
 
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
-    const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
+    const rawFile = new File([raw.blob], `${trace.traceId}.${extensionForVideoMimeType(raw.mimeType)}`, { type: raw.mimeType });
+    console.info("[media-capabilities] live-replay-format-selected", {
+      captureMimeType: raw.mimeType,
+      captureExtension: extensionForVideoMimeType(raw.mimeType),
+      deliveryPreference: mediaCapabilities.delivery.preferredFamily
+    });
 
     try {
       if (!traceFreshness.hasSufficientFreshness) {
@@ -919,6 +946,7 @@ export function LiveStreamingWorkspace() {
       });
       const annotatedUrl = URL.createObjectURL(annotated.blob);
       setAnnotatedReplayUrl(annotatedUrl);
+      setAnnotatedReplayMimeType(annotated.mimeType);
       setReplayExportStageLabel("Annotated export complete");
       setReplayState("annotated-ready");
     } catch (error) {
@@ -928,10 +956,11 @@ export function LiveStreamingWorkspace() {
       setReplayExportStageLabel("Annotated export failed");
       setAnnotatedReplayFailureMessage("Annotated video could not be generated. Your raw video is still available.");
       setAnnotatedReplayFailureDetails(message);
+      setAnnotatedReplayMimeType(null);
     }
 
     setStatus("completed");
-  }, [cleanupSession]);
+  }, [cleanupSession, mediaCapabilities.delivery.preferredFamily]);
 
   const showReferencePanel = isReferencePanelVisible || status !== "live-session-running";
 
@@ -1036,14 +1065,33 @@ export function LiveStreamingWorkspace() {
                     {status === "completed" ? (
                       <>
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
-                          <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.webm`)}>
+                          <button
+                            type="button"
+                            className="studio-button studio-button-primary"
+                            onClick={() =>
+                              triggerDownload(
+                                annotatedReplayUrl,
+                                `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionForVideoMimeType(annotatedReplayMimeType)}`
+                              )
+                            }
+                          >
                             Download annotated
                           </button>
                         ) : null}
+                        {!canDeliverAnnotatedReplay && annotatedReplayUrl ? (
+                          <span className="muted">Annotated download is unavailable because this export format is not Apple-safe.</span>
+                        ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
-                          <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.webm`)}>
+                          <button
+                            type="button"
+                            className="studio-button"
+                            onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionForVideoMimeType(rawReplayMimeType)}`)}
+                          >
                             Download raw
                           </button>
+                        ) : null}
+                        {!canDeliverRawReplay && rawReplayUrl ? (
+                          <span className="muted">Raw download is hidden because this browser cannot reliably play this format.</span>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
                           Retake
@@ -1143,6 +1191,7 @@ export function LiveStreamingWorkspace() {
             {(replayPreviewState === "showing_annotated_completed" || replayPreviewState === "showing_raw_completed" || replayPreviewState === "showing_raw_during_processing" || replayPreviewState === "annotated_failed_showing_raw") && replayUrl ? (
               <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} />
             ) : null}
+            {replayCompatibilityMessage ? <p className="muted">{replayCompatibilityMessage}</p> : null}
             {canToggleReplayPreview ? (
               <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
                 <button

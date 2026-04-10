@@ -2,6 +2,7 @@ import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import { formatCameraViewLabel } from "../analysis/camera-view.ts";
 import type { PoseTimeline } from "../upload/types.ts";
 import type { LiveSessionTrace } from "./types.ts";
+import { extensionForVideoMimeType } from "../media/video-capabilities.ts";
 
 export function buildTimelineFromLiveTrace(trace: LiveSessionTrace): PoseTimeline {
   return {
@@ -9,7 +10,7 @@ export function buildTimelineFromLiveTrace(trace: LiveSessionTrace): PoseTimelin
     detector: "mediapipe-pose-landmarker",
     cadenceFps: trace.cadenceFps,
     video: {
-      fileName: `${trace.traceId}.webm`,
+      fileName: `${trace.traceId}.${extensionForVideoMimeType(trace.video.mimeType)}`,
       width: trace.video.width,
       height: trace.video.height,
       durationMs: trace.video.durationMs,

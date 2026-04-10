@@ -1,10 +1,14 @@
+import { buildBrowserMediaCapabilities } from "../media/video-capabilities.ts";
+
 export type ActiveRecorder = {
   recorder: MediaRecorder;
+  captureMimeType: string;
   stop: (options?: { discard?: boolean }) => Promise<{ blob: Blob; mimeType: string } | null>;
 };
 
 export function createMediaRecorder(stream: MediaStream): ActiveRecorder {
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+  const capabilities = buildBrowserMediaCapabilities();
+  const mimeType = capabilities.capture.preferredMimeType;
   const recorder = new MediaRecorder(stream, { mimeType });
   const chunks: BlobPart[] = [];
 
@@ -15,9 +19,14 @@ export function createMediaRecorder(stream: MediaStream): ActiveRecorder {
   };
 
   recorder.start(200);
+  console.info("[media-capabilities] capture-format-selected", {
+    captureMimeType: mimeType,
+    captureExtension: capabilities.capture.preferredExtension
+  });
 
   return {
     recorder,
+    captureMimeType: mimeType,
     stop: (options) =>
       new Promise((resolve) => {
         if (recorder.state === "inactive") {

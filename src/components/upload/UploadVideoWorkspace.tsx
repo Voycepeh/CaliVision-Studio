@@ -18,6 +18,7 @@ import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { buildBrowserMediaCapabilities, canPlayVideoMimeType, extensionForVideoMimeType, isUserFacingDeliveryAllowed } from "@/lib/media/video-capabilities";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
@@ -499,7 +500,7 @@ export function UploadVideoWorkspace() {
             sourceId: nextJob.id,
             sourceLabel: nextJob.fileName,
             sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+            annotatedVideoUri: undefined
           })
         : null;
 
@@ -541,6 +542,18 @@ export function UploadVideoWorkspace() {
         }
       }
 
+      const finalizedSession = completedSession
+        ? {
+            ...completedSession,
+            annotatedVideoUri: annotated
+              ? createUploadSourceUri(
+                  nextJob.id,
+                  `${createArtifactBaseName(nextJob.fileName)}.annotated-video.${extensionForVideoMimeType(annotated.mimeType)}`
+                )
+              : undefined
+          }
+        : null;
+
       setActiveJob((current) =>
         current
           ? {
@@ -562,7 +575,7 @@ export function UploadVideoWorkspace() {
             }
           : current
       );
-      setActiveSession(completedSession);
+      setActiveSession(finalizedSession);
     } catch (error) {
       const cancelled = error instanceof DOMException && error.name === "AbortError";
       const message = error instanceof Error ? error.message : "Upload processing failed";
@@ -627,23 +640,55 @@ export function UploadVideoWorkspace() {
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
+  const mediaCapabilities = useMemo(() => buildBrowserMediaCapabilities(), []);
+  const rawMimeType = activeJob?.file.type ?? null;
+  const annotatedMimeType = activeJob?.artefacts?.annotatedVideoMimeType ?? null;
+  const canPlayRaw = canPlayVideoMimeType(rawMimeType);
+  const canPlayAnnotated = canPlayVideoMimeType(annotatedMimeType);
+  const canDeliverRaw = isUserFacingDeliveryAllowed(rawMimeType);
+  const canDeliverAnnotated = isUserFacingDeliveryAllowed(annotatedMimeType);
   const uploadPreviewState = resolveUnifiedResultPreviewState({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
+    hasRaw: Boolean(rawPreviewObjectUrl) && canPlayRaw,
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl) && canPlayAnnotated,
     isProcessingAnnotated: hasActiveUpload,
     annotatedFailed: Boolean(annotatedFailureDetails) && hasCompletedResult,
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
   const canToggleCompletedSurfaces = canToggleCompletedPreview({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
+    hasRaw: Boolean(rawPreviewObjectUrl) && canPlayRaw,
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl) && canPlayAnnotated,
     isProcessingAnnotated: hasActiveUpload
   });
   const downloadTargets = resolveAvailableDownloads({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl)
+    hasRaw: Boolean(rawPreviewObjectUrl) && canDeliverRaw,
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl) && canDeliverAnnotated
   });
+  const previewCompatibilityMessage = useMemo(() => {
+    if (!activeJob?.artefacts) {
+      return null;
+    }
+    if (uploadPreviewState === "showing_annotated_completed" && !canPlayAnnotated) {
+      return "Annotated video is not playable in this browser. Switch to raw preview or download a compatible export.";
+    }
+    if (uploadPreviewState !== "showing_annotated_completed" && !canPlayRaw) {
+      return "Raw video playback is not available in this browser for this format.";
+    }
+    return null;
+  }, [activeJob?.artefacts, canPlayAnnotated, canPlayRaw, uploadPreviewState]);
+  useEffect(() => {
+    if (!activeJob) return;
+    console.info("[media-capabilities] upload-delivery-selection", {
+      fileName: activeJob.fileName,
+      captureFormat: mediaCapabilities.capture.preferredMimeType,
+      rawMimeType,
+      annotatedMimeType,
+      canPlayRaw,
+      canPlayAnnotated,
+      canDeliverRaw,
+      canDeliverAnnotated
+    });
+  }, [activeJob, annotatedMimeType, canDeliverAnnotated, canDeliverRaw, canPlayAnnotated, canPlayRaw, mediaCapabilities.capture.preferredMimeType, rawMimeType]);
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
 
@@ -863,6 +908,11 @@ export function UploadVideoWorkspace() {
                 ) : null}
               </div>
               ) : null}
+              {previewCompatibilityMessage ? (
+                <div className="result-preview-warning" style={{ marginTop: "0.45rem" }}>
+                  <strong>{previewCompatibilityMessage}</strong>
+                </div>
+              ) : null}
               {canToggleCompletedSurfaces ? (
                 <div style={{ marginTop: "0.45rem", display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
                   <button
@@ -932,15 +982,26 @@ export function UploadVideoWorkspace() {
                   <button
                     type="button"
                     className="pill"
-                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
+                    onClick={() =>
+                      downloadBlob(
+                        activeJob.artefacts!.annotatedVideoBlob!,
+                        `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionForVideoMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`
+                      )
+                    }
                   >
                     Download Annotated Video
                   </button>
+                ) : null}
+                {!canDeliverAnnotated && Boolean(annotatedPreviewObjectUrl) ? (
+                  <span className="muted">Annotated download is unavailable in this browser because this export format is not Apple-safe.</span>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
                   <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)}>
                     Download Raw Video
                   </button>
+                ) : null}
+                {!canDeliverRaw && Boolean(rawPreviewObjectUrl) ? (
+                  <span className="muted">Raw download is hidden because this browser cannot reliably play this format.</span>
                 ) : null}
                 <button
                   type="button"

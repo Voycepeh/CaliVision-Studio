@@ -54,6 +54,7 @@ test("analysis artifact export contains summary, events, and pipeline metadata",
   assert.equal(artifact.frameSamples[0]?.timestampMs, 0);
   assert.equal(artifact.pipeline.pipelineVersion, "drill-analysis-pipeline-v1");
   assert.equal(artifact.pipeline.scorerVersion, "frame-phase-scorer-v1");
+  assert.equal(artifact.derivedMedia?.annotatedReplay?.format, "webm");
 });
 
 test("analysis artifact serialization/deserialization round-trip is parseable", () => {

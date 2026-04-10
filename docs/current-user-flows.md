@@ -29,7 +29,7 @@
 7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
 8. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
 9. Download outputs in this simplified order (shown once in UI):
-   - Annotated Video (`.webm`)
+   - Annotated Video (`.mp4` when supported, otherwise compatibility-gated fallback)
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
 10. Leave or refresh `/upload` to intentionally start fresh.
