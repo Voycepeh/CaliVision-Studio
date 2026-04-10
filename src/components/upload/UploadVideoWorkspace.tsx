@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
-import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
-import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
-import { fitVideoContainRect } from "@/lib/upload/video-layout";
-import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
@@ -21,6 +17,7 @@ import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreview
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
+import { resolveResultPreviewState } from "@/lib/video-result-preview";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -195,9 +192,11 @@ export function UploadVideoWorkspace() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [annotatedPreviewUrl, setAnnotatedPreviewUrl] = useState<string | null>(null);
+  const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
+  const [completedPreviewSelection, setCompletedPreviewSelection] = useState<"annotated" | "raw">("annotated");
+  const [annotatedExportFailed, setAnnotatedExportFailed] = useState(false);
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
@@ -335,78 +334,22 @@ export function UploadVideoWorkspace() {
   }, [activeJob]);
 
   useEffect(() => {
-    const video = previewVideoRef.current;
-    const canvas = previewCanvasRef.current;
-    const container = fullscreenContainerRef.current;
-    if (!video || !canvas || !container || !activeJob?.artefacts || !previewObjectUrl) {
+    if (!activeJob?.artefacts?.annotatedVideoBlob) {
+      setAnnotatedPreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return null;
+      });
       return;
     }
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const url = URL.createObjectURL(activeJob.artefacts.annotatedVideoBlob);
+    setAnnotatedPreviewUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return url;
+    });
 
-    let raf = 0;
-    const draw = () => {
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      const dpr = window.devicePixelRatio || 1;
-      const targetWidth = Math.max(1, Math.round(containerWidth * dpr));
-      const targetHeight = Math.max(1, Math.round(containerHeight * dpr));
-
-      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-      }
-
-      // Keep drawing in CSS pixels; the transform maps to device pixels for crisp overlay rendering.
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, containerWidth, containerHeight);
-
-      // Map normalized landmarks into the real rendered video rectangle (object-fit: contain),
-      // including pillar/letterbox offsets, so portrait overlays align with displayed video.
-      const videoRect = fitVideoContainRect({
-        containerWidth,
-        containerHeight,
-        videoWidth: video.videoWidth || 0,
-        videoHeight: video.videoHeight || 0
-      });
-      const projection = createOverlayProjection({
-        viewportWidth: containerWidth,
-        viewportHeight: containerHeight,
-        sourceWidth: video.videoWidth || 0,
-        sourceHeight: video.videoHeight || 0,
-        fitMode: "contain",
-        mirrored: false
-      });
-
-      const currentMs = video.currentTime * 1000;
-      const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
-      // Draw in full viewport space; projection maps normalized landmarks into the rendered video rect.
-      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, { projection });
-      ctx.save();
-      ctx.translate(videoRect.offsetX, videoRect.offsetY);
-      if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
-        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
-          modeLabel: activeJob.drillSelection.drillBinding.drillName,
-          showDrillMetrics: true,
-          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill),
-          phaseCount: activeJob.drillSelection.drill?.analysis
-            ? buildPhaseRuntimeModel(activeJob.drillSelection.drill, activeJob.drillSelection.drill.analysis).phaseCount
-            : activeJob.drillSelection.drill?.phases.length
-        });
-      } else {
-        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
-          modeLabel: "No drill · Freestyle overlay",
-          showDrillMetrics: false
-        });
-      }
-      ctx.restore();
-      raf = requestAnimationFrame(draw);
-    };
-
-    draw();
-    return () => cancelAnimationFrame(raf);
-  }, [activeJob, activeSession, previewObjectUrl]);
+    return () => URL.revokeObjectURL(url);
+  }, [activeJob?.artefacts?.annotatedVideoBlob]);
 
   const startSingleRun = useCallback(async (file: File) => {
     const metadata = await readVideoMetadata(file);
@@ -427,6 +370,9 @@ export function UploadVideoWorkspace() {
 
     setActiveSession(null);
     setIsReferencePanelVisible(false);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSelection("annotated");
+    setAnnotatedExportFailed(false);
     setActiveJob(nextJob);
 
     const controller = new AbortController();
@@ -478,33 +424,38 @@ export function UploadVideoWorkspace() {
           : nextJob.drillSelection.drill?.phases.length
       };
 
-      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
+      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
         annotated = await exportAnnotatedVideo(nextJob.file, timeline, overlayOptions);
       } catch (error) {
-        if (analysisSourceKind !== "normalized") {
-          throw error;
+        if (analysisSourceKind === "normalized") {
+          try {
+            console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+              fileName: nextJob.fileName,
+              reason: error instanceof Error ? error.message : "unknown"
+            });
+            annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
+          } catch {
+            annotated = null;
+          }
         }
-        console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
-          fileName: nextJob.fileName,
-          reason: error instanceof Error ? error.message : "unknown"
-        });
-        annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
       }
 
+      setAnnotatedExportFailed(!annotated);
+      setCompletedPreviewSelection(annotated ? "annotated" : "raw");
       setActiveJob((current) =>
         current
           ? {
               ...current,
               status: "completed",
               progress: 1,
-              stageLabel: "Completed",
+              stageLabel: annotated ? "Completed" : "Annotated video could not be generated. Raw video available.",
               completedAtIso: new Date().toISOString(),
               artefacts: {
                 poseTimeline: timeline,
                 processingSummary: buildAnalysisSummary(timeline),
-                annotatedVideoBlob: annotated.blob,
-                annotatedVideoMimeType: annotated.mimeType
+                annotatedVideoBlob: annotated?.blob,
+                annotatedVideoMimeType: annotated?.mimeType
               }
             }
           : current
@@ -553,6 +504,9 @@ export function UploadVideoWorkspace() {
     setActiveSession(null);
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSelection("annotated");
+    setAnnotatedExportFailed(false);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
       previewVideoRef.current.currentTime = 0;
@@ -573,6 +527,20 @@ export function UploadVideoWorkspace() {
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
+  const activeArtifacts = activeJob?.artefacts ?? null;
+  const uploadPreviewState = resolveResultPreviewState({
+    isAnnotatedProcessing: activeJob?.status === "processing",
+    hasAnnotatedAsset: Boolean(annotatedPreviewUrl),
+    hasRawAsset: Boolean(previewObjectUrl),
+    annotatedFailed: annotatedExportFailed,
+    showRawDuringProcessing,
+    completedSelection: completedPreviewSelection
+  });
+  const mainPreviewUrl = uploadPreviewState === "showing_annotated"
+    ? annotatedPreviewUrl
+    : uploadPreviewState === "showing_raw" || uploadPreviewState === "annotated_failed"
+      ? previewObjectUrl
+      : null;
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
@@ -744,88 +712,104 @@ export function UploadVideoWorkspace() {
             </article>
           ) : null}
 
-          {activeJob?.artefacts ? (
+          {activeJob && previewObjectUrl ? (
             <section className="card" style={{ margin: 0 }}>
               <h3 style={{ marginTop: 0 }}>Analysis result</h3>
-              <div
-                ref={fullscreenContainerRef}
-                style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
-              >
+              {uploadPreviewState === "processing_annotated" ? (
+                <div className="card" style={{ margin: 0, display: "grid", gap: "0.45rem", padding: "0.8rem" }}>
+                  <strong>Generating annotated video</strong>
+                  <p className="muted" style={{ margin: 0 }}>Processing is still in progress. You can preview the raw recording while this finishes.</p>
+                  <div>
+                    <button type="button" className="pill" onClick={() => setShowRawDuringProcessing(true)}>Show raw instead</button>
+                  </div>
+                </div>
+              ) : null}
+              {mainPreviewUrl ? (
                 <video
                   ref={previewVideoRef}
-                  src={previewObjectUrl ?? undefined}
+                  src={mainPreviewUrl}
                   controls
                   playsInline
                   disablePictureInPicture
                   controlsList="nofullscreen noremoteplayback"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
+                  style={{ width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", objectFit: "contain", background: "#020617" }}
                 />
-                <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
-              </div>
-              <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-                <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={async () => {
-                    if (!fullscreenContainerRef.current) return;
-                    if (document.fullscreenElement) {
-                      await document.exitFullscreen();
-                      return;
-                    }
-                    await fullscreenContainerRef.current.requestFullscreen();
-                  }}
-                >
-                  Overlay Fullscreen
-                </button>
-              </div>
+              ) : null}
 
-              {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
-                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                  <span className="pill">
-                    Phase: {(() => {
-                      const phaseId = activeSession.events.at(-1)?.phaseId;
-                      if (!phaseId) return "No phase detected";
-                      return activePhaseLabels[phaseId] ?? phaseId;
-                    })()}
-                  </span>
-                  <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
-                  <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
-                  <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
-                  <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
-                  <span className="pill">Result: {activeSession.status}</span>
+              {(annotatedPreviewUrl && previewObjectUrl && activeJob.status === "completed") ? (
+                <div style={{ display: "inline-flex", gap: "0.35rem", padding: "0.2rem", border: "1px solid var(--border)", borderRadius: "999px" }}>
+                  <button type="button" className="pill" style={{ opacity: completedPreviewSelection === "annotated" ? 1 : 0.7 }} onClick={() => setCompletedPreviewSelection("annotated")}>
+                    Annotated
+                  </button>
+                  <button type="button" className="pill" style={{ opacity: completedPreviewSelection === "raw" ? 1 : 0.7 }} onClick={() => setCompletedPreviewSelection("raw")}>
+                    Raw
+                  </button>
                 </div>
-              ) : (
-                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                  <span className="pill">Mode: No drill · Freestyle overlay</span>
-                  <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
-                </div>
-              )}
+              ) : null}
+
+              {uploadPreviewState === "annotated_failed" ? (
+                <p className="muted" style={{ margin: 0, color: "#f7d58b" }}>Annotated video could not be generated. Your raw video is still available.</p>
+              ) : null}
+
+              {activeArtifacts ? (
+                activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
+                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                    <span className="pill">
+                      Phase: {(() => {
+                        const phaseId = activeSession.events.at(-1)?.phaseId;
+                        if (!phaseId) return "No phase detected";
+                        return activePhaseLabels[phaseId] ?? phaseId;
+                      })()}
+                    </span>
+                    <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
+                    <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
+                    <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
+                    <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
+                    <span className="pill">Result: {activeSession.status}</span>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                    <span className="pill">Mode: No drill · Freestyle overlay</span>
+                    <span className="pill">Analyzed duration: {formatDuration(activeArtifacts.processingSummary.durationMs)}</span>
+                  </div>
+                )
+              ) : null}
 
               <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                {activeJob.artefacts.annotatedVideoBlob ? (
+                {activeArtifacts?.annotatedVideoBlob ? (
                   <button
                     type="button"
                     className="pill"
-                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
+                    onClick={() => downloadBlob(activeArtifacts.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
                   >
-                    Download Annotated Video
+                    Download annotated
                   </button>
                 ) : null}
                 <button
                   type="button"
                   className="pill"
-                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`)}
+                  onClick={() => downloadBlob(activeJob.file, `${createArtifactBaseName(activeJob.fileName)}.raw${activeJob.fileName.includes(".") ? activeJob.fileName.slice(activeJob.fileName.lastIndexOf(".")) : ".webm"}`)}
                 >
-                  Download Processing Summary (.json)
+                  Download raw
                 </button>
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`)}
-                >
-                  Download Pose Timeline (.json)
-                </button>
+                {activeArtifacts ? (
+                  <>
+                    <button
+                      type="button"
+                      className="pill"
+                      onClick={() => downloadBlob(new Blob([JSON.stringify(activeArtifacts.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`)}
+                    >
+                      Download Processing Summary (.json)
+                    </button>
+                    <button
+                      type="button"
+                      className="pill"
+                      onClick={() => downloadBlob(new Blob([JSON.stringify(activeArtifacts.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`)}
+                    >
+                      Download Pose Timeline (.json)
+                    </button>
+                  </>
+                ) : null}
               </div>
             </section>
       ) : null}

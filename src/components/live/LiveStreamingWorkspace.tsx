@@ -33,6 +33,7 @@ import {
   type ReplayTerminalState
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
+import { resolveResultPreviewState } from "@/lib/video-result-preview";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 10;
 const LIVE_OVERLAY_PRESENTATION_FPS = 30;
@@ -125,6 +126,8 @@ export function LiveStreamingWorkspace() {
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
+  const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
+  const [completedPreviewSelection, setCompletedPreviewSelection] = useState<"annotated" | "raw">("annotated");
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const trackingStatusRef = useRef<string>("Tracking ready");
@@ -223,7 +226,19 @@ export function LiveStreamingWorkspace() {
 
   const summary = useMemo(() => (liveTrace ? buildLiveResultsSummary(liveTrace) : null), [liveTrace]);
   const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace) : []), [liveTrace]);
-  const replayUrl = annotatedReplayUrl ?? rawReplayUrl;
+  const replayPreviewState = resolveResultPreviewState({
+    isAnnotatedProcessing: replayState === "export-in-progress",
+    hasAnnotatedAsset: Boolean(annotatedReplayUrl),
+    hasRawAsset: Boolean(rawReplayUrl),
+    annotatedFailed: replayState === "raw-fallback",
+    showRawDuringProcessing,
+    completedSelection: completedPreviewSelection
+  });
+  const replayPreviewUrl = replayPreviewState === "showing_annotated"
+    ? annotatedReplayUrl
+    : replayPreviewState === "showing_raw" || replayPreviewState === "annotated_failed"
+      ? rawReplayUrl
+      : null;
   const replayTone = getReplayStateTone(replayState);
   const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
 
@@ -773,6 +788,8 @@ export function LiveStreamingWorkspace() {
     setReplayState("idle");
     setReplayExportStageLabel(null);
     setSelectedMarkerId(null);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSelection("annotated");
     setErrorMessage(null);
   }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
 
@@ -826,6 +843,8 @@ export function LiveStreamingWorkspace() {
     setLiveTrace(trace);
     const rawUrl = URL.createObjectURL(raw.blob);
     setRawReplayUrl(rawUrl);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSelection("annotated");
     setReplayState("export-in-progress");
     setReplayExportStageLabel("Preparing export…");
 
@@ -849,13 +868,15 @@ export function LiveStreamingWorkspace() {
       const annotatedUrl = URL.createObjectURL(annotated.blob);
       setAnnotatedReplayUrl(annotatedUrl);
       setReplayExportStageLabel("Annotated export complete");
+      setCompletedPreviewSelection("annotated");
       setReplayState("annotated-ready");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Annotated replay generation failed.";
       console.error("[live-overlay] annotated export failed", { message });
+      setCompletedPreviewSelection("raw");
       setReplayState("raw-fallback");
       setReplayExportStageLabel("Annotated export failed");
-      setErrorMessage(`${message} Showing raw session recording fallback. Tracking may have been stale.`);
+      setErrorMessage("Annotated video could not be generated. Your raw video is still available.");
     }
 
     setStatus("completed");
@@ -953,15 +974,6 @@ export function LiveStreamingWorkspace() {
           ) : null}
           {status === "completed" ? (
             <>
-              {replayUrl ? (
-                <button
-                  type="button"
-                  className="studio-button studio-button-primary"
-                  onClick={() => triggerDownload(replayUrl, `${liveTrace?.traceId ?? "live-session"}-${annotatedReplayUrl ? "annotated" : "raw"}.webm`)}
-                >
-                  Save replay
-                </button>
-              ) : null}
               <button type="button" className="studio-button" onClick={() => void startSession()}>
                 Retake
               </button>
@@ -1035,7 +1047,62 @@ export function LiveStreamingWorkspace() {
               </div>
             </div>
 
-            {replayUrl ? <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} /> : null}
+            {replayPreviewState === "processing_annotated" ? (
+              <div className="card" style={{ margin: 0, display: "grid", gap: "0.4rem", padding: "0.8rem" }}>
+                <strong>Generating annotated video</strong>
+                <p className="muted" style={{ margin: 0 }}>Processing is still in progress. You can preview the raw recording while this finishes.</p>
+                <div>
+                  <button type="button" className="studio-button" onClick={() => setShowRawDuringProcessing(true)}>
+                    Show raw instead
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {replayPreviewUrl ? <video controls src={replayPreviewUrl} style={{ width: "100%", borderRadius: "0.8rem" }} /> : null}
+
+            {(annotatedReplayUrl && rawReplayUrl && replayState !== "export-in-progress") ? (
+              <div style={{ display: "inline-flex", gap: "0.35rem", padding: "0.2rem", border: "1px solid var(--border)", borderRadius: "999px" }}>
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ opacity: completedPreviewSelection === "annotated" ? 1 : 0.7 }}
+                  onClick={() => setCompletedPreviewSelection("annotated")}
+                >
+                  Annotated
+                </button>
+                <button
+                  type="button"
+                  className="pill"
+                  style={{ opacity: completedPreviewSelection === "raw" ? 1 : 0.7 }}
+                  onClick={() => setCompletedPreviewSelection("raw")}
+                >
+                  Raw
+                </button>
+              </div>
+            ) : null}
+
+            {(annotatedReplayUrl || rawReplayUrl) ? (
+              <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+                {annotatedReplayUrl ? (
+                  <button
+                    type="button"
+                    className="studio-button studio-button-primary"
+                    onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.webm`)}
+                  >
+                    Download annotated
+                  </button>
+                ) : null}
+                {rawReplayUrl ? (
+                  <button
+                    type="button"
+                    className="studio-button"
+                    onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.webm`)}
+                  >
+                    Download raw
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             <section style={{ display: "grid", gap: "0.45rem" }}>
               <strong>Timeline</strong>

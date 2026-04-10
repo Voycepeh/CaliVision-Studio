@@ -104,8 +104,8 @@ export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace): LiveTime
 
 export function getReplayStateMessage(state: ReplayTerminalState): string {
   if (state === "annotated-ready") return "Annotated replay ready";
-  if (state === "raw-fallback") return "Annotated replay failed. Showing raw recording fallback";
-  if (state === "export-in-progress") return "Exporting annotated replay…";
+  if (state === "raw-fallback") return "Annotated video could not be generated. Your raw video is still available.";
+  if (state === "export-in-progress") return "Generating annotated video";
   if (state === "export-failed") return "Replay export failed";
   return "No replay available yet";
 }

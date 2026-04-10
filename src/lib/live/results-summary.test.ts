@@ -79,9 +79,9 @@ test("mapLiveTraceToTimelineMarkers includes rep/hold/phase events in order", ()
 });
 
 test("getReplayStateMessage returns truthful fallback message", () => {
-  assert.equal(getReplayStateMessage("export-in-progress"), "Exporting annotated replay…");
+  assert.equal(getReplayStateMessage("export-in-progress"), "Generating annotated video");
   assert.equal(getReplayStateMessage("annotated-ready"), "Annotated replay ready");
-  assert.equal(getReplayStateMessage("raw-fallback"), "Annotated replay failed. Showing raw recording fallback");
+  assert.equal(getReplayStateMessage("raw-fallback"), "Annotated video could not be generated. Your raw video is still available.");
 });
 
 test("buildLiveResultsSummary guards invalid duration math", () => {
