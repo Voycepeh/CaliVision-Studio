@@ -5,6 +5,7 @@ import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
+import { buildDeterministicFrameSchedule, measureFramePacingStats } from "@/lib/upload/export-frame-pacing";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -39,6 +40,12 @@ const MIN_TIMESTAMP_STEP_MS = 1;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
+
+type VideoFrameMetadata = {
+  mediaTime?: number;
+};
+
+type RequestVideoFrameCallback = (callback: (_now: number, metadata: VideoFrameMetadata) => void) => number;
 
 function logUploadEvent(event: string, payload?: Record<string, unknown>): void {
   if (payload) {
@@ -489,15 +496,21 @@ export async function exportAnnotatedVideo(
   }
   const durationMs = exportPlan.durationMs;
   const exportFps = exportPlan.fps;
-  const frameDurationMs = exportPlan.frameDurationMs;
-  const expectedFrameCount = exportPlan.totalFrames;
-  const stream = canvas.captureStream(exportFps);
+  const expectedFrameScheduleMs = buildDeterministicFrameSchedule(durationMs, exportFps);
+  const expectedFrameCount = expectedFrameScheduleMs.length;
+  const stream = canvas.captureStream(0);
   const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
   const recorder = new MediaRecorder(stream, { mimeType });
   const [videoTrack] = stream.getVideoTracks();
   const requestFrame = videoTrack && "requestFrame" in videoTrack ? () => (videoTrack as CanvasCaptureMediaStreamTrack).requestFrame() : null;
   const chunks: BlobPart[] = [];
   let actualRenderedFrameCount = 0;
+  const renderedTimestampsMs: number[] = [];
+  const sampledSourceFrameIndices: number[] = [];
+  let sourceFrameDeltaCount = 0;
+  let sourceFrameDeltaSumMs = 0;
+  let previousSourceMediaTimeMs: number | null = null;
+  let inferredSourceFps: number | null = null;
   const phaseLabels = options?.phaseLabels;
   const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
@@ -542,50 +555,119 @@ export async function exportAnnotatedVideo(
       expectedFrameCount,
       hasRequestFrame: Boolean(requestFrame)
     });
+
+    const renderFrameAtTimestamp = (timestampMs: number, sourceMediaTimeMs?: number) => {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const frame = getNearestPoseFrame(sourceFrames, timestampMs);
+      drawPoseOverlay(ctx, canvas.width, canvas.height, frame, { projection: exportProjection });
+      if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
+        const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
+        drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
+          modeLabel: options.overlayModeLabel,
+          showDrillMetrics: options.includeDrillMetrics,
+          phaseLabels,
+          phaseCount
+        });
+      } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
+        drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
+          modeLabel: options.overlayModeLabel,
+          showDrillMetrics: false
+        });
+      }
+
+      requestFrame?.();
+      actualRenderedFrameCount += 1;
+      renderedTimestampsMs.push(timestampMs);
+      const sourceTimestampMs = sourceMediaTimeMs ?? timestampMs;
+      sampledSourceFrameIndices.push(Math.max(0, Math.round((sourceTimestampMs / 1000) * exportFps)));
+    };
+
     try {
-      const exportStartedAtMs = performance.now();
-      for (let frameIndex = 0; frameIndex < expectedFrameCount; frameIndex += 1) {
-        const timestampMs = Math.min(durationMs, Math.round(frameIndex * frameDurationMs));
-        await seekVideo(video, timestampMs / 1000);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const hasVideoFrameCallback = typeof video.requestVideoFrameCallback === "function";
+      let usedSourceFrameCallback = false;
+      if (hasVideoFrameCallback) {
+        let scheduleIndex = 0;
+        video.currentTime = 0;
+        try {
+          await video.play();
+          usedSourceFrameCallback = true;
+          const requestSourceFrame = video.requestVideoFrameCallback.bind(video) as RequestVideoFrameCallback;
 
-        const frame = getNearestPoseFrame(sourceFrames, timestampMs);
-        drawPoseOverlay(ctx, canvas.width, canvas.height, frame, { projection: exportProjection });
-        if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
-          const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
-          drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {
-            modeLabel: options.overlayModeLabel,
-            showDrillMetrics: options.includeDrillMetrics,
-            phaseLabels,
-            phaseCount
+          await new Promise<void>((resolve) => {
+            const onComplete = () => {
+              while (scheduleIndex < expectedFrameScheduleMs.length) {
+                renderFrameAtTimestamp(expectedFrameScheduleMs[scheduleIndex], previousSourceMediaTimeMs ?? durationMs);
+                scheduleIndex += 1;
+              }
+              resolve();
+            };
+
+            const processSourceFrame = (_now: number, metadata: VideoFrameMetadata) => {
+              const sourceMediaTimeMs = Math.max(0, Math.round((metadata.mediaTime ?? video.currentTime) * 1000));
+              if (previousSourceMediaTimeMs !== null && sourceMediaTimeMs > previousSourceMediaTimeMs) {
+                sourceFrameDeltaCount += 1;
+                sourceFrameDeltaSumMs += sourceMediaTimeMs - previousSourceMediaTimeMs;
+              }
+              previousSourceMediaTimeMs = sourceMediaTimeMs;
+
+              while (scheduleIndex < expectedFrameScheduleMs.length && expectedFrameScheduleMs[scheduleIndex] <= sourceMediaTimeMs) {
+                renderFrameAtTimestamp(expectedFrameScheduleMs[scheduleIndex], sourceMediaTimeMs);
+                if (
+                  scheduleIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 ||
+                  scheduleIndex === expectedFrameCount - 1
+                ) {
+                  logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
+                    frameIndex: scheduleIndex + 1,
+                    expectedFrameCount,
+                    timestampMs: expectedFrameScheduleMs[scheduleIndex]
+                  });
+                }
+                options?.onProgress?.(
+                  0.05 + ((scheduleIndex + 1) / expectedFrameCount) * 0.87,
+                  `Rendering frames ${scheduleIndex + 1}/${expectedFrameCount}`
+                );
+                scheduleIndex += 1;
+              }
+
+              if (scheduleIndex >= expectedFrameScheduleMs.length || video.ended) {
+                onComplete();
+                return;
+              }
+              requestSourceFrame(processSourceFrame);
+            };
+
+            video.addEventListener("ended", onComplete, { once: true });
+            requestSourceFrame(processSourceFrame);
           });
-        } else if (options?.includeAnalysisOverlay !== false && options?.overlayModeLabel) {
-          drawAnalysisOverlay(ctx, canvas.width, canvas.height, null, {
-            modeLabel: options.overlayModeLabel,
-            showDrillMetrics: false
+        } catch (error) {
+          logUploadEvent("ANNOTATED_EXPORT_SOURCE_CALLBACK_FALLBACK", {
+            reason: error instanceof Error ? error.message : String(error)
           });
+        } finally {
+          video.pause();
         }
+      } else {
+        logUploadEvent("ANNOTATED_EXPORT_SOURCE_CALLBACK_UNAVAILABLE");
+      }
 
-        requestFrame?.();
-        actualRenderedFrameCount += 1;
+      if (!usedSourceFrameCallback) {
+        for (let frameIndex = 0; frameIndex < expectedFrameCount; frameIndex += 1) {
+          const timestampMs = expectedFrameScheduleMs[frameIndex];
+          await seekVideo(video, timestampMs / 1000);
+          renderFrameAtTimestamp(timestampMs);
 
-        if (frameIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 || frameIndex === expectedFrameCount - 1) {
-          logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
-            frameIndex: frameIndex + 1,
-            expectedFrameCount,
-            timestampMs
-          });
-        }
-        options?.onProgress?.(
-          0.05 + ((frameIndex + 1) / expectedFrameCount) * 0.87,
-          `Rendering frames ${frameIndex + 1}/${expectedFrameCount}`
-        );
-
-        const targetElapsedMs = (frameIndex + 1) * frameDurationMs;
-        const renderElapsedMs = performance.now() - exportStartedAtMs;
-        const pacingDelayMs = Math.max(0, targetElapsedMs - renderElapsedMs);
-        if (pacingDelayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, pacingDelayMs));
+          if (frameIndex % Math.max(1, Math.floor(expectedFrameCount / 12)) === 0 || frameIndex === expectedFrameCount - 1) {
+            logUploadEvent("ANNOTATED_EXPORT_FRAME_PROGRESS", {
+              frameIndex: frameIndex + 1,
+              expectedFrameCount,
+              timestampMs
+            });
+          }
+          options?.onProgress?.(
+            0.05 + ((frameIndex + 1) / expectedFrameCount) * 0.87,
+            `Rendering frames ${frameIndex + 1}/${expectedFrameCount}`
+          );
         }
       }
     } catch (error) {
@@ -608,11 +690,21 @@ export async function exportAnnotatedVideo(
       throw new Error("Annotated export failed: recorder produced an empty file.");
     }
 
+    inferredSourceFps =
+      sourceFrameDeltaCount > 0 && sourceFrameDeltaSumMs > 0 ? Math.round((1000 / (sourceFrameDeltaSumMs / sourceFrameDeltaCount)) * 100) / 100 : null;
+    const pacingStats = measureFramePacingStats(renderedTimestampsMs, sampledSourceFrameIndices);
+
     logUploadEvent("ANNOTATED_EXPORT_SUMMARY", {
       sourceDurationMs: durationMs,
+      sourceVideoFps: inferredSourceFps ?? "unknown",
       targetExportFps: exportFps,
       expectedFrameCount,
       actualRenderedFrameCount,
+      encodedFrameCountEstimate: actualRenderedFrameCount,
+      exportDurationMs: durationMs,
+      averageFrameDeltaMs: Math.round(pacingStats.averageFrameDeltaMs * 100) / 100,
+      duplicatedFrames: pacingStats.duplicatedFrames,
+      skippedFrames: pacingStats.skippedSourceFrames,
       actualRecorderMimeType: recorder.mimeType || mimeType
     });
     if (actualRenderedFrameCount > expectedFrameCount + EXPORT_FRAME_OVERRUN_TOLERANCE) {
