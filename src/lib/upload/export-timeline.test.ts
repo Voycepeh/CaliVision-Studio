@@ -29,8 +29,8 @@ function buildTimeline(overrides?: Partial<PoseTimeline>): PoseTimeline {
 test("resolveExportTimeline handles normal duration/fps", () => {
   const resolved = resolveExportTimeline(buildTimeline());
   assert.equal(resolved.durationMs, 5000);
-  assert.equal(resolved.fps, 15);
-  assert.equal(resolved.totalFrames, 76);
+  assert.equal(resolved.fps, 30);
+  assert.equal(resolved.totalFrames, 151);
   assert.equal(resolved.durationSource, "timeline-metadata");
 });
 
@@ -52,10 +52,10 @@ test("resolveExportTimeline rejects invalid duration sources", () => {
   assert.throws(() => resolveExportTimeline(timeline), /no finite duration/);
 });
 
-test("resolveExportTimeline uses default fps when cadence is invalid", () => {
+test("resolveExportTimeline uses fixed target fps regardless of timeline cadence", () => {
   const resolved = resolveExportTimeline(buildTimeline({ cadenceFps: 0 }));
-  assert.equal(resolved.fps, 15);
-  assert.equal(resolved.fpsSource, "default");
+  assert.equal(resolved.fps, 30);
+  assert.equal(resolved.fpsSource, "fixed-target");
 });
 
 test("resolveExportTimeline guarantees finite totalFrames", () => {

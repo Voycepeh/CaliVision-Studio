@@ -6,13 +6,10 @@ export type ExportTimelineResolution = {
   frameDurationMs: number;
   totalFrames: number;
   durationSource: "timeline-metadata" | "trace-frames" | "media-metadata";
-  fpsSource: "timeline-cadence" | "default";
+  fpsSource: "fixed-target";
 };
 
-const EXPORT_STABLE_FPS = 15;
-const EXPORT_HIGH_FPS = 24;
-const EXPORT_MIN_FPS = 12;
-const EXPORT_MAX_FPS = EXPORT_HIGH_FPS;
+const EXPORT_TARGET_FPS = 30;
 
 function isFinitePositive(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -33,16 +30,8 @@ function resolveDurationMs(timeline: PoseTimeline, mediaDurationMs?: number): { 
   return null;
 }
 
-function resolveExportFps(cadenceFps: unknown): { value: number; source: ExportTimelineResolution["fpsSource"] } {
-  if (isFinitePositive(cadenceFps)) {
-    const cadenceRounded = Math.round(cadenceFps);
-    const targetFps = cadenceRounded >= EXPORT_HIGH_FPS ? EXPORT_HIGH_FPS : EXPORT_STABLE_FPS;
-    return {
-      value: Math.min(EXPORT_MAX_FPS, Math.max(EXPORT_MIN_FPS, targetFps)),
-      source: "timeline-cadence"
-    };
-  }
-  return { value: EXPORT_STABLE_FPS, source: "default" };
+function resolveExportFps(): { value: number; source: ExportTimelineResolution["fpsSource"] } {
+  return { value: EXPORT_TARGET_FPS, source: "fixed-target" };
 }
 
 export function resolveExportTimeline(
@@ -54,7 +43,7 @@ export function resolveExportTimeline(
     throw new Error("Annotated export rejected: no finite duration available from timeline metadata, retained trace frames, or media metadata.");
   }
 
-  const fps = resolveExportFps(timeline.cadenceFps);
+  const fps = resolveExportFps();
   const frameDurationMs = 1000 / fps.value;
   if (!Number.isFinite(frameDurationMs) || frameDurationMs <= 0) {
     throw new Error(`Annotated export rejected: invalid frame interval derived from fps=${String(fps.value)}.`);
