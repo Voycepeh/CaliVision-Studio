@@ -16,6 +16,7 @@ import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCame
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
+import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
@@ -197,7 +198,11 @@ export function UploadVideoWorkspace() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
-  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
+  const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
+  const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
+  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
+  const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
   const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
@@ -316,21 +321,37 @@ export function UploadVideoWorkspace() {
 
   useEffect(() => {
     if (!activeJob) {
-      setPreviewObjectUrl((previous) => {
+      setRawPreviewObjectUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return null;
+      });
+      setAnnotatedPreviewObjectUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
         return null;
       });
       return;
     }
 
-    const url = URL.createObjectURL(activeJob.file);
-    setPreviewObjectUrl((previous) => {
+    const rawUrl = URL.createObjectURL(activeJob.file);
+    setRawPreviewObjectUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
-      return url;
+      return rawUrl;
     });
+    if (activeJob.artefacts?.annotatedVideoBlob) {
+      const annotatedUrl = URL.createObjectURL(activeJob.artefacts.annotatedVideoBlob);
+      setAnnotatedPreviewObjectUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return annotatedUrl;
+      });
+    } else {
+      setAnnotatedPreviewObjectUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return null;
+      });
+    }
 
     return () => {
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(rawUrl);
     };
   }, [activeJob]);
 
@@ -338,7 +359,7 @@ export function UploadVideoWorkspace() {
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
     const container = fullscreenContainerRef.current;
-    if (!video || !canvas || !container || !activeJob?.artefacts || !previewObjectUrl) {
+    if (!video || !canvas || !container || !activeJob?.artefacts || !rawPreviewObjectUrl) {
       return;
     }
 
@@ -406,7 +427,7 @@ export function UploadVideoWorkspace() {
 
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [activeJob, activeSession, previewObjectUrl]);
+  }, [activeJob, activeSession, rawPreviewObjectUrl]);
 
   const startSingleRun = useCallback(async (file: File) => {
     const metadata = await readVideoMetadata(file);
@@ -427,6 +448,9 @@ export function UploadVideoWorkspace() {
 
     setActiveSession(null);
     setIsReferencePanelVisible(false);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSurface("annotated");
+    setAnnotatedFailureDetails(null);
     setActiveJob(nextJob);
 
     const controller = new AbortController();
@@ -479,18 +503,23 @@ export function UploadVideoWorkspace() {
           : nextJob.drillSelection.drill?.phases.length
       };
 
-      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>>;
+      let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
         annotated = await exportAnnotatedVideo(nextJob.file, timeline, overlayOptions);
       } catch (error) {
-        if (analysisSourceKind !== "normalized") {
-          throw error;
+        if (analysisSourceKind === "normalized") {
+          console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+            fileName: nextJob.fileName,
+            reason: error instanceof Error ? error.message : "unknown"
+          });
+          try {
+            annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
+          } catch (normalizedError) {
+            setAnnotatedFailureDetails(normalizedError instanceof Error ? normalizedError.message : "Annotated export failed");
+          }
+        } else {
+          setAnnotatedFailureDetails(error instanceof Error ? error.message : "Annotated export failed");
         }
-        console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
-          fileName: nextJob.fileName,
-          reason: error instanceof Error ? error.message : "unknown"
-        });
-        annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
       }
 
       setActiveJob((current) =>
@@ -504,8 +533,12 @@ export function UploadVideoWorkspace() {
               artefacts: {
                 poseTimeline: timeline,
                 processingSummary: buildAnalysisSummary(timeline),
-                annotatedVideoBlob: annotated.blob,
-                annotatedVideoMimeType: annotated.mimeType
+                ...(annotated
+                  ? {
+                      annotatedVideoBlob: annotated.blob,
+                      annotatedVideoMimeType: annotated.mimeType
+                    }
+                  : {})
               }
             }
           : current
@@ -554,6 +587,9 @@ export function UploadVideoWorkspace() {
     setActiveSession(null);
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
+    setShowRawDuringProcessing(false);
+    setCompletedPreviewSurface("annotated");
+    setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
       previewVideoRef.current.currentTime = 0;
@@ -572,6 +608,23 @@ export function UploadVideoWorkspace() {
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
+  const uploadPreviewState = resolveUnifiedResultPreviewState({
+    hasRaw: Boolean(rawPreviewObjectUrl),
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
+    isProcessingAnnotated: hasActiveUpload,
+    annotatedFailed: Boolean(annotatedFailureDetails) && hasCompletedResult,
+    userRequestedRawDuringProcessing: showRawDuringProcessing,
+    preferredCompletedSurface: completedPreviewSurface
+  });
+  const canToggleCompletedSurfaces = canToggleCompletedPreview({
+    hasRaw: Boolean(rawPreviewObjectUrl),
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
+    isProcessingAnnotated: hasActiveUpload
+  });
+  const downloadTargets = resolveAvailableDownloads({
+    hasRaw: Boolean(rawPreviewObjectUrl),
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl)
+  });
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
 
@@ -750,24 +803,67 @@ export function UploadVideoWorkspace() {
             </article>
           ) : null}
 
-          {activeJob?.artefacts ? (
+          {activeJob ? (
             <section className="card" style={{ margin: 0 }}>
               <h3 style={{ marginTop: 0 }}>Analysis result</h3>
+              {uploadPreviewState === "processing_annotated" ? (
+                <div className="result-preview-processing">
+                  <strong>Generating annotated video</strong>
+                  <p className="muted">You can preview the raw recording while this finishes.</p>
+                  <progress max={1} value={activeJob.progress} style={{ width: "100%" }} />
+                  <button type="button" className="pill" onClick={() => setShowRawDuringProcessing(true)}>Show raw instead</button>
+                </div>
+              ) : null}
+              {uploadPreviewState === "annotated_failed_showing_raw" ? (
+                <div className="result-preview-warning">
+                  <strong>Annotated video could not be generated. Your raw video is still available.</strong>
+                  {annotatedFailureDetails ? (
+                    <details style={{ marginTop: "0.3rem" }}>
+                      <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
+                      <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{annotatedFailureDetails}</pre>
+                    </details>
+                  ) : null}
+                </div>
+              ) : null}
+              {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_annotated_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? (
               <div
                 ref={fullscreenContainerRef}
                 style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
               >
                 <video
                   ref={previewVideoRef}
-                  src={previewObjectUrl ?? undefined}
+                  src={(uploadPreviewState === "showing_annotated_completed" ? annotatedPreviewObjectUrl : rawPreviewObjectUrl) ?? undefined}
                   controls
                   playsInline
                   disablePictureInPicture
                   controlsList="nofullscreen noremoteplayback"
                   style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
                 />
-                <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
+                {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? (
+                  <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
+                ) : null}
               </div>
+              ) : null}
+              {canToggleCompletedSurfaces ? (
+                <div style={{ marginTop: "0.45rem", display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
+                  <button
+                    type="button"
+                    className="studio-button"
+                    style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "annotated" ? "var(--accent-soft)" : "transparent" }}
+                    onClick={() => setCompletedPreviewSurface("annotated")}
+                  >
+                    Annotated
+                  </button>
+                  <button
+                    type="button"
+                    className="studio-button"
+                    style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "raw" ? "var(--accent-soft)" : "transparent" }}
+                    onClick={() => setCompletedPreviewSurface("raw")}
+                  >
+                    Raw
+                  </button>
+                </div>
+              ) : null}
               <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
                 <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
                 <button
@@ -786,7 +882,7 @@ export function UploadVideoWorkspace() {
                 </button>
               </div>
 
-              {activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
+              {activeJob.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
                   <span className="pill">
                     Phase: {(() => {
@@ -804,21 +900,27 @@ export function UploadVideoWorkspace() {
                   ) : null}
                   <span className="pill">Result: {activeSession.status}</span>
                 </div>
-              ) : (
+              ) : activeJob.artefacts ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
                   <span className="pill">Mode: No drill · Freestyle overlay</span>
                   <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
                 </div>
-              )}
+              ) : null}
 
-              <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                {activeJob.artefacts.annotatedVideoBlob ? (
+              {activeJob.artefacts ? (
+                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                {downloadTargets.includes("annotated") ? (
                   <button
                     type="button"
                     className="pill"
                     onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
                   >
                     Download Annotated Video
+                  </button>
+                ) : null}
+                {downloadTargets.includes("raw") ? (
+                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)}>
+                    Download Raw Video
                   </button>
                 ) : null}
                 <button
@@ -836,6 +938,7 @@ export function UploadVideoWorkspace() {
                   Download Pose Timeline (.json)
                 </button>
               </div>
+              ) : null}
             </section>
       ) : null}
 

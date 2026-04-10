@@ -1115,6 +1115,21 @@ main {
   opacity: 1;
 }
 
+.result-preview-processing,
+.result-preview-warning {
+  border: 1px solid var(--border);
+  background: rgba(114, 168, 255, 0.08);
+  border-radius: 0.75rem;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.result-preview-warning {
+  background: rgba(247, 213, 139, 0.08);
+  border-color: rgba(247, 213, 139, 0.45);
+}
+
 @media (max-width: 980px) {
   .drill-setup-layout {
     grid-template-columns: 1fr;
