@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
@@ -38,6 +39,7 @@ import {
   type ReplayTerminalState
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
+import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 10;
 const LIVE_OVERLAY_PRESENTATION_FPS = 30;
@@ -52,6 +54,7 @@ const LIVE_POSE_STALE_HOLD_MS = 420;
 const LIVE_POSE_STALE_WARNING_MS = 1_200;
 const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
 const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
+const LIVE_SELECTED_DRILL_STORAGE_KEY = "live.selected-drill";
 
 type LiveCadenceStats = {
   renderFrames: number;
@@ -121,6 +124,7 @@ function triggerDownload(url: string, fileName: string) {
 }
 
 export function LiveStreamingWorkspace() {
+  const searchParams = useSearchParams();
   const { session, isConfigured } = useAuth();
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -141,6 +145,7 @@ export function LiveStreamingWorkspace() {
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
+  const requestedDrillKey = searchParams.get("drillKey");
   const trackingStatusRef = useRef<string>("Tracking ready");
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -323,8 +328,11 @@ export function LiveStreamingWorkspace() {
     }
 
     setDrillOptions(options);
-    setSelectedKey((current) => resolveSelectedDrillKey(options, current) ?? FREESTYLE_KEY);
-  }, [isConfigured, session]);
+    setSelectedKey((current) => {
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem(LIVE_SELECTED_DRILL_STORAGE_KEY) : null;
+      return resolveSelectedDrillKey(options, requestedDrillKey ?? current, stored) ?? FREESTYLE_KEY;
+    });
+  }, [isConfigured, requestedDrillKey, session]);
 
   useEffect(() => {
     void refreshDrillOptions();
@@ -347,6 +355,20 @@ export function LiveStreamingWorkspace() {
       facingMode: isRearCamera ? "rear" : "front"
     });
   }, [isRearCamera]);
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (selectedKey === FREESTYLE_KEY) {
+      clearActiveDrillContext();
+      return;
+    }
+    window.localStorage.setItem(LIVE_SELECTED_DRILL_STORAGE_KEY, selectedKey);
+    const matching = drillOptions.find((option) => option.key === selectedKey);
+    if (!matching?.sourceId) {
+      return;
+    }
+    setActiveDrillContext({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId });
+  }, [drillOptions, selectedKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

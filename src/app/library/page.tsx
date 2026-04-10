@@ -5,7 +5,7 @@ export default function LibraryPage() {
   return (
     <RoutePageIntro
       title="Library"
-      description="Manage My drills with one unified library, per-version status, and version history foundations."
+      description="Select a drill and jump straight into Live Coach, Upload Video, or Studio editing from one primary workflow hub."
       navActive="library"
     >
       <LibraryOverview />
