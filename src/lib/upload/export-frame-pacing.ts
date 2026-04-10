@@ -123,6 +123,16 @@ export function buildEmissionPlanFromSourceTimes(
     }
   }
 
+  if (scheduleIndex < scheduleMs.length) {
+    const finalSelection = selectLatestEligibleScheduledFrame(scheduleMs, scheduleIndex, sourceDurationMs);
+    scheduleIndex = finalSelection.nextScheduleIndex;
+    skippedScheduledFrames += finalSelection.skippedScheduledFrames;
+    if (finalSelection.renderScheduleIndex !== null) {
+      renderedScheduleIndices.push(finalSelection.renderScheduleIndex);
+      renderedTimestampsMs.push(scheduleMs[finalSelection.renderScheduleIndex]);
+    }
+  }
+
   return {
     renderedScheduleIndices,
     renderedTimestampsMs,

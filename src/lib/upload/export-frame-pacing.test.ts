@@ -61,3 +61,13 @@ test("buildEmissionPlanFromSourceTimes does not emit post-end frames for stale t
   assert.equal(Math.abs(32_000 - lastTimestampMs) <= 34, true);
   assert.equal(plan.renderedTimestampsMs.filter((timestampMs) => timestampMs === lastTimestampMs).length, 1);
 });
+
+test("buildEmissionPlanFromSourceTimes flushes final frame when last callback is before duration", () => {
+  const schedule = buildDeterministicFrameSchedule(31_400, 30);
+  const sourceTimes = [0, 33, 66, 1000, 9000, 20_000, 31_233];
+
+  const plan = buildEmissionPlanFromSourceTimes(schedule, sourceTimes, 31_400);
+  const lastTimestampMs = plan.renderedTimestampsMs.at(-1) ?? 0;
+  assert.equal(lastTimestampMs <= 31_400, true);
+  assert.equal(Math.abs(31_400 - lastTimestampMs) <= 34, true);
+});
