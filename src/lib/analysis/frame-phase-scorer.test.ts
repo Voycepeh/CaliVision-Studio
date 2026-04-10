@@ -175,3 +175,57 @@ test("valid short upload-style sequence does not collapse to all-null classifica
   assert.equal(results[0]?.bestPhaseId, "down");
   assert.equal(results.at(-1)?.bestPhaseId, "up");
 });
+
+test("portrait runtime vs landscape-authored template preserves phase match after normalized scoring", () => {
+  const upPhasePose = makePose("up_landscape", 0.2);
+  const downPhasePose = makePose("down_landscape", 0.86);
+  upPhasePose.canvas.widthRef = 16;
+  upPhasePose.canvas.heightRef = 9;
+  downPhasePose.canvas.widthRef = 16;
+  downPhasePose.canvas.heightRef = 9;
+
+  const phases: PortablePhase[] = [
+    { phaseId: "down", order: 1, name: "Down", durationMs: 300, poseSequence: [downPhasePose], assetRefs: [] },
+    { phaseId: "up", order: 2, name: "Up", durationMs: 300, poseSequence: [upPhasePose], assetRefs: [] }
+  ];
+
+  const portraitUpFrame = makeFrameFromPose(upPhasePose, { timestampMs: 0, noise: 0.01, confidence: 0.9 });
+  portraitUpFrame.frameWidth = 720;
+  portraitUpFrame.frameHeight = 1280;
+  const [result] = scoreFramesAgainstDrillPhases([portraitUpFrame], phases, {
+    cameraView: "front",
+    includePerPhaseScores: true,
+    minimumScoreThreshold: 0
+  });
+  assert.equal(result?.bestPhaseId, "up");
+});
+
+test("mirrored front-camera input aligns with authored template for phase scoring", () => {
+  const upPhasePose = makePose("up", 0.2);
+  const phases: PortablePhase[] = [
+    { phaseId: "up", order: 1, name: "Up", durationMs: 300, poseSequence: [upPhasePose], assetRefs: [] }
+  ];
+  const mirroredFrame = makeFrameFromPose(upPhasePose, { noise: 0.01, confidence: 0.91 });
+  mirroredFrame.mirrored = true;
+  for (const jointName of Object.keys(mirroredFrame.joints)) {
+    const key = jointName as keyof PoseFrame["joints"];
+    const joint = mirroredFrame.joints[key];
+    if (!joint) continue;
+    mirroredFrame.joints[key] = { ...joint, x: 1 - joint.x };
+  }
+  const [result] = scoreFramesAgainstDrillPhases([mirroredFrame], phases, { cameraView: "front", minimumScoreThreshold: 0 });
+  assert.equal(result?.bestPhaseId, "up");
+});
+
+test("arm-raise y deltas remain large after normalization", () => {
+  const up = makePose("up", 0.2);
+  const down = makePose("down", 0.86);
+  const phases: PortablePhase[] = [
+    { phaseId: "down", order: 1, name: "Down", durationMs: 300, poseSequence: [down], assetRefs: [] },
+    { phaseId: "up", order: 2, name: "Up", durationMs: 300, poseSequence: [up], assetRefs: [] }
+  ];
+  const [result] = scoreFramesAgainstDrillPhases([makeFrameFromPose(up, { confidence: 0.9 })], phases, { cameraView: "front", includePerPhaseScores: true });
+  const downDelta = result?.debug?.phaseComparisons.down?.perJointDelta.rightWrist ?? 0;
+  const upDelta = result?.debug?.phaseComparisons.up?.perJointDelta.rightWrist ?? 1;
+  assert.equal(downDelta > upDelta * 2, true);
+});

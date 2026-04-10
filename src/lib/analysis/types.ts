@@ -8,6 +8,7 @@ import type {
 } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { DrillCameraView } from "./camera-view.ts";
+import type { PoseNormalizationDebug } from "./pose-normalization.ts";
 
 export type AnalysisFrameQuality = {
   missingRequiredJoints: CanonicalJointName[];
@@ -20,7 +21,21 @@ export type FramePhaseScore = {
   bestPhaseId: string | null;
   bestPhaseScore: number;
   perPhaseScores: Record<string, number>;
+  debug?: FramePhaseScoreDebug;
   quality: AnalysisFrameQuality;
+};
+
+export type FramePhaseScoreDebug = {
+  cameraView: DrillCameraView;
+  jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
+  mirrorApplied: boolean;
+  runtimeNormalization: PoseNormalizationDebug;
+  phaseComparisons: Record<string, {
+    templateNormalization: PoseNormalizationDebug;
+    perJointDelta: Partial<Record<CanonicalJointName, number>>;
+    rawScore: number;
+    adjustedScore: number;
+  }>;
 };
 
 export type SmoothedPhaseFrame = {

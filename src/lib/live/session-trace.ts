@@ -187,7 +187,8 @@ export function createLiveTraceAccumulator(input: {
       timestampMs: frame.timestampMs,
       confidence: score?.bestPhaseScore ?? 0,
       classifiedPhaseId: score?.bestPhaseId ?? undefined,
-      perPhaseScores: score?.perPhaseScores
+      perPhaseScores: score?.perPhaseScores,
+      scoringDebug: score?.debug
     };
   };
 
