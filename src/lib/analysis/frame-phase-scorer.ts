@@ -1,5 +1,6 @@
 import { CANONICAL_JOINT_NAMES } from "../pose/canonical.ts";
-import type { PortablePhase } from "../schema/contracts.ts";
+import { compareNormalizedJoints, winnerHasClearMargin } from "./pose-comparison.ts";
+import type { CanonicalJointName, PortablePhase } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { FramePhaseScore, ScorerOptions } from "./types.ts";
 
@@ -18,17 +19,22 @@ export function scoreFramesAgainstDrillPhases(
     const perPhaseScores: Record<string, number> = {};
     let bestPhaseId: string | null = null;
     let bestPhaseScore = 0;
+    let secondBestPhaseScore = 0;
 
     for (const phase of phases) {
       const score = scoreFrameForPhase(frame, phase, tolerance);
       perPhaseScores[phase.phaseId] = score;
       if (score > bestPhaseScore) {
+        secondBestPhaseScore = bestPhaseScore;
         bestPhaseScore = score;
         bestPhaseId = phase.phaseId;
+      } else if (score > secondBestPhaseScore) {
+        secondBestPhaseScore = score;
       }
     }
 
-    const chosenPhaseId = bestPhaseScore >= minimumScoreThreshold ? bestPhaseId : null;
+    const clearWinner = winnerHasClearMargin(bestPhaseScore, secondBestPhaseScore);
+    const chosenPhaseId = bestPhaseScore >= minimumScoreThreshold && clearWinner ? bestPhaseId : null;
     const phaseForQuality = phases.find((phase) => phase.phaseId === chosenPhaseId);
     const quality = buildQualityFlags(frame, phaseForQuality);
 
@@ -72,7 +78,7 @@ function scoreFrameForTemplate(
     ? Array.from(new Set([...hintRequired, ...hintOptional]))
     : CANONICAL_JOINT_NAMES;
 
-  let scoreTotal = 0;
+  let confidenceWeightedScoreTotal = 0;
   let contributing = 0;
   let requiredMissing = 0;
   const norm = computeNormalizationDistance(frame, template);
@@ -91,7 +97,7 @@ function scoreFrameForTemplate(
     const distance = Math.hypot(observed.x - target.x, observed.y - target.y) / norm;
     const distanceScore = clamp01(1 - distance / tolerance);
     const confidence = clamp01(observed.confidence ?? 1);
-    scoreTotal += distanceScore * confidence;
+    confidenceWeightedScoreTotal += distanceScore * confidence;
     contributing += 1;
   }
 
@@ -99,8 +105,28 @@ function scoreFrameForTemplate(
     return 0;
   }
 
+  const confidenceByJoint = preferredJoints.reduce<Partial<Record<CanonicalJointName, number>>>((acc, jointName) => {
+    const observedConfidence = frame.joints[jointName]?.confidence;
+    if (Number.isFinite(observedConfidence)) {
+      acc[jointName] = observedConfidence as number;
+    }
+    return acc;
+  }, {});
+
+  const metrics = compareNormalizedJoints(frame.joints, template.joints, {
+    jointNames: preferredJoints,
+    normalizationDistance: norm,
+    tolerance,
+    confidenceByJoint
+  });
+
   const missingPenalty = hintRequired.length === 0 ? 1 : clamp01(1 - requiredMissing / hintRequired.length);
-  return clamp01((scoreTotal / contributing) * missingPenalty);
+  const confidenceScore = clamp01(confidenceWeightedScoreTotal / contributing);
+  const discriminationPenalty = metrics.isMeaningfullyDissimilar
+    ? Math.max(0.25, metrics.dissimilarityScore * 0.5)
+    : metrics.dissimilarityScore * 0.3;
+
+  return clamp01((confidenceScore - discriminationPenalty) * missingPenalty);
 }
 
 function computeNormalizationDistance(frame: PoseFrame, template: NonNullable<PortablePhase["poseSequence"][number]>): number {
