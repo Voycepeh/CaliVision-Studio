@@ -63,3 +63,17 @@ test("resolveExportTimeline guarantees finite totalFrames", () => {
   assert.equal(Number.isFinite(resolved.totalFrames), true);
   assert.equal(resolved.totalFrames > 0, true);
 });
+
+test("resolveExportTimeline keeps 30-32 second clips aligned to source duration", () => {
+  const resolved = resolveExportTimeline(
+    buildTimeline({
+      video: {
+        ...buildTimeline().video,
+        durationMs: 31_400
+      }
+    })
+  );
+  assert.equal(resolved.durationMs, 31_400);
+  assert.equal(resolved.fps, 30);
+  assert.equal(resolved.totalFrames, 942);
+});

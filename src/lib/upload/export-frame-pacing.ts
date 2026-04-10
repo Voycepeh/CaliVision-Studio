@@ -10,6 +10,12 @@ export type SourceFrameSelection = {
   skippedScheduledFrames: number;
 };
 
+export type EmissionPlan = {
+  renderedScheduleIndices: number[];
+  renderedTimestampsMs: number[];
+  skippedScheduledFrames: number;
+};
+
 export function buildDeterministicFrameSchedule(durationMs: number, fps: number): number[] {
   if (!Number.isFinite(durationMs) || durationMs <= 0) {
     throw new Error("Export frame schedule rejected: duration must be a finite positive number.");
@@ -90,5 +96,36 @@ export function selectLatestEligibleScheduledFrame(
     nextScheduleIndex: latestEligibleIndex + 1,
     renderScheduleIndex: latestEligibleIndex,
     skippedScheduledFrames: Math.max(0, latestEligibleIndex - startIndex)
+  };
+}
+
+export function buildEmissionPlanFromSourceTimes(
+  scheduleMs: number[],
+  sourceMediaTimesMs: number[],
+  sourceDurationMs: number
+): EmissionPlan {
+  const renderedScheduleIndices: number[] = [];
+  const renderedTimestampsMs: number[] = [];
+  let scheduleIndex = 0;
+  let skippedScheduledFrames = 0;
+
+  for (const rawTime of sourceMediaTimesMs) {
+    if (scheduleIndex >= scheduleMs.length) {
+      break;
+    }
+    const clampedTime = Math.max(0, Math.min(sourceDurationMs, rawTime));
+    const selection = selectLatestEligibleScheduledFrame(scheduleMs, scheduleIndex, clampedTime);
+    scheduleIndex = selection.nextScheduleIndex;
+    skippedScheduledFrames += selection.skippedScheduledFrames;
+    if (selection.renderScheduleIndex !== null) {
+      renderedScheduleIndices.push(selection.renderScheduleIndex);
+      renderedTimestampsMs.push(scheduleMs[selection.renderScheduleIndex]);
+    }
+  }
+
+  return {
+    renderedScheduleIndices,
+    renderedTimestampsMs,
+    skippedScheduledFrames
   };
 }
