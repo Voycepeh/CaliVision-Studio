@@ -35,6 +35,7 @@ function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
         phases: []
       },
       drillVersion: "sample-v1",
+      cameraView: "side",
       drillBinding: {
         drillId: "drill-1",
         drillName: "Drill 1",

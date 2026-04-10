@@ -1,12 +1,11 @@
 import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, getPreviewJointRole } from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
+import type { ResolvedDrillCameraView } from "@/lib/drill-camera-view";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import type { PoseFrame } from "@/lib/upload/types";
 
-const CONNECTIONS = getPreviewConnections("front");
-const VISIBLE_JOINTS = new Set(getPreviewJointNames("front"));
 const UPLOAD_OVERLAY_STYLE = {
   skeletonBase: PREVIEW_OVERLAY_STYLE.skeletonBase,
   nose: PREVIEW_OVERLAY_STYLE.nose,
@@ -28,11 +27,15 @@ export function drawPoseOverlay(
   width: number,
   height: number,
   frame?: PoseFrame,
-  options?: { projection?: OverlayProjection }
+  options?: { projection?: OverlayProjection; cameraView?: ResolvedDrillCameraView }
 ): void {
   if (!frame) {
     return;
   }
+
+  const cameraView = options?.cameraView ?? "front";
+  const visibleJoints = new Set(getPreviewJointNames(cameraView));
+  const connections = getPreviewConnections(cameraView);
 
   ctx.save();
   ctx.lineCap = "round";
@@ -40,7 +43,7 @@ export function drawPoseOverlay(
   ctx.lineWidth = Math.max(1, (width / 1280) * UPLOAD_OVERLAY_STYLE.skeletonStrokeWidth);
   ctx.strokeStyle = UPLOAD_OVERLAY_STYLE.skeletonBase;
 
-  for (const connection of CONNECTIONS) {
+  for (const connection of connections) {
     const from = frame.joints[connection.from as CanonicalJointName];
     const to = frame.joints[connection.to as CanonicalJointName];
     if (!from || !to) {
@@ -59,7 +62,7 @@ export function drawPoseOverlay(
     if (!point) {
       continue;
     }
-    if (!VISIBLE_JOINTS.has(jointName as CanonicalJointName)) {
+    if (!visibleJoints.has(jointName as CanonicalJointName)) {
       continue;
     }
     const role = getPreviewJointRole(jointName as CanonicalJointName);

@@ -15,6 +15,7 @@ import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/up
 import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
+import { formatCameraViewLabel, resolveDrillCameraView } from "@/lib/drill-camera-view";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
@@ -379,7 +380,10 @@ export function UploadVideoWorkspace() {
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
       // Draw in full viewport space; projection maps normalized landmarks into the rendered video rect.
-      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, { projection });
+      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, {
+        projection,
+        cameraView: activeJob.drillSelection.cameraView
+      });
       ctx.save();
       ctx.translate(videoRect.offsetX, videoRect.offsetY);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
@@ -422,6 +426,17 @@ export function UploadVideoWorkspace() {
       drillSelection: createUploadJobDrillSelection({ selectedDrill })
     };
 
+    if (selectedDrill?.drill) {
+      const resolved = resolveDrillCameraView(selectedDrill.drill);
+      if (resolved.warning && process.env.NODE_ENV !== "production") {
+        console.warn("[upload-analysis]", resolved.warning, {
+          drillId: selectedDrill.drill.drillId,
+          resolvedView: resolved.cameraView,
+          source: resolved.source
+        });
+      }
+    }
+
     setActiveSession(null);
     setIsReferencePanelVisible(false);
     setActiveJob(nextJob);
@@ -452,7 +467,8 @@ export function UploadVideoWorkspace() {
             sourceId: nextJob.id,
             sourceLabel: nextJob.fileName,
             sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`),
+            resolvedCameraView: nextJob.drillSelection.cameraView
           })
         : null;
 
@@ -716,6 +732,9 @@ export function UploadVideoWorkspace() {
                   </p>
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>
                     Mode: {activeJob.drillSelection.drillBinding.drillName} ({formatDrillBindingSource(activeJob.drillSelection.drillBinding.sourceKind)})
+                  </p>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                    Camera View: {formatCameraViewLabel(activeJob.drillSelection.cameraView)}
                   </p>
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
                   {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}

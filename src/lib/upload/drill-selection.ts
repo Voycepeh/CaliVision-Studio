@@ -1,4 +1,5 @@
-import type { PortableDrill } from "@/lib/schema/contracts";
+import { resolveDrillCameraView } from "../drill-camera-view.ts";
+import type { PortableDrill } from "../schema/contracts.ts";
 
 export function resolveSelectedDrillKey(options: Array<{ key: string }>, currentKey?: string | null, storedKey?: string | null): string | null {
   const preferred = currentKey ?? storedKey ?? options[0]?.key ?? null;
@@ -20,6 +21,7 @@ export function createUploadJobDrillSelection(input: {
   if (!input.selectedDrill) {
     return {
       mode: "freestyle" as const,
+      cameraView: "front" as const,
       drillVersion: undefined,
       drillBinding: {
         drillName: "No drill (Freestyle overlay)",
@@ -31,8 +33,10 @@ export function createUploadJobDrillSelection(input: {
 
   const drill = input.selectedDrill.drill;
   const drillVersion = input.selectedDrill.packageVersion;
+  const resolvedView = resolveDrillCameraView(drill);
   return {
     mode: "drill" as const,
+    cameraView: resolvedView.cameraView,
     drill,
     drillVersion,
     drillBinding: {

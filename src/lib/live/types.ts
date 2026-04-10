@@ -1,4 +1,5 @@
 import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableDrill } from "../schema/contracts.ts";
+import type { ResolvedDrillCameraView } from "../drill-camera-view.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { ReplayOverlayState } from "../analysis/replay-state.ts";
 import type { PoseFrame, PoseTimeline } from "../upload/types.ts";
@@ -20,6 +21,7 @@ export type LiveDrillSelection = {
   drillBindingLabel: string;
   drillBindingSource: "freestyle" | "local" | "hosted";
   sourceId?: string;
+  cameraView: ResolvedDrillCameraView;
 };
 
 export type LiveTraceCapture = {

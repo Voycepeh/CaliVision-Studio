@@ -24,6 +24,7 @@ test("trace retention captures rep and hold events with timestamps", () => {
     startedAtIso: "2026-04-08T00:00:00.000Z",
     drillSelection: {
       mode: "drill",
+      cameraView: "side",
       drill: drill as never,
       drillBindingLabel: drill.title,
       drillBindingSource: "local"
@@ -42,6 +43,7 @@ test("trace retention captures rep and hold events with timestamps", () => {
   assert.equal(finalized.captures.length, 6);
   assert.ok(finalized.events.some((event) => event.type === "phase_enter"));
   assert.ok((finalized.summary.repCount ?? 0) >= 1);
+  assert.equal(finalized.drillSelection.cameraView, "side");
 });
 
 test("trace timestamps can be normalized to finalized video duration for export alignment", () => {
@@ -73,6 +75,7 @@ test("phase transitions require confirmation and ignore confidence gate jitter",
     startedAtIso: "2026-04-08T00:00:00.000Z",
     drillSelection: {
       mode: "drill",
+      cameraView: "side",
       drill: drill as never,
       drillBindingLabel: drill.title,
       drillBindingSource: "local"
@@ -111,6 +114,7 @@ test("analyzed frame state keeps pose and overlay synchronized by timestamp", ()
     startedAtIso: "2026-04-08T00:00:00.000Z",
     drillSelection: {
       mode: "drill",
+      cameraView: "side",
       drill: drill as never,
       drillBindingLabel: drill.title,
       drillBindingSource: "local"

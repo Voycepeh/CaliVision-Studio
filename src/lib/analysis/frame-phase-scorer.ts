@@ -1,5 +1,6 @@
 import { CANONICAL_JOINT_NAMES } from "../pose/canonical.ts";
-import type { PortablePhase } from "../schema/contracts.ts";
+import { getPreviewJointNames } from "../pose/preview-overlay.ts";
+import type { CanonicalJointName, PortablePhase } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { FramePhaseScore, ScorerOptions } from "./types.ts";
 
@@ -13,6 +14,7 @@ export function scoreFramesAgainstDrillPhases(
 ): FramePhaseScore[] {
   const minimumScoreThreshold = options.minimumScoreThreshold ?? DEFAULT_MIN_SCORE_THRESHOLD;
   const tolerance = options.defaultTolerance ?? DEFAULT_DISTANCE_TOLERANCE;
+  const defaultJointSubset = options.cameraView ? getPreviewJointNames(options.cameraView) : CANONICAL_JOINT_NAMES;
 
   return sampledFrames.map((frame) => {
     const perPhaseScores: Record<string, number> = {};
@@ -20,7 +22,7 @@ export function scoreFramesAgainstDrillPhases(
     let bestPhaseScore = 0;
 
     for (const phase of phases) {
-      const score = scoreFrameForPhase(frame, phase, tolerance);
+      const score = scoreFrameForPhase(frame, phase, tolerance, defaultJointSubset);
       perPhaseScores[phase.phaseId] = score;
       if (score > bestPhaseScore) {
         bestPhaseScore = score;
@@ -42,7 +44,7 @@ export function scoreFramesAgainstDrillPhases(
   });
 }
 
-function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: number): number {
+function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: number, defaultJointSubset: CanonicalJointName[]): number {
   if (phase.poseSequence.length === 0) {
     return 0;
   }
@@ -51,7 +53,7 @@ function scoreFrameForPhase(frame: PoseFrame, phase: PortablePhase, tolerance: n
   // TODO: evolve toward sequence-aware intra-phase progression scoring.
   let bestTemplateScore = 0;
   for (const template of phase.poseSequence) {
-    const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance);
+    const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance, defaultJointSubset);
     if (templateScore > bestTemplateScore) {
       bestTemplateScore = templateScore;
     }
@@ -64,13 +66,14 @@ function scoreFrameForTemplate(
   frame: PoseFrame,
   phase: PortablePhase,
   template: NonNullable<PortablePhase["poseSequence"][number]>,
-  tolerance: number
+  tolerance: number,
+  defaultJointSubset: CanonicalJointName[]
 ): number {
   const hintRequired = phase.analysis?.matchHints?.requiredJoints ?? [];
   const hintOptional = phase.analysis?.matchHints?.optionalJoints ?? [];
   const preferredJoints = hintRequired.length > 0 || hintOptional.length > 0
     ? Array.from(new Set([...hintRequired, ...hintOptional]))
-    : CANONICAL_JOINT_NAMES;
+    : defaultJointSubset;
 
   let scoreTotal = 0;
   let contributing = 0;

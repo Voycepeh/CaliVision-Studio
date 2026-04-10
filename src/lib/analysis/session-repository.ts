@@ -1,4 +1,5 @@
 import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableAnalysisMeasurementType } from "../schema/contracts.ts";
+import type { ResolvedDrillCameraView } from "../drill-camera-view.ts";
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
 export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
@@ -74,6 +75,7 @@ export type AnalysisSessionRecord = {
       legacyOrderMismatchDetails?: string[];
       modeSummary?: string;
       lastRepCompleted?: number | null;
+      cameraView?: ResolvedDrillCameraView;
     };
   };
   drillBinding?: AnalysisSessionDrillBinding;

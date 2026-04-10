@@ -146,6 +146,7 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
   assert.equal(built.status, "completed");
   assert.deepEqual(built.debug?.runtimeDiagnostics?.expectedPhaseOrder, ["1. Top", "2. Bottom", "1. Top"]);
   assert.equal(typeof built.debug?.runtimeDiagnostics?.modeSummary, "string");
+  assert.equal(built.debug?.runtimeDiagnostics?.cameraView, "side");
   assert.equal(built.debug?.runtimeDiagnostics?.allowedTransitions.includes("2. Bottom -> 1. Top"), true);
   assert.equal((await repository.listRecentSessions()).length, 0);
 });
@@ -225,4 +226,18 @@ test("completed upload with zero analyzed duration is persisted as partial", asy
   assert.equal(session.frameSamples.length > 0, true);
   assert.equal(session.summary.analyzedDurationMs, 0);
   assert.equal(session.status, "partial");
+});
+
+
+test("buildCompletedUploadAnalysisSession resolves front camera view from drill metadata", () => {
+  const drill = buildDrill() as unknown as { primaryView: string };
+  drill.primaryView = "FRONT";
+
+  const built = buildCompletedUploadAnalysisSession({
+    drill: drill as never,
+    timeline: createTimeline(),
+    sourceId: "upload-front-view"
+  });
+
+  assert.equal(built.debug?.runtimeDiagnostics?.cameraView, "front");
 });

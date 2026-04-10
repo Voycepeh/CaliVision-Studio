@@ -11,6 +11,7 @@ const trace: LiveSessionTrace = {
   sourceType: "browser-camera",
   drillSelection: {
     mode: "freestyle",
+    cameraView: "front",
     drillBindingLabel: "No drill · Freestyle",
     drillBindingSource: "freestyle"
   },

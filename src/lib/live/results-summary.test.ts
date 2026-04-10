@@ -11,6 +11,7 @@ const trace: LiveSessionTrace = {
   sourceType: "browser-camera",
   drillSelection: {
     mode: "drill",
+    cameraView: "side",
     drillBindingLabel: "Air Squat",
     drillBindingSource: "local",
     drill: {

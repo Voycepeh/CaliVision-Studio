@@ -1,3 +1,4 @@
+import { resolveDrillCameraView, type ResolvedDrillCameraView } from "../drill-camera-view.ts";
 import { runDrillAnalysisPipeline } from "./analysis-runner.ts";
 import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "./phase-runtime.ts";
 import type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
@@ -26,6 +27,7 @@ type PersistUploadInput = {
   sourceUri?: string;
   sourceLabel?: string;
   annotatedVideoUri?: string;
+  resolvedCameraView?: ResolvedDrillCameraView;
 };
 
 function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeof runDrillAnalysisPipeline>) {
@@ -125,12 +127,14 @@ function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>)
 }
 
 export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): AnalysisSessionRecord {
+  const resolvedCameraView = input.resolvedCameraView ?? resolveDrillCameraView(input.drill).cameraView;
   const output = runDrillAnalysisPipeline({
     drill: input.drill,
     sampledFrames: input.timeline.frames,
     sourceType: "upload-video",
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
   });
+  const runtimeDiagnostics = createRuntimeDiagnostics(input.drill, output);
 
   return {
     sessionId: output.session.sessionId,
@@ -162,7 +166,16 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
       sourceVideoFileName: input.timeline.video.fileName,
       smootherTransitions: output.transitions,
       smoothedFrames: output.smoothedFrames,
-      runtimeDiagnostics: createRuntimeDiagnostics(input.drill, output),
+      runtimeDiagnostics: runtimeDiagnostics
+        ? {
+            ...runtimeDiagnostics,
+            cameraView: resolvedCameraView
+          }
+        : {
+            expectedPhaseOrder: [],
+            allowedTransitions: [],
+            cameraView: resolvedCameraView
+          },
       ...deriveNoEventCause(output)
     },
     drillBinding: input.drillBinding ?? {

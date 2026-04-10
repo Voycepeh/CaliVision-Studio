@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { formatCameraViewLabel, resolveDrillCameraView } from "@/lib/drill-camera-view";
 import { buildDuplicateSafeDrillLabel, formatDrillSourceLabel, toDrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
@@ -197,8 +198,18 @@ export function LiveStreamingWorkspace() {
       return {
         mode: "freestyle",
         drillBindingLabel: "No drill · Freestyle",
-        drillBindingSource: "freestyle"
+        drillBindingSource: "freestyle",
+        cameraView: "front"
       };
+    }
+
+    const resolvedView = resolveDrillCameraView(selectedDrill.drill);
+    if (resolvedView.warning && process.env.NODE_ENV !== "production") {
+      console.warn("[live-analysis]", resolvedView.warning, {
+        drillId: selectedDrill.drill.drillId,
+        resolvedView: resolvedView.cameraView,
+        source: resolvedView.source
+      });
     }
 
     return {
@@ -207,7 +218,8 @@ export function LiveStreamingWorkspace() {
       drillVersion: selectedDrill.packageVersion,
       drillBindingLabel: selectedDrill.drill.title,
       drillBindingSource: selectedDrill.sourceKind,
-      sourceId: selectedDrill.sourceId
+      sourceId: selectedDrill.sourceId,
+      cameraView: resolvedView.cameraView
     };
   }, [selectedDrill]);
 
@@ -697,7 +709,10 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.stalePoseReuseCount += 1;
         }
         lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
-        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, {
+          projection,
+          cameraView: selection.cameraView
+        });
       } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
         updateTrackingStatus("Tracking lost");
       } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
@@ -960,6 +975,7 @@ export function LiveStreamingWorkspace() {
               <div className="pill">Reps: {summary?.repCount ?? 0}</div>
               <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
               <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
+              <div className="pill">Camera View: {formatCameraViewLabel(selection.cameraView)}</div>
               <div
                 className="pill"
                 style={{

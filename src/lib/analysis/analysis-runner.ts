@@ -1,3 +1,4 @@
+import { resolveDrillCameraView } from "../drill-camera-view.ts";
 import { extractAnalysisEvents } from "./event-extractor.ts";
 import { buildPhaseRuntimeModel } from "./phase-runtime.ts";
 import { scoreFramesAgainstDrillPhases } from "./frame-phase-scorer.ts";
@@ -5,8 +6,10 @@ import { smoothPhaseTimeline } from "./temporal-phase-smoother.ts";
 import type { AnalysisRunInput, AnalysisRunOutput } from "./types.ts";
 
 export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOutput {
+  const resolvedCameraView = resolveDrillCameraView(input.drill);
   const scoredFrames = scoreFramesAgainstDrillPhases(input.sampledFrames, input.drill.phases, {
-    includePerPhaseScores: true
+    includePerPhaseScores: true,
+    cameraView: resolvedCameraView.cameraView
   });
 
   const effectiveAnalysis = input.drill.analysis ?? createFallbackAnalysis();
