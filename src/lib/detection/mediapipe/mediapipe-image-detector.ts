@@ -5,6 +5,8 @@ import { MEDIAPIPE_CANONICAL_LANDMARK_INDEX } from "@/lib/detection/mediapipe/la
 
 const MIN_CONFIDENCE = 0.25;
 const MIN_COVERAGE_RATIO = 0.6;
+// Keep the JS loader and its wasm sidecars on an immutable versioned path to avoid CDN alias drift.
+const MEDIAPIPE_POSE_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404";
 
 let posePromise: Promise<MediaPipePoseLike> | null = null;
 
@@ -51,14 +53,14 @@ async function loadScript(src: string): Promise<void> {
 async function getMediaPipePose(): Promise<MediaPipePoseLike> {
   if (!posePromise) {
     posePromise = (async () => {
-      await loadScript("https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js");
+      await loadScript(`${MEDIAPIPE_POSE_CDN}/pose.js`);
 
       if (!window.Pose) {
         throw new Error("MediaPipe Pose runtime was not available in browser context.");
       }
 
       const pose = new window.Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+        locateFile: (file) => `${MEDIAPIPE_POSE_CDN}/${file}`
       });
 
       pose.setOptions({
