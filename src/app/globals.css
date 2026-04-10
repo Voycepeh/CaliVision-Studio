@@ -1115,6 +1115,33 @@ main {
   opacity: 1;
 }
 
+.live-streaming-zoom-control {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(10, 16, 28, 0.72);
+  backdrop-filter: blur(4px);
+  color: #f5f7ff;
+  font-size: 0.72rem;
+}
+
+.live-streaming-zoom-control label {
+  opacity: 0.88;
+}
+
+.live-streaming-zoom-control input[type="range"] {
+  width: 100%;
+}
+
 .result-preview-processing,
 .result-preview-warning {
   border: 1px solid var(--border);
