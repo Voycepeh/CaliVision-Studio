@@ -41,6 +41,7 @@ test("createUploadJobDrillSelection snapshots selected drill binding for queued 
   assert.equal(snapshot.drillBinding.sourceKind, "local");
   assert.equal(snapshot.drillBinding.sourceId, "draft-1");
   assert.equal(snapshot.drillVersion, "0.4.0");
+  assert.equal(snapshot.cameraView, "side");
 });
 
 test("createUploadJobDrillSelection defaults to freestyle mode when no drill is selected", () => {

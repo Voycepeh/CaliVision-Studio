@@ -41,6 +41,9 @@ export type AnalysisSessionRecord = {
     errorMessage?: string;
     detector?: string;
     cadenceFps?: number;
+    cameraView?: "front" | "side";
+    cameraViewLabel?: "Front" | "Side";
+    cameraViewWarning?: string;
     sourceVideoFileName?: string;
     noEventCause?: string;
     noEventDetails?: string[];

@@ -12,7 +12,7 @@ import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
-import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, type AnalysisSessionRecord } from "@/lib/analysis";
+import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
@@ -448,6 +448,7 @@ export function UploadVideoWorkspace() {
               sourceId: nextJob.drillSelection.drillBinding.sourceId,
               sourceLabel: nextJob.drillSelection.drillBinding.sourceLabel
             },
+            resolvedCameraView: nextJob.drillSelection.cameraView,
             timeline,
             sourceId: nextJob.id,
             sourceLabel: nextJob.fileName,
@@ -717,6 +718,11 @@ export function UploadVideoWorkspace() {
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>
                     Mode: {activeJob.drillSelection.drillBinding.drillName} ({formatDrillBindingSource(activeJob.drillSelection.drillBinding.sourceKind)})
                   </p>
+                  {activeJob.drillSelection.cameraView ? (
+                    <p className="muted" style={{ margin: "0.2rem 0 0" }}>
+                      Camera View: {formatCameraViewLabel(activeJob.drillSelection.cameraView)}
+                    </p>
+                  ) : null}
                   <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
                   {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}
                   {activeJob.errorDetails ? (
@@ -787,6 +793,9 @@ export function UploadVideoWorkspace() {
                   <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
                   <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
                   <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
+                  {activeJob.drillSelection.cameraView ? (
+                    <span className="pill">Camera View: {formatCameraViewLabel(activeJob.drillSelection.cameraView)}</span>
+                  ) : null}
                   <span className="pill">Result: {activeSession.status}</span>
                 </div>
               ) : (

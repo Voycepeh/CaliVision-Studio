@@ -9,6 +9,7 @@ import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
 import { buildPhaseRuntimeModel } from "@/lib/analysis";
+import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
 import {
@@ -201,10 +202,20 @@ export function LiveStreamingWorkspace() {
       };
     }
 
+    const resolvedCameraView = resolveDrillCameraViewWithDiagnostics(selectedDrill.drill);
+    if (resolvedCameraView.diagnostics.warning && process.env.NODE_ENV !== "production") {
+      console.warn("[live-analysis] DRILL_CAMERA_VIEW_FALLBACK", {
+        warning: resolvedCameraView.diagnostics.warning,
+        drillId: selectedDrill.drill.drillId,
+        drillTitle: selectedDrill.drill.title
+      });
+    }
+
     return {
       mode: "drill",
       drill: selectedDrill.drill,
       drillVersion: selectedDrill.packageVersion,
+      cameraView: resolvedCameraView.cameraView,
       drillBindingLabel: selectedDrill.drill.title,
       drillBindingSource: selectedDrill.sourceKind,
       sourceId: selectedDrill.sourceId
@@ -959,6 +970,7 @@ export function LiveStreamingWorkspace() {
               <div className="pill">Duration: {summary?.durationLabel ?? "0s"}</div>
               <div className="pill">Reps: {summary?.repCount ?? 0}</div>
               <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
+              {selection.cameraView ? <div className="pill">Camera View: {formatCameraViewLabel(selection.cameraView)}</div> : null}
               <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
               <div
                 className="pill"

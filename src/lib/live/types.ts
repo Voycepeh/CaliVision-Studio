@@ -2,6 +2,7 @@ import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableD
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { ReplayOverlayState } from "../analysis/replay-state.ts";
 import type { PoseFrame, PoseTimeline } from "../upload/types.ts";
+import type { DrillCameraView } from "../analysis/camera-view.ts";
 
 export type LiveSessionStatus =
   | "idle"
@@ -17,6 +18,7 @@ export type LiveDrillSelection = {
   mode: "freestyle" | "drill";
   drill?: PortableDrill;
   drillVersion?: string;
+  cameraView?: DrillCameraView;
   drillBindingLabel: string;
   drillBindingSource: "freestyle" | "local" | "hosted";
   sourceId?: string;

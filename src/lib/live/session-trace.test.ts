@@ -25,6 +25,7 @@ test("trace retention captures rep and hold events with timestamps", () => {
     drillSelection: {
       mode: "drill",
       drill: drill as never,
+      cameraView: "side",
       drillBindingLabel: drill.title,
       drillBindingSource: "local"
     },
@@ -40,6 +41,7 @@ test("trace retention captures rep and hold events with timestamps", () => {
 
   const finalized = trace.finalize({ durationMs: 1000, width: 720, height: 1280, mimeType: "video/webm", sizeBytes: 2000, timing: { mediaStartMs: 0, mediaStopMs: 1000, captureStartPerfNowMs: 10, captureStopPerfNowMs: 1010 } }, "2026-04-08T00:00:03.000Z");
   assert.equal(finalized.captures.length, 6);
+  assert.equal(finalized.drillSelection.cameraView, "side");
   assert.ok(finalized.events.some((event) => event.type === "phase_enter"));
   assert.ok((finalized.summary.repCount ?? 0) >= 1);
 });
