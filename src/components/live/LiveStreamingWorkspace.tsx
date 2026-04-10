@@ -23,7 +23,10 @@ import {
   createLiveTraceAccumulator,
   createMediaRecorder,
   exportAnnotatedReplayFromLiveTrace,
+  formatHardwareZoomLabel,
   getCameraSupportStatus,
+  getHardwareZoomSupport,
+  applyHardwareZoom,
   getReplayStateMessage,
   getReplayStateTone,
   mapLiveTraceToTimelineMarkers,
@@ -59,6 +62,10 @@ type LiveCadenceStats = {
   presentationTicks: number;
   stalePoseReuseCount: number;
 };
+
+type LiveHardwareZoomState =
+  | { supported: false; value: 1 }
+  | { supported: true; value: number; min: number; max: number; step: number };
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -133,6 +140,7 @@ export function LiveStreamingWorkspace() {
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
+  const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
   const trackingStatusRef = useRef<string>("Tracking ready");
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -161,6 +169,8 @@ export function LiveStreamingWorkspace() {
   const repeatedVideoTimestampCountRef = useRef<number>(0);
   const lastDiagnosticLogAtRef = useRef<number>(0);
   const stalePoseLoggedRef = useRef(false);
+  const selectedZoomRef = useRef<number>(1);
+  const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const liveCadenceStatsRef = useRef<LiveCadenceStats>({
     renderFrames: 0,
     analysisTicks: 0,
@@ -331,6 +341,14 @@ export function LiveStreamingWorkspace() {
   }, [selectedKey, visibleDrillOptions]);
 
   useEffect(() => {
+    overlayNeedsResizeSyncRef.current = true;
+    console.debug("[live-overlay] remap-trigger", {
+      reason: "camera-switch",
+      facingMode: isRearCamera ? "rear" : "front"
+    });
+  }, [isRearCamera]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (getCameraSupportStatus(window) === "unsupported") {
       setStatus("unsupported");
@@ -351,6 +369,7 @@ export function LiveStreamingWorkspace() {
     }
     await stopMediaStream(liveStreamRef.current);
     liveStreamRef.current = null;
+    activeVideoTrackRef.current = null;
     landmarkerRef.current?.close?.();
     landmarkerRef.current = null;
     recorderRef.current = null;
@@ -482,21 +501,37 @@ export function LiveStreamingWorkspace() {
   }, [syncOverlayCanvasSize]);
 
   useEffect(() => {
+    const logRemap = (reason: string) => {
+      console.debug("[live-overlay] remap-trigger", {
+        reason,
+        isPortrait: window.matchMedia("(orientation: portrait)").matches,
+        fullscreen: Boolean(document.fullscreenElement),
+        facingMode: isRearCamera ? "rear" : "front"
+      });
+    };
     const onWindowResize = () => {
       overlayNeedsResizeSyncRef.current = true;
+      logRemap("window-resize");
     };
     const onOrientationChange = () => {
       overlayNeedsResizeSyncRef.current = true;
+      logRemap("orientation-change");
+    };
+    const onFullscreenChange = () => {
+      overlayNeedsResizeSyncRef.current = true;
+      logRemap("fullscreen-change");
     };
     window.addEventListener("resize", onWindowResize);
     window.addEventListener("orientationchange", onOrientationChange);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
     window.visualViewport?.addEventListener("resize", onWindowResize);
     return () => {
       window.removeEventListener("resize", onWindowResize);
       window.removeEventListener("orientationchange", onOrientationChange);
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
       window.visualViewport?.removeEventListener("resize", onWindowResize);
     };
-  }, []);
+  }, [isRearCamera]);
 
   useEffect(() => {
     return () => {
@@ -585,6 +620,34 @@ export function LiveStreamingWorkspace() {
         video: { facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" } },
         audio: false
       });
+      const activeVideoTrack = stream.getVideoTracks()[0] ?? null;
+      activeVideoTrackRef.current = activeVideoTrack;
+      const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
+      if (zoomSupport.supported) {
+        const clampedRequestedZoom = Math.min(zoomSupport.max, Math.max(zoomSupport.min, selectedZoomRef.current));
+        const appliedZoom = await applyHardwareZoom(activeVideoTrack, clampedRequestedZoom, zoomSupport);
+        selectedZoomRef.current = appliedZoom;
+        setLiveHardwareZoom({
+          supported: true,
+          value: appliedZoom,
+          min: zoomSupport.min,
+          max: zoomSupport.max,
+          step: zoomSupport.step
+        });
+        console.info("[live-overlay] hardware-zoom supported", {
+          facingMode: isRearCamera ? "rear" : "front",
+          min: zoomSupport.min,
+          max: zoomSupport.max,
+          step: zoomSupport.step,
+          activeZoom: appliedZoom
+        });
+      } else {
+        selectedZoomRef.current = 1;
+        setLiveHardwareZoom({ supported: false, value: 1 });
+        console.info("[live-overlay] hardware-zoom unsupported", {
+          facingMode: isRearCamera ? "rear" : "front"
+        });
+      }
       liveStreamRef.current = stream;
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = stream;
@@ -793,6 +856,29 @@ export function LiveStreamingWorkspace() {
     draw();
   }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize, updateTrackingStatus]);
 
+  const updateHardwareZoom = useCallback(
+    async (nextZoom: number) => {
+      const activeTrack = activeVideoTrackRef.current;
+      if (!activeTrack || !liveHardwareZoom.supported || status !== "live-session-running") {
+        return;
+      }
+      try {
+        const appliedZoom = await applyHardwareZoom(activeTrack, nextZoom, { ...liveHardwareZoom, current: liveHardwareZoom.value });
+        selectedZoomRef.current = appliedZoom;
+        setLiveHardwareZoom((current) => (current.supported ? { ...current, value: appliedZoom } : current));
+        overlayNeedsResizeSyncRef.current = true;
+        syncOverlayCanvasSize(true);
+        console.info("[live-overlay] hardware-zoom updated", {
+          activeZoom: appliedZoom
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to apply hardware zoom.";
+        console.warn("[live-overlay] hardware-zoom apply failed", { message });
+      }
+    },
+    [liveHardwareZoom, status, syncOverlayCanvasSize]
+  );
+
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
     if (annotatedReplayUrl) {
@@ -940,7 +1026,13 @@ export function LiveStreamingWorkspace() {
                   <select
                     className="live-streaming-control-input"
                     value={isRearCamera ? "rear" : "front"}
-                    onChange={(event) => setIsRearCamera(event.target.value === "rear")}
+                    onChange={(event) => {
+                      const nextRear = event.target.value === "rear";
+                      setIsRearCamera(nextRear);
+                      console.info("[live-overlay] camera-selection changed", {
+                        facingMode: nextRear ? "rear" : "front"
+                      });
+                    }}
                     disabled={status === "live-session-running" || status === "requesting-permission"}
                   >
                     <option value="rear">Rear camera</option>
@@ -1061,6 +1153,23 @@ export function LiveStreamingWorkspace() {
               style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
             />
             <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
+            {status === "live-session-running" && liveHardwareZoom.supported ? (
+              <div className="live-streaming-zoom-control" role="group" aria-label="Hardware camera zoom control">
+                <label htmlFor="live-hardware-zoom-input">Zoom</label>
+                <input
+                  id="live-hardware-zoom-input"
+                  type="range"
+                  min={liveHardwareZoom.min}
+                  max={liveHardwareZoom.max}
+                  step={liveHardwareZoom.step}
+                  value={liveHardwareZoom.value}
+                  onChange={(event) => {
+                    void updateHardwareZoom(Number(event.target.value));
+                  }}
+                />
+                <span>{formatHardwareZoomLabel(liveHardwareZoom.value)}</span>
+              </div>
+            ) : null}
           </div>
         </div>
 

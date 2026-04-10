@@ -41,9 +41,10 @@
 2. Choose **No drill · Freestyle** or select a drill from local/hosted drafts before session start.
 3. Request camera permission, choose front/rear camera, and confirm preview readiness.
 4. Start a live browser session with intentionally capped overlay cadence (**10 FPS**) for mobile stability.
-5. While running, Studio records raw video and retains timestamped trace data (phase classification, rep/hold events, overlay geometry source data).
-6. Stop session to finalize recorder + trace; Studio composes annotated replay from retained trace + raw recording.
-7. Review replay and summary outputs without routing through Upload Video’s offline-file pipeline by default.
+5. If the active camera track exposes real hardware zoom, Studio keeps a compact always-visible **Zoom** control on top of the live preview; unsupported tracks show no zoom control (no software/crop/CSS fallback mode).
+6. While running, Studio records raw video and retains timestamped trace data (phase classification, rep/hold events, overlay geometry source data), keeping live overlay alignment bound to the active camera stream geometry.
+7. Stop session to finalize recorder + trace; Studio composes annotated replay from retained trace + raw recording so replay/export framing matches the same live camera zoom framing used in-session.
+8. Review replay and summary outputs without routing through Upload Video’s offline-file pipeline by default.
 
 Cadence note (April 8, 2026): this browser cadence follows the Android repo’s documented “lightweight in-session overlay” philosophy in `docs/features/live-coaching.md` and `docs/architecture/overlay-rendering.md`, emphasizing responsive coaching feedback over max-FPS rendering.
 

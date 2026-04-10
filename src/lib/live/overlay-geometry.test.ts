@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize } from "./overlay-geometry.ts";
+import { createOverlayProjection, fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize } from "./overlay-geometry.ts";
 
 test("fitVideoCoverRect models CSS object-fit: cover crop offsets", () => {
   const rect = fitVideoCoverRect({
@@ -67,4 +67,62 @@ test("isPreviewSurfaceReady rejects uninitialized surfaces", () => {
     }),
     true
   );
+});
+
+test("createOverlayProjection remaps cover crop for portrait/landscape and fullscreen viewport changes", () => {
+  const portraitProjection = createOverlayProjection({
+    viewportWidth: 360,
+    viewportHeight: 640,
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    fitMode: "cover",
+    mirrored: false
+  });
+  assert.equal(portraitProjection.offsetX < 0, true);
+  assert.equal(portraitProjection.offsetY, 0);
+
+  const landscapeProjection = createOverlayProjection({
+    viewportWidth: 640,
+    viewportHeight: 360,
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    fitMode: "cover",
+    mirrored: false
+  });
+  assert.equal(landscapeProjection.offsetX, 0);
+  assert.equal(landscapeProjection.offsetY, 0);
+
+  const fullscreenProjection = createOverlayProjection({
+    viewportWidth: 1080,
+    viewportHeight: 1920,
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    fitMode: "cover",
+    mirrored: false
+  });
+  assert.equal(fullscreenProjection.renderedHeight, 1920);
+  assert.equal(fullscreenProjection.offsetX < 0, true);
+});
+
+test("createOverlayProjection flips x projection when camera changes between rear and front", () => {
+  const rear = createOverlayProjection({
+    viewportWidth: 400,
+    viewportHeight: 700,
+    sourceWidth: 1080,
+    sourceHeight: 1920,
+    mirrored: false
+  });
+  const front = createOverlayProjection({
+    viewportWidth: 400,
+    viewportHeight: 700,
+    sourceWidth: 1080,
+    sourceHeight: 1920,
+    mirrored: true
+  });
+
+  const samplePoint = { x: 0.1, y: 0.5 };
+  const rearProjected = projectNormalizedPoint(samplePoint, rear);
+  const frontProjected = projectNormalizedPoint(samplePoint, front);
+  assert.equal(Math.round(rearProjected.y), Math.round(frontProjected.y));
+  assert.equal(Math.round(rearProjected.x + frontProjected.x), Math.round(rear.offsetX * 2 + rear.renderedWidth));
 });
