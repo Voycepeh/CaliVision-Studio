@@ -1,3 +1,5 @@
+import { createVideoProjection, projectNormalizedPointToViewport, type VideoFitMode, type VideoProjection } from "../video/projection.ts";
+
 export type VideoCoverRectInput = {
   containerWidth: number;
   containerHeight: number;
@@ -32,27 +34,50 @@ export type OverlayProjection = {
   offsetX: number;
   offsetY: number;
   mirrored: boolean;
+  rotationDegrees?: number;
 };
 
 export function fitVideoCoverRect(input: VideoCoverRectInput): VideoCoverRect {
-  const containerWidth = Number.isFinite(input.containerWidth) ? Math.max(0, input.containerWidth) : 0;
-  const containerHeight = Number.isFinite(input.containerHeight) ? Math.max(0, input.containerHeight) : 0;
-  const videoWidth = Number.isFinite(input.videoWidth) ? Math.max(0, input.videoWidth) : 0;
-  const videoHeight = Number.isFinite(input.videoHeight) ? Math.max(0, input.videoHeight) : 0;
-
-  if (containerWidth === 0 || containerHeight === 0 || videoWidth === 0 || videoHeight === 0) {
-    return { renderedWidth: containerWidth, renderedHeight: containerHeight, offsetX: 0, offsetY: 0 };
-  }
-
-  const scale = Math.max(containerWidth / videoWidth, containerHeight / videoHeight);
-  const renderedWidth = videoWidth * scale;
-  const renderedHeight = videoHeight * scale;
-
+  const projection = createVideoProjection({
+    sourceWidth: input.videoWidth,
+    sourceHeight: input.videoHeight,
+    viewportWidth: input.containerWidth,
+    viewportHeight: input.containerHeight,
+    fitMode: "cover"
+  });
   return {
-    renderedWidth,
-    renderedHeight,
-    offsetX: (containerWidth - renderedWidth) / 2,
-    offsetY: (containerHeight - renderedHeight) / 2
+    renderedWidth: projection.renderedRect.width,
+    renderedHeight: projection.renderedRect.height,
+    offsetX: projection.renderedRect.x,
+    offsetY: projection.renderedRect.y
+  };
+}
+
+export function createOverlayProjection(input: {
+  viewportWidth: number;
+  viewportHeight: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  fitMode?: VideoFitMode;
+  mirrored?: boolean;
+  rotationDegrees?: number;
+}): OverlayProjection {
+  const projection: VideoProjection = createVideoProjection({
+    sourceWidth: input.sourceWidth,
+    sourceHeight: input.sourceHeight,
+    viewportWidth: input.viewportWidth,
+    viewportHeight: input.viewportHeight,
+    fitMode: input.fitMode ?? "cover",
+    mirrorX: input.mirrored,
+    rotationDegrees: input.rotationDegrees
+  });
+  return {
+    renderedWidth: projection.renderedRect.width,
+    renderedHeight: projection.renderedRect.height,
+    offsetX: projection.renderedRect.x,
+    offsetY: projection.renderedRect.y,
+    mirrored: projection.mirrorX,
+    rotationDegrees: projection.rotationDegrees
   };
 }
 
@@ -94,9 +119,21 @@ export function projectNormalizedPoint(
   point: { x: number; y: number },
   projection: OverlayProjection
 ): { x: number; y: number } {
-  const projectedX = projection.mirrored ? 1 - point.x : point.x;
+  const rotationDegrees = projection.rotationDegrees === 90 || projection.rotationDegrees === 180 || projection.rotationDegrees === 270
+    ? projection.rotationDegrees
+    : 0;
+  const localPoint = projectNormalizedPointToViewport(point, {
+    sourceWidth: 1,
+    sourceHeight: 1,
+    viewportWidth: 1,
+    viewportHeight: 1,
+    fitMode: "contain",
+    mirrorX: projection.mirrored,
+    rotationDegrees,
+    renderedRect: { x: 0, y: 0, width: 1, height: 1 }
+  });
   return {
-    x: projection.offsetX + projectedX * projection.renderedWidth,
-    y: projection.offsetY + point.y * projection.renderedHeight
+    x: projection.offsetX + localPoint.x * projection.renderedWidth,
+    y: projection.offsetY + localPoint.y * projection.renderedHeight
   };
 }
