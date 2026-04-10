@@ -3,11 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
-import { buildDuplicateSafeDrillLabel, formatDrillSourceLabel, toDrillSourceKind } from "@/lib/drill-source";
+import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
 import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
+import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
+import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
+import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
@@ -113,6 +117,8 @@ export function LiveStreamingWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string>(FREESTYLE_KEY);
+  const [selectedSource, setSelectedSource] = useState<DrillSourceKind>("local");
+  const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [isRearCamera, setIsRearCamera] = useState(true);
   const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
@@ -163,7 +169,7 @@ export function LiveStreamingWorkspace() {
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
     [drillOptions, selectedKey]
   );
-  const groupedDrillOptions = useMemo(() => {
+  const drillOptionGroups = useMemo(() => {
     const titleCounts = new Map<string, number>();
     for (const option of drillOptions) {
       const key = option.drill.title.trim().toLowerCase();
@@ -189,8 +195,12 @@ export function LiveStreamingWorkspace() {
         localOptions.push(withDisplayLabel);
       }
     }
-    return { localOptions, cloudOptions };
+    return new Map<DrillSourceKind, Array<DrillSelectionOption & { displayLabel: string }>>([
+      ["local", localOptions],
+      ["cloud", cloudOptions]
+    ]);
   }, [drillOptions]);
+  const visibleDrillOptions = useMemo(() => drillOptionGroups.get(selectedSource) ?? [], [drillOptionGroups, selectedSource]);
 
   const selection: LiveDrillSelection = useMemo(() => {
     if (!selectedDrill) {
@@ -243,7 +253,7 @@ export function LiveStreamingWorkspace() {
         if (!drill) continue;
         options.push({
           key: `local:${summaryItem.draftId}:${drill.drillId}`,
-          label: drill.title,
+          label: buildDrillOptionLabel(drill),
           sourceKind: "local",
           sourceId: summaryItem.draftId,
           packageVersion: loaded.record.packageJson.manifest.packageVersion,
@@ -262,7 +272,7 @@ export function LiveStreamingWorkspace() {
           if (!drill) continue;
           options.push({
             key: `hosted:${item.id}:${drill.drillId}`,
-            label: drill.title,
+            label: buildDrillOptionLabel(drill),
             sourceKind: "hosted",
             sourceId: item.id,
             packageVersion: item.packageVersion,
@@ -279,6 +289,16 @@ export function LiveStreamingWorkspace() {
   useEffect(() => {
     void refreshDrillOptions();
   }, [refreshDrillOptions]);
+
+  useEffect(() => {
+    if (selectedKey === FREESTYLE_KEY) {
+      return;
+    }
+    if (visibleDrillOptions.some((option) => option.key === selectedKey)) {
+      return;
+    }
+    setSelectedKey(FREESTYLE_KEY);
+  }, [selectedKey, visibleDrillOptions]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -509,6 +529,7 @@ export function LiveStreamingWorkspace() {
 
     setErrorMessage(null);
     setStatus("requesting-permission");
+    setIsReferencePanelVisible(false);
     setReplayState("idle");
     setReplayExportStageLabel(null);
     setLiveTrace(null);
@@ -840,56 +861,81 @@ export function LiveStreamingWorkspace() {
     setStatus("completed");
   }, [cleanupSession]);
 
+  const showReferencePanel = isReferencePanelVisible || status !== "live-session-running";
+
   return (
     <section className="panel-content live-streaming-layout">
-      <article className="card" style={{ display: "grid", gap: "0.8rem" }}>
-        <h2 style={{ margin: 0 }}>Live Streaming</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          Mobile browser camera session with lightweight live overlay (analysis at {LIVE_ANALYSIS_CADENCE_FPS} FPS, presentation at {LIVE_OVERLAY_PRESENTATION_FPS} FPS), raw recording in parallel, and post-session annotated replay from retained trace + recording.
-        </p>
-        <div className="live-streaming-control-row">
-          <label className="live-streaming-control-field">
-            <span>Drill</span>
-            <select
-              className="live-streaming-control-input"
-              value={selectedKey}
-              onChange={(event) => setSelectedKey(event.target.value)}
-              disabled={status === "live-session-running" || status === "requesting-permission"}
-            >
-              <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
-              {groupedDrillOptions.localOptions.length > 0 ? (
-                <optgroup label={`${formatDrillSourceLabel("local")} drills`}>
-                  {groupedDrillOptions.localOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.displayLabel}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-              {groupedDrillOptions.cloudOptions.length > 0 ? (
-                <optgroup label={`${formatDrillSourceLabel("cloud")} drills`}>
-                  {groupedDrillOptions.cloudOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.displayLabel}
-                    </option>
-                  ))}
-                </optgroup>
-              ) : null}
-            </select>
-          </label>
-          <label className="live-streaming-control-field">
-            <span>Camera</span>
-            <button
-              type="button"
-              className="studio-button live-streaming-control-input live-streaming-camera-button"
-              onClick={() => setIsRearCamera((current) => !current)}
-              disabled={status === "requesting-permission" || status === "live-session-running"}
-            >
-              <span className="live-streaming-button-text">{isRearCamera ? "Rear camera" : "Front camera"}</span>
-            </button>
-          </label>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      {/* Shared setup shell keeps Upload and Live aligned while preserving source-specific inputs. */}
+      <DrillSetupShell
+        showReferencePanel={showReferencePanel}
+        leftPane={
+          <div style={{ display: "grid", gap: "0.85rem" }}>
+            <DrillSetupHeader
+              title="Live Streaming workflow"
+              description={
+                status === "live-session-running"
+                  ? "Camera session is active. Reference animation can stay collapsed while you capture."
+                  : "Reference animation is optional while you prepare the camera session."
+              }
+              showReferencePanel={showReferencePanel}
+              onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
+              actions={
+                <button
+                  type="button"
+                  className="studio-button live-streaming-control-input live-streaming-camera-button"
+                  onClick={() => setIsRearCamera((current) => !current)}
+                  disabled={status === "requesting-permission" || status === "live-session-running"}
+                >
+                  <span className="live-streaming-button-text">{isRearCamera ? "Rear camera" : "Front camera"}</span>
+                </button>
+              }
+            />
+            <article className="card drill-setup-shell-card" style={{ display: "grid", gap: "0.8rem" }}>
+              <p className="muted" style={{ margin: 0 }}>
+                Mobile browser camera session with lightweight live overlay (analysis at {LIVE_ANALYSIS_CADENCE_FPS} FPS, presentation at {LIVE_OVERLAY_PRESENTATION_FPS} FPS), raw recording in parallel, and post-session annotated replay from retained trace + recording.
+              </p>
+              <div className="live-streaming-control-row">
+                <label className="live-streaming-control-field">
+                  <span>Analysis mode</span>
+                  <select
+                    className="live-streaming-control-input"
+                    value={selectedSource}
+                    onChange={(event) => setSelectedSource(event.target.value as DrillSourceKind)}
+                    disabled={status === "live-session-running" || status === "requesting-permission"}
+                  >
+                    {DRILL_SOURCE_ORDER.map((source) => (
+                      <option key={source} value={source}>
+                        {formatDrillSourceLabel(source)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="live-streaming-control-field">
+                  <span>Drill</span>
+                  <select
+                    className="live-streaming-control-input"
+                    value={selectedKey}
+                    onChange={(event) => setSelectedKey(event.target.value)}
+                    disabled={status === "live-session-running" || status === "requesting-permission"}
+                  >
+                    <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
+                    {visibleDrillOptions.length === 0 ? (
+                      <option value={FREESTYLE_KEY} disabled>
+                        No {formatDrillSourceLabel(selectedSource).toLowerCase()} drills available
+                      </option>
+                    ) : (
+                      <optgroup label={`${formatDrillSourceLabel(selectedSource)} drills`}>
+                        {visibleDrillOptions.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.displayLabel}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </label>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           {status === "live-session-running" ? (
             <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
               Stop session
@@ -924,12 +970,22 @@ export function LiveStreamingWorkspace() {
               </button>
             </>
           ) : null}
-        </div>
-        {(status === "unsupported" || status === "stopping-finalizing") && !errorMessage ? (
-          <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
-        ) : null}
-        {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
-      </article>
+              </div>
+              {(status === "unsupported" || status === "stopping-finalizing") && !errorMessage ? (
+                <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
+              ) : null}
+              {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
+            </article>
+          </div>
+        }
+        rightPane={
+          <ReferenceAnimationPanel
+            drill={selectedDrill?.drill ?? null}
+            sourceKind={selectedDrill?.sourceKind}
+            freestyleDescription="Live Streaming runs camera tracking without drill-specific rep, hold, or phase scoring until a drill is selected."
+          />
+        }
+      />
 
       <article className="card live-streaming-results-card">
         <div className="live-streaming-preview-shell">
