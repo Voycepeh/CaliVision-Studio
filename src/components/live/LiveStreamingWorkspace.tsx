@@ -126,6 +126,7 @@ export function LiveStreamingWorkspace() {
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
+  const [replayFailureDetails, setReplayFailureDetails] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const trackingStatusRef = useRef<string>("Tracking ready");
@@ -543,6 +544,7 @@ export function LiveStreamingWorkspace() {
     setIsReferencePanelVisible(false);
     setReplayState("idle");
     setReplayExportStageLabel(null);
+    setReplayFailureDetails(null);
     setLiveTrace(null);
     setSelectedMarkerId(null);
     if (annotatedReplayUrl) {
@@ -783,6 +785,7 @@ export function LiveStreamingWorkspace() {
     setLiveTrace(null);
     setReplayState("idle");
     setReplayExportStageLabel(null);
+    setReplayFailureDetails(null);
     setSelectedMarkerId(null);
     setErrorMessage(null);
   }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
@@ -839,6 +842,7 @@ export function LiveStreamingWorkspace() {
     setRawReplayUrl(rawUrl);
     setReplayState("export-in-progress");
     setReplayExportStageLabel("Preparing export…");
+    setReplayFailureDetails(null);
 
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
@@ -866,7 +870,8 @@ export function LiveStreamingWorkspace() {
       console.error("[live-overlay] annotated export failed", { message });
       setReplayState("raw-fallback");
       setReplayExportStageLabel("Annotated export failed");
-      setErrorMessage(`${message} Showing raw session recording fallback. Tracking may have been stale.`);
+      setReplayFailureDetails(message);
+      setErrorMessage("Annotated video could not be generated. Your raw video is still available.");
     }
 
     setStatus("completed");
@@ -998,6 +1003,16 @@ export function LiveStreamingWorkspace() {
                 <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
               ) : null}
               {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
+              {replayFailureDetails ? (
+                <details>
+                  <summary className="muted" style={{ cursor: "pointer" }}>
+                    Technical details
+                  </summary>
+                  <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+                    {replayFailureDetails}
+                  </p>
+                </details>
+              ) : null}
             </article>
           </div>
         }
