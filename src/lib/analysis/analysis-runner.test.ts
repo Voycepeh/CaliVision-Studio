@@ -193,6 +193,64 @@ test("invalid transition is not counted as rep", () => {
   assert.equal(result.session.summary.repCount, 0);
 });
 
+
+
+test("strict winner gating still preserves invalid transition accounting for confirmed rogue phase", () => {
+  const drill = buildDrill({
+    phases: [
+      ...buildDrill().phases,
+      {
+        phaseId: "rogue",
+        order: 3,
+        name: "Rogue",
+        durationMs: 500,
+        poseSequence: [{
+          ...makePose("p_rogue_confirmed", 0, 0.4),
+          joints: {
+            ...makePose("p_rogue_confirmed", 0, 0.4).joints,
+            leftShoulder: { x: 0.15, y: 0.15 },
+            rightShoulder: { x: 0.85, y: 0.15 },
+            leftWrist: { x: 0.1, y: 0.1 },
+            rightWrist: { x: 0.9, y: 0.1 }
+          }
+        }],
+        assetRefs: []
+      }
+    ],
+    analysis: {
+      ...buildDrill().analysis!,
+      orderedPhaseSequence: ["top", "bottom", "top"],
+      allowedPhaseSkips: []
+    }
+  });
+
+  const rogueFrame = (timestampMs: number): PoseFrame => ({
+    timestampMs,
+    joints: {
+      leftShoulder: { x: 0.15, y: 0.15, confidence: 0.99 },
+      rightShoulder: { x: 0.85, y: 0.15, confidence: 0.99 },
+      leftHip: { x: 0.3, y: 0.8, confidence: 0.99 },
+      rightHip: { x: 0.7, y: 0.8, confidence: 0.99 },
+      leftWrist: { x: 0.1, y: 0.1, confidence: 0.99 },
+      rightWrist: { x: 0.9, y: 0.1, confidence: 0.99 }
+    }
+  });
+
+  const frames = [
+    poseFrame(0, 0.2),
+    poseFrame(100, 0.2),
+    rogueFrame(200),
+    rogueFrame(300),
+    poseFrame(400, 0.2),
+    poseFrame(500, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+
+  assert.equal(result.session.summary.repCount, 0);
+  assert.ok((result.session.summary.invalidTransitionCount ?? 0) >= 1);
+});
+
 test("hold start/end with grace dropout behavior", () => {
   const drill = buildDrill({
     drillType: "hold",

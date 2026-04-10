@@ -1,6 +1,6 @@
 import { CANONICAL_JOINT_NAMES } from "../pose/canonical.ts";
 import { compareNormalizedJoints, winnerHasClearMargin } from "./pose-comparison.ts";
-import type { PortablePhase } from "../schema/contracts.ts";
+import type { CanonicalJointName, PortablePhase } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
 import type { FramePhaseScore, ScorerOptions } from "./types.ts";
 
@@ -105,10 +105,19 @@ function scoreFrameForTemplate(
     return 0;
   }
 
+  const confidenceByJoint = preferredJoints.reduce<Partial<Record<CanonicalJointName, number>>>((acc, jointName) => {
+    const observedConfidence = frame.joints[jointName]?.confidence;
+    if (Number.isFinite(observedConfidence)) {
+      acc[jointName] = observedConfidence as number;
+    }
+    return acc;
+  }, {});
+
   const metrics = compareNormalizedJoints(frame.joints, template.joints, {
     jointNames: preferredJoints,
     normalizationDistance: norm,
-    tolerance
+    tolerance,
+    confidenceByJoint
   });
 
   const missingPenalty = hintRequired.length === 0 ? 1 : clamp01(1 - requiredMissing / hintRequired.length);

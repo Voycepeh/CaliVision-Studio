@@ -136,3 +136,40 @@ test("winner margin requires meaningful separation before selecting a phase", ()
   assert.equal(scored?.bestPhaseId, null);
   assert.ok(Object.keys(scored?.perPhaseScores ?? {}).length >= 3);
 });
+
+
+test("low-confidence joint jitter does not force meaningful dissimilarity", () => {
+  const base = {
+    leftShoulder: { x: 0.4, y: 0.35 },
+    rightShoulder: { x: 0.6, y: 0.35 },
+    leftHip: { x: 0.45, y: 0.65 },
+    rightHip: { x: 0.55, y: 0.65 },
+    leftElbow: { x: 0.35, y: 0.5 },
+    rightElbow: { x: 0.65, y: 0.5 },
+    leftWrist: { x: 0.33, y: 0.62 },
+    rightWrist: { x: 0.67, y: 0.62 }
+  };
+  const jittered = {
+    ...base,
+    leftWrist: { x: 0.12, y: 0.05 },
+    rightWrist: { x: 0.88, y: 0.05 }
+  };
+
+  const withoutConfidence = compareNormalizedJoints(base, jittered, { normalizationDistance: 0.2 });
+  const withConfidence = compareNormalizedJoints(base, jittered, {
+    normalizationDistance: 0.2,
+    confidenceByJoint: {
+      leftWrist: 0.05,
+      rightWrist: 0.05,
+      leftElbow: 0.99,
+      rightElbow: 0.99,
+      leftShoulder: 0.99,
+      rightShoulder: 0.99,
+      leftHip: 0.99,
+      rightHip: 0.99
+    }
+  });
+
+  assert.equal(withoutConfidence.isMeaningfullyDissimilar, true);
+  assert.equal(withConfidence.isMeaningfullyDissimilar, false);
+});

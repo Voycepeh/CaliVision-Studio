@@ -40,23 +40,34 @@ export function compareNormalizedJoints(
     jointNames?: CanonicalJointName[];
     normalizationDistance: number;
     tolerance?: number;
+    confidenceByJoint?: Partial<Record<CanonicalJointName, number>>;
+    minimumConfidence?: number;
   }
 ): PoseComparisonMetrics {
   const tolerance = Math.max(0.05, options.tolerance ?? DEFAULT_DISTANCE_TOLERANCE);
   const norm = Math.max(0.05, options.normalizationDistance);
+  const minimumConfidence = clamp01(options.minimumConfidence ?? 0.35);
   const jointPool = options.jointNames ?? (Object.keys({ ...sourceJoints, ...targetJoints }) as CanonicalJointName[]);
 
-  const deltas: number[] = [];
+  const weightedEntries: Array<{ delta: number; confidence: number }> = [];
   for (const jointName of jointPool) {
     const source = sourceJoints[jointName];
     const target = targetJoints[jointName];
     if (!source || !target) {
       continue;
     }
-    deltas.push(Math.hypot(source.x - target.x, source.y - target.y) / norm);
+    const confidence = clamp01(options.confidenceByJoint?.[jointName] ?? 1);
+    if (confidence < minimumConfidence) {
+      continue;
+    }
+    weightedEntries.push({
+      delta: Math.hypot(source.x - target.x, source.y - target.y) / norm,
+      confidence
+    });
   }
 
-  const sorted = [...deltas].sort((a, b) => b - a);
+  const sortedEntries = [...weightedEntries].sort((a, b) => b.delta - a.delta);
+  const deltas = weightedEntries.map((entry) => entry.delta);
   const jointCount = deltas.length;
   if (jointCount === 0) {
     return {
@@ -77,15 +88,16 @@ export function compareNormalizedJoints(
   }
 
   const topKCount = clampInt(Math.ceil(jointCount * POSE_COMPARISON_TUNING.topKJointRatio), POSE_COMPARISON_TUNING.topKJointMin, Math.min(jointCount, POSE_COMPARISON_TUNING.topKJointMax));
-  const topK = sorted.slice(0, topKCount);
+  const topKEntries = sortedEntries.slice(0, topKCount);
 
-  const meanDelta = average(deltas);
-  const maxDelta = sorted[0] ?? 0;
-  const topKMeanDelta = average(topK);
-  const countAboveThresholdA = deltas.filter((delta) => delta >= POSE_COMPARISON_TUNING.deltaThresholdA).length;
-  const countAboveThresholdB = deltas.filter((delta) => delta >= POSE_COMPARISON_TUNING.deltaThresholdB).length;
-  const ratioAboveThresholdA = countAboveThresholdA / jointCount;
-  const ratioAboveThresholdB = countAboveThresholdB / jointCount;
+  const totalConfidence = weightedEntries.reduce((sum, entry) => sum + entry.confidence, 0);
+  const meanDelta = weightedAverage(weightedEntries);
+  const maxDelta = sortedEntries[0]?.delta ?? 0;
+  const topKMeanDelta = weightedAverage(topKEntries);
+  const countAboveThresholdA = weightedEntries.reduce((sum, entry) => sum + (entry.delta >= POSE_COMPARISON_TUNING.deltaThresholdA ? entry.confidence : 0), 0);
+  const countAboveThresholdB = weightedEntries.reduce((sum, entry) => sum + (entry.delta >= POSE_COMPARISON_TUNING.deltaThresholdB ? entry.confidence : 0), 0);
+  const ratioAboveThresholdA = totalConfidence > 0 ? countAboveThresholdA / totalConfidence : 0;
+  const ratioAboveThresholdB = totalConfidence > 0 ? countAboveThresholdB / totalConfidence : 0;
 
   const dissimilarityFromSingleJoint = clamp01(maxDelta / POSE_COMPARISON_TUNING.singleJointLargeDelta);
   const dissimilarityFromTopK = clamp01(topKMeanDelta / (tolerance * 0.9));
@@ -103,11 +115,11 @@ export function compareNormalizedJoints(
   );
 
   const isMeaningfullyDissimilar = dissimilarityFromSingleJoint >= 1
-    || meetsJointChangeGate(countAboveThresholdB, ratioAboveThresholdB, jointCount, {
+    || meetsJointChangeGate(countAboveThresholdB, ratioAboveThresholdB, totalConfidence, {
       minimumAbsolute: POSE_COMPARISON_TUNING.changedCountGateB,
       minimumRatio: POSE_COMPARISON_TUNING.changedRatioGateB
     })
-    || meetsJointChangeGate(countAboveThresholdA, ratioAboveThresholdA, jointCount, {
+    || meetsJointChangeGate(countAboveThresholdA, ratioAboveThresholdA, totalConfidence, {
       minimumAbsolute: POSE_COMPARISON_TUNING.changedCountGateA,
       minimumRatio: POSE_COMPARISON_TUNING.changedRatioGateA
     })
@@ -139,10 +151,10 @@ export function winnerHasClearMargin(bestScore: number, secondBestScore: number)
 function meetsJointChangeGate(
   changedCount: number,
   changedRatio: number,
-  jointCount: number,
+  effectiveJointCount: number,
   options: { minimumAbsolute: number; minimumRatio: number }
 ): boolean {
-  const absoluteGate = Math.min(jointCount, options.minimumAbsolute);
+  const absoluteGate = Math.min(effectiveJointCount, options.minimumAbsolute);
   return changedCount >= absoluteGate && changedRatio >= options.minimumRatio;
 }
 
@@ -156,7 +168,9 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function average(values: number[]): number {
-  if (values.length === 0) return 0;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+function weightedAverage(entries: Array<{ delta: number; confidence: number }>): number {
+  if (entries.length === 0) return 0;
+  const confidenceTotal = entries.reduce((sum, entry) => sum + entry.confidence, 0);
+  if (confidenceTotal <= 0) return 0;
+  return entries.reduce((sum, entry) => sum + entry.delta * entry.confidence, 0) / confidenceTotal;
 }
