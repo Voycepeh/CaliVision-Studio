@@ -22,7 +22,7 @@ import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreview
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
-import { ACTIVE_DRILL_CONTEXT_STORAGE_KEY, parseActiveDrillContext } from "@/lib/workflow/drill-context";
+import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -277,7 +277,7 @@ export function UploadVideoWorkspace() {
     if (typeof window === "undefined" || selectedDrillKey === FREESTYLE_DRILL_KEY) {
       return;
     }
-    const context = parseActiveDrillContext(window.localStorage.getItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY));
+    const context = readActiveDrillContext();
     if (!context) {
       return;
     }
@@ -285,10 +285,7 @@ export function UploadVideoWorkspace() {
     if (!matching) {
       return;
     }
-    window.localStorage.setItem(
-      ACTIVE_DRILL_CONTEXT_STORAGE_KEY,
-      JSON.stringify({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId ?? context.sourceId })
-    );
+    setActiveDrillContext({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId ?? context.sourceId });
   }, [drillOptions, selectedDrillKey]);
 
   useEffect(() => {

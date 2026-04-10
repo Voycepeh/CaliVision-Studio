@@ -21,9 +21,6 @@ function StudioEmptyState() {
           <Link href="/library" className="pill" style={{ fontWeight: 600 }}>
             Go to Library
           </Link>
-          <Link href="/library" className="pill">
-            Create New Drill
-          </Link>
         </div>
       </div>
     </section>

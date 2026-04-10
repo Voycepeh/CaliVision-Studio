@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ACTIVE_DRILL_CONTEXT_STORAGE_KEY, parseActiveDrillContext } from "@/lib/workflow/drill-context";
+import { ACTIVE_DRILL_CONTEXT_EVENT_NAME, readActiveDrillContext } from "@/lib/workflow/drill-context";
 
 type PrimaryNavProps = {
   active?: "home" | "library" | "studio" | "upload" | "live" | "exchange";
@@ -28,12 +28,15 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
       return;
     }
     const update = () => {
-      const context = parseActiveDrillContext(window.localStorage.getItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY));
-      setHasStudioContext(Boolean(context));
+      setHasStudioContext(Boolean(readActiveDrillContext()));
     };
     update();
     window.addEventListener("storage", update);
-    return () => window.removeEventListener("storage", update);
+    window.addEventListener(ACTIVE_DRILL_CONTEXT_EVENT_NAME, update);
+    return () => {
+      window.removeEventListener("storage", update);
+      window.removeEventListener(ACTIVE_DRILL_CONTEXT_EVENT_NAME, update);
+    };
   }, []);
 
   async function onAuthClick() {

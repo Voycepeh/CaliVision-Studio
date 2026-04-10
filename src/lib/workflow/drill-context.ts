@@ -1,4 +1,5 @@
 export const ACTIVE_DRILL_CONTEXT_STORAGE_KEY = "workflow.active-drill";
+export const ACTIVE_DRILL_CONTEXT_EVENT_NAME = "workflow:active-drill-context";
 
 export type ActiveDrillContext = {
   drillId: string;
@@ -36,4 +37,29 @@ export function parseActiveDrillContext(raw: string | null | undefined): ActiveD
   } catch {
     return null;
   }
+}
+
+export function readActiveDrillContext(): ActiveDrillContext | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return parseActiveDrillContext(window.localStorage.getItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY));
+}
+
+export function setActiveDrillContext(context: ActiveDrillContext): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY, serializeActiveDrillContext(context));
+  window.dispatchEvent(new CustomEvent(ACTIVE_DRILL_CONTEXT_EVENT_NAME));
+}
+
+export function clearActiveDrillContext(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY);
+  window.dispatchEvent(new CustomEvent(ACTIVE_DRILL_CONTEXT_EVENT_NAME));
 }

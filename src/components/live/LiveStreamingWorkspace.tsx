@@ -35,7 +35,7 @@ import {
   type ReplayTerminalState
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
-import { ACTIVE_DRILL_CONTEXT_STORAGE_KEY } from "@/lib/workflow/drill-context";
+import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 10;
 const LIVE_OVERLAY_PRESENTATION_FPS = 30;
@@ -320,7 +320,11 @@ export function LiveStreamingWorkspace() {
   }, [selectedKey, visibleDrillOptions]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || selectedKey === FREESTYLE_KEY) {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (selectedKey === FREESTYLE_KEY) {
+      clearActiveDrillContext();
       return;
     }
     window.localStorage.setItem(LIVE_SELECTED_DRILL_STORAGE_KEY, selectedKey);
@@ -328,10 +332,7 @@ export function LiveStreamingWorkspace() {
     if (!matching?.sourceId) {
       return;
     }
-    window.localStorage.setItem(
-      ACTIVE_DRILL_CONTEXT_STORAGE_KEY,
-      JSON.stringify({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId })
-    );
+    setActiveDrillContext({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId });
   }, [drillOptions, selectedKey]);
 
   useEffect(() => {

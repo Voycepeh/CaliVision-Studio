@@ -20,9 +20,8 @@ import { getOrBuildKnowledgeForPackage, type DrillKnowledgeDocument } from "@/li
 import { buildBundleForExport, downloadPackageBundle, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import { type PackageListingSort } from "@/lib/registry";
 import {
-  ACTIVE_DRILL_CONTEXT_STORAGE_KEY,
   buildWorkflowDrillKey,
-  serializeActiveDrillContext,
+  setActiveDrillContext,
   type ActiveDrillContext
 } from "@/lib/workflow/drill-context";
 
@@ -173,10 +172,7 @@ export function LibraryOverview() {
   }
 
   function persistActiveDrillContext(context: ActiveDrillContext): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem(ACTIVE_DRILL_CONTEXT_STORAGE_KEY, serializeActiveDrillContext(context));
+    setActiveDrillContext(context);
   }
 
   async function resolveDrillContext(drill: DrillLibraryItem, requireEditableDraft: boolean): Promise<ActiveDrillContext> {
