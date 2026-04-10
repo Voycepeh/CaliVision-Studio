@@ -889,11 +889,11 @@ export function LiveStreamingWorkspace() {
         leftPane={
           <div style={{ display: "grid", gap: "0.85rem" }}>
             <DrillSetupHeader
-              title="Live Streaming workflow"
+              title="Live Streaming"
               description={
                 status === "live-session-running"
                   ? "Camera session is active. Reference animation can stay collapsed while you capture."
-                  : "Reference animation is optional while you prepare the camera session."
+                  : "Reference animation is optional while you set up your camera session."
               }
               showReferencePanel={showReferencePanel}
               onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
