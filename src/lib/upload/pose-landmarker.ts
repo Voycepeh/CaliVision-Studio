@@ -73,7 +73,11 @@ export async function createPoseLandmarkerForJob(): Promise<PoseLandmarkerLike> 
   return createPoseLandmarker();
 }
 
-export function mapLandmarksToPoseFrame(landmarks: Array<{ x: number; y: number; visibility?: number }>, timestampMs: number): PoseFrame {
+export function mapLandmarksToPoseFrame(
+  landmarks: Array<{ x: number; y: number; visibility?: number }>,
+  timestampMs: number,
+  options?: { frameWidth?: number; frameHeight?: number; mirrored?: boolean }
+): PoseFrame {
   const joints: PoseFrame["joints"] = {};
 
   for (const [jointName, index] of Object.entries(MEDIAPIPE_CANONICAL_LANDMARK_INDEX)) {
@@ -91,6 +95,9 @@ export function mapLandmarksToPoseFrame(landmarks: Array<{ x: number; y: number;
 
   return {
     timestampMs,
+    frameWidth: options?.frameWidth,
+    frameHeight: options?.frameHeight,
+    mirrored: options?.mirrored,
     joints
   };
 }

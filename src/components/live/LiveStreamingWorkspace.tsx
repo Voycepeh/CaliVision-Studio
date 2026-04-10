@@ -532,7 +532,12 @@ export function LiveStreamingWorkspace() {
 
   const buildStabilizedPoseFrame = useCallback(
     (landmarks: Array<{ x: number; y: number; visibility?: number }>, timestampMs: number) => {
-      const incoming = mapLandmarksToPoseFrame(landmarks, timestampMs);
+      const video = previewVideoRef.current;
+      const incoming = mapLandmarksToPoseFrame(landmarks, timestampMs, {
+        frameWidth: video?.videoWidth,
+        frameHeight: video?.videoHeight,
+        mirrored: !isRearCamera
+      });
       const previous = smoothedFrameRef.current;
       const nextJoints: ReturnType<typeof mapLandmarksToPoseFrame>["joints"] = {};
 
@@ -573,7 +578,7 @@ export function LiveStreamingWorkspace() {
       smoothedFrameRef.current = stabilized;
       return stabilized;
     },
-    []
+    [isRearCamera]
   );
 
   const startSession = useCallback(async () => {

@@ -62,6 +62,7 @@ export type AnalysisSessionRecord = {
       smoothedPhaseId: string | null;
       transitionAccepted: boolean;
     }>;
+    phaseScoringFrames?: FramePhaseSample[];
     runtimeDiagnostics?: {
       phaseCount?: number;
       expectedPhaseOrder: string[];

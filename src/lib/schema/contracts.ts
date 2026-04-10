@@ -237,6 +237,28 @@ export type FramePhaseSample = {
   classifiedPhaseId?: string;
   confidence: number;
   perPhaseScores?: Record<string, number>;
+  scoringDebug?: {
+    cameraView: "front" | "side";
+    jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
+    mirrorApplied: boolean;
+    runtimeNormalization: {
+      mirrorApplied: boolean;
+      aspectRatio: number;
+      origin: { x: number; y: number; strategy: string };
+      scale: { value: number; strategy: string };
+    };
+    phaseComparisons: Record<string, {
+      templateNormalization: {
+        mirrorApplied: boolean;
+        aspectRatio: number;
+        origin: { x: number; y: number; strategy: string };
+        scale: { value: number; strategy: string };
+      };
+      perJointDelta: Partial<Record<CanonicalJointName, number>>;
+      rawScore: number;
+      adjustedScore: number;
+    }>;
+  };
 };
 
 export type AnalysisEventType =

@@ -172,6 +172,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
       sourceVideoFileName: input.timeline.video.fileName,
       smootherTransitions: output.transitions,
       smoothedFrames: output.smoothedFrames,
+      phaseScoringFrames: output.session.frameSamples,
       runtimeDiagnostics: createRuntimeDiagnostics(input.drill, output),
       ...deriveNoEventCause(output)
     },

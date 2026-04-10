@@ -60,7 +60,8 @@ export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOu
         timestampMs: frame.timestampMs,
         classifiedPhaseId: frame.smoothedPhaseId ?? undefined,
         confidence: frame.rawBestPhaseScore,
-        perPhaseScores: scoredFrames.find((score) => score.timestampMs === frame.timestampMs)?.perPhaseScores
+        perPhaseScores: scoredFrames.find((score) => score.timestampMs === frame.timestampMs)?.perPhaseScores,
+        scoringDebug: scoredFrames.find((score) => score.timestampMs === frame.timestampMs)?.debug
       })),
       events: extracted.events,
       summary: {

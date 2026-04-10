@@ -423,7 +423,13 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       lastTimestampMs = timestampMs;
       const firstPose = result.landmarks?.[0];
       if (firstPose) {
-        frames.push(mapLandmarksToPoseFrame(firstPose, timestampMs));
+        frames.push(
+          mapLandmarksToPoseFrame(firstPose, timestampMs, {
+            frameWidth: video.videoWidth,
+            frameHeight: video.videoHeight,
+            mirrored: false
+          })
+        );
       }
 
       const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);

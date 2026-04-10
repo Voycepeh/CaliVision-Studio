@@ -38,6 +38,9 @@ export type UploadJob = {
 
 export type PoseFrame = {
   timestampMs: number;
+  frameWidth?: number;
+  frameHeight?: number;
+  mirrored?: boolean;
   joints: Partial<Record<CanonicalJointName, { x: number; y: number; confidence?: number }>>;
 };
 
