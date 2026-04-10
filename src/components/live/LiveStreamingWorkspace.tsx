@@ -355,6 +355,7 @@ export function LiveStreamingWorkspace() {
       facingMode: isRearCamera ? "rear" : "front"
     });
   }, [isRearCamera]);
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
