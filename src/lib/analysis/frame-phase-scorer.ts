@@ -57,15 +57,15 @@ export function scoreFramesAgainstDrillPhases(
       }
     }
 
-    const clearWinner = winnerHasClearMargin(bestPhaseScore, secondBestPhaseScore);
-    const chosenPhaseId = bestPhaseScore >= minimumScoreThreshold && clearWinner ? bestPhaseId : null;
+    const adjustedBestPhaseScore = applyWinnerMarginSoftPenalty(bestPhaseScore, secondBestPhaseScore);
+    const chosenPhaseId = adjustedBestPhaseScore >= minimumScoreThreshold ? bestPhaseId : null;
     const phaseForQuality = phases.find((phase) => phase.phaseId === chosenPhaseId);
     const quality = buildQualityFlags(frame, phaseForQuality);
 
     return {
       timestampMs: frame.timestampMs,
       bestPhaseId: chosenPhaseId,
-      bestPhaseScore,
+      bestPhaseScore: adjustedBestPhaseScore,
       perPhaseScores: options.includePerPhaseScores === false ? {} : perPhaseScores,
       quality
     };
@@ -172,9 +172,21 @@ function computeTemplateScoreForJointSet(
   const missingPenalty = hintRequired.length === 0 ? 1 : clamp01(1 - requiredMissing / hintRequired.length);
   const confidenceScore = clamp01(confidenceWeightedScoreTotal / contributing);
   const discriminationPenalty = metrics.isMeaningfullyDissimilar
-    ? Math.max(0.25, metrics.dissimilarityScore * 0.5)
-    : metrics.dissimilarityScore * 0.3;
+    ? metrics.dissimilarityScore * 0.2
+    : metrics.dissimilarityScore * 0.12;
   return clamp01((confidenceScore - discriminationPenalty) * missingPenalty);
+}
+
+function applyWinnerMarginSoftPenalty(bestPhaseScore: number, secondBestPhaseScore: number): number {
+  if (winnerHasClearMargin(bestPhaseScore, secondBestPhaseScore)) {
+    return bestPhaseScore;
+  }
+  if (bestPhaseScore <= 0) {
+    return 0;
+  }
+  const proximity = clamp01(secondBestPhaseScore / bestPhaseScore);
+  const marginPenalty = 0.02 + proximity * 0.04;
+  return clamp01(bestPhaseScore - marginPenalty);
 }
 
 function getDefaultJointSetsForView(cameraView: DrillCameraView): CanonicalJointName[][] {

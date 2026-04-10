@@ -114,7 +114,7 @@ test("mean dilution regression: a few large-joint moves become distinct", () => 
   assert.equal(metrics.isMeaningfullyDissimilar, true);
 });
 
-test("winner margin requires meaningful separation before selecting a phase", () => {
+test("winner margin ambiguity is handled as a soft runtime penalty, not a hard reject", () => {
   const drill = makeFrontViewDrill();
   const phases = drill.phases;
 
@@ -133,7 +133,8 @@ test("winner margin requires meaningful separation before selecting a phase", ()
   };
 
   const [scored] = scoreFramesAgainstDrillPhases([frame], phases, { includePerPhaseScores: true });
-  assert.equal(scored?.bestPhaseId, null);
+  assert.notEqual(scored?.bestPhaseId, null);
+  assert.ok((scored?.bestPhaseScore ?? 0) < 0.8);
   assert.ok(Object.keys(scored?.perPhaseScores ?? {}).length >= 3);
 });
 
