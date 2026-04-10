@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
@@ -22,6 +23,7 @@ import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreview
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
+import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -188,6 +190,7 @@ function formatDiagnosticEvent(event: AnalysisSessionRecord["events"][number], p
 }
 
 export function UploadVideoWorkspace() {
+  const searchParams = useSearchParams();
   const { session, isConfigured, persistenceMode } = useAuth();
   const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
   const [activeSession, setActiveSession] = useState<AnalysisSessionRecord | null>(null);
@@ -209,6 +212,7 @@ export function UploadVideoWorkspace() {
   const [selectedSource, setSelectedSource] = useState<DrillSourceKind>(persistenceMode === "cloud" ? "cloud" : "local");
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
+  const requestedDrillKey = searchParams.get("drillKey");
 
   const selectedDrill = useMemo(
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
@@ -259,11 +263,11 @@ export function UploadVideoWorkspace() {
     setDrillOptions(options);
     setSelectedDrillKey((current) => {
       const stored = typeof window !== "undefined" ? window.localStorage.getItem(SELECTED_DRILL_STORAGE_KEY) : null;
-      const resolved = resolveSelectedDrillKey(options, current, stored);
+      const resolved = resolveSelectedDrillKey(options, requestedDrillKey ?? current, stored);
       return resolved ?? FREESTYLE_DRILL_KEY;
     });
     setDrillOptionsLoading(false);
-  }, [isConfigured, session]);
+  }, [isConfigured, requestedDrillKey, session]);
 
   useEffect(() => {
     void refreshDrillOptions();
@@ -273,6 +277,21 @@ export function UploadVideoWorkspace() {
     if (!selectedDrillKey) return;
     window.localStorage.setItem(SELECTED_DRILL_STORAGE_KEY, selectedDrillKey);
   }, [selectedDrillKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || selectedDrillKey === FREESTYLE_DRILL_KEY) {
+      return;
+    }
+    const context = readActiveDrillContext();
+    if (!context) {
+      return;
+    }
+    const matching = drillOptions.find((option) => option.key === selectedDrillKey);
+    if (!matching) {
+      return;
+    }
+    setActiveDrillContext({ drillId: matching.drill.drillId, sourceKind: matching.sourceKind, sourceId: matching.sourceId ?? context.sourceId });
+  }, [drillOptions, selectedDrillKey]);
 
   useEffect(() => {
     setSelectedSource((current) => (current === "exchange" ? current : persistenceMode === "cloud" ? "cloud" : "local"));

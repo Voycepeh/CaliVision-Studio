@@ -10,11 +10,12 @@ export default async function StudioPage({
   searchParams: Promise<{ packageId?: string; draftId?: string; drillId?: string; versionId?: string; hostedDraftId?: string }>;
 }) {
   const params = await searchParams;
+  const hasRouteContext = Boolean(params.packageId || params.draftId || params.drillId || params.versionId || params.hostedDraftId);
   return (
     <RoutePageIntro
-      navActive="studio"
+      navActive={hasRouteContext ? "studio" : undefined}
       title="Drill Studio"
-      description="Edit the currently selected drill draft top-to-bottom, from drill info and phase pose authoring through review."
+      description="Edit the current drill draft. Open Studio from Library or Create New Drill to load editing context."
     >
       <StudioExperience
         initialPackageId={params.packageId}

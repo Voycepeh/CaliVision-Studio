@@ -15,9 +15,9 @@ function StudioEmptyState() {
       <div className="card" style={{ maxWidth: "640px", margin: "0 auto", display: "grid", gap: "0.65rem", textAlign: "center" }}>
         <h2 style={{ margin: 0 }}>No drill selected</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Choose a drill from Library to start editing.
+          Studio opens when you launch it from Library or create a new drill.
         </p>
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: "0.45rem", flexWrap: "wrap" }}>
           <Link href="/library" className="pill" style={{ fontWeight: 600 }}>
             Go to Library
           </Link>
@@ -47,6 +47,7 @@ export function StudioExperience({
       initialDrillId={initialDrillId}
       initialVersionId={initialVersionId}
       initialHostedDraftId={initialHostedDraftId}
+      requireDrillContext={true}
     >
       <div className="studio-route-surface">
         <StudioEmptyState />
