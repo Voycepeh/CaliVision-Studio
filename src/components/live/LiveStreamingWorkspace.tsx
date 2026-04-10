@@ -876,6 +876,13 @@ export function LiveStreamingWorkspace() {
 
   return (
     <section className="panel-content live-streaming-layout">
+      <div className="card live-streaming-intro-card">
+        <strong>Live session setup</strong>
+        <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+          Pick your camera + drill settings, then start the session. The live stage appears below the setup row and runs lightweight overlay analysis in real time.
+        </p>
+      </div>
+
       {/* Shared setup shell keeps Upload and Live aligned while preserving source-specific inputs. */}
       <DrillSetupShell
         showReferencePanel={showReferencePanel}
@@ -890,22 +897,24 @@ export function LiveStreamingWorkspace() {
               }
               showReferencePanel={showReferencePanel}
               onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
-              actions={
-                <button
-                  type="button"
-                  className="studio-button live-streaming-control-input live-streaming-camera-button"
-                  onClick={() => setIsRearCamera((current) => !current)}
-                  disabled={status === "requesting-permission" || status === "live-session-running"}
-                >
-                  <span className="live-streaming-button-text">{isRearCamera ? "Rear camera" : "Front camera"}</span>
-                </button>
-              }
             />
             <article className="card drill-setup-shell-card" style={{ display: "grid", gap: "0.8rem" }}>
-              <p className="muted" style={{ margin: 0 }}>
-                Mobile browser camera session with lightweight live overlay (analysis at {LIVE_ANALYSIS_CADENCE_FPS} FPS, presentation at {LIVE_OVERLAY_PRESENTATION_FPS} FPS), raw recording in parallel, and post-session annotated replay from retained trace + recording.
+              <p className="muted" style={{ margin: 0, fontSize: "0.86rem" }}>
+                Live overlay runs at {LIVE_ANALYSIS_CADENCE_FPS} FPS analysis / {LIVE_OVERLAY_PRESENTATION_FPS} FPS presentation with automatic raw + annotated replay export.
               </p>
               <div className="live-streaming-control-row">
+                <label className="live-streaming-control-field">
+                  <span>Camera</span>
+                  <select
+                    className="live-streaming-control-input"
+                    value={isRearCamera ? "rear" : "front"}
+                    onChange={(event) => setIsRearCamera(event.target.value === "rear")}
+                    disabled={status === "live-session-running" || status === "requesting-permission"}
+                  >
+                    <option value="rear">Rear camera</option>
+                    <option value="front">Front camera</option>
+                  </select>
+                </label>
                 <label className="live-streaming-control-field">
                   <span>Analysis mode</span>
                   <select
@@ -945,42 +954,45 @@ export function LiveStreamingWorkspace() {
                     )}
                   </select>
                 </label>
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {status === "live-session-running" ? (
-            <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
-              Stop session
-            </button>
-          ) : null}
-          {(status === "idle" || status === "failed" || status === "denied") && (
-            <button type="button" className="studio-button studio-button-primary" onClick={() => void startSession()}>
-              Start live session
-            </button>
-          )}
-          {status === "requesting-permission" ? (
-            <button type="button" className="studio-button studio-button-primary" disabled>
-              Starting camera...
-            </button>
-          ) : null}
-          {status === "completed" ? (
-            <>
-              {replayUrl ? (
-                <button
-                  type="button"
-                  className="studio-button studio-button-primary"
-                  onClick={() => triggerDownload(replayUrl, `${liveTrace?.traceId ?? "live-session"}-${annotatedReplayUrl ? "annotated" : "raw"}.webm`)}
-                >
-                  Save replay
-                </button>
-              ) : null}
-              <button type="button" className="studio-button" onClick={() => void startSession()}>
-                Retake
-              </button>
-              <button type="button" className="studio-button studio-button-danger" onClick={() => void resetToIdle()}>
-                Discard
-              </button>
-            </>
-          ) : null}
+                <div className="live-streaming-control-field live-streaming-control-field--actions">
+                  <span>Session</span>
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                    {status === "live-session-running" ? (
+                      <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+                        Stop session
+                      </button>
+                    ) : null}
+                    {(status === "idle" || status === "failed" || status === "denied") && (
+                      <button type="button" className="studio-button studio-button-primary" onClick={() => void startSession()}>
+                        Start live session
+                      </button>
+                    )}
+                    {status === "requesting-permission" ? (
+                      <button type="button" className="studio-button studio-button-primary" disabled>
+                        Starting camera...
+                      </button>
+                    ) : null}
+                    {status === "completed" ? (
+                      <>
+                        {replayUrl ? (
+                          <button
+                            type="button"
+                            className="studio-button studio-button-primary"
+                            onClick={() => triggerDownload(replayUrl, `${liveTrace?.traceId ?? "live-session"}-${annotatedReplayUrl ? "annotated" : "raw"}.webm`)}
+                          >
+                            Save replay
+                          </button>
+                        ) : null}
+                        <button type="button" className="studio-button" onClick={() => void startSession()}>
+                          Retake
+                        </button>
+                        <button type="button" className="studio-button studio-button-danger" onClick={() => void resetToIdle()}>
+                          Discard
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               {(status === "unsupported" || status === "stopping-finalizing") && !errorMessage ? (
                 <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
