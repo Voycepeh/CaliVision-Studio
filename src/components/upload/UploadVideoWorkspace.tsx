@@ -17,7 +17,10 @@ import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
 import type { PortableDrill } from "@/lib/schema/contracts";
-import { DrillSelectionPreviewPanel, buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
+import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
+import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -570,7 +573,6 @@ export function UploadVideoWorkspace() {
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
-  const referenceToggleLabel = showReferencePanel ? "Hide reference animation" : "Show reference animation";
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
@@ -585,33 +587,28 @@ export function UploadVideoWorkspace() {
         </p>
       </div>
 
-      <div key={workflowResetKey} className={`upload-workflow-layout${showReferencePanel ? "" : " upload-workflow-layout--collapsed"}`}>
-        <div className="upload-workflow-primary">
-          <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
-            <div style={{ display: "grid", gap: "0.65rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
-                <strong style={{ fontSize: "0.95rem" }}>Upload Video workflow</strong>
+      <DrillSetupShell
+        setupKey={workflowResetKey}
+        showReferencePanel={showReferencePanel}
+        leftPane={
+          <div style={{ display: "grid", gap: "0.85rem" }}>
+            <DrillSetupHeader
+              title="Upload Video workflow"
+              description={
+                shouldCollapseReferencePanel
+                  ? "Upload is active. Video and processing stay in the main workspace."
+                  : "Reference animation is optional while you set up the upload."
+              }
+              showReferencePanel={showReferencePanel}
+              onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
+              actions={
                 <button type="button" onClick={openFileChooser} style={{ padding: "0.45rem 0.75rem", fontSize: "0.86rem" }}>
                   Choose video
                 </button>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.55rem", alignItems: "center", flexWrap: "wrap" }}>
-                <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
-                  {shouldCollapseReferencePanel
-                    ? "Upload is active. Video and processing stay in the main workspace."
-                    : "Reference animation is optional while you set up the upload."}
-                </p>
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={() => setIsReferencePanelVisible((current) => !current)}
-                  aria-expanded={showReferencePanel}
-                >
-                  {referenceToggleLabel}
-                </button>
-              </div>
-
+              }
+            />
+            <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
+            <div style={{ display: "grid", gap: "0.65rem" }}>
               <div style={{ display: "flex", gap: "0.65rem", alignItems: "center", flexWrap: "wrap" }}>
                 <label className="muted" style={{ fontSize: "0.85rem" }}>
                   Analysis mode
@@ -705,8 +702,17 @@ export function UploadVideoWorkspace() {
               />
             </div>
           </div>
-
-          {activeJob ? (
+          </div>
+        }
+        rightPane={
+          <ReferenceAnimationPanel
+            drill={selectedDrill?.drill ?? null}
+            sourceKind={selectedDrill?.sourceKind}
+            freestyleDescription="Upload Video will run pose overlay and export outputs without drill-specific rep, hold, or phase scoring."
+          />
+        }
+      />
+      {activeJob ? (
             <article className="card" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
                 <div>
@@ -822,24 +828,7 @@ export function UploadVideoWorkspace() {
                 </button>
               </div>
             </section>
-          ) : null}
-        </div>
-
-        {showReferencePanel ? (
-          <aside className="upload-workflow-preview">
-          {selectedDrill ? (
-            <DrillSelectionPreviewPanel drill={selectedDrill.drill} sourceKind={selectedDrill.sourceKind} showSourceBadge compact quiet />
-          ) : (
-            <section className="card" style={{ margin: 0, background: "rgba(114,168,255,0.04)" }}>
-              <strong style={{ fontSize: "0.9rem" }}>Freestyle overlay mode</strong>
-              <p className="muted" style={{ margin: "0.35rem 0 0", fontSize: "0.82rem" }}>
-                Upload Video will run pose overlay and export outputs without drill-specific rep, hold, or phase scoring.
-              </p>
-            </section>
-          )}
-          </aside>
-        ) : null}
-      </div>
+      ) : null}
 
       {activeSession && (activeJob?.drillSelection.mode ?? "drill") === "drill" ? (
         <details style={{ marginTop: "0.2rem", opacity: 0.88 }}>

@@ -955,20 +955,26 @@ main {
   height: auto;
 }
 
-.upload-workflow-layout {
+.drill-setup-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
   gap: 0.85rem;
   align-items: start;
 }
 
-.upload-workflow-layout--collapsed {
+.drill-setup-layout--collapsed {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.upload-workflow-primary,
-.upload-workflow-preview {
+.drill-setup-primary,
+.drill-setup-reference {
   min-width: 0;
+}
+
+.drill-setup-shell-card {
+  border: 1px solid rgba(128, 157, 192, 0.36);
+  background: rgba(114, 168, 255, 0.06);
+  margin: 0;
 }
 
 .upload-workflow-action-card {
@@ -1002,7 +1008,7 @@ main {
 
 .live-streaming-control-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 0.6rem;
   min-width: 0;
 }
@@ -1018,6 +1024,10 @@ main {
   min-width: 0;
   max-width: 100%;
   min-height: 2.15rem;
+}
+
+.live-streaming-control-field--action {
+  min-width: 220px;
 }
 
 .live-streaming-camera-button {
@@ -1076,14 +1086,8 @@ main {
   opacity: 1;
 }
 
-@media (min-width: 1080px) {
-  .live-streaming-layout {
-    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
-  }
-}
-
 @media (max-width: 980px) {
-  .upload-workflow-layout {
+  .drill-setup-layout {
     grid-template-columns: 1fr;
   }
 
