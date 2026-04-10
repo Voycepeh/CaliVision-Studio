@@ -145,6 +145,7 @@ export function LibraryOverview() {
       ])
     ) as Record<string, DrillKnowledgeDocument>;
   }, [drills]);
+  const titleByDrillId = useMemo(() => Object.fromEntries(drills.map((drill) => [drill.drillId, drill.title])), [drills]);
 
   async function onCreateDraft(): Promise<void> {
     const created = await createDrill(repositoryContext);
@@ -329,7 +330,7 @@ export function LibraryOverview() {
 
                   <details>
                     <summary style={{ cursor: "pointer" }}>Knowledge</summary>
-                    <KnowledgeSections knowledge={knowledgeByDrillId[drill.drillId]} />
+                    <KnowledgeSections knowledge={knowledgeByDrillId[drill.drillId]} titleByDrillId={titleByDrillId} />
                   </details>
 
                   <InlineItemFeedback itemId={`drill:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
@@ -350,7 +351,7 @@ export function LibraryOverview() {
   );
 }
 
-function KnowledgeSections({ knowledge }: { knowledge?: DrillKnowledgeDocument }) {
+function KnowledgeSections({ knowledge, titleByDrillId }: { knowledge?: DrillKnowledgeDocument; titleByDrillId: Record<string, string> }) {
   if (!knowledge) {
     return (
       <p className="muted" style={{ margin: "0.4rem 0 0" }}>
@@ -359,6 +360,7 @@ function KnowledgeSections({ knowledge }: { knowledge?: DrillKnowledgeDocument }
     );
   }
 
+  const relatedDrillLabels = knowledge.relatedDrillIds.map((drillId) => titleByDrillId[drillId] ?? "Related drill (unavailable in this workspace)");
   const sections: Array<{ label: string; items: string[] }> = [
     { label: "Overview", items: [knowledge.summary, knowledge.orientationNotes].filter(Boolean) },
     { label: "Phases", items: knowledge.phaseOverview },
@@ -366,7 +368,7 @@ function KnowledgeSections({ knowledge }: { knowledge?: DrillKnowledgeDocument }
     { label: "Regressions / Progressions", items: [...knowledge.regressions, ...knowledge.progressions] },
     { label: "Common mistakes", items: knowledge.commonMistakes },
     { label: "Detection notes", items: knowledge.detectionCaveats },
-    { label: "Related drills", items: knowledge.relatedDrillIds }
+    { label: "Related drills", items: relatedDrillLabels }
   ];
 
   return (

@@ -22,6 +22,7 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 - Executable drill packages remain the runtime source of truth for scoring/coaching behavior.
 - Studio now includes a derived **Drill Knowledge Document** layer for Exchange discovery/explanation surfaces.
 - This knowledge layer is deterministic (rule-based generation from drill/package fields), read-only, and does not mutate executable drill rules.
+- Current persistence posture: knowledge documents are derived on the client and cached locally in browser storage (including hosted-draft mode); no dedicated hosted knowledge persistence is introduced yet.
 - The current implementation is scaffolding for future enrichment while preserving local-first and hosted-draft compatibility boundaries.
 
 Android runtime relationship: exported/published packages remain consumable by <https://github.com/Voycepeh/CaliVision>.
