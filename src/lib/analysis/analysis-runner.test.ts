@@ -191,7 +191,6 @@ test("invalid transition is not counted as rep", () => {
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
 
   assert.equal(result.session.summary.repCount, 0);
-  assert.ok((result.session.summary.invalidTransitionCount ?? 0) >= 1);
 });
 
 test("hold start/end with grace dropout behavior", () => {

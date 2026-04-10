@@ -1,4 +1,5 @@
 import type { PortableDrill, PortableDrillAnalysis } from "../schema/contracts.ts";
+import { compareNormalizedJoints } from "./pose-comparison.ts";
 
 export type RuntimeMeasurementMode = "rep" | "hold";
 
@@ -162,7 +163,7 @@ export function filterPhaseIdsToRuntime(phaseIds: Array<string | null | undefine
   return phaseIds.filter((phaseId): phaseId is string => Boolean(phaseId && allowed.has(phaseId)));
 }
 
-function averageJointDistance(phaseAId: string, phaseBId: string, drill: PortableDrill): number | null {
+function comparePhasePoses(phaseAId: string, phaseBId: string, drill: PortableDrill): { similarityScore: number; isMeaningfullyDissimilar: boolean } | null {
   const phaseA = drill.phases.find((phase) => phase.phaseId === phaseAId);
   const phaseB = drill.phases.find((phase) => phase.phaseId === phaseBId);
   const jointsA = phaseA?.poseSequence[0]?.joints;
@@ -171,25 +172,25 @@ function averageJointDistance(phaseAId: string, phaseBId: string, drill: Portabl
     return null;
   }
 
-  let total = 0;
-  let compared = 0;
-  const allJointNames = new Set([...Object.keys(jointsA), ...Object.keys(jointsB)]);
-  for (const jointName of allJointNames) {
-    const a = jointsA[jointName as keyof typeof jointsA];
-    const b = jointsB[jointName as keyof typeof jointsB];
-    if (!a || !b) {
-      continue;
-    }
-    const dx = a.x - b.x;
-    const dy = a.y - b.y;
-    total += Math.sqrt(dx * dx + dy * dy);
-    compared += 1;
-  }
+  const norm = computePhaseNormalizationDistance(jointsA, jointsB);
+  return compareNormalizedJoints(jointsA, jointsB, { normalizationDistance: norm });
+}
 
-  if (compared === 0) {
-    return null;
-  }
-  return total / compared;
+function computePhaseNormalizationDistance(
+  jointsA: NonNullable<PortableDrill["phases"][number]["poseSequence"][number]>["joints"],
+  jointsB: NonNullable<PortableDrill["phases"][number]["poseSequence"][number]>["joints"]
+): number {
+  const leftHip = jointsA.leftHip ?? jointsB.leftHip;
+  const rightHip = jointsA.rightHip ?? jointsB.rightHip;
+  const leftShoulder = jointsA.leftShoulder ?? jointsB.leftShoulder;
+  const rightShoulder = jointsA.rightShoulder ?? jointsB.rightShoulder;
+
+  const hipWidth = leftHip && rightHip ? Math.hypot(leftHip.x - rightHip.x, leftHip.y - rightHip.y) : 0;
+  const shoulderWidth = leftShoulder && rightShoulder
+    ? Math.hypot(leftShoulder.x - rightShoulder.x, leftShoulder.y - rightShoulder.y)
+    : 0;
+
+  return Math.max(0.2, hipWidth, shoulderWidth);
 }
 
 export function buildPhaseSimilarityWarnings(drill: PortableDrill, runtimeModel: PhaseRuntimeModel): PhaseSimilarityWarning[] {
@@ -204,12 +205,12 @@ export function buildPhaseSimilarityWarnings(drill: PortableDrill, runtimeModel:
     for (let other = index + 1; other < ids.length; other += 1) {
       const phaseAId = ids[index]!;
       const phaseBId = ids[other]!;
-      const distance = averageJointDistance(phaseAId, phaseBId, drill);
-      if (distance === null) {
+      const comparison = comparePhasePoses(phaseAId, phaseBId, drill);
+      if (!comparison || comparison.isMeaningfullyDissimilar) {
         continue;
       }
-      const similarity = Math.max(0, Math.min(1, 1 - distance));
-      const severity = similarity >= 0.92 ? "ambiguous" : similarity >= 0.84 ? "similar" : null;
+      const similarity = comparison.similarityScore;
+      const severity = similarity >= 0.88 ? "ambiguous" : similarity >= 0.76 ? "similar" : null;
       if (!severity) {
         continue;
       }
