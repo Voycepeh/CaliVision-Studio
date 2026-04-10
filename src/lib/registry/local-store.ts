@@ -2,6 +2,7 @@ import { createDerivedPackage, ensureVersioningMetadata } from "@/lib/package";
 import { createRegistryEntryFromPackage } from "@/lib/registry/catalog";
 import type { PackageInstallResult, PackageRegistryEntry, PackageSourceType } from "@/lib/registry/types";
 import type { DrillPackage, DrillPackageRelationType } from "@/lib/schema/contracts";
+import { refreshKnowledgeForPackage } from "@/lib/knowledge";
 
 const REGISTRY_STORAGE_KEY = "calivision.registry.v1";
 
@@ -105,6 +106,10 @@ export function upsertRegistryEntryFromPackage(input: {
 
   const merged = attachLineageEntryIds([normalizedEntry, ...current.filter((entry) => entry.entryId !== normalizedEntry.entryId)]);
   saveLocalRegistryEntries(merged);
+  void refreshKnowledgeForPackage({
+    packageJson: normalizedPackage,
+    candidatePackages: merged.map((entry) => entry.details.packageJson)
+  });
   return normalizedEntry;
 }
 

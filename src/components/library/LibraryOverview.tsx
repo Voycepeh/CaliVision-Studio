@@ -16,6 +16,7 @@ import {
   type DrillLibraryItem,
   type DrillVersionSnapshot
 } from "@/lib/library";
+import { getOrBuildKnowledgeForPackage, type DrillKnowledgeDocument } from "@/lib/knowledge";
 import { buildBundleForExport, downloadPackageBundle, packageKeyFromFile, readPackageFile } from "@/lib/package";
 import { type PackageListingSort } from "@/lib/registry";
 
@@ -131,6 +132,20 @@ export function LibraryOverview() {
       return b.updatedAtIso.localeCompare(a.updatedAtIso);
     });
   }, [drills, searchText, sortBy]);
+
+  const knowledgeByDrillId = useMemo(() => {
+    const candidatePackages = drills.map((item) => item.currentVersion.packageJson);
+    return Object.fromEntries(
+      drills.map((item) => [
+        item.drillId,
+        getOrBuildKnowledgeForPackage({
+          packageJson: item.currentVersion.packageJson,
+          candidatePackages
+        })
+      ])
+    ) as Record<string, DrillKnowledgeDocument>;
+  }, [drills]);
+  const titleByDrillId = useMemo(() => Object.fromEntries(drills.map((drill) => [drill.drillId, drill.title])), [drills]);
 
   async function onCreateDraft(): Promise<void> {
     const created = await createDrill(repositoryContext);
@@ -313,6 +328,11 @@ export function LibraryOverview() {
                     </div>
                   </details>
 
+                  <details>
+                    <summary style={{ cursor: "pointer" }}>Knowledge</summary>
+                    <KnowledgeSections knowledge={knowledgeByDrillId[drill.drillId]} titleByDrillId={titleByDrillId} />
+                  </details>
+
                   <InlineItemFeedback itemId={`drill:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`ready:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`publish:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
@@ -328,6 +348,44 @@ export function LibraryOverview() {
       <InlineItemFeedback itemId="global:import" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
       <InlineItemFeedback itemId="global:import:ownership" pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
     </section>
+  );
+}
+
+function KnowledgeSections({ knowledge, titleByDrillId }: { knowledge?: DrillKnowledgeDocument; titleByDrillId: Record<string, string> }) {
+  if (!knowledge) {
+    return (
+      <p className="muted" style={{ margin: "0.4rem 0 0" }}>
+        No derived knowledge available yet.
+      </p>
+    );
+  }
+
+  const relatedDrillLabels = knowledge.relatedDrillIds.map((drillId) => titleByDrillId[drillId] ?? "Related drill (unavailable in this workspace)");
+  const sections: Array<{ label: string; items: string[] }> = [
+    { label: "Overview", items: [knowledge.summary, knowledge.orientationNotes].filter(Boolean) },
+    { label: "Phases", items: knowledge.phaseOverview },
+    { label: "Prerequisites", items: knowledge.prerequisites },
+    { label: "Regressions / Progressions", items: [...knowledge.regressions, ...knowledge.progressions] },
+    { label: "Common mistakes", items: knowledge.commonMistakes },
+    { label: "Detection notes", items: knowledge.detectionCaveats },
+    { label: "Related drills", items: relatedDrillLabels }
+  ];
+
+  return (
+    <div style={{ display: "grid", gap: "0.5rem", marginTop: "0.45rem" }}>
+      {sections
+        .filter((section) => section.items.length > 0)
+        .map((section) => (
+          <section key={section.label} style={{ display: "grid", gap: "0.2rem" }}>
+            <strong style={{ fontSize: "0.82rem" }}>{section.label}</strong>
+            <ul style={{ margin: 0, paddingLeft: "1rem", color: "var(--muted)", fontSize: "0.8rem" }}>
+              {section.items.map((item, index) => (
+                <li key={`${section.label}-${index}`}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        ))}
+    </div>
   );
 }
 
