@@ -573,6 +573,8 @@ export function UploadVideoWorkspace() {
       : null,
     raw: activeJob?.file?.type ? resolveSafeDelivery({ mimeType: activeJob.file.type }) : null
   };
+  const annotatedDownloadLabel = resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable });
+  const rawDownloadLabel = resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable });
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
 
@@ -884,12 +886,12 @@ export function UploadVideoWorkspace() {
                     onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`)}
                     title={downloadSafety.annotated?.warning ?? undefined}
                   >
-                    {resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable })}
+                    {annotatedDownloadLabel}
                   </button>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
                   <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} title={downloadSafety.raw?.warning ?? undefined}>
-                    {resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable })}
+                    {rawDownloadLabel}
                   </button>
                 ) : null}
                 {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}

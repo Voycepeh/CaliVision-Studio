@@ -252,6 +252,8 @@ export function LiveStreamingWorkspace() {
     annotated: annotatedReplayMimeType ? resolveSafeDelivery({ mimeType: annotatedReplayMimeType }) : null,
     raw: rawReplayMimeType ? resolveSafeDelivery({ mimeType: rawReplayMimeType }) : null
   };
+  const annotatedDownloadLabel = resolveLiveDownloadLabel({ kind: "annotated", downloadable: replayDownloadSafety.annotated?.downloadable });
+  const rawDownloadLabel = resolveLiveDownloadLabel({ kind: "raw", downloadable: replayDownloadSafety.raw?.downloadable });
   const replayUrl = replayPreviewSelection.source?.url ?? null;
   const canToggleReplayPreview = canToggleCompletedPreview({
     hasRaw: Boolean(rawReplayUrl),
@@ -1080,13 +1082,13 @@ export function LiveStreamingWorkspace() {
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
                           <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
                             title={replayDownloadSafety.annotated?.warning ?? undefined}>
-                            {resolveLiveDownloadLabel({ kind: "annotated", downloadable: replayDownloadSafety.annotated?.downloadable })}
+                            {annotatedDownloadLabel}
                           </button>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
                           <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
                             title={replayDownloadSafety.raw?.warning ?? undefined}>
-                            {resolveLiveDownloadLabel({ kind: "raw", downloadable: replayDownloadSafety.raw?.downloadable })}
+                            {rawDownloadLabel}
                           </button>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
