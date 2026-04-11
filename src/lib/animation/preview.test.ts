@@ -105,3 +105,48 @@ test("phase preview labels use canonical name even when legacy title differs", (
   assert.equal(frame.phaseTitle, "Canonical Name");
   assert.match(timeline.segments[0]?.title ?? "", /Canonical Name/);
 });
+
+test("hold preview mode remains static across elapsed samples", () => {
+  const phases = [
+    createPhase("hold_primary", 1, 1200, createPose("hold_pose", 0.33, 0.66))
+  ];
+
+  const timeline = buildAnimationTimeline(phases, { mode: "static" });
+  const frameAtStart = sampleAnimationTimeline(timeline, 0);
+  const frameAtMid = sampleAnimationTimeline(timeline, 600);
+  const frameAtEnd = sampleAnimationTimeline(timeline, 1200);
+
+  assert.equal(frameAtStart.pose?.joints.nose?.x, 0.33);
+  assert.equal(frameAtMid.pose?.joints.nose?.x, 0.33);
+  assert.equal(frameAtEnd.pose?.joints.nose?.x, 0.33);
+  assert.equal(frameAtStart.pose?.joints.nose?.y, 0.66);
+  assert.equal(frameAtMid.pose?.joints.nose?.y, 0.66);
+  assert.equal(frameAtEnd.pose?.joints.nose?.y, 0.66);
+});
+
+test("rep preview mode keeps interpolation animation behavior", () => {
+  const phases = [
+    createPhase("phase_a", 1, 1000, createPose("pose_a", 0.1, 0.2)),
+    createPhase("phase_b", 2, 1000, createPose("pose_b", 0.9, 0.8))
+  ];
+
+  const timeline = buildAnimationTimeline(phases, { mode: "animated" });
+  const frame = sampleAnimationTimeline(timeline, 500);
+
+  assert.equal(frame.phaseId, "phase_a");
+  assert.equal(frame.pose?.joints.nose?.x, 0.5);
+  assert.equal(frame.pose?.joints.nose?.y, 0.5);
+});
+
+test("single-phase hold mode does not synthesize interpolated frames", () => {
+  const phase = createPhase("hold", 1, 1000, createPose("hold_pose", 0.21, 0.79));
+  const timeline = buildAnimationTimeline([phase], { mode: "static" });
+
+  assert.equal(timeline.segments.length, 1);
+  assert.equal(timeline.segments[0]?.fromPose?.poseId, "hold_pose");
+  assert.equal(timeline.segments[0]?.toPose?.poseId, "hold_pose");
+
+  const sampled = sampleAnimationTimeline(timeline, 500);
+  assert.equal(sampled.pose?.joints.nose?.x, 0.21);
+  assert.equal(sampled.pose?.joints.nose?.y, 0.79);
+});

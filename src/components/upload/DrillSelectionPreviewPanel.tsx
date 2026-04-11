@@ -7,10 +7,6 @@ import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
 
-const HOLD_LOOP_HOLD_RATIO = 0.7;
-const HOLD_ENTRY_EXIT_MIN_DURATION_MS = 300;
-const HOLD_PLATEAU_MIN_DURATION_MS = 900;
-
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
   sourceKind?: StoredDrillSourceKind;
@@ -33,9 +29,9 @@ function formatViewLabel(view: PortableViewType): string {
   return "Side";
 }
 
-function createLoopPhases(drill: PortableDrill): PortablePhase[] {
+function resolvePreviewPhases(drill: PortableDrill): PortablePhase[] {
   const phases = sortPhases(drill.phases);
-  if (drill.drillType === "rep") {
+  if (drill.drillType !== "hold") {
     return phases;
   }
 
@@ -43,32 +39,10 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
     return phases;
   }
 
-  const entrySource = phases[0];
-  const plateauSource = phases[1] ?? phases[0];
-  const entryPhase: PortablePhase = {
-    ...entrySource,
-    phaseId: `${entrySource.phaseId}_entry_preview`,
-    name: "Entry",
-    durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
-  };
-  const holdPlateauPhase: PortablePhase = {
-    ...plateauSource,
-    phaseId: `${plateauSource.phaseId}_hold_preview`,
-    name: plateauSource.name || "Hold",
-    durationMs: Math.max(HOLD_PLATEAU_MIN_DURATION_MS, Math.round(plateauSource.durationMs * HOLD_LOOP_HOLD_RATIO))
-  };
-  const exitPhase: PortablePhase = {
-    ...entrySource,
-    phaseId: `${entrySource.phaseId}_exit_preview`,
-    name: "Exit",
-    durationMs: Math.max(HOLD_ENTRY_EXIT_MIN_DURATION_MS, Math.round(entrySource.durationMs * (1 - HOLD_LOOP_HOLD_RATIO)))
-  };
-
-  if (phases.length === 1) {
-    return [entryPhase, holdPlateauPhase, exitPhase];
-  }
-
-  return [entryPhase, holdPlateauPhase, ...phases.slice(2), exitPhase];
+  const authoredHoldPhaseId = drill.analysis?.targetHoldPhaseId;
+  const authoredHoldPhase = authoredHoldPhaseId ? phases.find((phase) => phase.phaseId === authoredHoldPhaseId) : undefined;
+  const primaryPhase = authoredHoldPhase ?? phases[0];
+  return primaryPhase ? [primaryPhase] : [];
 }
 
 export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
@@ -77,8 +51,9 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
   const frameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
 
-  const loopPhases = useMemo(() => createLoopPhases(drill), [drill]);
-  const timeline = useMemo(() => buildAnimationTimeline(loopPhases), [loopPhases]);
+  const previewPhases = useMemo(() => resolvePreviewPhases(drill), [drill]);
+  const previewMode = drill.drillType === "hold" ? "static" : "animated";
+  const timeline = useMemo(() => buildAnimationTimeline(previewPhases, { mode: previewMode }), [previewMode, previewPhases]);
   const previewResetKey = useMemo(
     () =>
       [
@@ -97,11 +72,11 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
 
   useEffect(() => {
     setElapsedMs(0);
-    setIsPlaying(true);
-  }, [previewResetKey]);
+    setIsPlaying(drill.drillType === "rep");
+  }, [drill.drillType, previewResetKey]);
 
   useEffect(() => {
-    if (!isPlaying || timeline.totalDurationMs <= 0) {
+    if (drill.drillType === "hold" || !isPlaying || timeline.totalDurationMs <= 0) {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
         frameRef.current = null;
@@ -138,23 +113,17 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
       frameRef.current = null;
       lastTickRef.current = null;
     };
-  }, [isPlaying, timeline.totalDurationMs]);
+  }, [drill.drillType, isPlaying, timeline.totalDurationMs]);
 
   const sampledFrame = useMemo(() => sampleAnimationTimeline(timeline, elapsedMs), [timeline, elapsedMs]);
   const poseModel = useMemo(() => mapPortablePoseToCanvasPoseModel(sampledFrame.pose), [sampledFrame.pose]);
 
   const phaseStateLabel = useMemo(() => {
     if (drill.drillType === "rep") {
-      return sampledFrame.phaseId ? `Phase ${sampledFrame.phaseIndex + 1} of ${loopPhases.length}` : "No phase data";
+      return sampledFrame.phaseId ? `Phase ${sampledFrame.phaseIndex + 1} of ${previewPhases.length}` : "No phase data";
     }
-    if (loopPhases.length < 2) {
-      return "Hold posture";
-    }
-    const activeTitle = sampledFrame.phaseTitle.toLowerCase();
-    if (activeTitle.includes("exit")) return "Exit posture";
-    if (sampledFrame.phaseIndex === 0) return "Entry posture";
     return "Hold posture";
-  }, [drill.drillType, loopPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex, sampledFrame.phaseTitle]);
+  }, [drill.drillType, previewPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex]);
 
   return (
     <section
@@ -187,14 +156,14 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
         <PoseCanvas
           pose={poseModel}
           title="Motion preview"
-          subtitle={`${phaseStateLabel} · ${sampledFrame.phaseTitle}`}
+          subtitle={drill.drillType === "hold" ? phaseStateLabel : `${phaseStateLabel} · ${sampledFrame.phaseTitle}`}
           editable={false}
           showPoseLayer
           sizeMode={compact ? "default" : "balanced"}
         />
       </div>
 
-      {!compact ? (
+      {!compact && drill.drillType === "rep" ? (
         <div className="studio-animation-controls" style={{ marginTop: 0 }}>
           <button type="button" onClick={() => setIsPlaying((current) => !current)} disabled={timeline.totalDurationMs <= 0}>
             {isPlaying ? "Pause" : "Play"}
