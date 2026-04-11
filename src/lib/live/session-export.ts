@@ -7,7 +7,7 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
   trace: LiveSessionTrace;
   analysisSession: AnalysisSessionRecord;
   onProgress?: (progress: number, stageLabel: string) => void;
-}): Promise<{ blob: Blob; mimeType: string }> {
+}): Promise<{ blob: Blob; mimeType: string; diagnostics: Awaited<ReturnType<typeof exportAnnotatedVideo>>["diagnostics"] }> {
   const timeline = {
     schemaVersion: "upload-video-v1" as const,
     detector: "mediapipe-pose-landmarker" as const,

@@ -57,6 +57,7 @@ const LIVE_POSE_STALE_WARNING_MS = 1_200;
 const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
 const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
 const LIVE_SELECTED_DRILL_STORAGE_KEY = "live.selected-drill";
+const LIVE_HUD_UPDATE_INTERVAL_MS = 250;
 const FULL_BODY_REQUIRED_JOINTS: CanonicalJointName[] = [
   "leftShoulder",
   "rightShoulder",
@@ -151,6 +152,8 @@ export function LiveStreamingWorkspace() {
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
+  const [isStageFullscreen, setIsStageFullscreen] = useState(false);
+  const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
   const requestedDrillKey = searchParams.get("drillKey");
   const { drillOptions, drillOptionGroups, selectedDrillKey: selectedKey, setSelectedDrillKey: setSelectedKey, selectedSource, setSelectedSource } =
@@ -169,6 +172,7 @@ export function LiveStreamingWorkspace() {
   const replayVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaContainerRef = useRef<HTMLDivElement | null>(null);
+  const sessionStageRef = useRef<HTMLDivElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
   const traceRef = useRef<ReturnType<typeof createLiveTraceAccumulator> | null>(null);
   const liveLoopRef = useRef<number | null>(null);
@@ -193,7 +197,9 @@ export function LiveStreamingWorkspace() {
   const lastVideoTimeMsRef = useRef<number>(0);
   const repeatedVideoTimestampCountRef = useRef<number>(0);
   const lastDiagnosticLogAtRef = useRef<number>(0);
+  const lastHudUpdateAtRef = useRef<number>(0);
   const stalePoseLoggedRef = useRef(false);
+  const containerSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedZoomRef = useRef<number>(1);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const liveCadenceStatsRef = useRef<LiveCadenceStats>({
@@ -297,6 +303,7 @@ export function LiveStreamingWorkspace() {
   });
   const replayTone = getReplayStateTone(replayState);
   const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
+  const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
   const activeZoomPreset = useMemo(
     () => (liveHardwareZoom.supported ? resolveSelectedZoomPreset(liveHardwareZoom.value, liveHardwareZoom.presets) : null),
     [liveHardwareZoom]
@@ -419,6 +426,19 @@ export function LiveStreamingWorkspace() {
     }
   }, [updateFramingWarning, updateTrackingStatus]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const supportsFullscreen = typeof document.documentElement.requestFullscreen === "function";
+    setIsFullscreenSupported(supportsFullscreen);
+    const handleFullscreenChange = () => {
+      setIsStageFullscreen(Boolean(sessionStageRef.current && document.fullscreenElement === sessionStageRef.current));
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
     if (liveLoopRef.current) {
       cancelAnimationFrame(liveLoopRef.current);
@@ -446,6 +466,7 @@ export function LiveStreamingWorkspace() {
     lastVideoTimeMsRef.current = 0;
     repeatedVideoTimestampCountRef.current = 0;
     lastDiagnosticLogAtRef.current = 0;
+    lastHudUpdateAtRef.current = 0;
     stalePoseLoggedRef.current = false;
     liveCadenceStatsRef.current = {
       renderFrames: 0,
@@ -480,7 +501,10 @@ export function LiveStreamingWorkspace() {
     const container = mediaContainerRef.current;
     if (!canvas || !container) return;
 
-    const bounds = container.getBoundingClientRect();
+    const bounds =
+      containerSizeRef.current.width > 0 && containerSizeRef.current.height > 0
+        ? containerSizeRef.current
+        : container.getBoundingClientRect();
     const resized = resolveOverlayCanvasSize({
       cssWidth: bounds.width,
       cssHeight: bounds.height,
@@ -505,7 +529,7 @@ export function LiveStreamingWorkspace() {
         viewportHeight: resized.cssHeight,
         sourceWidth: video.videoWidth,
         sourceHeight: video.videoHeight,
-        fitMode: "cover",
+        fitMode: "contain",
         mirrored: !isRearCamera
       });
     }
@@ -556,8 +580,17 @@ export function LiveStreamingWorkspace() {
   useEffect(() => {
     const container = mediaContainerRef.current;
     if (!container || typeof ResizeObserver === "undefined") return;
+    const initial = container.getBoundingClientRect();
+    containerSizeRef.current = { width: initial.width, height: initial.height };
 
-    const resizeObserver = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry?.contentRect) {
+        containerSizeRef.current = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height
+        };
+      }
       overlayNeedsResizeSyncRef.current = true;
     });
     resizeObserver.observe(container);
@@ -574,6 +607,10 @@ export function LiveStreamingWorkspace() {
       });
     };
     const onWindowResize = () => {
+      const bounds = mediaContainerRef.current?.getBoundingClientRect();
+      if (bounds) {
+        containerSizeRef.current = { width: bounds.width, height: bounds.height };
+      }
       overlayNeedsResizeSyncRef.current = true;
       logRemap("window-resize");
     };
@@ -853,8 +890,8 @@ export function LiveStreamingWorkspace() {
           readyState: previewVideo.readyState,
           videoWidth: previewVideo.videoWidth,
           videoHeight: previewVideo.videoHeight,
-          containerWidth: Math.round(mediaContainerRef.current?.getBoundingClientRect().width ?? 0),
-          containerHeight: Math.round(mediaContainerRef.current?.getBoundingClientRect().height ?? 0),
+          containerWidth: Math.round(containerSizeRef.current.width),
+          containerHeight: Math.round(containerSizeRef.current.height),
           canvasWidth: canvas.width,
           canvasHeight: canvas.height
         })
@@ -887,7 +924,10 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.detectionSuccesses += 1;
           liveCadenceStatsRef.current.landmarkUpdates += 1;
           stalePoseLoggedRef.current = false;
-          updateTrackingStatus("Tracking active");
+          if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+            updateTrackingStatus("Tracking active");
+            lastHudUpdateAtRef.current = performance.now();
+          }
           if (requiredFramingJoints.length > 0) {
             const missingJoints = requiredFramingJoints.filter((joint) => {
               const point = frame.joints[joint];
@@ -895,7 +935,10 @@ export function LiveStreamingWorkspace() {
             });
             const missingRatio = missingJoints.length / requiredFramingJoints.length;
             if (missingRatio >= 0.35) {
-              updateFramingWarning("Full body not visible. Move back so all required points are in frame.");
+              if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+                updateFramingWarning("Full body not visible. Move back so all required points are in frame.");
+                lastHudUpdateAtRef.current = performance.now();
+              }
               if (performance.now() - lastDiagnosticLogAtRef.current >= LIVE_DIAGNOSTIC_LOG_INTERVAL_MS) {
                 console.warn("[live-overlay] framing-warning", {
                   reason: "required_joints_missing",
@@ -905,7 +948,10 @@ export function LiveStreamingWorkspace() {
                 });
               }
             } else {
-              updateFramingWarning(null);
+              if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+                updateFramingWarning(null);
+                lastHudUpdateAtRef.current = performance.now();
+              }
             }
           }
           logOverlayDiagnostics("draw-pose-frame");
@@ -940,7 +986,10 @@ export function LiveStreamingWorkspace() {
         lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
         drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
       } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
-        updateTrackingStatus("Tracking lost");
+        if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+          updateTrackingStatus("Tracking lost");
+          lastHudUpdateAtRef.current = performance.now();
+        }
       } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
         console.info("[live-overlay] stale pose timeout reached; clearing overlay skeleton", {
           traceTimestampMs,
@@ -1002,6 +1051,20 @@ export function LiveStreamingWorkspace() {
     },
     [liveHardwareZoom, status, syncOverlayCanvasSize]
   );
+
+  const toggleSessionFullscreen = useCallback(async () => {
+    const stageEl = sessionStageRef.current;
+    if (!stageEl || typeof document === "undefined") {
+      return;
+    }
+    if (document.fullscreenElement === stageEl) {
+      await document.exitFullscreen?.();
+      return;
+    }
+    if (typeof stageEl.requestFullscreen === "function") {
+      await stageEl.requestFullscreen();
+    }
+  }, []);
 
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
@@ -1143,6 +1206,27 @@ export function LiveStreamingWorkspace() {
       setAnnotatedReplayMimeType(annotated.mimeType);
       setReplayExportStageLabel("Annotated export complete");
       setReplayState("annotated-ready");
+      if (process.env.NODE_ENV !== "production") {
+        console.info("[live-overlay] annotated-export-diagnostics", {
+          sourceDurationSec: annotated.diagnostics.sourceDurationSec,
+          targetFps: annotated.diagnostics.renderFpsTarget,
+          expectedFrameCount: Math.max(1, Math.floor(annotated.diagnostics.sourceDurationSec * annotated.diagnostics.renderFpsTarget) + 1),
+          emittedFrameCount: annotated.diagnostics.renderedFrameCount,
+          firstTimestampMs: annotated.diagnostics.firstFrameTsMs,
+          lastTimestampMs: annotated.diagnostics.lastFrameTsMs,
+          encodedDurationSec: annotated.diagnostics.actualOutputDurationSec,
+          expectedDurationSec: annotated.diagnostics.expectedOutputDurationSec
+        });
+        if (
+          typeof annotated.diagnostics.actualOutputDurationSec === "number" &&
+          annotated.diagnostics.actualOutputDurationSec > annotated.diagnostics.expectedOutputDurationSec + 0.35
+        ) {
+          console.warn("[live-overlay] annotated-export-duration-out-of-bounds", {
+            expectedOutputDurationSec: annotated.diagnostics.expectedOutputDurationSec,
+            actualOutputDurationSec: annotated.diagnostics.actualOutputDurationSec
+          });
+        }
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Annotated replay generation failed.";
       console.error("[live-overlay] annotated export failed", { message });
@@ -1160,8 +1244,8 @@ export function LiveStreamingWorkspace() {
   const showReferencePanel = isReferencePanelVisible;
 
   return (
-    <section className="panel-content live-streaming-layout">
-      <div className="card live-streaming-intro-card">
+    <section className={`panel-content live-streaming-layout ${isSessionStageActive ? "live-streaming-layout--session-active" : ""}`}>
+      <div className={`card live-streaming-intro-card ${isSessionStageActive ? "live-streaming-passive-chrome-hidden" : ""}`}>
         <strong>Live session setup</strong>
         <p className="muted" style={{ margin: "0.35rem 0 0" }}>
           Pick your camera + drill settings, then start the session. The live stage appears below the setup row and runs lightweight overlay analysis in real time.
@@ -1169,6 +1253,7 @@ export function LiveStreamingWorkspace() {
       </div>
 
       {/* Shared setup shell keeps Upload and Live aligned while preserving source-specific inputs. */}
+      <div className={isSessionStageActive ? "live-streaming-passive-chrome-hidden" : undefined}>
       <DrillSetupShell
         showReferencePanel={showReferencePanel}
         leftPane={
@@ -1303,10 +1388,30 @@ export function LiveStreamingWorkspace() {
           />
         }
       />
+      </div>
 
-      <article className="card live-streaming-results-card">
+      <article ref={sessionStageRef} className={`card live-streaming-results-card ${isSessionStageActive ? "live-streaming-results-card--session-active" : ""}`}>
         <div className="live-streaming-preview-shell">
-          <div ref={mediaContainerRef} className="live-streaming-media-container" style={{ aspectRatio: previewAspectRatio }}>
+          {isSessionStageActive ? (
+            <div className="live-streaming-session-toolbar">
+              <div className="pill">Drill: {selection.drillBindingLabel}</div>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {status === "live-session-running" ? (
+                  <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+                    Stop session
+                  </button>
+                ) : null}
+                {isFullscreenSupported ? (
+                  <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
+                    {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  </button>
+                ) : (
+                  <span className="pill">Fullscreen unavailable</span>
+                )}
+              </div>
+            </div>
+          ) : null}
+          <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
             <video
               ref={previewVideoRef}
               muted
