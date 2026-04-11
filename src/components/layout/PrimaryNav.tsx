@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { ACTIVE_DRILL_CONTEXT_EVENT_NAME, readActiveDrillContext } from "@/lib/workflow/drill-context";
 
 type PrimaryNavProps = {
   active?: "home" | "library" | "studio" | "upload" | "live" | "exchange";
@@ -21,23 +19,6 @@ const items = [
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
   const { isConfigured, userEmail, signInWithGoogle, signOut } = useAuth();
-  const [hasStudioContext, setHasStudioContext] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const update = () => {
-      setHasStudioContext(Boolean(readActiveDrillContext()));
-    };
-    update();
-    window.addEventListener("storage", update);
-    window.addEventListener(ACTIVE_DRILL_CONTEXT_EVENT_NAME, update);
-    return () => {
-      window.removeEventListener("storage", update);
-      window.removeEventListener(ACTIVE_DRILL_CONTEXT_EVENT_NAME, update);
-    };
-  }, []);
 
   async function onAuthClick() {
     if (userEmail) {
@@ -66,7 +47,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
         </Link>
         <nav className="site-nav" aria-label="Primary">
           {items
-            .filter((item) => item.key !== "studio" || hasStudioContext || active === "studio")
+            .filter((item) => item.key !== "studio")
             .map((item) => (
             <Link key={item.href} href={item.href} className={active === item.key ? "site-nav-link active" : "site-nav-link"}>
               {item.label}
