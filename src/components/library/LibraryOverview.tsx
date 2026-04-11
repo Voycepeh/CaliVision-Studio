@@ -355,10 +355,10 @@ export function LibraryOverview() {
 
                   <div style={compactActionRowStyle}>
                     <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
-                      Analyze Video
+                      Upload Video
                     </button>
-                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coach…", () => onOpenWorkflow(drill, "live"))}>
-                      Live Coach
+                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Streaming…", () => onOpenWorkflow(drill, "live"))}>
+                      Live Streaming
                     </button>
                     <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
                       Edit in Studio
