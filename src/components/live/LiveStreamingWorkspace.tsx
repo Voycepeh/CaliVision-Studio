@@ -185,6 +185,7 @@ export function LiveStreamingWorkspace() {
   const liveStreamRef = useRef<MediaStream | null>(null);
   const traceRef = useRef<ReturnType<typeof createLiveTraceAccumulator> | null>(null);
   const liveLoopRef = useRef<number | null>(null);
+  const sessionActiveRef = useRef(false);
   const recorderRef = useRef<ReturnType<typeof createMediaRecorder> | null>(null);
   const rawReplayUrlRef = useRef<string | null>(null);
   const annotatedReplayUrlRef = useRef<string | null>(null);
@@ -538,11 +539,29 @@ export function LiveStreamingWorkspace() {
     }
   }, []);
 
-  const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
+  const stopLiveRenderLoop = useCallback(() => {
     if (liveLoopRef.current) {
       cancelAnimationFrame(liveLoopRef.current);
       liveLoopRef.current = null;
     }
+  }, []);
+
+  const clearLiveOverlayCanvas = useCallback(() => {
+    const canvas = previewCanvasRef.current;
+    if (!canvas) {
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }, []);
+
+  const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
+    sessionActiveRef.current = false;
+    stopLiveRenderLoop();
     await exitStageFullscreenIfNeeded();
     if (options?.stopRecorder && recorderRef.current) {
       await recorderRef.current.stop({ discard: options.discardRecording ?? true });
@@ -580,19 +599,13 @@ export function LiveStreamingWorkspace() {
     };
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
-    const canvas = previewCanvasRef.current;
-    if (canvas) {
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-      }
-    }
+    clearLiveOverlayCanvas();
     if (options?.nextStatus) {
       setStatus(options.nextStatus);
     }
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
-  }, [exitStageFullscreenIfNeeded, updateFramingWarning, updateTrackingStatus]);
+  }, [clearLiveOverlayCanvas, exitStageFullscreenIfNeeded, stopLiveRenderLoop, updateFramingWarning, updateTrackingStatus]);
 
   const syncOverlayCanvasSize = useCallback((force = false) => {
     if (!force && !overlayNeedsResizeSyncRef.current) {
@@ -936,6 +949,7 @@ export function LiveStreamingWorkspace() {
     }
 
     setStatus("live-session-running");
+    sessionActiveRef.current = true;
 
     try {
       const landmarker = await createPoseLandmarkerForJob();
@@ -968,6 +982,9 @@ export function LiveStreamingWorkspace() {
     let nextAnalysisAtMs = 0;
     let nextPresentationAtMs = 0;
     const draw = () => {
+      if (!sessionActiveRef.current) {
+        return;
+      }
       if (!previewVideoRef.current || !landmarkerRef.current || !traceRef.current) {
         return;
       }
@@ -978,7 +995,9 @@ export function LiveStreamingWorkspace() {
       syncOverlayCanvasSize();
       const projection = overlayProjectionRef.current;
       if (!previewVideo || !projection) {
-        liveLoopRef.current = requestAnimationFrame(draw);
+        if (sessionActiveRef.current) {
+          liveLoopRef.current = requestAnimationFrame(draw);
+        }
         return;
       }
       const mediaTimeMs = Math.max(mediaStartMsRef.current, previewVideo.currentTime * 1000);
@@ -998,7 +1017,9 @@ export function LiveStreamingWorkspace() {
         })
       ) {
         logOverlayDiagnostics("draw-skipped-preview-not-ready");
-        liveLoopRef.current = requestAnimationFrame(draw);
+        if (sessionActiveRef.current) {
+          liveLoopRef.current = requestAnimationFrame(draw);
+        }
         return;
       }
 
@@ -1067,7 +1088,9 @@ export function LiveStreamingWorkspace() {
       }
 
       if (elapsedMs < nextPresentationAtMs) {
-        liveLoopRef.current = requestAnimationFrame(draw);
+        if (sessionActiveRef.current) {
+          liveLoopRef.current = requestAnimationFrame(draw);
+        }
         return;
       }
 
@@ -1123,7 +1146,9 @@ export function LiveStreamingWorkspace() {
         phaseLabels: phaseLabelMap
       });
 
-      liveLoopRef.current = requestAnimationFrame(draw);
+      if (sessionActiveRef.current) {
+        liveLoopRef.current = requestAnimationFrame(draw);
+      }
     };
 
     draw();
@@ -1195,13 +1220,28 @@ export function LiveStreamingWorkspace() {
 
   const stopSession = useCallback(async () => {
     if (!recorderRef.current || !traceRef.current || !previewVideoRef.current) return;
+    const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
+    sessionActiveRef.current = false;
+    stopLiveRenderLoop();
+    smoothedFrameRef.current = null;
+    jointVisibleRef.current = {};
+    jointGraceSamplesRef.current = {};
+    lastPoseFrameAtRef.current = 0;
+    lastAcceptedLandmarkTimestampRef.current = 0;
+    lastAcceptedLandmarkPerfNowRef.current = 0;
+    lastRenderedLandmarkTimestampRef.current = 0;
+    stalePoseLoggedRef.current = false;
+    clearLiveOverlayCanvas();
+    previewVideoRef.current.srcObject = null;
+    setSelectedMarkerId(null);
+    updateTrackingStatus("Tracking ready");
+    updateFramingWarning(null);
     setStatus("stopping-finalizing");
 
     const recorder = recorderRef.current;
     const traceAccumulator = traceRef.current;
     const cadenceStatsSnapshot = { ...liveCadenceStatsRef.current };
     const captureStopPerfNowMs = performance.now();
-    const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
     const raw = await recorder.stop();
     if (!raw || raw.blob.size <= 0) {
       console.error("[live-overlay] raw-replay-unavailable", {
@@ -1350,7 +1390,7 @@ export function LiveStreamingWorkspace() {
     }
 
     setStatus("completed");
-  }, [cleanupSession, phaseLabelMap, selection.cameraView]);
+  }, [cleanupSession, clearLiveOverlayCanvas, phaseLabelMap, selection.cameraView, stopLiveRenderLoop, updateFramingWarning, updateTrackingStatus]);
 
   const showReferencePanel = isReferencePanelVisible;
 
