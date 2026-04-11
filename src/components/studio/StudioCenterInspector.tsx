@@ -23,7 +23,7 @@ const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
   [WORKFLOW_SECTION_IDS.review]: false
 };
 
-type ExpandIntent = "pose" | "upload" | "camera";
+type ExpandIntent = "pose" | "upload";
 
 function WorkflowSection({
   title,
@@ -146,7 +146,6 @@ export function StudioCenterInspector() {
           <div className="studio-action-row studio-phase-actions">
             <button type="button" className="studio-button studio-button-primary" onClick={() => openInlineEditor(phase.phaseId, "pose")}>Edit pose</button>
             <button type="button" className="studio-button" onClick={() => openInlineEditor(phase.phaseId, "upload")}>Upload image</button>
-            <button type="button" className="studio-button" onClick={() => openInlineEditor(phase.phaseId, "camera")}>Use camera</button>
             {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "up")} disabled={index === 0}>↑</button> : null}
             {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "down")} disabled={index === displayedPhases.length - 1}>↓</button> : null}
             {!holdDrill ? <button type="button" className="studio-button" onClick={() => duplicatePhase(phase.phaseId)}>Duplicate</button> : null}
@@ -223,7 +222,7 @@ export function StudioCenterInspector() {
                 <p className="muted" style={{ margin: 0 }}>{selectedPhaseDetection.message}</p>
               ) : null}
 
-              <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "pose" ? null : expandIntent} />
+              <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "upload" ? "upload" : null} />
             </section>
           ) : null}
         </div>
@@ -260,7 +259,7 @@ export function StudioCenterInspector() {
               <div className="card" style={{ marginTop: "0.55rem", display: "grid", gap: "0.45rem" }}>
                 <strong>Add your first phase</strong>
                 <p className="muted" style={{ margin: 0 }}>
-                  This draft starts empty. Add a phase, then author its pose from upload, camera, or manual editing.
+                  This draft starts empty. Add a phase, then author its pose from upload or manual editing.
                 </p>
                 <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" style={{ width: "fit-content" }}>
                   Add first phase
