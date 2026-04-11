@@ -36,6 +36,10 @@ export type AnimationTimeline = {
   warnings: AnimationWarning[];
 };
 
+export type BuildAnimationTimelineOptions = {
+  mode?: "animated" | "static";
+};
+
 export type AnimationFrameSample = {
   phaseIndex: number;
   phaseId: string | null;
@@ -45,7 +49,8 @@ export type AnimationFrameSample = {
   pose: PortablePose | null;
 };
 
-export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeline {
+export function buildAnimationTimeline(phases: PortablePhase[], options: BuildAnimationTimelineOptions = {}): AnimationTimeline {
+  const mode = options.mode ?? "animated";
   if (phases.length === 0) {
     return {
       segments: [],
@@ -55,7 +60,7 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
   }
 
   const warnings: AnimationWarning[] = [];
-  if (phases.length < 2) {
+  if (mode === "animated" && phases.length < 2) {
     warnings.push({ severity: "info", message: "Only one phase is available. Preview will hold a static pose for the phase duration." });
   }
 
@@ -84,14 +89,16 @@ export function buildAnimationTimeline(phases: PortablePhase[]): AnimationTimeli
     }
 
     const fromPose = phase.poseSequence[0] ?? null;
-    const toPhase = phases[(index + 1) % phases.length] ?? null;
-    const toPose = phases.length > 1 ? toPhase?.poseSequence[0] ?? null : fromPose;
+    const toPhase = mode === "static" ? phase : phases[(index + 1) % phases.length] ?? null;
+    const toPose = mode === "static" ? fromPose : (phases.length > 1 ? toPhase?.poseSequence[0] ?? null : fromPose);
 
     if (!fromPose) {
       warnings.push({ severity: "warning", message: `Phase ${phase.order} (${phase.name}) has no canonical pose. Preview will interpolate with available neighboring pose data.` });
     }
 
-    const missingCoverage = getMissingJointCoverageNotice(fromPose, toPose, phase.name, toPhase?.name ?? phase.name);
+    const missingCoverage = mode === "animated"
+      ? getMissingJointCoverageNotice(fromPose, toPose, phase.name, toPhase?.name ?? phase.name)
+      : null;
     if (missingCoverage) {
       warnings.push({ severity: "info", message: missingCoverage });
     }
