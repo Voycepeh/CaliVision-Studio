@@ -1,6 +1,7 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
 import { buildPhaseRuntimeModel, type PhaseRuntimeModel } from "../analysis/phase-runtime.ts";
 import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
+import { advanceRepSequence, createRepSequenceProgress, type RepSequenceProgress } from "../analysis/rep-sequence-engine.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
@@ -21,14 +22,19 @@ type TraceState = {
   pendingPhaseFrameCount: number;
   confidenceGateOpen: boolean;
   activeHoldStartMs: number | null;
-  expectedSequenceIndex: number;
-  cycleStartMs: number | null;
-  lastRepMs: number;
+  repProgress: RepSequenceProgress;
   runtimeModel: PhaseRuntimeModel | null;
 };
 const PHASE_CONFIRMATION_FRAMES = 2;
 const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
 const PHASE_CONFIDENCE_GATE_EXIT = 0.3;
+
+function shouldDebugRepSequence(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return Boolean((window as typeof window & { __CALI_DEBUG_REP_SEQUENCE?: boolean }).__CALI_DEBUG_REP_SEQUENCE);
+}
 
 function scaleTimestamp(timestampMs: number, scale: number, maxDurationMs: number): number {
   return Math.max(0, Math.min(maxDurationMs, Math.round(timestampMs * scale)));
@@ -88,9 +94,7 @@ export function createLiveTraceAccumulator(input: {
     pendingPhaseFrameCount: 0,
     confidenceGateOpen: false,
     activeHoldStartMs: null,
-    expectedSequenceIndex: 0,
-    cycleStartMs: null,
-    lastRepMs: -Number.MAX_SAFE_INTEGER,
+    repProgress: createRepSequenceProgress(),
     runtimeModel: input.drillSelection.drill?.analysis
       ? buildPhaseRuntimeModel(input.drillSelection.drill, input.drillSelection.drill.analysis)
       : null
@@ -144,72 +148,66 @@ export function createLiveTraceAccumulator(input: {
       addEvent({ timestampMs, type: "phase_enter", phaseId: nextPhaseId });
     }
 
-    if (state.runtimeModel?.measurementMode === "rep") {
+    if (state.runtimeModel?.measurementMode === "rep" && nextPhaseId) {
       const sequence = state.runtimeModel.loopPhaseIds;
-      if (sequence.length < 2) {
-        state.currentPhaseId = nextPhaseId;
-        return;
-      }
-      const expectedPhase = sequence[state.expectedSequenceIndex];
-      const enteredIndex = sequence.indexOf(nextPhaseId ?? "");
       const analysis = drill?.analysis;
       const minimumRepDurationMs = Math.max(0, analysis?.minimumRepDurationMs ?? 0);
       const cooldownMs = Math.max(0, analysis?.cooldownMs ?? 0);
       const legacyMetadataIgnored = state.runtimeModel.legacyOrderMismatch;
+      const step = advanceRepSequence({
+        sequence,
+        event: { timestampMs, phaseId: nextPhaseId },
+        progress: state.repProgress,
+        minimumRepDurationMs,
+        cooldownMs,
+        allowForwardJump: true
+      });
 
-      if (nextPhaseId === expectedPhase) {
-        if (state.expectedSequenceIndex === 0) {
-          state.cycleStartMs = timestampMs;
-        }
-        state.expectedSequenceIndex += 1;
-        if (state.expectedSequenceIndex >= sequence.length) {
-          const loopStartTimestampMs = state.cycleStartMs ?? timestampMs;
-          const loopEndTimestampMs = timestampMs;
-          const repDurationMs = Math.max(0, loopEndTimestampMs - loopStartTimestampMs);
-          const passesMinDuration = repDurationMs >= minimumRepDurationMs;
-          const outsideCooldown = loopEndTimestampMs - state.lastRepMs >= cooldownMs;
-          if (passesMinDuration && outsideCooldown) {
-            state.repCount += 1;
-            state.lastRepMs = loopEndTimestampMs;
-            addEvent({
-              timestampMs,
-              type: "rep_complete",
-              repIndex: state.repCount,
-              details: { loopStartTimestampMs, loopEndTimestampMs, repDurationMs, minRepDurationMs: minimumRepDurationMs, legacyMetadataIgnored }
-            });
-          } else {
-            state.partialAttemptCount += 1;
-            addEvent({
-              timestampMs,
-              type: "partial_attempt",
-              details: {
-                loopStartTimestampMs,
-                loopEndTimestampMs,
-                repDurationMs,
-                minRepDurationMs: minimumRepDurationMs,
-                reason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
-                rejectReason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
-                legacyMetadataIgnored
-              }
-            });
+      state.repCount = state.repProgress.repCount;
+      state.partialAttemptCount = state.repProgress.partialAttemptCount;
+
+      if (step.kind === "rep_complete") {
+        addEvent({
+          timestampMs,
+          type: "rep_complete",
+          repIndex: state.repProgress.repCount,
+          details: {
+            ...step.details,
+            minRepDurationMs: minimumRepDurationMs,
+            legacyMetadataIgnored
           }
-          state.expectedSequenceIndex = 1;
-          state.cycleStartMs = loopEndTimestampMs;
+        });
+        if (shouldDebugRepSequence()) {
+          console.debug("[rep-sequence] rep increment", {
+            timestampMs,
+            phaseId: nextPhaseId,
+            expectedPhaseIndex: state.repProgress.expectedSequenceIndex,
+            matchedSequenceProgress: `${state.repProgress.expectedSequenceIndex}/${Math.max(0, sequence.length - 1)}`,
+            repCount: state.repProgress.repCount,
+            details: step.details
+          });
         }
-      } else if (enteredIndex === 0) {
-        if (state.expectedSequenceIndex > 0) {
-          state.partialAttemptCount += 1;
-          addEvent({ timestampMs, type: "partial_attempt", details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored } });
+      } else if (step.kind === "partial_attempt") {
+        addEvent({
+          timestampMs,
+          type: "partial_attempt",
+          details: {
+            ...step.details,
+            rejectReason: step.details.reason,
+            minRepDurationMs: minimumRepDurationMs,
+            legacyMetadataIgnored
+          }
+        });
+        if (shouldDebugRepSequence()) {
+          console.debug("[rep-sequence] reset", {
+            timestampMs,
+            phaseId: nextPhaseId,
+            expectedPhaseIndex: state.repProgress.expectedSequenceIndex,
+            matchedSequenceProgress: `${state.repProgress.expectedSequenceIndex}/${Math.max(0, sequence.length - 1)}`,
+            repCount: state.repProgress.repCount,
+            reason: step.details.reason
+          });
         }
-        state.expectedSequenceIndex = 1;
-        state.cycleStartMs = timestampMs;
-      } else if (enteredIndex > state.expectedSequenceIndex) {
-        state.expectedSequenceIndex = enteredIndex + 1;
-      } else if (state.expectedSequenceIndex > 0) {
-        state.partialAttemptCount += 1;
-        addEvent({ timestampMs, type: "partial_attempt", details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored } });
-        state.expectedSequenceIndex = 0;
-        state.cycleStartMs = null;
       }
     }
 
@@ -310,7 +308,21 @@ export function createLiveTraceAccumulator(input: {
       const candidatePhaseId = rawCandidatePhaseId && state.runtimeModel && !state.runtimeModel.phaseById[rawCandidatePhaseId]
         ? null
         : rawCandidatePhaseId;
-      if (candidatePhaseId === state.currentPhaseId) {
+      if (shouldDebugRepSequence()) {
+        const expectedPhaseIndex = state.repProgress.expectedSequenceIndex;
+        const expectedPhaseId = state.runtimeModel?.loopPhaseIds[expectedPhaseIndex] ?? null;
+        console.debug("[rep-sequence] frame", {
+          timestampMs: frame.timestampMs,
+          rawDetectedPhaseId: frameSample.classifiedPhaseId ?? null,
+          stabilizedPhaseId: state.currentPhaseId,
+          candidatePhaseId,
+          expectedPhaseIndex,
+          expectedPhaseId,
+          matchedSequenceProgress: `${state.repProgress.expectedSequenceIndex}/${Math.max(0, (state.runtimeModel?.loopPhaseIds.length ?? 1) - 1)}`,
+          repCount: state.repProgress.repCount
+        });
+      }
+      if (candidatePhaseId === state.currentPhaseId || candidatePhaseId === null) {
         state.pendingPhaseId = null;
         state.pendingPhaseFrameCount = 0;
         return;
