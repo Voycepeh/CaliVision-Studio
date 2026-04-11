@@ -1082,6 +1082,15 @@ main {
   align-items: start;
 }
 
+.live-streaming-layout--session-active {
+  min-height: 100dvh;
+  padding: 0;
+}
+
+.live-streaming-passive-chrome-hidden {
+  display: none;
+}
+
 .live-streaming-intro-card {
   margin: 0;
   border: 1px solid rgba(128, 157, 192, 0.36);
@@ -1118,20 +1127,47 @@ main {
   min-width: 0;
 }
 
+.live-streaming-results-card--session-active {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--surface);
+  min-height: 100dvh;
+  border-radius: 0;
+  padding: 0.65rem;
+  margin: 0;
+}
+
 .live-streaming-preview-shell {
   display: grid;
   justify-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.live-streaming-session-toolbar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .live-streaming-media-container {
   position: relative;
-  width: min(100%, 430px);
-  max-height: min(78vh, 820px);
+  width: min(100%, 980px);
+  max-height: min(80dvh, 960px);
   aspect-ratio: 9 / 16;
   border-radius: 0.8rem;
   overflow: hidden;
   border: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.6);
+}
+
+.live-streaming-media-container--session-active {
+  width: 100%;
+  max-height: calc(100dvh - 4.2rem);
 }
 
 .live-streaming-video,
@@ -1143,7 +1179,7 @@ main {
 }
 
 .live-streaming-video {
-  object-fit: cover;
+  object-fit: contain;
   z-index: 1;
 }
 
@@ -1243,5 +1279,11 @@ main {
 
   .live-streaming-control-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 981px) {
+  .live-streaming-media-container--session-active {
+    aspect-ratio: 16 / 9;
   }
 }
