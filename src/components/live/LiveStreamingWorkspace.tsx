@@ -197,7 +197,8 @@ export function LiveStreamingWorkspace() {
   const lastVideoTimeMsRef = useRef<number>(0);
   const repeatedVideoTimestampCountRef = useRef<number>(0);
   const lastDiagnosticLogAtRef = useRef<number>(0);
-  const lastHudUpdateAtRef = useRef<number>(0);
+  const lastTrackingHudUpdateAtRef = useRef<number>(0);
+  const lastFramingHudUpdateAtRef = useRef<number>(0);
   const stalePoseLoggedRef = useRef(false);
   const containerSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedZoomRef = useRef<number>(1);
@@ -304,6 +305,7 @@ export function LiveStreamingWorkspace() {
   const replayTone = getReplayStateTone(replayState);
   const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
   const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
+  const shouldShowSessionToolbar = isSessionStageActive || isStageFullscreen;
   const activeZoomPreset = useMemo(
     () => (liveHardwareZoom.supported ? resolveSelectedZoomPreset(liveHardwareZoom.value, liveHardwareZoom.presets) : null),
     [liveHardwareZoom]
@@ -439,11 +441,21 @@ export function LiveStreamingWorkspace() {
     };
   }, []);
 
+  const exitStageFullscreenIfNeeded = useCallback(async () => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    if (document.fullscreenElement && document.fullscreenElement === sessionStageRef.current) {
+      await document.exitFullscreen?.();
+    }
+  }, []);
+
   const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
     if (liveLoopRef.current) {
       cancelAnimationFrame(liveLoopRef.current);
       liveLoopRef.current = null;
     }
+    await exitStageFullscreenIfNeeded();
     if (options?.stopRecorder && recorderRef.current) {
       await recorderRef.current.stop({ discard: options.discardRecording ?? true });
     }
@@ -466,7 +478,8 @@ export function LiveStreamingWorkspace() {
     lastVideoTimeMsRef.current = 0;
     repeatedVideoTimestampCountRef.current = 0;
     lastDiagnosticLogAtRef.current = 0;
-    lastHudUpdateAtRef.current = 0;
+    lastTrackingHudUpdateAtRef.current = 0;
+    lastFramingHudUpdateAtRef.current = 0;
     stalePoseLoggedRef.current = false;
     liveCadenceStatsRef.current = {
       renderFrames: 0,
@@ -491,7 +504,7 @@ export function LiveStreamingWorkspace() {
     }
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
-  }, [updateFramingWarning, updateTrackingStatus]);
+  }, [exitStageFullscreenIfNeeded, updateFramingWarning, updateTrackingStatus]);
 
   const syncOverlayCanvasSize = useCallback((force = false) => {
     if (!force && !overlayNeedsResizeSyncRef.current) {
@@ -924,9 +937,9 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.detectionSuccesses += 1;
           liveCadenceStatsRef.current.landmarkUpdates += 1;
           stalePoseLoggedRef.current = false;
-          if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+          if (performance.now() - lastTrackingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
             updateTrackingStatus("Tracking active");
-            lastHudUpdateAtRef.current = performance.now();
+            lastTrackingHudUpdateAtRef.current = performance.now();
           }
           if (requiredFramingJoints.length > 0) {
             const missingJoints = requiredFramingJoints.filter((joint) => {
@@ -935,9 +948,9 @@ export function LiveStreamingWorkspace() {
             });
             const missingRatio = missingJoints.length / requiredFramingJoints.length;
             if (missingRatio >= 0.35) {
-              if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+              if (performance.now() - lastFramingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
                 updateFramingWarning("Full body not visible. Move back so all required points are in frame.");
-                lastHudUpdateAtRef.current = performance.now();
+                lastFramingHudUpdateAtRef.current = performance.now();
               }
               if (performance.now() - lastDiagnosticLogAtRef.current >= LIVE_DIAGNOSTIC_LOG_INTERVAL_MS) {
                 console.warn("[live-overlay] framing-warning", {
@@ -948,9 +961,9 @@ export function LiveStreamingWorkspace() {
                 });
               }
             } else {
-              if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+              if (performance.now() - lastFramingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
                 updateFramingWarning(null);
-                lastHudUpdateAtRef.current = performance.now();
+                lastFramingHudUpdateAtRef.current = performance.now();
               }
             }
           }
@@ -986,9 +999,9 @@ export function LiveStreamingWorkspace() {
         lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
         drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
       } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
-        if (performance.now() - lastHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+        if (performance.now() - lastTrackingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
           updateTrackingStatus("Tracking lost");
-          lastHudUpdateAtRef.current = performance.now();
+          lastTrackingHudUpdateAtRef.current = performance.now();
         }
       } else if (staleForMs > LIVE_POSE_STALE_HOLD_MS && stalePoseLoggedRef.current) {
         console.info("[live-overlay] stale pose timeout reached; clearing overlay skeleton", {
@@ -1392,7 +1405,7 @@ export function LiveStreamingWorkspace() {
 
       <article ref={sessionStageRef} className={`card live-streaming-results-card ${isSessionStageActive ? "live-streaming-results-card--session-active" : ""}`}>
         <div className="live-streaming-preview-shell">
-          {isSessionStageActive ? (
+          {shouldShowSessionToolbar ? (
             <div className="live-streaming-session-toolbar">
               <div className="pill">Drill: {selection.drillBindingLabel}</div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
