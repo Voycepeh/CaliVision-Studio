@@ -68,11 +68,23 @@ function AnalysisVideoPane({
   useEffect(() => {
     setStableAspectRatio((previous) => resolveStableAspectRatio(previous, [model.mediaAspectRatio]));
   }, [model.mediaAspectRatio]);
+  const stageMaxWidth = `min(100%, min(1100px, calc(72vh * ${stableAspectRatio})))`;
 
   return (
     <div style={{ display: "grid", gap: "0.5rem" }}>
       {model.canShowVideo && model.videoUrl ? (
-        <div style={{ position: "relative", width: "100%", minHeight: "180px", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: stableAspectRatio, borderRadius: "0.6rem", overflow: "hidden" }}>
+        <div
+          style={{
+            position: "relative",
+            width: stageMaxWidth,
+            maxWidth: "100%",
+            maxHeight: "72vh",
+            aspectRatio: stableAspectRatio,
+            borderRadius: "0.6rem",
+            overflow: "hidden",
+            justifySelf: "center"
+          }}
+        >
           <video
             ref={videoRef}
             controls

@@ -1,5 +1,5 @@
-const DEFAULT_ASPECT_RATIO = 16 / 9;
-const MIN_ASPECT_RATIO = 0.7;
+const DEFAULT_ASPECT_RATIO = 1;
+const MIN_ASPECT_RATIO = 0.45;
 const MAX_ASPECT_RATIO = 2.4;
 
 function clampAspectRatio(value: number): number {
