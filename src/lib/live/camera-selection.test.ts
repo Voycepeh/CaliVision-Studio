@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   chooseBestRearCameraForZoomPreset,
+  chooseBestRearMainCamera,
   inferCameraFacingFromLabelOrSettings,
   probeVideoDeviceCapabilities,
   replaceStreamSafely,
@@ -136,4 +137,30 @@ test("replaceStreamSafely stops previous stream tracks before replacing", async 
 
   assert.equal(stopCalledWithPrevious, true);
   assert.equal(result, next);
+});
+
+test("chooseBestRearMainCamera returns a main rear candidate for switching back from ultrawide", () => {
+  const decision = chooseBestRearMainCamera(
+    [
+      {
+        deviceId: "rear-main",
+        label: "Rear Main Camera",
+        facing: "rear",
+        rearLensHint: "main",
+        zoomSupport: { supported: true, min: 1, max: 3, step: 0.1, current: 1 }
+      },
+      {
+        deviceId: "rear-ultra",
+        label: "Rear Ultra Wide Camera",
+        facing: "rear",
+        rearLensHint: "ultrawide",
+        zoomSupport: { supported: false }
+      }
+    ],
+    "rear-ultra"
+  );
+  assert.equal(decision.strategy, "switch-camera");
+  if (decision.strategy === "switch-camera") {
+    assert.equal(decision.camera.deviceId, "rear-main");
+  }
 });

@@ -16,6 +16,10 @@ export type RearCameraZoomDecision =
   | { strategy: "switch-camera"; reason: "ultrawide-rear-camera"; camera: VideoInputDescriptor }
   | { strategy: "unavailable"; reason: string };
 
+export type RearMainCameraDecision =
+  | { strategy: "switch-camera"; reason: "main-rear-camera"; camera: VideoInputDescriptor }
+  | { strategy: "unavailable"; reason: string };
+
 export type CurrentTrackZoomInfo = {
   deviceId?: string;
   facing: CameraFacingInference;
@@ -196,4 +200,25 @@ export function chooseBestRearCameraForZoomPreset(
   }
 
   return { strategy: "unavailable", reason: "no_confident_ultrawide_candidate" };
+}
+
+export function chooseBestRearMainCamera(
+  candidates: VideoInputDescriptor[],
+  currentDeviceId?: string
+): RearMainCameraDecision {
+  const rearCandidates = candidates.filter((candidate) => candidate.facing === "rear" && candidate.deviceId !== currentDeviceId);
+  const confidentMain = rearCandidates.filter((candidate) => candidate.rearLensHint === "main");
+  if (confidentMain.length === 1) {
+    return { strategy: "switch-camera", reason: "main-rear-camera", camera: confidentMain[0] };
+  }
+  if (confidentMain.length > 1) {
+    return { strategy: "unavailable", reason: "multiple_main_rear_candidates" };
+  }
+
+  const nonUltrawideRear = rearCandidates.filter((candidate) => candidate.rearLensHint !== "ultrawide");
+  if (nonUltrawideRear.length === 1) {
+    return { strategy: "switch-camera", reason: "main-rear-camera", camera: nonUltrawideRear[0] };
+  }
+
+  return { strategy: "unavailable", reason: "no_confident_main_rear_candidate" };
 }
