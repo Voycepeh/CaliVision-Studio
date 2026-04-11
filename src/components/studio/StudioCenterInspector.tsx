@@ -165,12 +165,12 @@ export function StudioCenterInspector() {
 
       <StudioActionBar />
 
+      <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
+        <StudioMetadataEditor />
+      </WorkflowSection>
+
       <div className="studio-authoring-workspace-grid">
         <div className="studio-authoring-main-flow">
-          <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
-            <StudioMetadataEditor />
-          </WorkflowSection>
-
           <WorkflowSection title="2. Phase sequence" stepIndex={WORKFLOW_SECTION_IDS.phaseSequence} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phaseSequence)} onToggle={handleSectionToggle}>
             {!selectedPackage ? (
               <p className="muted" style={{ margin: 0 }}>Open a drill to manage phases.</p>
@@ -224,7 +224,6 @@ export function StudioCenterInspector() {
             <StudioReviewTabs includePreview={false} />
           </WorkflowSection>
         </div>
-
         <aside className="studio-sticky-workspace" style={workspaceMode === "pose" && workspaceVisible ? { marginTop: `${workspaceAlignOffset}px` } : undefined}>
           <div className="card" style={{ display: "grid", gap: "0.45rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem" }}>
