@@ -16,19 +16,21 @@ import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCame
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
-import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
+import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
+import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
-const TRACE_STEP_OPTIONS = [100, 500, 1000] as const;
 const FREESTYLE_DRILL_KEY = "freestyle";
 
 function formatBytes(bytes: number): string {
@@ -51,9 +53,6 @@ function formatConfidence(value?: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function formatTraceStepLabel(stepMs: number): string {
-  return `${(stepMs / 1000).toFixed(1)}s`;
-}
 
 function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string> {
   if (!drill) {
@@ -117,11 +116,6 @@ function summarizeTrace(
   return rows;
 }
 
-function isMeaningfullyVariant(traceRows: Array<{ phase: string; repCount: number }>): boolean {
-  const uniquePhases = new Set(traceRows.map((row) => row.phase));
-  const uniqueRepCounts = new Set(traceRows.map((row) => row.repCount));
-  return uniquePhases.size > 1 || uniqueRepCounts.size > 1;
-}
 
 function formatTransitionReason(reason: string | undefined): string {
   switch (reason) {
@@ -182,7 +176,8 @@ export function UploadVideoWorkspace() {
   const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
-  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
+  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
+  const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
@@ -364,7 +359,8 @@ export function UploadVideoWorkspace() {
 
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
+    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     setSelectedJobId(jobId);
     setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: null }));
@@ -528,7 +524,8 @@ export function UploadVideoWorkspace() {
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
+    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
@@ -568,11 +565,6 @@ export function UploadVideoWorkspace() {
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
-  const canToggleCompletedSurfaces = canToggleCompletedPreview({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
-    isProcessingAnnotated: hasActiveUpload
-  });
   const downloadTargets = resolveAvailableDownloads({
     hasRaw: Boolean(rawPreviewObjectUrl),
     hasAnnotated: Boolean(annotatedPreviewObjectUrl)
@@ -599,6 +591,152 @@ export function UploadVideoWorkspace() {
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
   const queueHasMultiple = uploadJobs.length > 1;
+  const previewUrl = previewSelection.source?.url ?? null;
+
+  useEffect(() => {
+    const events = activeSession?.events ?? [];
+    if (events.length === 0) {
+      setSelectedViewerEventId(null);
+      return;
+    }
+    setSelectedViewerEventId((current) => (current && events.some((event) => event.eventId === current) ? current : events[0].eventId));
+  }, [activeSession]);
+
+  const uploadViewerModel = useMemo(
+    () =>
+      mapUploadAnalysisToViewerModel({
+        previewState: uploadPreviewState,
+        videoUrl: previewUrl,
+        canShowVideo: Boolean(previewUrl),
+        surface: completedPreviewSurface,
+        selectedEventId: selectedViewerEventId,
+        session: activeSession,
+        durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
+        mediaAspectRatio:
+          activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
+            ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
+            : undefined,
+        primarySummaryChips:
+          activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
+            ? [
+                { id: "drill", label: "Drill", value: activeJob.drillSelection.drillBinding.drillName || "Selected drill" },
+                {
+                  id: "phase",
+                  label: "Phase result",
+                  value: (() => {
+                    const phaseId = activeSession.events.at(-1)?.phaseId;
+                    if (!phaseId) return "No phase transitions detected";
+                    return activePhaseLabels[phaseId] ?? phaseId;
+                  })()
+                },
+                { id: "reps", label: "Reps", value: String(activeSession.summary.repCount ?? 0) },
+                {
+                  id: "hold",
+                  label: "Hold",
+                  value: (activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"
+                },
+                { id: "duration", label: "Duration", value: formatDuration(activeSession.summary.analyzedDurationMs) }
+              ]
+            : activeJob?.artefacts
+              ? [
+                  { id: "mode", label: "Mode", value: "Freestyle (no drill selected)" },
+                  { id: "duration", label: "Duration", value: formatDuration(activeJob.artefacts.processingSummary.durationMs) },
+                  { id: "phase", label: "Phase result", value: "No phase transitions detected" }
+                ]
+              : [],
+        technicalStatusChips:
+          activeJob?.artefacts && activeSession
+            ? [
+                { id: "replay", label: "Replay", value: uploadPreviewState.includes("showing") ? "Available" : "Unavailable" },
+                { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
+                ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
+                { id: "status", label: "Run status", value: activeSession.status }
+              ]
+            : [],
+        downloads: [
+          ...(downloadTargets.includes("annotated") && activeJob?.artefacts?.annotatedVideoBlob
+            ? [{
+                id: "download_annotated",
+                label: annotatedDownloadLabel,
+                onDownload: () =>
+                  downloadBlob(
+                    activeJob.artefacts!.annotatedVideoBlob!,
+                    `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`
+                  ),
+                hint: downloadSafety.annotated?.warning ?? undefined
+              }]
+            : []),
+          ...(downloadTargets.includes("raw") && activeJob
+            ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.file, activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
+            : []),
+          ...(activeJob?.artefacts
+            ? [
+                {
+                  id: "processing_summary",
+                  label: "Download Processing Summary (.json)",
+                  onDownload: () =>
+                    downloadBlob(
+                      new Blob([JSON.stringify(activeJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }),
+                      `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`
+                    )
+                },
+                {
+                  id: "pose_timeline",
+                  label: "Download Pose Timeline (.json)",
+                  onDownload: () =>
+                    downloadBlob(
+                      new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }),
+                      `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`
+                    )
+                }
+              ]
+            : [])
+        ],
+        diagnosticsSections:
+          activeSession && (activeJob?.drillSelection.mode ?? "drill") === "drill"
+            ? [
+                {
+                  id: "events",
+                  title: "Events",
+                  content: activeSession.events.map((event) => `${formatDiagnosticEvent(event, activePhaseLabels)} @ ${formatDurationShort(event.timestampMs)}`)
+                },
+                { id: "trace", title: "Temporal trace", content: traceRows.slice(0, 24).map((row) => `${formatDurationShort(row.timestampMs)} • phase=${row.phase} • reps=${row.repCount}`) }
+              ]
+            : [],
+        warnings: [previewSelection.warning, downloadSafety.annotated?.warning, downloadSafety.raw?.warning].filter((value): value is string => Boolean(value)),
+        recommendedDeliveryLabel: preferredDeliverySource ? `Recommended delivery: ${preferredDeliverySource.id === "annotated" ? "Annotated" : "Raw"}` : undefined,
+        overlayFullscreenAction: previewUrl
+          ? {
+              label: "Overlay Fullscreen",
+              onToggle: async () => {
+                if (!fullscreenContainerRef.current) return;
+                if (document.fullscreenElement) {
+                  await document.exitFullscreen();
+                  return;
+                }
+                await fullscreenContainerRef.current.requestFullscreen();
+              }
+            }
+          : undefined
+      }),
+    [
+      uploadPreviewState,
+      previewUrl,
+      completedPreviewSurface,
+      selectedViewerEventId,
+      activeSession,
+      activeJob,
+      activePhaseLabels,
+      downloadTargets,
+      annotatedDownloadLabel,
+      downloadSafety.annotated?.warning,
+      rawDownloadLabel,
+      downloadSafety.raw?.warning,
+      traceRows,
+      previewSelection.warning,
+      preferredDeliverySource
+    ]
+  );
 
   useEffect(() => {
     if (!activeJob) {
@@ -818,264 +956,24 @@ export function UploadVideoWorkspace() {
           {activeJob ? (
             <section className="card" style={{ margin: 0 }}>
               <h3 style={{ marginTop: 0 }}>Analysis result</h3>
-              {uploadPreviewState === "processing_annotated" ? (
-                <div className="result-preview-processing">
-                  <strong>Generating annotated video for the selected upload.</strong>
-                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>Raw preview is available while render completes.</p>
-                  <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.35rem", maxWidth: 360 }} />
-                  <button type="button" className="pill" onClick={() => setShowRawDuringProcessing(true)}>Show raw instead</button>
-                </div>
-              ) : null}
-              {uploadPreviewState === "annotated_failed_showing_raw" ? (
-                <div className="result-preview-warning">
-                  <strong>Annotated video could not be generated. Your raw video is still available.</strong>
-                  {annotatedFailureDetails ? (
-                    <details style={{ marginTop: "0.3rem" }}>
-                      <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
-                      <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{annotatedFailureDetails}</pre>
-                    </details>
-                  ) : null}
-                </div>
-              ) : null}
-              {previewSelection.warning ? (
-                <div className="result-preview-warning" style={{ marginTop: "0.4rem" }}>
-                  <strong>{previewSelection.warning}</strong>
-                </div>
-              ) : null}
-              {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_annotated_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") && previewSelection.source ? (
-              <div
-                ref={fullscreenContainerRef}
-                style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
-              >
-                <video
-                  ref={previewVideoRef}
-                  src={previewSelection.source?.url}
-                  controls
-                  playsInline
-                  disablePictureInPicture
-                  controlsList="nofullscreen noremoteplayback"
-                  style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
+              <div ref={fullscreenContainerRef}>
+                <AnalysisViewerShell
+                  model={{ ...uploadViewerModel, progress: uploadPreviewState === "processing_annotated" ? activeJob.progress : undefined }}
+                  videoRef={previewVideoRef}
+                  overlayCanvas={(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : undefined}
+                  onSurfaceChange={(surface) => {
+                    setCompletedPreviewSurface(surface);
+                    if (hasActiveUpload) {
+                      setShowRawDuringProcessing(surface === "raw");
+                    }
+                  }}
+                  onEventSelect={(event) => {
+                    setSelectedViewerEventId(event.id);
+                    seekVideoToTimestamp(previewVideoRef.current, event.timestampMs);
+                  }}
                 />
-                {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? (
-                  <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />
-                ) : null}
               </div>
-              ) : null}
-              {canToggleCompletedSurfaces ? (
-                <div style={{ marginTop: "0.45rem", display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
-                  <button
-                    type="button"
-                    className="studio-button"
-                    style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "annotated" ? "var(--accent-soft)" : "transparent" }}
-                    onClick={() => setCompletedPreviewSurface("annotated")}
-                  >
-                    Annotated
-                  </button>
-                  <button
-                    type="button"
-                    className="studio-button"
-                    style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "raw" ? "var(--accent-soft)" : "transparent" }}
-                    onClick={() => setCompletedPreviewSurface("raw")}
-                  >
-                    Raw
-                  </button>
-                </div>
-              ) : null}
-              {previewSelection.source ? (
-                <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-                  <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
-                  <button
-                    type="button"
-                    className="pill"
-                    onClick={async () => {
-                      if (!fullscreenContainerRef.current) return;
-                      if (document.fullscreenElement) {
-                        await document.exitFullscreen();
-                        return;
-                      }
-                      await fullscreenContainerRef.current.requestFullscreen();
-                    }}
-                  >
-                    Overlay Fullscreen
-                  </button>
-                </div>
-              ) : null}
-
-              {activeJob.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
-                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                  <span className="pill">
-                    Phase: {(() => {
-                      const phaseId = activeSession.events.at(-1)?.phaseId;
-                      if (!phaseId) return "No phase detected";
-                      return activePhaseLabels[phaseId] ?? phaseId;
-                    })()}
-                  </span>
-                  <span className="pill">Reps: {activeSession.summary.repCount ?? 0}</span>
-                  <span className="pill">Hold: {(activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"}</span>
-                  <span className="pill">Analyzed duration: {formatDuration(activeSession.summary.analyzedDurationMs)}</span>
-                  <span className="pill">Confidence: {formatConfidence(activeSession.summary.confidenceAvg)}</span>
-                  {activeJob.drillSelection.cameraView ? (
-                    <span className="pill">Camera View: {formatCameraViewLabel(activeJob.drillSelection.cameraView)}</span>
-                  ) : null}
-                  <span className="pill">Result: {activeSession.status}</span>
-                </div>
-              ) : activeJob.artefacts ? (
-                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                  <span className="pill">Mode: No drill · Freestyle overlay</span>
-                  <span className="pill">Analyzed duration: {formatDuration(activeJob.artefacts.processingSummary.durationMs)}</span>
-                </div>
-              ) : null}
-
-              {activeJob.artefacts ? (
-                <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
-                {preferredDeliverySource ? <span className="muted" style={{ fontSize: "0.8rem", width: "100%" }}>Recommended delivery: {preferredDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</span> : null}
-                {downloadTargets.includes("annotated") ? (
-                  <button
-                    type="button"
-                    className="pill"
-                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`)}
-                    title={downloadSafety.annotated?.warning ?? undefined}
-                  >
-                    {annotatedDownloadLabel}
-                  </button>
-                ) : null}
-                {downloadTargets.includes("raw") ? (
-                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} title={downloadSafety.raw?.warning ?? undefined}>
-                    {rawDownloadLabel}
-                  </button>
-                ) : null}
-                {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}
-                {downloadSafety.raw?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.raw.warning}</span> : null}
-                {activeJob.artefacts.processingSummary.exportDiagnostics?.durationDriftWarning ? (
-                  <span className="muted" style={{ fontSize: "0.8rem", color: "var(--warning-strong, #b45309)" }}>
-                    {activeJob.artefacts.processingSummary.exportDiagnostics.durationDriftWarningMessage ?? "Warning: annotated export duration drift detected."}
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.processingSummary, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`)}
-                >
-                  Download Processing Summary (.json)
-                </button>
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={() => downloadBlob(new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }), `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`)}
-                >
-                  Download Pose Timeline (.json)
-                </button>
-              </div>
-              ) : null}
             </section>
-      ) : null}
-
-      {activeSession && (activeJob?.drillSelection.mode ?? "drill") === "drill" ? (
-        <details style={{ marginTop: "0.2rem", opacity: 0.88 }}>
-          <summary style={{ cursor: "pointer" }}>Advanced diagnostics (optional)</summary>
-          <p className="muted" style={{ marginTop: "0.35rem" }}>Use these only for deeper troubleshooting after reviewing the main result and downloads.</p>
-
-          <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
-            <summary style={{ cursor: "pointer" }}>Temporal trace</summary>
-            <div style={{ marginTop: "0.4rem", display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
-              <span className="muted">Granularity</span>
-              <select value={traceStepMs} onChange={(event) => setTraceStepMs(Number(event.target.value))}>
-                {TRACE_STEP_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{formatTraceStepLabel(option)}</option>
-                ))}
-              </select>
-            </div>
-            {traceRows.length === 0 ? (
-              <p className="muted">No frame samples available for this run.</p>
-            ) : !isMeaningfullyVariant(traceRows) ? (
-              <p className="muted">No meaningful temporal changes at this interval.</p>
-            ) : (
-              <ol className="muted" style={{ marginBottom: "0.45rem" }}>
-                {traceRows.map((row) => (
-                  <li key={`trace-${row.timestampMs}`}>
-                    {formatDurationShort(row.timestampMs)} • phase={row.phase} • reps={row.repCount} • confidence={row.confidence.toFixed(2)}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </details>
-
-          {activeSession.events.length > 0 ? (
-            <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
-              <summary style={{ cursor: "pointer" }}>Events</summary>
-              <ol className="muted">
-                {activeSession.events.map((event) => (
-                  <li key={event.eventId} style={{ marginBottom: "0.25rem" }}>
-                    {formatDiagnosticEvent(event, activePhaseLabels)} @ {formatDurationShort(event.timestampMs)}
-                  </li>
-                ))}
-              </ol>
-            </details>
-          ) : null}
-
-          {activeSession.debug?.runtimeDiagnostics ? (
-            <details style={{ marginTop: "0.35rem", opacity: 0.95 }}>
-              <summary style={{ cursor: "pointer" }}>Runtime diagnostic summary</summary>
-              <ul className="muted" style={{ marginTop: "0.35rem" }}>
-                <li>You have {activeSession.debug.runtimeDiagnostics.phaseCount ?? activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.length} phases.</li>
-                <li>Derived loop: {(activeSession.debug.runtimeDiagnostics.expectedLoop ?? activeSession.debug.runtimeDiagnostics.expectedPhaseOrder.join(" → ")) || "n/a"}</li>
-                <li>Allowed transitions: {activeSession.debug.runtimeDiagnostics.allowedTransitions.join(", ") || "n/a"}</li>
-                <li>Current phase: {activeSession.debug.runtimeDiagnostics.currentPhase ?? "none"}</li>
-                <li>Expected next phase: {activeSession.debug.runtimeDiagnostics.expectedNextPhase ?? "n/a"}</li>
-                <li>Attempted phase: {activeSession.debug.runtimeDiagnostics.attemptedNextPhase ?? "n/a"}</li>
-                <li>
-                  Rejected reason:{" "}
-                  {activeSession.debug.runtimeDiagnostics.rejectedReason
-                    ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.rejectedReason)
-                    : "n/a"}
-                </li>
-                <li>Mode rule: {activeSession.debug.runtimeDiagnostics.modeSummary ?? "n/a"}</li>
-                <li>
-                  Legacy sequence mismatch:{" "}
-                  {activeSession.debug.runtimeDiagnostics.legacyOrderMismatch
-                    ? `yes (${(activeSession.debug.runtimeDiagnostics.legacyOrderMismatchDetails ?? []).join(", ") || "details unavailable"})`
-                    : "no"}
-                </li>
-                <li>
-                  No-rep reason:{" "}
-                  {activeSession.debug.runtimeDiagnostics.noRepReason
-                    ? formatTransitionReason(activeSession.debug.runtimeDiagnostics.noRepReason)
-                    : "n/a"}
-                </li>
-                <li>Last rep event: {activeSession.debug.runtimeDiagnostics.lastRepCompleted ?? "none"}</li>
-              </ul>
-            </details>
-          ) : null}
-
-          <details style={{ marginTop: "0.35rem", opacity: 0.9 }}>
-            <summary style={{ cursor: "pointer" }}>Deep inspection table</summary>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "0.45rem" }}>
-                <thead>
-                  <tr className="muted">
-                    <th style={{ textAlign: "left" }}>t(s)</th>
-                    <th style={{ textAlign: "left" }}>best phase</th>
-                    <th style={{ textAlign: "left" }}>score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeSession.frameSamples.slice(0, 120).map((sample) => (
-                    <tr key={`sample-${sample.timestampMs}`}>
-                      <td>{formatDurationShort(sample.timestampMs)}</td>
-                      <td>{resolvePhaseLabel(sample.classifiedPhaseId, activePhaseLabels)}</td>
-                      <td>{sample.confidence.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </details>
-
-          <details style={{ marginTop: "0.35rem", opacity: 0.85 }}>
-            <summary style={{ cursor: "pointer" }}>Debug and pipeline details</summary>
-            <p className="muted" style={{ marginTop: "0.35rem" }}>Additional diagnostics are intentionally collapsed for normal Upload Video flow.</p>
-          </details>
-        </details>
       ) : null}
     </section>
   );

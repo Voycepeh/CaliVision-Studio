@@ -9,7 +9,7 @@ export function DetectionWorkflowPanel({
   autoOpenSource
 }: {
   phaseId: string;
-  autoOpenSource?: "upload" | "camera" | null;
+  autoOpenSource?: "upload" | null;
 }) {
   const {
     selectedPhaseSourceImage,
@@ -20,14 +20,10 @@ export function DetectionWorkflowPanel({
   } = useStudioState();
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (autoOpenSource === "upload") {
       uploadInputRef.current?.click();
-    }
-    if (autoOpenSource === "camera") {
-      cameraInputRef.current?.click();
     }
   }, [autoOpenSource, phaseId]);
 
@@ -40,26 +36,6 @@ export function DetectionWorkflowPanel({
             ref={uploadInputRef}
             type="file"
             accept="image/png,image/jpeg,image/webp"
-            style={inputStyle}
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) {
-                return;
-              }
-
-              await setSelectedPhaseImage(file);
-              event.currentTarget.value = "";
-            }}
-          />
-        </label>
-
-        <label style={labelStyle}>
-          <span>Use camera</span>
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
             style={inputStyle}
             onChange={async (event) => {
               const file = event.target.files?.[0];
