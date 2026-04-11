@@ -1,10 +1,13 @@
+import { selectPreferredCaptureMimeType } from "../media/media-capabilities.ts";
+
 export type ActiveRecorder = {
   recorder: MediaRecorder;
   stop: (options?: { discard?: boolean }) => Promise<{ blob: Blob; mimeType: string } | null>;
 };
 
 export function createMediaRecorder(stream: MediaStream): ActiveRecorder {
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+  const mimeType = selectPreferredCaptureMimeType();
+  console.info("[live-overlay] CAPTURE_MIME_SELECTED", { mimeType });
   const recorder = new MediaRecorder(stream, { mimeType });
   const chunks: BlobPart[] = [];
 

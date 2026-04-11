@@ -14,6 +14,8 @@ import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
@@ -114,6 +116,7 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(link);
 }
 
+
 export function LiveStreamingWorkspace() {
   const searchParams = useSearchParams();
   const { session, isConfigured } = useAuth();
@@ -123,7 +126,9 @@ export function LiveStreamingWorkspace() {
   const [isRearCamera, setIsRearCamera] = useState(true);
   const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
+  const [rawReplayMimeType, setRawReplayMimeType] = useState<string | null>(null);
   const [annotatedReplayUrl, setAnnotatedReplayUrl] = useState<string | null>(null);
+  const [annotatedReplayMimeType, setAnnotatedReplayMimeType] = useState<string | null>(null);
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
@@ -228,8 +233,25 @@ export function LiveStreamingWorkspace() {
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
-  const replayUrl = replayPreviewState === "showing_annotated_completed" ? annotatedReplayUrl : rawReplayUrl;
   const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl), hasAnnotated: Boolean(annotatedReplayUrl) });
+  const replayPreviewSelection = selectPreviewSource({
+    preferredId: replayPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
+    sources: [
+      ...(annotatedReplayUrl ? [{ id: "annotated" as const, url: annotatedReplayUrl, mimeType: annotatedReplayMimeType }] : []),
+      ...(rawReplayUrl ? [{ id: "raw" as const, url: rawReplayUrl, mimeType: rawReplayMimeType }] : [])
+    ]
+  });
+  const preferredReplayDeliverySource = selectPreferredDeliverySource([
+    ...(annotatedReplayUrl ? [{ id: "annotated" as const, url: annotatedReplayUrl, mimeType: annotatedReplayMimeType }] : []),
+    ...(rawReplayUrl ? [{ id: "raw" as const, url: rawReplayUrl, mimeType: rawReplayMimeType }] : [])
+  ]);
+  const replayDownloadSafety = {
+    annotated: annotatedReplayMimeType ? resolveSafeDelivery({ mimeType: annotatedReplayMimeType }) : null,
+    raw: rawReplayMimeType ? resolveSafeDelivery({ mimeType: rawReplayMimeType }) : null
+  };
+  const annotatedDownloadLabel = resolveLiveDownloadLabel({ kind: "annotated", downloadable: replayDownloadSafety.annotated?.downloadable });
+  const rawDownloadLabel = resolveLiveDownloadLabel({ kind: "raw", downloadable: replayDownloadSafety.raw?.downloadable });
+  const replayUrl = replayPreviewSelection.source?.url ?? null;
   const canToggleReplayPreview = canToggleCompletedPreview({
     hasRaw: Boolean(rawReplayUrl),
     hasAnnotated: Boolean(annotatedReplayUrl),
@@ -249,6 +271,19 @@ export function LiveStreamingWorkspace() {
     }
     setSelectedMarkerId((current) => (current && timelineMarkers.some((marker) => marker.id === current) ? current : timelineMarkers[0].id));
   }, [timelineMarkers]);
+
+  useEffect(() => {
+    if (!liveTrace) {
+      return;
+    }
+    console.info("[live-overlay] PREVIEW_DELIVERY_SELECTION", {
+      selectedSource: replayPreviewSelection.source?.id ?? "none",
+      selectedMimeType: replayPreviewSelection.source?.mimeType ?? "unknown",
+      appleFallbackTriggered: replayPreviewSelection.blockedByCompatibility,
+      annotatedDownload: replayDownloadSafety.annotated?.downloadable ?? "n/a",
+      rawDownload: replayDownloadSafety.raw?.downloadable ?? "n/a"
+    });
+  }, [liveTrace, replayPreviewSelection.source?.id, replayPreviewSelection.source?.mimeType, replayPreviewSelection.blockedByCompatibility, replayDownloadSafety.annotated?.downloadable, replayDownloadSafety.raw?.downloadable]);
 
   const updateTrackingStatus = useCallback((nextStatus: string) => {
     if (trackingStatusRef.current === nextStatus) {
@@ -537,16 +572,19 @@ export function LiveStreamingWorkspace() {
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("annotated");
     setAnnotatedReplayFailureMessage(null);
+    setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
     setLiveTrace(null);
     setSelectedMarkerId(null);
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
       setAnnotatedReplayUrl(null);
+      setAnnotatedReplayMimeType(null);
     }
     if (rawReplayUrl) {
       URL.revokeObjectURL(rawReplayUrl);
       setRawReplayUrl(null);
+      setRawReplayMimeType(null);
     }
 
     await cleanupSession({ stopRecorder: true, discardRecording: true });
@@ -837,10 +875,12 @@ export function LiveStreamingWorkspace() {
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
       setAnnotatedReplayUrl(null);
+      setAnnotatedReplayMimeType(null);
     }
     if (rawReplayUrl) {
       URL.revokeObjectURL(rawReplayUrl);
       setRawReplayUrl(null);
+      setRawReplayMimeType(null);
     }
     setLiveTrace(null);
     setReplayState("idle");
@@ -848,6 +888,7 @@ export function LiveStreamingWorkspace() {
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("annotated");
     setAnnotatedReplayFailureMessage(null);
+    setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
     setSelectedMarkerId(null);
     setErrorMessage(null);
@@ -903,11 +944,13 @@ export function LiveStreamingWorkspace() {
     setLiveTrace(trace);
     const rawUrl = URL.createObjectURL(raw.blob);
     setRawReplayUrl(rawUrl);
+    setRawReplayMimeType(raw.mimeType);
     setReplayState("export-in-progress");
     setReplayExportStageLabel("Preparing export…");
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("annotated");
     setAnnotatedReplayFailureMessage(null);
+    setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
 
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
@@ -929,6 +972,7 @@ export function LiveStreamingWorkspace() {
       });
       const annotatedUrl = URL.createObjectURL(annotated.blob);
       setAnnotatedReplayUrl(annotatedUrl);
+      setAnnotatedReplayMimeType(annotated.mimeType);
       setReplayExportStageLabel("Annotated export complete");
       setReplayState("annotated-ready");
     } catch (error) {
@@ -938,6 +982,7 @@ export function LiveStreamingWorkspace() {
       setReplayExportStageLabel("Annotated export failed");
       setAnnotatedReplayFailureMessage("Annotated video could not be generated. Your raw video is still available.");
       setAnnotatedReplayFailureDetails(message);
+      setAnnotatedReplayMimeType(null);
     }
 
     setStatus("completed");
@@ -1052,13 +1097,15 @@ export function LiveStreamingWorkspace() {
                     {status === "completed" ? (
                       <>
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
-                          <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.webm`)}>
-                            Download annotated
+                          <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
+                            title={replayDownloadSafety.annotated?.warning ?? undefined}>
+                            {annotatedDownloadLabel}
                           </button>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
-                          <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.webm`)}>
-                            Download raw
+                          <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
+                            title={replayDownloadSafety.raw?.warning ?? undefined}>
+                            {rawDownloadLabel}
                           </button>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
@@ -1183,9 +1230,17 @@ export function LiveStreamingWorkspace() {
                 ) : null}
               </div>
             ) : null}
+            {replayPreviewSelection.warning ? (
+              <div className="result-preview-warning">
+                <strong>{replayPreviewSelection.warning}</strong>
+              </div>
+            ) : null}
+            {preferredReplayDeliverySource ? <p className="muted" style={{ margin: 0 }}>Recommended delivery: {preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</p> : null}
             {(replayPreviewState === "showing_annotated_completed" || replayPreviewState === "showing_raw_completed" || replayPreviewState === "showing_raw_during_processing" || replayPreviewState === "annotated_failed_showing_raw") && replayUrl ? (
               <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} />
             ) : null}
+            {replayDownloadSafety.annotated?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.annotated.warning}</p> : null}
+            {replayDownloadSafety.raw?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.raw.warning}</p> : null}
             {canToggleReplayPreview ? (
               <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
                 <button

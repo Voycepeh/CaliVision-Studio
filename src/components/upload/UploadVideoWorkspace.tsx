@@ -16,6 +16,8 @@ import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
@@ -92,6 +94,7 @@ function createArtifactBaseName(fileName: string): string {
 function createUploadSourceUri(jobId: string, fileName: string): string {
   return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
 }
+
 
 function resolvePhaseLabel(phaseId: string | undefined | null, labels: Record<string, string>): string {
   if (!phaseId) return "none";
@@ -545,8 +548,41 @@ export function UploadVideoWorkspace() {
     hasRaw: Boolean(rawPreviewObjectUrl),
     hasAnnotated: Boolean(annotatedPreviewObjectUrl)
   });
+  const previewSelection = selectPreviewSource({
+    preferredId: uploadPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
+    sources: [
+      ...(annotatedPreviewObjectUrl ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl, mimeType: activeJob?.artefacts?.annotatedVideoMimeType }] : []),
+      ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: activeJob?.file?.type }] : [])
+    ]
+  });
+  const preferredDeliverySource = selectPreferredDeliverySource([
+    ...(activeJob?.artefacts?.annotatedVideoMimeType ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl ?? "", mimeType: activeJob.artefacts.annotatedVideoMimeType }] : []),
+    ...(activeJob?.file?.type ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: activeJob.file.type }] : [])
+  ]);
+  const downloadSafety = {
+    annotated: activeJob?.artefacts?.annotatedVideoMimeType
+      ? resolveSafeDelivery({ mimeType: activeJob.artefacts.annotatedVideoMimeType })
+      : null,
+    raw: activeJob?.file?.type ? resolveSafeDelivery({ mimeType: activeJob.file.type }) : null
+  };
+  const annotatedDownloadLabel = resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable });
+  const rawDownloadLabel = resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable });
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
+
+  useEffect(() => {
+    if (!activeJob) {
+      return;
+    }
+    console.info("[upload-processing] PREVIEW_DELIVERY_SELECTION", {
+      preferredSurface: uploadPreviewState,
+      selectedSource: previewSelection.source?.id ?? "none",
+      selectedMimeType: previewSelection.source?.mimeType ?? "unknown",
+      appleFallbackTriggered: previewSelection.blockedByCompatibility,
+      annotatedDownload: downloadSafety.annotated?.downloadable ?? "n/a",
+      rawDownload: downloadSafety.raw?.downloadable ?? "n/a"
+    });
+  }, [activeJob, uploadPreviewState, previewSelection.source?.id, previewSelection.source?.mimeType, previewSelection.blockedByCompatibility, downloadSafety.annotated?.downloadable, downloadSafety.raw?.downloadable]);
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
@@ -745,14 +781,19 @@ export function UploadVideoWorkspace() {
                   ) : null}
                 </div>
               ) : null}
-              {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_annotated_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? (
+              {previewSelection.warning ? (
+                <div className="result-preview-warning" style={{ marginTop: "0.4rem" }}>
+                  <strong>{previewSelection.warning}</strong>
+                </div>
+              ) : null}
+              {(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_annotated_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") && previewSelection.source ? (
               <div
                 ref={fullscreenContainerRef}
                 style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16 / 9", borderRadius: "0.6rem", overflow: "hidden" }}
               >
                 <video
                   ref={previewVideoRef}
-                  src={(uploadPreviewState === "showing_annotated_completed" ? annotatedPreviewObjectUrl : rawPreviewObjectUrl) ?? undefined}
+                  src={previewSelection.source?.url}
                   controls
                   playsInline
                   disablePictureInPicture
@@ -829,20 +870,24 @@ export function UploadVideoWorkspace() {
 
               {activeJob.artefacts ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                {preferredDeliverySource ? <span className="muted" style={{ fontSize: "0.8rem", width: "100%" }}>Recommended delivery: {preferredDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</span> : null}
                 {downloadTargets.includes("annotated") ? (
                   <button
                     type="button"
                     className="pill"
-                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.webm`)}
+                    onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`)}
+                    title={downloadSafety.annotated?.warning ?? undefined}
                   >
-                    Download Annotated Video
+                    {annotatedDownloadLabel}
                   </button>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
-                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)}>
-                    Download Raw Video
+                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} title={downloadSafety.raw?.warning ?? undefined}>
+                    {rawDownloadLabel}
                   </button>
                 ) : null}
+                {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}
+                {downloadSafety.raw?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.raw.warning}</span> : null}
                 <button
                   type="button"
                   className="pill"
