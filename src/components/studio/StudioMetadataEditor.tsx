@@ -29,19 +29,30 @@ export function StudioMetadataEditor() {
   if (!drill) {
     return null;
   }
+  const draftSetup = (drill as typeof drill & { draftSetup?: { movementTypeConfigured?: boolean; cameraViewConfigured?: boolean } }).draftSetup;
+  const movementValue = draftSetup?.movementTypeConfigured ? drill.drillType : "";
+  const cameraValue = draftSetup?.cameraViewConfigured ? drill.primaryView : "";
 
   return (
     <section style={{ display: "grid", gap: "0.55rem" }}>
       <div className="field-grid">
         <label style={labelStyle}>
           <span>Drill title</span>
-          <input value={drill.title} onChange={(event) => setDrillTitle(event.target.value)} style={inputStyle} />
+          <input value={drill.title} onChange={(event) => setDrillTitle(event.target.value)} style={inputStyle} placeholder="Add drill title" />
         </label>
       </div>
 
       <label style={labelStyle}>
-        <span>Drill type</span>
-        <select value={drill.drillType} onChange={(event) => setDrillType(event.target.value as typeof drill.drillType)} style={inputStyle}>
+        <span>Movement type</span>
+        <select
+          value={movementValue}
+          onChange={(event) => {
+            if (!event.target.value) return;
+            setDrillType(event.target.value as typeof drill.drillType);
+          }}
+          style={inputStyle}
+        >
+          <option value="">Choose movement type</option>
           <option value="hold">hold</option>
           <option value="rep">rep</option>
         </select>
@@ -67,8 +78,16 @@ export function StudioMetadataEditor() {
         </label>
 
         <label style={labelStyle}>
-          <span>Primary view</span>
-          <select value={drill.primaryView} onChange={(event) => setDrillDefaultView(event.target.value as typeof drill.primaryView)} style={inputStyle}>
+          <span>Camera view</span>
+          <select
+            value={cameraValue}
+            onChange={(event) => {
+              if (!event.target.value) return;
+              setDrillDefaultView(event.target.value as typeof drill.primaryView);
+            }}
+            style={inputStyle}
+          >
+            <option value="">Choose camera view</option>
             <option value="front">front</option>
             <option value="side">side</option>
             <option value="rear">rear</option>

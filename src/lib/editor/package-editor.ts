@@ -111,13 +111,14 @@ export function createDefaultPose(poseId: string, view: PortableViewType, timest
 }
 
 export function createNewPhase(phaseId: string, order: number, view: PortableViewType): PortablePhase {
+  void view;
   return {
     phaseId,
     order,
     name: `Phase ${order}`,
     summary: "",
-    durationMs: 5000,
-    poseSequence: [createDefaultPose(`${phaseId}_pose_001`, view, 0)],
+    durationMs: 0,
+    poseSequence: [],
     assetRefs: []
   };
 }

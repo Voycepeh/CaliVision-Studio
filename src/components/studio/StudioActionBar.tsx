@@ -9,6 +9,7 @@ export function StudioActionBar() {
     saveStatusLabel,
     draftVersionLabel,
     selectedPackage,
+    readinessChecklist,
     saveSelectedToHosted,
     markSelectedVersionReady,
     persistenceMode
@@ -36,6 +37,19 @@ export function StudioActionBar() {
           Back to Library
         </Link>
       </div>
+
+      {selectedPackage && readinessChecklist && !readinessChecklist.isReady ? (
+        <div style={{ gridColumn: "1 / -1" }}>
+          <p className="muted" style={{ margin: "0.35rem 0 0.25rem 0", fontSize: "0.8rem" }}>
+            Complete required fields before Mark Ready:
+          </p>
+          <ul style={{ margin: 0, paddingLeft: "1rem" }}>
+            {readinessChecklist.issues.map((issue) => (
+              <li key={issue.code} className="muted" style={{ fontSize: "0.8rem" }}>{issue.message}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -22,7 +22,7 @@ The split between top-level Drafts and My drills creates duplicate entries, conf
 - Version history foundation:
   - list version number/status/published/timestamp per drill.
 - Readiness validator foundation:
-  - title, drill type, phase presence, and pose data checks.
+  - title, movement type selection, camera view selection, phase presence, and per-phase authored content checks.
 
 ## Compatibility / migration posture
 
