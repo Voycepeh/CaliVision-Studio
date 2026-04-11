@@ -113,12 +113,14 @@ function AnalysisVideoPane({
             <button
               key={surface.id}
               type="button"
-              disabled={!surface.available}
+              disabled={surface.availability !== "ready"}
               className="studio-button"
-              style={{ border: "none", borderRadius: 0, background: model.surface === surface.id ? "var(--accent-soft)" : "transparent", opacity: surface.available ? 1 : 0.45 }}
+              style={{ border: "none", borderRadius: 0, background: model.surface === surface.id ? "var(--accent-soft)" : "transparent", opacity: surface.availability === "ready" ? 1 : 0.45 }}
               onClick={() => onSurfaceChange(surface.id)}
+              title={surface.description}
             >
               {surface.label}
+              {surface.availability === "processing" ? " (Rendering…)" : ""}
             </button>
           ))}
         </div>

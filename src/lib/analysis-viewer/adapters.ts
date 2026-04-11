@@ -44,6 +44,15 @@ export function mapUploadAnalysisToViewerModel(input: {
         ? "ready"
         : "empty";
 
+  const annotatedAvailability =
+    input.videoUrl && input.surface === "annotated"
+      ? "ready"
+      : input.previewState === "processing_annotated"
+        ? "processing"
+        : input.previewState === "showing_annotated_completed"
+          ? "ready"
+          : "unavailable";
+
   return {
     state,
     stateTitle: state === "loading" ? "Generating annotated video" : state === "warning" ? "Annotated video unavailable" : undefined,
@@ -53,8 +62,13 @@ export function mapUploadAnalysisToViewerModel(input: {
     canShowVideo: input.canShowVideo,
     surface: input.surface,
     surfaces: [
-      { id: "annotated", label: "Annotated", available: input.surface === "annotated" || input.previewState !== "showing_raw_completed" },
-      { id: "raw", label: "Raw", available: true }
+      {
+        id: "annotated",
+        label: "Annotated",
+        availability: annotatedAvailability,
+        description: annotatedAvailability === "processing" ? "Rendering…" : annotatedAvailability === "unavailable" ? "Unavailable" : undefined
+      },
+      { id: "raw", label: "Raw", availability: "ready" }
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents,
@@ -82,11 +96,13 @@ export function mapLiveAnalysisToViewerModel(input: {
   markers: LiveTimelineMarker[];
   durationMs: number;
   mediaAspectRatio?: number;
+  hasAnnotatedReady?: boolean;
   warnings?: string[];
   recommendedDeliveryLabel?: string;
 }): AnalysisViewerModel {
   const tone = getReplayStateTone(input.replayState);
   const state = input.replayState === "export-in-progress" ? "loading" : input.videoUrl ? "ready" : input.replayState === "export-failed" ? "error" : "warning";
+  const annotatedAvailability = input.replayState === "export-in-progress" ? "processing" : input.hasAnnotatedReady ? "ready" : "unavailable";
 
   return {
     state,
@@ -97,8 +113,13 @@ export function mapLiveAnalysisToViewerModel(input: {
     canShowVideo: Boolean(input.videoUrl),
     surface: input.surface,
     surfaces: [
-      { id: "annotated", label: "Annotated", available: Boolean(input.videoUrl) || input.surface === "annotated" },
-      { id: "raw", label: "Raw", available: true }
+      {
+        id: "annotated",
+        label: "Annotated",
+        availability: annotatedAvailability,
+        description: annotatedAvailability === "processing" ? "Rendering…" : annotatedAvailability === "unavailable" ? "Unavailable" : undefined
+      },
+      { id: "raw", label: "Raw", availability: "ready" }
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents: input.markers.map((marker) => ({ ...marker, seekable: true })),

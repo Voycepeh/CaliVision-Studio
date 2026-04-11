@@ -40,7 +40,7 @@ export type AnalysisViewerModel = {
   mediaAspectRatio?: number;
   canShowVideo: boolean;
   surface: ViewerSurface;
-  surfaces: Array<{ id: ViewerSurface; label: string; available: boolean }>;
+  surfaces: Array<{ id: ViewerSurface; label: string; availability: "unavailable" | "processing" | "ready"; description?: string }>;
   timelineDurationMs?: number;
   timelineEvents: AnalysisViewerEvent[];
   selectedEventId: string | null;

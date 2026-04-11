@@ -176,7 +176,7 @@ export function UploadVideoWorkspace() {
   const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
-  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
+  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
   const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
@@ -359,7 +359,7 @@ export function UploadVideoWorkspace() {
 
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
     setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     setSelectedJobId(jobId);
@@ -524,7 +524,7 @@ export function UploadVideoWorkspace() {
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
     setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {

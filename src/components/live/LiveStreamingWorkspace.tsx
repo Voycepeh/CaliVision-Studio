@@ -146,7 +146,7 @@ export function LiveStreamingWorkspace() {
   const [replayState, setReplayState] = useState<ReplayTerminalState>("idle");
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
-  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
+  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
   const [annotatedReplayFailureMessage, setAnnotatedReplayFailureMessage] = useState<string | null>(null);
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
@@ -326,6 +326,7 @@ export function LiveStreamingWorkspace() {
         surface: completedPreviewSurface,
         selectedEventId: selectedMarkerId,
         durationMs: liveTrace?.video.durationMs ?? 0,
+        hasAnnotatedReady: Boolean(annotatedReplayUrl),
         mediaAspectRatio:
           liveTrace && liveTrace.video.width > 0 && liveTrace.video.height > 0
             ? liveTrace.video.width / liveTrace.video.height
@@ -798,7 +799,7 @@ export function LiveStreamingWorkspace() {
     setReplayState("idle");
     setReplayExportStageLabel(null);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
     setAnnotatedReplayFailureMessage(null);
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
@@ -1170,7 +1171,7 @@ export function LiveStreamingWorkspace() {
     setReplayState("idle");
     setReplayExportStageLabel(null);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
     setAnnotatedReplayFailureMessage(null);
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
@@ -1263,7 +1264,7 @@ export function LiveStreamingWorkspace() {
     setReplayState("export-in-progress");
     setReplayExportStageLabel("Preparing export…");
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("annotated");
+    setCompletedPreviewSurface("raw");
     setAnnotatedReplayFailureMessage(null);
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
