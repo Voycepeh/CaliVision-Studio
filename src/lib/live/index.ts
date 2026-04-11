@@ -7,3 +7,4 @@ export * from "./session-export";
 export * from "./results-summary";
 export * from "./pose-freshness";
 export * from "./hardware-zoom";
+export * from "./camera-selection";

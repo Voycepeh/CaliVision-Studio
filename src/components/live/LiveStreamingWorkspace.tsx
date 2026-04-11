@@ -22,6 +22,9 @@ import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
   buildLiveResultsSummary,
+  buildVideoInputDescriptors,
+  chooseBestRearCameraForZoomPreset,
+  chooseBestRearMainCamera,
   classifyCameraError,
   createLiveTraceAccumulator,
   createMediaRecorder,
@@ -31,7 +34,10 @@ import {
   getHardwareZoomSupport,
   getSupportedZoomPresets,
   mapLiveTraceToTimelineMarkers,
+  replaceStreamSafely,
+  resolveHalfXAccessDecision,
   resolveSelectedZoomPreset,
+  type VideoInputDescriptor,
   stopMediaStream,
   summarizeLiveTraceFreshness,
   type LiveDrillSelection,
@@ -83,6 +89,8 @@ type LiveHardwareZoomState =
   | { supported: false; value: 1 }
   | { supported: true; value: number; min: number; max: number; step: number; presets: number[] };
 
+type ActiveCameraSource = "rear-main" | "rear-ultrawide" | "rear-unknown" | "front";
+type PtzAwareTrackConstraints = MediaTrackConstraints & { pan?: ConstrainDouble; tilt?: ConstrainDouble; zoom?: ConstrainDouble };
 type LivePostAnalysisSnapshot = {
   traceId: string;
   durationMs: number;
@@ -137,6 +145,13 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(link);
 }
 
+function formatActiveCameraSource(source: ActiveCameraSource): string {
+  if (source === "rear-main") return "main rear camera";
+  if (source === "rear-ultrawide") return "ultrawide rear camera";
+  if (source === "front") return "front camera";
+  return "rear camera";
+}
+
 
 export function LiveStreamingWorkspace() {
   const searchParams = useSearchParams();
@@ -164,6 +179,10 @@ export function LiveStreamingWorkspace() {
   const [isStageFullscreen, setIsStageFullscreen] = useState(false);
   const [isFullscreenSupported, setIsFullscreenSupported] = useState(false);
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
+  const [cameraDescriptors, setCameraDescriptors] = useState<VideoInputDescriptor[]>([]);
+  const [activeCameraSource, setActiveCameraSource] = useState<ActiveCameraSource>("rear-main");
+  const [zoomStatusMessage, setZoomStatusMessage] = useState<string | null>(null);
+  const [selectedZoomPreset, setSelectedZoomPreset] = useState<number>(1);
   const requestedDrillKey = searchParams.get("drillKey");
   const { drillOptions, drillOptionGroups, selectedDrillKey: selectedKey, setSelectedDrillKey: setSelectedKey, selectedSource, setSelectedSource } =
     useAvailableDrills({
@@ -213,6 +232,7 @@ export function LiveStreamingWorkspace() {
   const containerSizeRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
   const selectedZoomRef = useRef<number>(1);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
+  const mainRearDeviceIdRef = useRef<string | null>(null);
   const liveCadenceStatsRef = useRef<LiveCadenceStats>({
     renderFrames: 0,
     analysisTicks: 0,
@@ -301,10 +321,42 @@ export function LiveStreamingWorkspace() {
   const replayMimeType = replayPreviewSelection.source?.mimeType ?? null;
   const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
   const shouldShowSessionToolbar = isSessionStageActive || isStageFullscreen;
-  const activeZoomPreset = useMemo(
-    () => (liveHardwareZoom.supported ? resolveSelectedZoomPreset(liveHardwareZoom.value, liveHardwareZoom.presets) : null),
-    [liveHardwareZoom]
-  );
+  const activeZoomPreset = resolveSelectedZoomPreset(selectedZoomPreset, APP_HARDWARE_ZOOM_PRESETS);
+  const halfXAccess = useMemo(() => {
+    if (activeCameraSource === "rear-ultrawide") {
+      return { available: true, reason: "switchable-ultrawide" as const };
+    }
+    const activeTrack = activeVideoTrackRef.current;
+    const activeSettings = activeTrack?.getSettings?.();
+    return resolveHalfXAccessDecision(cameraDescriptors, {
+      deviceId: activeSettings?.deviceId,
+      facing: isRearCamera ? "rear" : "front",
+      zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
+    });
+  }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom]);
+  const canAttemptHalfXFallbackProbe = useMemo(() => {
+    if (halfXAccess.available || !isRearCamera) {
+      return false;
+    }
+    const activeTrack = activeVideoTrackRef.current;
+    const currentDeviceId = activeTrack?.getSettings?.().deviceId;
+    const alternateRearCount = cameraDescriptors.filter(
+      (descriptor) => descriptor.facing === "rear" && descriptor.deviceId !== currentDeviceId && descriptor.rearLensHint !== "telephoto"
+    ).length;
+    return alternateRearCount > 1;
+  }, [cameraDescriptors, halfXAccess.available, isRearCamera]);
+  const zoomHelperText = useMemo(() => {
+    if (status !== "live-session-running") {
+      return null;
+    }
+    if (canAttemptHalfXFallbackProbe) {
+      return "Tap 0.5x to probe alternate rear cameras for ultrawide access";
+    }
+    if (!halfXAccess.available) {
+      return "0.5x ultrawide lens not accessible from this browser session";
+    }
+    return zoomStatusMessage;
+  }, [canAttemptHalfXFallbackProbe, halfXAccess.available, status, zoomStatusMessage]);
   const replayUnavailableMessage = useMemo(() => {
     if (replayState === "export-in-progress") {
       return null;
@@ -572,6 +624,7 @@ export function LiveStreamingWorkspace() {
     await stopMediaStream(liveStreamRef.current);
     liveStreamRef.current = null;
     activeVideoTrackRef.current = null;
+    mainRearDeviceIdRef.current = null;
     landmarkerRef.current?.close?.();
     landmarkerRef.current = null;
     recorderRef.current = null;
@@ -603,6 +656,8 @@ export function LiveStreamingWorkspace() {
     if (options?.nextStatus) {
       setStatus(options.nextStatus);
     }
+    setSelectedZoomPreset(1);
+    setZoomStatusMessage(null);
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
   }, [clearLiveOverlayCanvas, exitStageFullscreenIfNeeded, stopLiveRenderLoop, updateFramingWarning, updateTrackingStatus]);
@@ -847,16 +902,68 @@ export function LiveStreamingWorkspace() {
     }
 
     await cleanupSession({ stopRecorder: true, discardRecording: true });
+    setZoomStatusMessage(null);
 
     let stream: MediaStream;
     try {
+      const startupVideoConstraints: PtzAwareTrackConstraints = {
+        facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" },
+        // PTZ hints are optional; browsers that do not expose PTZ will ignore these.
+        pan: { ideal: 0 },
+        tilt: { ideal: 0 },
+        zoom: { ideal: 1 }
+      };
       stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" } },
+        video: {
+          ...startupVideoConstraints
+        },
         audio: false
       });
       const activeVideoTrack = stream.getVideoTracks()[0] ?? null;
       activeVideoTrackRef.current = activeVideoTrack;
+      const activeTrackSettings = activeVideoTrack?.getSettings?.();
+      console.info("[live-camera] SUPPORTED_CONSTRAINTS", navigator.mediaDevices.getSupportedConstraints());
+      const descriptors = await buildVideoInputDescriptors({
+        // Keep startup to one active stream: we do not open probe streams here.
+        probeDevice: async () => ({ zoomSupport: { supported: false }, facing: "unknown" })
+      });
+      setCameraDescriptors(descriptors);
+      console.info("[live-camera] ENUMERATE_DEVICES_SUMMARY", {
+        videoInputCount: descriptors.length,
+        descriptors: descriptors.map((descriptor) => ({
+          deviceId: descriptor.deviceId,
+          label: descriptor.label,
+          facing: descriptor.facing,
+          rearLensHint: descriptor.rearLensHint,
+          zoom: descriptor.zoomSupport.supported
+            ? { min: descriptor.zoomSupport.min, max: descriptor.zoomSupport.max, step: descriptor.zoomSupport.step }
+            : null
+        }))
+      });
+      const rearDescriptors = descriptors.filter((descriptor) => descriptor.facing === "rear");
+      const rearMainCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "main");
+      const rearUltrawideCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "ultrawide");
+      const rearAlternateCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint !== "telephoto");
+      console.info("[live-camera] REAR_CAMERA_CANDIDATES", {
+        rearCameraCount: rearDescriptors.length,
+        mainRearCandidates: rearMainCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
+        ultrawideRearCandidates: rearUltrawideCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
+        alternateRearCandidates: rearAlternateCandidates.map((descriptor) => ({
+          deviceId: descriptor.deviceId,
+          label: descriptor.label,
+          rearLensHint: descriptor.rearLensHint
+        })),
+        noUltrawideReason: rearUltrawideCandidates.length === 0 ? "no_ultrawide_labeled_rear_camera_using_alternate_rear_fallback" : null
+      });
       const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
+      console.info("[live-camera] ACTIVE_TRACK_ZOOM_CAPABILITIES", {
+        deviceId: activeTrackSettings?.deviceId ?? "unknown",
+        label: descriptors.find((descriptor) => descriptor.deviceId === activeTrackSettings?.deviceId)?.label ?? "unknown",
+        zoom: zoomSupport.supported ? { min: zoomSupport.min, max: zoomSupport.max, step: zoomSupport.step } : null
+      });
+      console.info("[live-camera] ACTIVE_TRACK_ZOOM_SETTINGS", {
+        zoom: (activeVideoTrack?.getSettings?.() as MediaTrackSettings & { zoom?: number } | undefined)?.zoom ?? null
+      });
       if (zoomSupport.supported) {
         const availablePresets = getSupportedZoomPresets(zoomSupport, APP_HARDWARE_ZOOM_PRESETS);
         if (availablePresets.length > 0) {
@@ -864,6 +971,7 @@ export function LiveStreamingWorkspace() {
           const clampedRequestedZoom = Math.min(zoomSupport.max, Math.max(zoomSupport.min, defaultZoom));
           const appliedZoom = await applyHardwareZoomPreset(activeVideoTrack, clampedRequestedZoom, zoomSupport);
           selectedZoomRef.current = appliedZoom;
+          setSelectedZoomPreset(selectedZoomRef.current);
           setLiveHardwareZoom({
             supported: true,
             value: appliedZoom,
@@ -882,6 +990,7 @@ export function LiveStreamingWorkspace() {
           });
         } else {
           selectedZoomRef.current = 1;
+          setSelectedZoomPreset(selectedZoomRef.current);
           setLiveHardwareZoom({ supported: false, value: 1 });
           console.info("[live-overlay] hardware-zoom unsupported", {
             facingMode: isRearCamera ? "rear" : "front",
@@ -892,12 +1001,25 @@ export function LiveStreamingWorkspace() {
         }
       } else {
         selectedZoomRef.current = 1;
+        setSelectedZoomPreset(selectedZoomRef.current);
         setLiveHardwareZoom({ supported: false, value: 1 });
         console.info("[live-overlay] hardware-zoom unsupported", {
           facingMode: isRearCamera ? "rear" : "front"
         });
       }
       liveStreamRef.current = stream;
+      const activeDeviceId = activeTrackSettings?.deviceId;
+      const activeDescriptor = descriptors.find((descriptor) => descriptor.deviceId === activeDeviceId);
+      const resolvedSource = isRearCamera ? (activeDescriptor?.rearLensHint === "ultrawide" ? "rear-ultrawide" : "rear-main") : "front";
+      if (resolvedSource === "rear-main" && activeDeviceId) {
+        mainRearDeviceIdRef.current = activeDeviceId;
+      }
+      setActiveCameraSource(resolvedSource);
+      console.info("[live-camera] ACTIVE_CAMERA_SELECTED", {
+        deviceId: activeDeviceId ?? "unknown",
+        label: activeDescriptor?.label ?? "unknown",
+        source: resolvedSource
+      });
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = stream;
         await previewVideoRef.current.play();
@@ -1157,26 +1279,223 @@ export function LiveStreamingWorkspace() {
   const updateHardwareZoom = useCallback(
     async (presetZoom: number) => {
       const activeTrack = activeVideoTrackRef.current;
-      if (!activeTrack || !liveHardwareZoom.supported || status !== "live-session-running") {
-        return;
+      if (!activeTrack || status !== "live-session-running") {
+        return false;
+      }
+      const activeSupport = getHardwareZoomSupport(activeTrack);
+      if (!activeSupport.supported) {
+        return false;
       }
       try {
-        const appliedZoom = await applyHardwareZoomPreset(activeTrack, presetZoom, { ...liveHardwareZoom, current: liveHardwareZoom.value });
+        const appliedZoom = await applyHardwareZoomPreset(activeTrack, presetZoom, { ...activeSupport, current: activeSupport.current });
         selectedZoomRef.current = appliedZoom;
-        setLiveHardwareZoom((current) => (current.supported ? { ...current, value: appliedZoom } : current));
+        setSelectedZoomPreset(selectedZoomRef.current);
+        setLiveHardwareZoom({
+          supported: true,
+          value: appliedZoom,
+          min: activeSupport.min,
+          max: activeSupport.max,
+          step: activeSupport.step,
+          presets: getSupportedZoomPresets(activeSupport, APP_HARDWARE_ZOOM_PRESETS)
+        });
         overlayNeedsResizeSyncRef.current = true;
         syncOverlayCanvasSize(true);
         console.info("[live-overlay] hardware-zoom updated", {
           presetZoom,
           activeZoom: appliedZoom
         });
+        return true;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to apply hardware zoom.";
         console.warn("[live-overlay] hardware-zoom apply failed", { message });
+        return false;
       }
     },
-    [liveHardwareZoom, status, syncOverlayCanvasSize]
+    [status, syncOverlayCanvasSize]
   );
+
+  const switchToDevice = useCallback(
+    async (deviceId: string, source: ActiveCameraSource, reason: "switch-to-ultrawide" | "restore-main-rear") => {
+      const deviceVideoConstraints: PtzAwareTrackConstraints = {
+        deviceId: { exact: deviceId },
+        pan: { ideal: 0 },
+        tilt: { ideal: 0 },
+        zoom: { ideal: 1 }
+      };
+      const nextStream = await navigator.mediaDevices.getUserMedia({
+        video: { ...deviceVideoConstraints },
+        audio: false
+      });
+      const previousStream = liveStreamRef.current;
+      liveStreamRef.current = nextStream;
+      activeVideoTrackRef.current = nextStream.getVideoTracks()[0] ?? null;
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = nextStream;
+        await previewVideoRef.current.play();
+        const width = previewVideoRef.current.videoWidth;
+        const height = previewVideoRef.current.videoHeight;
+        if (width > 0 && height > 0) {
+          setPreviewAspectRatio(width / height);
+        }
+      }
+      await replaceStreamSafely(previousStream, nextStream, stopMediaStream);
+      const switchedTrack = activeVideoTrackRef.current;
+      const switchedZoomSupport = getHardwareZoomSupport(switchedTrack);
+      setLiveHardwareZoom(
+        switchedZoomSupport.supported
+          ? {
+              supported: true,
+              value: switchedZoomSupport.current,
+              min: switchedZoomSupport.min,
+              max: switchedZoomSupport.max,
+              step: switchedZoomSupport.step,
+              presets: getSupportedZoomPresets(switchedZoomSupport, APP_HARDWARE_ZOOM_PRESETS)
+            }
+          : { supported: false, value: 1 }
+      );
+      setActiveCameraSource(source);
+      overlayNeedsResizeSyncRef.current = true;
+      syncOverlayCanvasSize(true);
+      console.info("[live-camera] ACTIVE_CAMERA_SELECTED", {
+        deviceId,
+        source,
+        reason
+      });
+    },
+    [syncOverlayCanvasSize]
+  );
+
+  const handleZoomPresetSelection = useCallback(async (presetZoom: number) => {
+    if (status !== "live-session-running") {
+      return;
+    }
+
+    if (presetZoom >= 1 || (presetZoom > 0.5 && liveHardwareZoom.supported)) {
+      if (isRearCamera && activeCameraSource === "rear-ultrawide") {
+        const activeTrack = activeVideoTrackRef.current;
+        const currentDeviceId = activeTrack?.getSettings?.().deviceId;
+        const restoreTargetDeviceId =
+          (mainRearDeviceIdRef.current && mainRearDeviceIdRef.current !== currentDeviceId ? mainRearDeviceIdRef.current : null) ??
+          (() => {
+            const mainDecision = chooseBestRearMainCamera(cameraDescriptors, currentDeviceId);
+            return mainDecision.strategy === "switch-camera" ? mainDecision.camera.deviceId : null;
+          })();
+
+        if (restoreTargetDeviceId) {
+          try {
+            await switchToDevice(restoreTargetDeviceId, "rear-main", "restore-main-rear");
+            mainRearDeviceIdRef.current = restoreTargetDeviceId;
+            console.info("[live-camera] MAIN_REAR_RESTORED_FOR_PRESET", {
+              presetZoom,
+              deviceId: restoreTargetDeviceId
+            });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "unknown";
+            setZoomStatusMessage("Unable to restore main rear camera in this browser session");
+            console.warn("[live-camera] MAIN_REAR_RESTORE_FAILED", { presetZoom, message, deviceId: restoreTargetDeviceId });
+            return;
+          }
+        } else {
+          setZoomStatusMessage("Unable to identify a main rear camera in this browser session");
+          console.info("[live-camera] MAIN_REAR_RESTORE_UNAVAILABLE", { presetZoom, reason: "no_confident_main_rear_candidate" });
+          return;
+        }
+      }
+
+      const applied = await updateHardwareZoom(presetZoom);
+      if (!applied && presetZoom > 1) {
+        setZoomStatusMessage(null);
+      } else if (!applied && presetZoom === 1) {
+        selectedZoomRef.current = 1;
+        setSelectedZoomPreset(1);
+        setZoomStatusMessage(null);
+      } else {
+        setZoomStatusMessage(null);
+      }
+      return;
+    }
+
+    if (presetZoom !== 0.5) {
+      setZoomStatusMessage(null);
+      return;
+    }
+
+    if (liveHardwareZoom.supported && liveHardwareZoom.min <= 0.51) {
+      const applied = await updateHardwareZoom(0.5);
+      if (applied) {
+        setZoomStatusMessage("0.5x using hardware zoom");
+        console.info("[live-camera] HALF_X_RESOLUTION", { strategy: "hardware-zoom" });
+        return;
+      }
+    }
+
+    const activeTrack = activeVideoTrackRef.current;
+    const activeSettings = activeTrack?.getSettings?.();
+    const decision = chooseBestRearCameraForZoomPreset(0.5, cameraDescriptors, {
+      deviceId: activeSettings?.deviceId,
+      facing: isRearCamera ? "rear" : "front",
+      zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
+    });
+    let resolvedDecision = decision;
+    if (
+      decision.strategy === "unavailable" &&
+      decision.reason === "no_reliable_ultrawide_or_alternate_rear_candidate" &&
+      isRearCamera
+    ) {
+      console.info("[live-camera] HALF_X_PROBE_RETRY_START", {
+        reason: decision.reason,
+        rearCameraCount: cameraDescriptors.filter((descriptor) => descriptor.facing === "rear").length
+      });
+      try {
+        const probedDescriptors = await buildVideoInputDescriptors();
+        setCameraDescriptors(probedDescriptors);
+        resolvedDecision = chooseBestRearCameraForZoomPreset(0.5, probedDescriptors, {
+          deviceId: activeSettings?.deviceId,
+          facing: "rear",
+          zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
+        });
+        console.info("[live-camera] HALF_X_PROBE_RETRY_RESULT", {
+          strategy: resolvedDecision.strategy,
+          reason: resolvedDecision.reason
+        });
+      } catch (error) {
+        console.warn("[live-camera] HALF_X_PROBE_RETRY_FAILED", {
+          message: error instanceof Error ? error.message : "unknown"
+        });
+      }
+    }
+    if (resolvedDecision.strategy !== "switch-camera") {
+      setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
+      console.info("[live-camera] HALF_X_UNAVAILABLE", { reason: resolvedDecision.reason, source: activeCameraSource });
+      return;
+    }
+
+    try {
+      if (activeSettings?.deviceId) {
+        mainRearDeviceIdRef.current = activeSettings.deviceId;
+      }
+      await switchToDevice(resolvedDecision.camera.deviceId, "rear-ultrawide", "switch-to-ultrawide");
+      selectedZoomRef.current = 0.5;
+      setSelectedZoomPreset(selectedZoomRef.current);
+      setZoomStatusMessage("0.5x using ultrawide camera");
+      overlayNeedsResizeSyncRef.current = true;
+      syncOverlayCanvasSize(true);
+      console.info("[live-camera] HALF_X_RESOLUTION", {
+        strategy: "camera-switch",
+        decisionReason: resolvedDecision.reason,
+        deviceId: resolvedDecision.camera.deviceId,
+        label: resolvedDecision.camera.label
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "unknown";
+      setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
+      console.warn("[live-camera] HALF_X_SWITCH_FAILED", {
+        message,
+        deviceId: resolvedDecision.camera.deviceId,
+        label: resolvedDecision.camera.label
+      });
+    }
+  }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom, status, switchToDevice, syncOverlayCanvasSize, updateHardwareZoom]);
 
   const toggleSessionFullscreen = useCallback(async () => {
     const stageEl = sessionStageRef.current;
@@ -1432,6 +1751,9 @@ export function LiveStreamingWorkspace() {
                     onChange={(event) => {
                       const nextRear = event.target.value === "rear";
                       setIsRearCamera(nextRear);
+                      setActiveCameraSource(nextRear ? "rear-main" : "front");
+                      mainRearDeviceIdRef.current = nextRear ? mainRearDeviceIdRef.current : null;
+                      setZoomStatusMessage(null);
                       console.info("[live-overlay] camera-selection changed", {
                         facingMode: nextRear ? "rear" : "front"
                       });
@@ -1582,20 +1904,23 @@ export function LiveStreamingWorkspace() {
               style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
             />
             <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
-            {status === "live-session-running" && liveHardwareZoom.supported ? (
-              <div className="live-streaming-zoom-control" role="group" aria-label="Hardware camera zoom control">
+            {status === "live-session-running" ? (
+              <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
                 <span className="live-streaming-zoom-label">Zoom</span>
                 <div className="live-streaming-zoom-presets">
-                  {liveHardwareZoom.presets.map((preset) => {
+                  {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
                     const isActive = activeZoomPreset === preset;
+                    const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
                     return (
                       <button
                         key={preset}
                         type="button"
                         className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
                         aria-pressed={isActive}
+                        disabled={isDisabled}
+                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
                         onClick={() => {
-                          void updateHardwareZoom(preset);
+                          void handleZoomPresetSelection(preset);
                         }}
                       >
                         {formatHardwareZoomLabel(preset)}
@@ -1603,13 +1928,184 @@ export function LiveStreamingWorkspace() {
                     );
                   })}
                 </div>
-                <span>{formatHardwareZoomLabel(liveHardwareZoom.value)}</span>
+                <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
               </div>
             ) : null}
             {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
           </div>
+          {zoomHelperText ? (
+            <p className="muted" style={{ marginTop: "0.45rem", marginBottom: 0, fontSize: "0.82rem" }}>
+              {zoomHelperText}
+            </p>
+          ) : null}
         </div>
 
+        {liveTrace ? (
+          <>
+            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <div className="pill">Drill: {summary?.drillLabel ?? "Freestyle"}</div>
+              <div className="pill">Duration: {summary?.durationLabel ?? "0s"}</div>
+              <div className="pill">Reps: {summary?.repCount ?? 0}</div>
+              <div className="pill">Holds: {summary?.holdSummaryLabel ?? "No holds detected"}</div>
+              <div className="pill">Camera source: {formatActiveCameraSource(activeCameraSource)}</div>
+              {selection.cameraView ? <div className="pill">Camera View: {formatCameraViewLabel(selection.cameraView)}</div> : null}
+              <div className="pill">Phases: {summary?.phaseSummaryLabel ?? "No phase transitions detected"}</div>
+              <div
+                className="pill"
+                style={{
+                  color: trackingStatusLabel === "Tracking active" ? "#8ce7bf" : trackingStatusLabel === "Tracking lost" ? "#f7d58b" : undefined
+                }}
+              >
+                {trackingStatusLabel}
+              </div>
+              <div
+                className="pill"
+                style={{
+                  color: replayTone === "success" ? "#8ce7bf" : replayTone === "warning" ? "#f7d58b" : replayTone === "danger" ? "#f2bbbb" : undefined
+                }}
+              >
+                Replay: {getReplayStateMessage(replayState)}
+                {replayState === "export-in-progress" && replayExportStageLabel ? ` · ${replayExportStageLabel}` : ""}
+              </div>
+            </div>
+
+            {replayPreviewState === "processing_annotated" ? (
+              <div className="result-preview-processing">
+                <strong>Generating annotated video</strong>
+                <p className="muted">You can preview the raw recording while this finishes.</p>
+                <p className="muted" style={{ margin: 0 }}>{replayExportStageLabel ?? "Processing export…"}</p>
+                <button type="button" className="pill" onClick={() => setShowRawDuringProcessing(true)}>Show raw instead</button>
+              </div>
+            ) : null}
+            {replayPreviewState === "annotated_failed_showing_raw" ? (
+              <div className="result-preview-warning">
+                <strong>{annotatedReplayFailureMessage ?? "Annotated video could not be generated. Your raw video is still available."}</strong>
+                {annotatedReplayFailureDetails ? (
+                  <details style={{ marginTop: "0.3rem" }}>
+                    <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
+                    <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{annotatedReplayFailureDetails}</pre>
+                  </details>
+                ) : null}
+              </div>
+            ) : null}
+            {replayPreviewSelection.warning ? (
+              <div className="result-preview-warning">
+                <strong>{replayPreviewSelection.warning}</strong>
+              </div>
+            ) : null}
+            {preferredReplayDeliverySource ? <p className="muted" style={{ margin: 0 }}>Recommended delivery: {preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</p> : null}
+            {(replayPreviewState === "showing_annotated_completed" || replayPreviewState === "showing_raw_completed" || replayPreviewState === "showing_raw_during_processing" || replayPreviewState === "annotated_failed_showing_raw") && replayUrl ? (
+              <video ref={replayVideoRef} controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem", aspectRatio: previewAspectRatio }} />
+            ) : null}
+            {!replayUrl && replayUnavailableMessage ? <div className="result-preview-warning"><strong>{replayUnavailableMessage}</strong></div> : null}
+            {replayDownloadSafety.annotated?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.annotated.warning}</p> : null}
+            {replayDownloadSafety.raw?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.raw.warning}</p> : null}
+            {canToggleReplayPreview ? (
+              <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
+                <button
+                  type="button"
+                  className="studio-button"
+                  style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "annotated" ? "var(--accent-soft)" : "transparent" }}
+                  onClick={() => setCompletedPreviewSurface("annotated")}
+                >
+                  Annotated
+                </button>
+                <button
+                  type="button"
+                  className="studio-button"
+                  style={{ border: "none", borderRadius: 0, background: completedPreviewSurface === "raw" ? "var(--accent-soft)" : "transparent" }}
+                  onClick={() => setCompletedPreviewSurface("raw")}
+                >
+                  Raw
+                </button>
+              </div>
+            ) : null}
+
+            <section style={{ display: "grid", gap: "0.45rem" }}>
+              <strong>Timeline</strong>
+              <p className="muted" style={{ margin: 0 }}>Click an event to jump in replay.</p>
+              <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
+                {timelineMarkers.map((marker) => {
+                  const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
+                  return (
+                    <button
+                      key={marker.id}
+                      type="button"
+                      title={marker.label}
+                      aria-label={marker.label}
+                      aria-pressed={marker.id === selectedMarkerId}
+                      onClick={() => {
+                        setSelectedMarkerId(marker.id);
+                        const replayVideo = replayVideoRef.current;
+                        if (!replayVideo) {
+                          console.warn("[live-overlay] replay-seek-skipped", { reason: "missing_replay_element", markerId: marker.id });
+                          return;
+                        }
+                        const wasPlaying = !replayVideo.paused && !replayVideo.ended;
+                        replayVideo.currentTime = Math.max(0, marker.timestampMs / 1000);
+                        if (wasPlaying) {
+                          void replayVideo.play().catch(() => {
+                            console.warn("[live-overlay] replay-seek-play-failed", { markerId: marker.id });
+                          });
+                        }
+                      }}
+                      style={{
+                        position: "absolute",
+                        left: `${Math.min(99, Math.max(0, leftPercent))}%`,
+                        top: "50%",
+                        transform: "translate(-50%, -50%)",
+                        border: 0,
+                        borderRadius: "999px",
+                        width: "0.7rem",
+                        height: "0.7rem",
+                        background: marker.kind === "rep" ? "#9b9dff" : marker.kind === "hold" ? "#8ce7bf" : "#f7d58b"
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              {selectedMarker ? (
+                <div className="pill" style={{ borderColor: "var(--border-strong)" }}>
+                  Selected event: {selectedMarker.label}
+                </div>
+              ) : null}
+              <div style={{ display: "grid", gap: "0.35rem" }}>
+                {timelineMarkers.slice(0, 12).map((marker) => {
+                  const isActive = marker.id === selectedMarkerId;
+                  return (
+                    <button
+                      key={`${marker.id}_label`}
+                      type="button"
+                      className="studio-button"
+                      onClick={() => {
+                        setSelectedMarkerId(marker.id);
+                        const replayVideo = replayVideoRef.current;
+                        if (!replayVideo) {
+                          console.warn("[live-overlay] replay-seek-skipped", { reason: "missing_replay_element", markerId: marker.id });
+                          return;
+                        }
+                        const wasPlaying = !replayVideo.paused && !replayVideo.ended;
+                        replayVideo.currentTime = Math.max(0, marker.timestampMs / 1000);
+                        if (wasPlaying) {
+                          void replayVideo.play().catch(() => {
+                            console.warn("[live-overlay] replay-seek-play-failed", { markerId: marker.id });
+                          });
+                        }
+                      }}
+                      style={{
+                        justifyContent: "flex-start",
+                        borderColor: isActive ? "var(--border-strong)" : "var(--border)",
+                        background: isActive ? "rgba(255,255,255,0.12)" : undefined
+                      }}
+                    >
+                      {marker.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+          </>
         {postAnalysisSnapshot && liveViewerModel ? (
           <AnalysisViewerShell
             model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
