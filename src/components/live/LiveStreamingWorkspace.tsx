@@ -4,19 +4,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
-import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
+import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
-import { listHostedLibrary } from "@/lib/hosted/library-repository";
-import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
-import { resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
-import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
-import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/upload/pose-landmarker";
-import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/upload/overlay";
+import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
+import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import {
   buildLiveResultsSummary,
@@ -40,6 +36,7 @@ import {
 } from "@/lib/live";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
+import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 10;
 const LIVE_OVERLAY_PRESENTATION_FPS = 30;
@@ -91,15 +88,6 @@ async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: numb
   return metadata;
 }
 
-type DrillSelectionOption = {
-  key: string;
-  label: string;
-  sourceKind: "local" | "hosted";
-  sourceId?: string;
-  packageVersion?: string;
-  drill: NonNullable<LiveDrillSelection["drill"]>;
-};
-
 function buildPhaseLabelMap(drill?: NonNullable<LiveDrillSelection["drill"]>): Record<string, string> {
   if (!drill) {
     return {};
@@ -128,9 +116,6 @@ export function LiveStreamingWorkspace() {
   const { session, isConfigured } = useAuth();
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
-  const [selectedKey, setSelectedKey] = useState<string>(FREESTYLE_KEY);
-  const [selectedSource, setSelectedSource] = useState<DrillSourceKind>("local");
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [isRearCamera, setIsRearCamera] = useState(true);
   const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
@@ -146,6 +131,15 @@ export function LiveStreamingWorkspace() {
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
   const requestedDrillKey = searchParams.get("drillKey");
+  const { drillOptions, drillOptionGroups, selectedDrillKey: selectedKey, setSelectedDrillKey: setSelectedKey, selectedSource, setSelectedSource } =
+    useAvailableDrills({
+      session,
+      isConfigured,
+      requestedDrillKey,
+      storageKey: LIVE_SELECTED_DRILL_STORAGE_KEY,
+      fallbackKey: FREESTYLE_KEY,
+      defaultSource: "local"
+    });
   const trackingStatusRef = useRef<string>("Tracking ready");
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -190,37 +184,6 @@ export function LiveStreamingWorkspace() {
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
     [drillOptions, selectedKey]
   );
-  const drillOptionGroups = useMemo(() => {
-    const titleCounts = new Map<string, number>();
-    for (const option of drillOptions) {
-      const key = option.drill.title.trim().toLowerCase();
-      titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
-    }
-    const localOptions: Array<DrillSelectionOption & { displayLabel: string }> = [];
-    const cloudOptions: Array<DrillSelectionOption & { displayLabel: string }> = [];
-
-    for (const option of drillOptions) {
-      const duplicateTitleCount = titleCounts.get(option.drill.title.trim().toLowerCase()) ?? 1;
-      const withDisplayLabel = {
-        ...option,
-        displayLabel: buildDuplicateSafeDrillLabel({
-          baseLabel: option.label,
-          sourceKind: option.sourceKind,
-          sourceId: option.sourceId,
-          duplicateTitleCount
-        })
-      };
-      if (toDrillSourceKind(option.sourceKind) === "cloud") {
-        cloudOptions.push(withDisplayLabel);
-      } else {
-        localOptions.push(withDisplayLabel);
-      }
-    }
-    return new Map<DrillSourceKind, Array<DrillSelectionOption & { displayLabel: string }>>([
-      ["local", localOptions],
-      ["cloud", cloudOptions]
-    ]);
-  }, [drillOptions]);
   const visibleDrillOptions = useMemo(() => drillOptionGroups.get(selectedSource) ?? [], [drillOptionGroups, selectedSource]);
 
   const selection: LiveDrillSelection = useMemo(() => {
@@ -288,66 +251,6 @@ export function LiveStreamingWorkspace() {
     setTrackingStatusLabel(nextStatus);
   }, []);
 
-  const refreshDrillOptions = useCallback(async () => {
-    const options: DrillSelectionOption[] = [];
-    try {
-      const local = await loadDraftList();
-      for (const summaryItem of local.slice(0, 20)) {
-        const loaded = await loadDraft(summaryItem.draftId);
-        const drill = loaded?.record.packageJson.drills[0];
-        if (!drill) continue;
-        options.push({
-          key: `local:${summaryItem.draftId}:${drill.drillId}`,
-          label: buildDrillOptionLabel(drill),
-          sourceKind: "local",
-          sourceId: summaryItem.draftId,
-          packageVersion: loaded.record.packageJson.manifest.packageVersion,
-          drill
-        });
-      }
-    } catch {
-      // local draft list optional
-    }
-
-    if (session && isConfigured) {
-      const hosted = await listHostedLibrary(session);
-      if (hosted.ok) {
-        for (const item of hosted.value) {
-          const drill = item.content.drills[0];
-          if (!drill) continue;
-          options.push({
-            key: `hosted:${item.id}:${drill.drillId}`,
-            label: buildDrillOptionLabel(drill),
-            sourceKind: "hosted",
-            sourceId: item.id,
-            packageVersion: item.packageVersion,
-            drill
-          });
-        }
-      }
-    }
-
-    setDrillOptions(options);
-    setSelectedKey((current) => {
-      const stored = typeof window !== "undefined" ? window.localStorage.getItem(LIVE_SELECTED_DRILL_STORAGE_KEY) : null;
-      return resolveSelectedDrillKey(options, requestedDrillKey ?? current, stored) ?? FREESTYLE_KEY;
-    });
-  }, [isConfigured, requestedDrillKey, session]);
-
-  useEffect(() => {
-    void refreshDrillOptions();
-  }, [refreshDrillOptions]);
-
-  useEffect(() => {
-    if (selectedKey === FREESTYLE_KEY) {
-      return;
-    }
-    if (visibleDrillOptions.some((option) => option.key === selectedKey)) {
-      return;
-    }
-    setSelectedKey(FREESTYLE_KEY);
-  }, [selectedKey, visibleDrillOptions]);
-
   useEffect(() => {
     overlayNeedsResizeSyncRef.current = true;
     console.debug("[live-overlay] remap-trigger", {
@@ -363,7 +266,6 @@ export function LiveStreamingWorkspace() {
       clearActiveDrillContext();
       return;
     }
-    window.localStorage.setItem(LIVE_SELECTED_DRILL_STORAGE_KEY, selectedKey);
     const matching = drillOptions.find((option) => option.key === selectedKey);
     if (!matching?.sourceId) {
       return;

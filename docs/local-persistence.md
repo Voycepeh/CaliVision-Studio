@@ -13,7 +13,10 @@ Android/mobile runtime client reference: <https://github.com/Voycepeh/CaliVision
   - draft records (`packageJson` + metadata),
   - asset blobs (for phase/source images),
   - lightweight metadata (last-opened draft id).
-- `localStorage` remains optional for tiny preferences only.
+- `localStorage` remains optional for tiny preferences and derived catalog metadata only.
+- Canonical ownership split:
+  - `src/lib/persistence/local-draft-store.ts` is the authoritative local draft persistence layer.
+  - `src/lib/registry/local-store.ts` is a derived catalog/provenance surface built from package metadata and should not become a second draft store.
 
 ## Local draft lifecycle
 

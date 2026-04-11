@@ -3,41 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { listHostedLibrary } from "@/lib/hosted/library-repository";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
-import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
-import { loadDraft, loadDraftList } from "@/lib/persistence/local-draft-store";
-import { createUploadJobDrillSelection, resolveSelectedDrillKey } from "@/lib/upload/drill-selection";
+import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
-import { buildDuplicateSafeDrillLabel, DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, toDrillSourceKind, type DrillSourceKind } from "@/lib/drill-source";
+import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import type { PortableDrill } from "@/lib/schema/contracts";
-import { buildDrillOptionLabel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
+import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
 const TRACE_STEP_OPTIONS = [100, 500, 1000] as const;
 const FREESTYLE_DRILL_KEY = "freestyle";
-
-type DrillSelectionOption = {
-  key: string;
-  label: string;
-  sourceKind: "local" | "hosted";
-  sourceId?: string;
-  packageVersion?: string;
-  drill: PortableDrill;
-};
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -206,77 +195,30 @@ export function UploadVideoWorkspace() {
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
-  const [drillOptions, setDrillOptions] = useState<DrillSelectionOption[]>([]);
-  const [selectedDrillKey, setSelectedDrillKey] = useState<string>(FREESTYLE_DRILL_KEY);
-  const [drillOptionsLoading, setDrillOptionsLoading] = useState(true);
-  const [selectedSource, setSelectedSource] = useState<DrillSourceKind>(persistenceMode === "cloud" ? "cloud" : "local");
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
   const requestedDrillKey = searchParams.get("drillKey");
+  const {
+    drillOptions,
+    drillOptionGroups,
+    drillOptionsLoading,
+    selectedDrillKey,
+    setSelectedDrillKey,
+    selectedSource,
+    setSelectedSource
+  } = useAvailableDrills({
+    session,
+    isConfigured,
+    requestedDrillKey,
+    storageKey: SELECTED_DRILL_STORAGE_KEY,
+    fallbackKey: FREESTYLE_DRILL_KEY,
+    defaultSource: persistenceMode === "cloud" ? "cloud" : "local"
+  });
 
   const selectedDrill = useMemo(
     () => (selectedDrillKey === FREESTYLE_DRILL_KEY ? null : drillOptions.find((option) => option.key === selectedDrillKey) ?? null),
     [drillOptions, selectedDrillKey]
   );
-
-  const refreshDrillOptions = useCallback(async () => {
-    setDrillOptionsLoading(true);
-    const options: DrillSelectionOption[] = [];
-
-    try {
-      const localSummaries = await loadDraftList();
-      for (const summary of localSummaries.slice(0, 20)) {
-        const loaded = await loadDraft(summary.draftId);
-        const drill = loaded?.record.packageJson.drills[0];
-        if (!drill) continue;
-        options.push({
-          key: `local:${summary.draftId}:${drill.drillId}`,
-          label: buildDrillOptionLabel(drill),
-          sourceKind: "local",
-          sourceId: summary.draftId,
-          packageVersion: loaded.record.packageJson.manifest.packageVersion,
-          drill
-        });
-      }
-    } catch {
-      // local drill list is optional
-    }
-
-    if (session && isConfigured) {
-      const hostedResult = await listHostedLibrary(session);
-      if (hostedResult.ok) {
-        for (const item of hostedResult.value) {
-          const drill = item.content.drills[0];
-          if (!drill) continue;
-          options.push({
-            key: `hosted:${item.id}:${drill.drillId}`,
-            label: buildDrillOptionLabel(drill),
-            sourceKind: "hosted",
-            sourceId: item.id,
-            packageVersion: item.packageVersion,
-            drill
-          });
-        }
-      }
-    }
-
-    setDrillOptions(options);
-    setSelectedDrillKey((current) => {
-      const stored = typeof window !== "undefined" ? window.localStorage.getItem(SELECTED_DRILL_STORAGE_KEY) : null;
-      const resolved = resolveSelectedDrillKey(options, requestedDrillKey ?? current, stored);
-      return resolved ?? FREESTYLE_DRILL_KEY;
-    });
-    setDrillOptionsLoading(false);
-  }, [isConfigured, requestedDrillKey, session]);
-
-  useEffect(() => {
-    void refreshDrillOptions();
-  }, [refreshDrillOptions]);
-
-  useEffect(() => {
-    if (!selectedDrillKey) return;
-    window.localStorage.setItem(SELECTED_DRILL_STORAGE_KEY, selectedDrillKey);
-  }, [selectedDrillKey]);
 
   useEffect(() => {
     if (typeof window === "undefined" || selectedDrillKey === FREESTYLE_DRILL_KEY) {
@@ -295,48 +237,7 @@ export function UploadVideoWorkspace() {
 
   useEffect(() => {
     setSelectedSource((current) => (current === "exchange" ? current : persistenceMode === "cloud" ? "cloud" : "local"));
-  }, [persistenceMode]);
-
-  const drillOptionGroups = useMemo(() => {
-    const titleCounts = new Map<string, number>();
-    for (const option of drillOptions) {
-      const key = option.drill.title.trim().toLowerCase();
-      titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
-    }
-
-    const grouped = new Map<DrillSourceKind, Array<DrillSelectionOption & { displayLabel: string }>>();
-    for (const source of DRILL_SOURCE_ORDER) {
-      grouped.set(source, []);
-    }
-
-    for (const option of drillOptions) {
-      const titleKey = option.drill.title.trim().toLowerCase();
-      const duplicateTitleCount = titleCounts.get(titleKey) ?? 1;
-      const source = toDrillSourceKind(option.sourceKind);
-      grouped.get(source)?.push({
-        ...option,
-        displayLabel: buildDuplicateSafeDrillLabel({
-          baseLabel: option.label,
-          sourceKind: option.sourceKind,
-          sourceId: option.sourceId,
-          duplicateTitleCount
-        })
-      });
-    }
-
-    return grouped;
-  }, [drillOptions]);
-
-  useEffect(() => {
-    if (selectedDrillKey === FREESTYLE_DRILL_KEY) {
-      return;
-    }
-    const visibleOptions = drillOptionGroups.get(selectedSource) ?? [];
-    if (visibleOptions.some((option) => option.key === selectedDrillKey)) {
-      return;
-    }
-    setSelectedDrillKey(visibleOptions[0]?.key ?? FREESTYLE_DRILL_KEY);
-  }, [drillOptionGroups, selectedDrillKey, selectedSource]);
+  }, [persistenceMode, setSelectedSource]);
 
   useEffect(() => {
     if (!activeJob) {

@@ -71,10 +71,6 @@ function createLoopPhases(drill: PortableDrill): PortablePhase[] {
   return [entryPhase, holdPlateauPhase, ...phases.slice(2), exitPhase];
 }
 
-export function buildDrillOptionLabel(drill: PortableDrill): string {
-  return `${drill.title} · ${formatDrillTypeLabel(drill.drillType)} · ${formatViewLabel(drill.primaryView)}`;
-}
-
 export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
