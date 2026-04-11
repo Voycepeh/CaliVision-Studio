@@ -13,7 +13,7 @@ export type VideoInputDescriptor = {
 
 export type RearCameraZoomDecision =
   | { strategy: "hardware-zoom"; reason: "active-track-supports-preset" }
-  | { strategy: "switch-camera"; reason: "ultrawide-rear-camera"; camera: VideoInputDescriptor }
+  | { strategy: "switch-camera"; reason: "ultrawide-rear-camera" | "single-alternate-rear-camera" | "best-generic-rear-camera"; camera: VideoInputDescriptor }
   | { strategy: "unavailable"; reason: string };
 
 export type RearMainCameraDecision =
@@ -209,7 +209,24 @@ export function chooseBestRearCameraForZoomPreset(
     return { strategy: "unavailable", reason: "multiple_ultrawide_candidates" };
   }
 
-  return { strategy: "unavailable", reason: "no_confident_ultrawide_candidate" };
+  const nonTeleRear = rearCandidates.filter((candidate) => candidate.rearLensHint !== "telephoto");
+  if (nonTeleRear.length === 1) {
+    return { strategy: "switch-camera", reason: "single-alternate-rear-camera", camera: nonTeleRear[0] };
+  }
+
+  const sortedByZoomBreadth = [...nonTeleRear].sort((a, b) => {
+    const aMax = a.zoomSupport.supported ? a.zoomSupport.max : Number.POSITIVE_INFINITY;
+    const bMax = b.zoomSupport.supported ? b.zoomSupport.max : Number.POSITIVE_INFINITY;
+    return aMax - bMax;
+  });
+  if (sortedByZoomBreadth.length >= 2) {
+    const [best, next] = sortedByZoomBreadth;
+    if (best.zoomSupport.supported && next.zoomSupport.supported && best.zoomSupport.max + 0.25 < next.zoomSupport.max) {
+      return { strategy: "switch-camera", reason: "best-generic-rear-camera", camera: best };
+    }
+  }
+
+  return { strategy: "unavailable", reason: "no_reliable_ultrawide_or_alternate_rear_candidate" };
 }
 
 export function chooseBestRearMainCamera(

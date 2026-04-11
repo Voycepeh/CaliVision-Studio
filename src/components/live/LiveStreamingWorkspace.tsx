@@ -829,11 +829,17 @@ export function LiveStreamingWorkspace() {
       const rearDescriptors = descriptors.filter((descriptor) => descriptor.facing === "rear");
       const rearMainCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "main");
       const rearUltrawideCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "ultrawide");
+      const rearAlternateCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint !== "telephoto");
       console.info("[live-camera] REAR_CAMERA_CANDIDATES", {
         rearCameraCount: rearDescriptors.length,
         mainRearCandidates: rearMainCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
         ultrawideRearCandidates: rearUltrawideCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
-        noUltrawideReason: rearUltrawideCandidates.length === 0 ? "no_ultrawide_labeled_rear_camera" : null
+        alternateRearCandidates: rearAlternateCandidates.map((descriptor) => ({
+          deviceId: descriptor.deviceId,
+          label: descriptor.label,
+          rearLensHint: descriptor.rearLensHint
+        })),
+        noUltrawideReason: rearUltrawideCandidates.length === 0 ? "no_ultrawide_labeled_rear_camera_using_alternate_rear_fallback" : null
       });
       const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
       console.info("[live-camera] ACTIVE_TRACK_ZOOM_CAPABILITIES", {
@@ -1320,7 +1326,12 @@ export function LiveStreamingWorkspace() {
       setZoomStatusMessage("0.5x using ultrawide camera");
       overlayNeedsResizeSyncRef.current = true;
       syncOverlayCanvasSize(true);
-      console.info("[live-camera] HALF_X_RESOLUTION", { strategy: "camera-switch", deviceId: decision.camera.deviceId, label: decision.camera.label });
+      console.info("[live-camera] HALF_X_RESOLUTION", {
+        strategy: "camera-switch",
+        decisionReason: decision.reason,
+        deviceId: decision.camera.deviceId,
+        label: decision.camera.label
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown";
       setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");

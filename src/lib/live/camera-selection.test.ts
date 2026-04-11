@@ -47,7 +47,7 @@ test("0.5 preset switches camera when active track min is 1 and ultrawide candid
   }
 });
 
-test("0.5 preset is unavailable when active track min is 1 and no ultrawide candidate exists", () => {
+test("0.5 preset is unavailable when active track min is 1 and alternate rear candidates are ambiguous", () => {
   const decision = chooseBestRearCameraForZoomPreset(
     0.5,
     [
@@ -57,6 +57,13 @@ test("0.5 preset is unavailable when active track min is 1 and no ultrawide cand
         facing: "rear",
         rearLensHint: "main",
         zoomSupport: { supported: true, min: 1, max: 2, step: 0.1, current: 1 }
+      },
+      {
+        deviceId: "rear-main-3",
+        label: "Rear Camera 3",
+        facing: "rear",
+        rearLensHint: "unknown",
+        zoomSupport: { supported: false }
       }
     ],
     {
@@ -66,7 +73,28 @@ test("0.5 preset is unavailable when active track min is 1 and no ultrawide cand
     }
   );
 
-  assert.deepEqual(decision, { strategy: "unavailable", reason: "no_confident_ultrawide_candidate" });
+  assert.deepEqual(decision, { strategy: "unavailable", reason: "no_reliable_ultrawide_or_alternate_rear_candidate" });
+});
+
+test("0.5 preset can use single generic alternate rear camera when labels are not explicit", () => {
+  const decision = chooseBestRearCameraForZoomPreset(
+    0.5,
+    [
+      {
+        deviceId: "rear-camera-2",
+        label: "Back Camera 2",
+        facing: "rear",
+        rearLensHint: "unknown",
+        zoomSupport: { supported: false }
+      }
+    ],
+    {
+      deviceId: "rear-camera-1",
+      facing: "rear",
+      zoomSupport: { supported: true, min: 1, max: 3, step: 0.1, current: 1 }
+    }
+  );
+  assert.equal(decision.strategy, "switch-camera");
 });
 
 test("preset logic remains on active hardware path for 1.25x", () => {
