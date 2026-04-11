@@ -66,3 +66,50 @@ test("resolveSelectedSourceForKey returns cloud for hosted selection even when d
     "cloud"
   );
 });
+
+
+test("analysis mode stays selectable when no drill is selected", () => {
+  const grouped = buildDrillOptionGroups([]);
+
+  assert.equal(
+    ensureVisibleDrillSelection({ selectedKey: "freestyle", selectedSource: "cloud", groupedOptions: grouped, fallbackKey: "freestyle" }),
+    "freestyle"
+  );
+});
+
+test("analysis mode change keeps control editable by resolving drill selection explicitly", () => {
+  const options: AvailableDrillOption[] = [
+    { key: "local:a:d1", label: "Local One", sourceKind: "local", sourceId: "a", drill: { ...baseDrill, drillId: "d1", title: "Local One" } },
+    { key: "hosted:h:d2", label: "Hosted Two", sourceKind: "hosted", sourceId: "h", drill: { ...baseDrill, drillId: "d2", title: "Hosted Two" } }
+  ];
+  const grouped = buildDrillOptionGroups(options);
+
+  assert.equal(
+    ensureVisibleDrillSelection({ selectedKey: "local:a:d1", selectedSource: "cloud", groupedOptions: grouped, fallbackKey: "freestyle" }),
+    "hosted:h:d2"
+  );
+});
+
+test("switching drills within a mode does not rewrite analysis mode", () => {
+  const options: AvailableDrillOption[] = [
+    { key: "local:a:d1", label: "Local One", sourceKind: "local", sourceId: "a", drill: { ...baseDrill, drillId: "d1", title: "Local One" } },
+    { key: "local:a:d3", label: "Local Three", sourceKind: "local", sourceId: "a", drill: { ...baseDrill, drillId: "d3", title: "Local Three" } },
+    { key: "hosted:h:d2", label: "Hosted Two", sourceKind: "hosted", sourceId: "h", drill: { ...baseDrill, drillId: "d2", title: "Hosted Two" } }
+  ];
+
+  assert.equal(
+    resolveSelectedSourceForKey({
+      options,
+      selectedKey: "local:a:d3",
+      fallbackKey: "freestyle",
+      defaultSource: "cloud"
+    }),
+    "local"
+  );
+
+  const grouped = buildDrillOptionGroups(options);
+  assert.equal(
+    ensureVisibleDrillSelection({ selectedKey: "local:a:d3", selectedSource: "local", groupedOptions: grouped, fallbackKey: "freestyle" }),
+    "local:a:d3"
+  );
+});
