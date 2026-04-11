@@ -23,9 +23,10 @@ function toneColor(tone?: "neutral" | "success" | "warning" | "danger"): string 
 export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onEventSelect, overlayCanvas }: Props) {
   return (
     <section style={{ display: "grid", gap: "0.6rem" }}>
-      {model.summaryChips.length > 0 ? (
-        <AnalysisSummaryBar chips={model.summaryChips} />
+      {model.primarySummaryChips.length > 0 ? (
+        <AnalysisSummaryBar chips={model.primarySummaryChips} />
       ) : null}
+      {model.technicalStatusChips.length > 0 ? <AnalysisTechnicalStatusBar chips={model.technicalStatusChips} /> : null}
 
       {(model.state !== "ready" || model.warnings.length > 0) ? (
         <div className={model.state === "error" ? "result-preview-warning" : "result-preview-processing"}>
@@ -100,7 +101,12 @@ function AnalysisVideoPane({
           />
           {overlayCanvas}
         </div>
-      ) : null}
+      ) : (
+        <div className="card" style={{ margin: 0, maxWidth: "min(100%, 680px)", justifySelf: "center", textAlign: "center" }}>
+          <strong>{model.stateTitle ?? "Replay preview unavailable"}</strong>
+          <p className="muted" style={{ margin: "0.35rem 0 0" }}>{model.stateDetail ?? "Complete analysis to unlock replay preview and timeline controls."}</p>
+        </div>
+      )}
       <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: "999px", overflow: "hidden" }}>
           {model.surfaces.map((surface) => (
@@ -152,8 +158,23 @@ function AnalysisTimeline({ model, onEventSelect }: { model: AnalysisViewerModel
   );
 }
 
-function AnalysisSummaryBar({ chips }: { chips: AnalysisViewerModel["summaryChips"] }) {
-  return <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>{chips.map((chip) => <div key={chip.id} className="pill" style={{ color: toneColor(chip.tone) }}>{chip.label}: {chip.value}</div>)}</div>;
+function AnalysisSummaryBar({ chips }: { chips: AnalysisViewerModel["primarySummaryChips"] }) {
+  return <div style={{ display: "grid", gap: "0.45rem", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>{chips.map((chip) => <div key={chip.id} className="pill" style={{ color: toneColor(chip.tone), minHeight: "2rem", display: "flex", alignItems: "center" }}>{chip.label}: {chip.value}</div>)}</div>;
+}
+
+function AnalysisTechnicalStatusBar({ chips }: { chips: AnalysisViewerModel["technicalStatusChips"] }) {
+  return (
+    <details style={{ opacity: 0.9 }}>
+      <summary className="muted" style={{ cursor: "pointer" }}>Technical status</summary>
+      <div style={{ marginTop: "0.35rem", display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+        {chips.map((chip) => (
+          <span key={chip.id} className="pill" style={{ color: toneColor(chip.tone), opacity: 0.9 }}>
+            {chip.label}: {chip.value}
+          </span>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function AnalysisDownloads({ model }: { model: AnalysisViewerModel }) {

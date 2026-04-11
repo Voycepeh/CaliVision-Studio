@@ -331,14 +331,16 @@ export function LiveStreamingWorkspace() {
             ? liveTrace.video.width / liveTrace.video.height
             : undefined,
         markers: timelineMarkers,
-        summaryChips: [
+        primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
           { id: "reps", label: "Reps", value: String(summary?.repCount ?? 0) },
           { id: "holds", label: "Holds", value: summary?.holdSummaryLabel ?? "No holds detected" },
-          ...(selection.cameraView ? [{ id: "camera", label: "Camera View", value: formatCameraViewLabel(selection.cameraView) }] : []),
-          { id: "phases", label: "Phases", value: summary?.phaseSummaryLabel ?? "No phase transitions detected" },
-          { id: "tracking", label: "Tracking", value: trackingStatusLabel, tone: trackingStatusLabel === "Tracking active" ? "success" : trackingStatusLabel === "Tracking lost" ? "warning" : "neutral" }
+          { id: "phases", label: "Phase result", value: summary?.phaseSummaryLabel ?? "No phase transitions detected" }
+        ],
+        technicalStatusChips: [
+          { id: "tracking", label: "Tracking", value: trackingStatusLabel, tone: trackingStatusLabel === "Tracking active" ? "success" : trackingStatusLabel === "Tracking lost" ? "warning" : "neutral" },
+          ...(selection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(selection.cameraView) }] : [])
         ],
         downloads: [
           ...(replayDownloads.includes("annotated") && annotatedReplayUrl

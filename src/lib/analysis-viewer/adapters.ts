@@ -17,7 +17,8 @@ export function mapUploadAnalysisToViewerModel(input: {
   canShowVideo: boolean;
   surface: ViewerSurface;
   selectedEventId: string | null;
-  summaryChips: AnalysisViewerModel["summaryChips"];
+  primarySummaryChips: AnalysisViewerModel["primarySummaryChips"];
+  technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
   warnings?: string[];
@@ -58,7 +59,8 @@ export function mapUploadAnalysisToViewerModel(input: {
     timelineDurationMs: input.durationMs,
     timelineEvents,
     selectedEventId: input.selectedEventId,
-    summaryChips: input.summaryChips,
+    primarySummaryChips: input.primarySummaryChips,
+    technicalStatusChips: input.technicalStatusChips ?? [],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
     overlayFullscreenAction: input.overlayFullscreenAction,
@@ -73,7 +75,8 @@ export function mapLiveAnalysisToViewerModel(input: {
   videoUrl: string | null;
   surface: ViewerSurface;
   selectedEventId: string | null;
-  summaryChips: AnalysisViewerModel["summaryChips"];
+  primarySummaryChips: AnalysisViewerModel["primarySummaryChips"];
+  technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
   markers: LiveTimelineMarker[];
@@ -100,8 +103,9 @@ export function mapLiveAnalysisToViewerModel(input: {
     timelineDurationMs: input.durationMs,
     timelineEvents: input.markers.map((marker) => ({ ...marker, seekable: true })),
     selectedEventId: input.selectedEventId,
-    summaryChips: [
-      ...input.summaryChips,
+    primarySummaryChips: input.primarySummaryChips,
+    technicalStatusChips: [
+      ...(input.technicalStatusChips ?? []),
       {
         id: "replay_state",
         label: "Replay",

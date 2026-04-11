@@ -9,7 +9,7 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
     canShowVideo: true,
     surface: "annotated",
     selectedEventId: null,
-    summaryChips: [],
+    primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
     mediaAspectRatio: 9 / 16,
@@ -37,7 +37,7 @@ test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () =
     videoUrl: null,
     surface: "annotated",
     selectedEventId: null,
-    summaryChips: [],
+    primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
     markers: [],
@@ -46,6 +46,6 @@ test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () =
   });
 
   assert.equal(model.state, "loading");
-  assert.ok(model.summaryChips.some((chip) => chip.id === "replay_state"));
+  assert.ok(model.technicalStatusChips.some((chip) => chip.id === "replay_state"));
   assert.equal(model.mediaAspectRatio, 16 / 9);
 });

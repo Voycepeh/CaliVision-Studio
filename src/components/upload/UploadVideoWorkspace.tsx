@@ -616,15 +616,16 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
             ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
             : undefined,
-        summaryChips:
+        primarySummaryChips:
           activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
             ? [
+                { id: "drill", label: "Drill", value: activeJob.drillSelection.drillBinding.drillName || "Selected drill" },
                 {
                   id: "phase",
-                  label: "Phase",
+                  label: "Phase result",
                   value: (() => {
                     const phaseId = activeSession.events.at(-1)?.phaseId;
-                    if (!phaseId) return "No phase detected";
+                    if (!phaseId) return "No phase transitions detected";
                     return activePhaseLabels[phaseId] ?? phaseId;
                   })()
                 },
@@ -634,17 +635,24 @@ export function UploadVideoWorkspace() {
                   label: "Hold",
                   value: (activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"
                 },
-                { id: "duration", label: "Analyzed duration", value: formatDuration(activeSession.summary.analyzedDurationMs) },
-                { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
-                ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
-                { id: "result", label: "Result", value: activeSession.status }
+                { id: "duration", label: "Duration", value: formatDuration(activeSession.summary.analyzedDurationMs) }
               ]
             : activeJob?.artefacts
               ? [
-                  { id: "mode", label: "Mode", value: "No drill · Freestyle overlay" },
-                  { id: "duration", label: "Analyzed duration", value: formatDuration(activeJob.artefacts.processingSummary.durationMs) }
+                  { id: "mode", label: "Mode", value: "Freestyle (no drill selected)" },
+                  { id: "duration", label: "Duration", value: formatDuration(activeJob.artefacts.processingSummary.durationMs) },
+                  { id: "phase", label: "Phase result", value: "No phase transitions detected" }
                 ]
               : [],
+        technicalStatusChips:
+          activeJob?.artefacts && activeSession
+            ? [
+                { id: "replay", label: "Replay", value: uploadPreviewState.includes("showing") ? "Available" : "Unavailable" },
+                { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
+                ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
+                { id: "status", label: "Run status", value: activeSession.status }
+              ]
+            : [],
         downloads: [
           ...(downloadTargets.includes("annotated") && activeJob?.artefacts?.annotatedVideoBlob
             ? [{

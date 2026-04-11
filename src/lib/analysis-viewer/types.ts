@@ -44,7 +44,8 @@ export type AnalysisViewerModel = {
   timelineDurationMs?: number;
   timelineEvents: AnalysisViewerEvent[];
   selectedEventId: string | null;
-  summaryChips: AnalysisViewerSummaryChip[];
+  primarySummaryChips: AnalysisViewerSummaryChip[];
+  technicalStatusChips: AnalysisViewerSummaryChip[];
   downloads: AnalysisViewerDownload[];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
   overlayFullscreenAction?: { label: string; onToggle: () => void };
