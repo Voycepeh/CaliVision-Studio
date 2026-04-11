@@ -58,6 +58,7 @@ export function StudioCenterInspector() {
     selectedPackage,
     selectedPhaseId,
     selectedJointName,
+    selectedPhaseDetection,
     selectPhase,
     selectJoint,
     renamePhase,
@@ -68,6 +69,8 @@ export function StudioCenterInspector() {
     duplicatePhase,
     movePhase,
     setJointCoordinates,
+    nudgeJoint,
+    revertSelectedJoint,
     selectedPhaseSourceImage,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
@@ -196,6 +199,29 @@ export function StudioCenterInspector() {
                 <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlays</button>
                 <button type="button" onClick={() => closeInlineEditor()} className="studio-button studio-button-primary">Done</button>
               </div>
+
+              {selectedJointName ? (
+                <div className="studio-joint-nudge-panel">
+                  <p className="muted" style={{ margin: 0 }}>Nudge {selectedJointName}</p>
+                  <div className="studio-joint-dpad">
+                    <span />
+                    <button type="button" className="studio-button" onClick={() => nudgeJoint(phase.phaseId, selectedJointName, 0, -0.01)}>↑</button>
+                    <span />
+                    <button type="button" className="studio-button" onClick={() => nudgeJoint(phase.phaseId, selectedJointName, -0.01, 0)}>←</button>
+                    <button type="button" className="studio-button studio-button-primary" onClick={() => revertSelectedJoint(phase.phaseId, selectedJointName)}>Reset joint</button>
+                    <button type="button" className="studio-button" onClick={() => nudgeJoint(phase.phaseId, selectedJointName, 0.01, 0)}>→</button>
+                    <span />
+                    <button type="button" className="studio-button" onClick={() => nudgeJoint(phase.phaseId, selectedJointName, 0, 0.01)}>↓</button>
+                    <span />
+                  </div>
+                </div>
+              ) : (
+                <p className="muted" style={{ margin: 0 }}>Select a joint on the canvas to nudge it.</p>
+              )}
+
+              {selectedPhaseDetection.status === "failed" ? (
+                <p className="muted" style={{ margin: 0 }}>{selectedPhaseDetection.message}</p>
+              ) : null}
 
               <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "pose" ? null : expandIntent} />
             </section>
