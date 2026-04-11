@@ -3,6 +3,7 @@
 import Image from "next/image";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapDetectionResultToPortablePose } from "@/lib/detection";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
@@ -14,6 +15,12 @@ export function DetectionWorkflowPanel({
 }: {
   phaseId: string;
   autoOpenSource?: "upload" | "camera" | null;
+  entryMode,
+  onEntryModeChange
+}: {
+  phaseId: string;
+  entryMode: "upload" | "camera";
+  onEntryModeChange: (mode: "upload" | "camera") => void;
 }) {
   const {
     selectedPhaseSourceImage,
@@ -23,6 +30,19 @@ export function DetectionWorkflowPanel({
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase
   } = useStudioState();
+  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [cameraStatus, setCameraStatus] = useState<"idle" | "starting" | "live" | "error">("idle");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  const stopCameraStream = useCallback(() => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraStatus("idle");
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+  }, [cameraStream]);
 
   const previewPoseModel = useMemo(() => {
     const detectionResult = selectedPhaseDetection.result;
@@ -49,6 +69,89 @@ export function DetectionWorkflowPanel({
       cameraInputRef.current?.click();
     }
   }, [autoOpenSource, phaseId]);
+  useEffect(() => {
+    return () => {
+      cameraStream?.getTracks().forEach((track) => track.stop());
+    };
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (entryMode !== "camera") {
+      stopCameraStream();
+      return;
+    }
+
+    setCameraError(null);
+  }, [entryMode, stopCameraStream]);
+
+  async function handleSelectedFile(file: File | null | undefined): Promise<void> {
+    if (!file) {
+      return;
+    }
+
+    await setSelectedPhaseImage(file);
+  }
+
+  async function startCamera(): Promise<void> {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraStatus("error");
+      setCameraError("Camera is unsupported in this browser.");
+      return;
+    }
+
+    stopCameraStream();
+    setCameraStatus("starting");
+    setCameraError(null);
+
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+      }
+      setCameraStream(stream);
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = stream;
+        await cameraVideoRef.current.play();
+      }
+      setCameraStatus("live");
+    } catch {
+      setCameraStatus("error");
+      setCameraError("Unable to access camera. Check browser/site camera permissions and retry.");
+    }
+  }
+
+  async function captureFromVideo(): Promise<void> {
+    const video = cameraVideoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setCameraError("Camera preview not ready yet.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setCameraError("Could not capture camera frame.");
+      return;
+    }
+
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) {
+      setCameraError("Could not create captured image.");
+      return;
+    }
+
+    const file = new File([blob], `${phaseId}-camera-capture.jpg`, { type: "image/jpeg" });
+    await handleSelectedFile(file);
+  }
 
   return (
     <section className="card" style={{ display: "grid", gap: "0.75rem" }}>
@@ -75,6 +178,53 @@ export function DetectionWorkflowPanel({
           }}
         />
       </label>
+      <div className="studio-action-row">
+        <button type="button" className={`studio-button ${entryMode === "upload" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("upload")}>Upload image</button>
+        <button type="button" className={`studio-button ${entryMode === "camera" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("camera")}>Use camera</button>
+      </div>
+
+      {entryMode === "upload" ? (
+        <>
+          <label style={labelStyle}>
+            <span>Upload phase image (local only)</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={inputStyle}
+              onChange={async (event) => {
+                await handleSelectedFile(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+          <label style={labelStyle}>
+            <span>Mobile camera fallback (capture via file picker)</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={inputStyle}
+              onChange={async (event) => {
+                await handleSelectedFile(event.target.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
+        </>
+      ) : (
+        <div style={{ display: "grid", gap: "0.45rem" }}>
+          <div className="studio-action-row">
+            <button type="button" className="studio-button" onClick={() => startCamera()} disabled={cameraStatus === "starting"}>
+              {cameraStatus === "starting" ? "Starting camera..." : "Start camera"}
+            </button>
+            <button type="button" className="studio-button studio-button-primary" onClick={() => captureFromVideo()} disabled={cameraStatus !== "live"}>
+              Capture image
+            </button>
+          </div>
+          <video ref={cameraVideoRef} playsInline muted autoPlay style={{ width: "100%", maxHeight: "220px", objectFit: "cover", borderRadius: "0.55rem", border: "1px solid var(--border)", background: "#101010" }} />
+          {cameraError ? <p className="muted" style={{ margin: 0 }}>{cameraError}</p> : null}
+        </div>
+      )}
 
       <label style={labelStyle}>
         <span>Use camera (mobile/browser support)</span>
