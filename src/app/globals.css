@@ -1121,9 +1121,9 @@ main {
   right: 0.6rem;
   bottom: 0.6rem;
   z-index: 3;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.45rem;
   padding: 0.35rem 0.55rem;
   border-radius: 999px;
@@ -1134,12 +1134,53 @@ main {
   font-size: 0.72rem;
 }
 
-.live-streaming-zoom-control label {
+.live-streaming-zoom-label {
   opacity: 0.88;
 }
 
-.live-streaming-zoom-control input[type="range"] {
-  width: 100%;
+.live-streaming-zoom-presets {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.live-streaming-zoom-presets::-webkit-scrollbar {
+  display: none;
+}
+
+.live-streaming-zoom-chip {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(12, 20, 36, 0.78);
+  color: #f5f7ff;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.live-streaming-zoom-chip.is-active {
+  border-color: rgba(140, 231, 191, 0.95);
+  background: rgba(35, 77, 66, 0.95);
+  color: #d9fff0;
+}
+
+.live-streaming-zoom-unsupported {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  z-index: 3;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(10, 16, 28, 0.72);
+  backdrop-filter: blur(4px);
+  color: #f5f7ff;
+  font-size: 0.72rem;
+  padding: 0.35rem 0.55rem;
+  text-align: center;
 }
 
 .result-preview-processing,
