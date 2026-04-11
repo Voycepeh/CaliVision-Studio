@@ -169,6 +169,7 @@ export function StudioCenterInspector() {
                           <span className="studio-phase-sequence-pill">#{index + 1}</span>
                           <input value={phase.name} onChange={(event) => renamePhase(phase.phaseId, event.target.value)} style={{ ...inputStyle, maxWidth: "420px" }} />
                           <button type="button" className="studio-button" onClick={() => selectPhase(phase.phaseId)}>Select</button>
+                          {workspaceMode === "pose" && workspaceVisible && workspacePhase?.phaseId === phase.phaseId ? <span className="pill">Editing in workspace</span> : null}
                         </div>
 
                         <div className="studio-action-row">
@@ -219,7 +220,7 @@ export function StudioCenterInspector() {
           {!workspaceVisible ? (
             <div className="card"><p className="muted" style={{ margin: 0 }}>Workspace hidden.</p></div>
           ) : workspaceMode === "preview" ? (
-            <StudioAnimationPreviewPanel />
+            <StudioAnimationPreviewPanel compact />
           ) : workspacePhase ? (
             <>
               <section className="card" style={{ display: "grid", gap: "0.55rem" }}>

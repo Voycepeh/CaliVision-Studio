@@ -534,9 +534,9 @@ main {
 
 @media (min-width: 1180px) {
   .studio-authoring-workspace-grid {
-    grid-template-columns: minmax(520px, 1.2fr) minmax(460px, 1fr);
+    grid-template-columns: minmax(560px, 1.1fr) minmax(540px, 1fr);
     align-items: start;
-    gap: 1rem;
+    gap: 1.15rem;
   }
 
   .studio-sticky-workspace {
@@ -544,7 +544,8 @@ main {
     gap: 0.65rem;
     align-content: start;
     position: sticky;
-    top: 7.25rem;
+    top: 8.4rem;
+    margin-top: 1.35rem;
   }
 }
 
