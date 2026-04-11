@@ -50,7 +50,9 @@ test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () =
 
   assert.equal(model.state, "loading");
   assert.equal(model.surface, "annotated");
+  assert.equal(model.canShowVideo, false);
   assert.ok(model.technicalStatusChips.some((chip) => chip.id === "replay_state"));
   assert.equal(model.mediaAspectRatio, 16 / 9);
   assert.equal(model.surfaces.find((surface) => surface.id === "annotated")?.availability, "processing");
+  assert.equal(model.surfaces.find((surface) => surface.id === "raw")?.availability, "processing");
 });

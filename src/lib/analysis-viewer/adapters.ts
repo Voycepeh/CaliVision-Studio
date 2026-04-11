@@ -45,13 +45,17 @@ export function mapUploadAnalysisToViewerModel(input: {
         : "empty";
 
   const annotatedAvailability =
-    input.videoUrl && input.surface === "annotated"
-      ? "ready"
-      : input.previewState === "processing_annotated"
-        ? "processing"
-        : input.previewState === "showing_annotated_completed"
-          ? "ready"
-          : "unavailable";
+    state === "loading"
+      ? "processing"
+      : input.previewState === "showing_annotated_completed" || (input.videoUrl && input.surface === "annotated")
+        ? "ready"
+        : "unavailable";
+  const rawAvailability =
+    state === "loading"
+      ? "processing"
+      : input.previewState === "showing_raw_completed" || input.previewState === "annotated_failed_showing_raw" || input.previewState === "showing_raw_during_processing"
+        ? "ready"
+        : "unavailable";
 
   return {
     state,
@@ -59,7 +63,7 @@ export function mapUploadAnalysisToViewerModel(input: {
     stateDetail: state === "loading" ? "Raw preview is available while render completes." : undefined,
     videoUrl: input.videoUrl,
     mediaAspectRatio: input.mediaAspectRatio,
-    canShowVideo: input.canShowVideo,
+    canShowVideo: state === "ready" && input.canShowVideo,
     surface: input.surface,
     surfaces: [
       {
@@ -68,7 +72,12 @@ export function mapUploadAnalysisToViewerModel(input: {
         availability: annotatedAvailability,
         description: annotatedAvailability === "processing" ? "Rendering…" : annotatedAvailability === "unavailable" ? "Unavailable" : undefined
       },
-      { id: "raw", label: "Raw", availability: "ready" }
+      {
+        id: "raw",
+        label: "Raw",
+        availability: rawAvailability,
+        description: rawAvailability === "processing" ? "Processing…" : rawAvailability === "unavailable" ? "Unavailable" : undefined
+      }
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents,
@@ -103,6 +112,7 @@ export function mapLiveAnalysisToViewerModel(input: {
   const tone = getReplayStateTone(input.replayState);
   const state = input.replayState === "export-in-progress" ? "loading" : input.videoUrl ? "ready" : input.replayState === "export-failed" ? "error" : "warning";
   const annotatedAvailability = input.replayState === "export-in-progress" ? "processing" : input.hasAnnotatedReady ? "ready" : "unavailable";
+  const rawAvailability = input.replayState === "export-in-progress" ? "processing" : state === "ready" && Boolean(input.videoUrl) ? "ready" : "unavailable";
 
   return {
     state,
@@ -110,7 +120,7 @@ export function mapLiveAnalysisToViewerModel(input: {
     stateDetail: input.replayState === "export-in-progress" ? input.replayStageLabel ?? "Processing export…" : undefined,
     videoUrl: input.videoUrl,
     mediaAspectRatio: input.mediaAspectRatio,
-    canShowVideo: Boolean(input.videoUrl),
+    canShowVideo: state === "ready" && Boolean(input.videoUrl),
     surface: input.surface,
     surfaces: [
       {
@@ -119,7 +129,12 @@ export function mapLiveAnalysisToViewerModel(input: {
         availability: annotatedAvailability,
         description: annotatedAvailability === "processing" ? "Rendering…" : annotatedAvailability === "unavailable" ? "Unavailable" : undefined
       },
-      { id: "raw", label: "Raw", availability: "ready" }
+      {
+        id: "raw",
+        label: "Raw",
+        availability: rawAvailability,
+        description: rawAvailability === "processing" ? "Processing…" : rawAvailability === "unavailable" ? "Unavailable" : undefined
+      }
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents: input.markers.map((marker) => ({ ...marker, seekable: true })),
