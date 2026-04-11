@@ -15,6 +15,8 @@ import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workf
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import {
+  APP_HARDWARE_ZOOM_PRESETS,
+  applyHardwareZoomPreset,
   buildLiveResultsSummary,
   classifyCameraError,
   createLiveTraceAccumulator,
@@ -23,10 +25,11 @@ import {
   formatHardwareZoomLabel,
   getCameraSupportStatus,
   getHardwareZoomSupport,
-  applyHardwareZoom,
+  getSupportedZoomPresets,
   getReplayStateMessage,
   getReplayStateTone,
   mapLiveTraceToTimelineMarkers,
+  resolveSelectedZoomPreset,
   stopMediaStream,
   summarizeLiveTraceFreshness,
   type LiveDrillSelection,
@@ -65,7 +68,7 @@ type LiveCadenceStats = {
 
 type LiveHardwareZoomState =
   | { supported: false; value: 1 }
-  | { supported: true; value: number; min: number; max: number; step: number };
+  | { supported: true; value: number; min: number; max: number; step: number; presets: number[] };
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -234,6 +237,10 @@ export function LiveStreamingWorkspace() {
   });
   const replayTone = getReplayStateTone(replayState);
   const selectedMarker = useMemo(() => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null, [selectedMarkerId, timelineMarkers]);
+  const activeZoomPreset = useMemo(
+    () => (liveHardwareZoom.supported ? resolveSelectedZoomPreset(liveHardwareZoom.value, liveHardwareZoom.presets) : null),
+    [liveHardwareZoom]
+  );
 
   useEffect(() => {
     if (timelineMarkers.length === 0) {
@@ -554,23 +561,38 @@ export function LiveStreamingWorkspace() {
       activeVideoTrackRef.current = activeVideoTrack;
       const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
       if (zoomSupport.supported) {
-        const clampedRequestedZoom = Math.min(zoomSupport.max, Math.max(zoomSupport.min, selectedZoomRef.current));
-        const appliedZoom = await applyHardwareZoom(activeVideoTrack, clampedRequestedZoom, zoomSupport);
-        selectedZoomRef.current = appliedZoom;
-        setLiveHardwareZoom({
-          supported: true,
-          value: appliedZoom,
-          min: zoomSupport.min,
-          max: zoomSupport.max,
-          step: zoomSupport.step
-        });
-        console.info("[live-overlay] hardware-zoom supported", {
-          facingMode: isRearCamera ? "rear" : "front",
-          min: zoomSupport.min,
-          max: zoomSupport.max,
-          step: zoomSupport.step,
-          activeZoom: appliedZoom
-        });
+        const availablePresets = getSupportedZoomPresets(zoomSupport, APP_HARDWARE_ZOOM_PRESETS);
+        if (availablePresets.length > 0) {
+          const defaultZoom = availablePresets.includes(1) ? 1 : selectedZoomRef.current;
+          const clampedRequestedZoom = Math.min(zoomSupport.max, Math.max(zoomSupport.min, defaultZoom));
+          const appliedZoom = await applyHardwareZoomPreset(activeVideoTrack, clampedRequestedZoom, zoomSupport);
+          selectedZoomRef.current = appliedZoom;
+          setLiveHardwareZoom({
+            supported: true,
+            value: appliedZoom,
+            min: zoomSupport.min,
+            max: zoomSupport.max,
+            step: zoomSupport.step,
+            presets: availablePresets
+          });
+          console.info("[live-overlay] hardware-zoom supported", {
+            facingMode: isRearCamera ? "rear" : "front",
+            min: zoomSupport.min,
+            max: zoomSupport.max,
+            step: zoomSupport.step,
+            presets: availablePresets,
+            activeZoom: appliedZoom
+          });
+        } else {
+          selectedZoomRef.current = 1;
+          setLiveHardwareZoom({ supported: false, value: 1 });
+          console.info("[live-overlay] hardware-zoom unsupported", {
+            facingMode: isRearCamera ? "rear" : "front",
+            reason: "no_supported_presets",
+            min: zoomSupport.min,
+            max: zoomSupport.max
+          });
+        }
       } else {
         selectedZoomRef.current = 1;
         setLiveHardwareZoom({ supported: false, value: 1 });
@@ -787,18 +809,19 @@ export function LiveStreamingWorkspace() {
   }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize, updateTrackingStatus]);
 
   const updateHardwareZoom = useCallback(
-    async (nextZoom: number) => {
+    async (presetZoom: number) => {
       const activeTrack = activeVideoTrackRef.current;
       if (!activeTrack || !liveHardwareZoom.supported || status !== "live-session-running") {
         return;
       }
       try {
-        const appliedZoom = await applyHardwareZoom(activeTrack, nextZoom, { ...liveHardwareZoom, current: liveHardwareZoom.value });
+        const appliedZoom = await applyHardwareZoomPreset(activeTrack, presetZoom, { ...liveHardwareZoom, current: liveHardwareZoom.value });
         selectedZoomRef.current = appliedZoom;
         setLiveHardwareZoom((current) => (current.supported ? { ...current, value: appliedZoom } : current));
         overlayNeedsResizeSyncRef.current = true;
         syncOverlayCanvasSize(true);
         console.info("[live-overlay] hardware-zoom updated", {
+          presetZoom,
           activeZoom: appliedZoom
         });
       } catch (error) {
@@ -1085,20 +1108,30 @@ export function LiveStreamingWorkspace() {
             <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
             {status === "live-session-running" && liveHardwareZoom.supported ? (
               <div className="live-streaming-zoom-control" role="group" aria-label="Hardware camera zoom control">
-                <label htmlFor="live-hardware-zoom-input">Zoom</label>
-                <input
-                  id="live-hardware-zoom-input"
-                  type="range"
-                  min={liveHardwareZoom.min}
-                  max={liveHardwareZoom.max}
-                  step={liveHardwareZoom.step}
-                  value={liveHardwareZoom.value}
-                  onChange={(event) => {
-                    void updateHardwareZoom(Number(event.target.value));
-                  }}
-                />
+                <span className="live-streaming-zoom-label">Zoom</span>
+                <div className="live-streaming-zoom-presets">
+                  {liveHardwareZoom.presets.map((preset) => {
+                    const isActive = activeZoomPreset === preset;
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                        aria-pressed={isActive}
+                        onClick={() => {
+                          void updateHardwareZoom(preset);
+                        }}
+                      >
+                        {formatHardwareZoomLabel(preset)}
+                      </button>
+                    );
+                  })}
+                </div>
                 <span>{formatHardwareZoomLabel(liveHardwareZoom.value)}</span>
               </div>
+            ) : null}
+            {status === "live-session-running" && !liveHardwareZoom.supported ? (
+              <div className="live-streaming-zoom-unsupported">Zoom not supported on this camera</div>
             ) : null}
           </div>
         </div>
