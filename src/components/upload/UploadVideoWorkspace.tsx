@@ -94,6 +94,16 @@ function createUploadSourceUri(jobId: string, fileName: string): string {
   return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
 }
 
+
+function resolveUploadDownloadLabel(options: { kind: "raw" | "annotated"; downloadable?: boolean }): string {
+  if (options.downloadable !== false) {
+    return options.kind === "annotated" ? "Download Annotated Video" : "Download Raw Video";
+  }
+  return options.kind === "annotated"
+    ? "Download Annotated WebM (may not play on this device)"
+    : "Download Raw WebM (may not play on this device)";
+}
+
 function resolvePhaseLabel(phaseId: string | undefined | null, labels: Record<string, string>): string {
   if (!phaseId) return "none";
   return labels[phaseId] ?? phaseId;
@@ -874,12 +884,12 @@ export function UploadVideoWorkspace() {
                     onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`)}
                     title={downloadSafety.annotated?.warning ?? undefined}
                   >
-                    {downloadSafety.annotated?.downloadable === false ? "Download Annotated WebM (may not play on this device)" : "Download Annotated Video"}
+                    {resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable })}
                   </button>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
                   <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} title={downloadSafety.raw?.warning ?? undefined}>
-                    {downloadSafety.raw?.downloadable === false ? "Download Raw WebM (may not play on this device)" : "Download Raw Video"}
+                    {resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable })}
                   </button>
                 ) : null}
                 {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}

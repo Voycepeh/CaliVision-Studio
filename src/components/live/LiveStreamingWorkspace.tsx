@@ -112,6 +112,14 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(link);
 }
 
+
+function resolveLiveDownloadLabel(options: { kind: "raw" | "annotated"; downloadable?: boolean }): string {
+  if (options.downloadable !== false) {
+    return options.kind === "annotated" ? "Download annotated" : "Download raw";
+  }
+  return options.kind === "annotated" ? "Download annotated WebM (may not play)" : "Download raw WebM (may not play)";
+}
+
 export function LiveStreamingWorkspace() {
   const searchParams = useSearchParams();
   const { session, isConfigured } = useAuth();
@@ -1072,13 +1080,13 @@ export function LiveStreamingWorkspace() {
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
                           <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
                             title={replayDownloadSafety.annotated?.warning ?? undefined}>
-                            {replayDownloadSafety.annotated?.downloadable === false ? "Download annotated WebM (may not play)" : "Download annotated"}
+                            {resolveLiveDownloadLabel({ kind: "annotated", downloadable: replayDownloadSafety.annotated?.downloadable })}
                           </button>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
                           <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
                             title={replayDownloadSafety.raw?.warning ?? undefined}>
-                            {replayDownloadSafety.raw?.downloadable === false ? "Download raw WebM (may not play)" : "Download raw"}
+                            {resolveLiveDownloadLabel({ kind: "raw", downloadable: replayDownloadSafety.raw?.downloadable })}
                           </button>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
