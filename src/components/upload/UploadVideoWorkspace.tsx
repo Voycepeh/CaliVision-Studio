@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
+import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
@@ -83,12 +84,6 @@ function createArtifactBaseName(fileName: string): string {
 
 function createUploadSourceUri(jobId: string, fileName: string): string {
   return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
-}
-
-
-function resolvePhaseLabel(phaseId: string | undefined | null, labels: Record<string, string>): string {
-  if (!phaseId) return "none";
-  return labels[phaseId] ?? phaseId;
 }
 
 function summarizeTrace(

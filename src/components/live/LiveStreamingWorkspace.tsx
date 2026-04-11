@@ -57,6 +57,16 @@ const LIVE_POSE_STALE_WARNING_MS = 1_200;
 const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
 const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
 const LIVE_SELECTED_DRILL_STORAGE_KEY = "live.selected-drill";
+const FULL_BODY_REQUIRED_JOINTS: CanonicalJointName[] = [
+  "leftShoulder",
+  "rightShoulder",
+  "leftHip",
+  "rightHip",
+  "leftKnee",
+  "rightKnee",
+  "leftAnkle",
+  "rightAnkle"
+];
 
 type LiveCadenceStats = {
   renderFrames: number;
@@ -82,8 +92,8 @@ async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: numb
     video.onloadedmetadata = () => {
       resolve({
         durationMs: Math.max(0, Math.round(video.duration * 1000)),
-        width: video.videoWidth || 720,
-        height: video.videoHeight || 1280
+        width: video.videoWidth || 1280,
+        height: video.videoHeight || 720
       });
     };
     video.onerror = () => reject(new Error("Unable to load recorded video metadata."));
@@ -137,6 +147,8 @@ export function LiveStreamingWorkspace() {
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
+  const [framingWarning, setFramingWarning] = useState<string | null>(null);
+  const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
   const requestedDrillKey = searchParams.get("drillKey");
   const { drillOptions, drillOptionGroups, selectedDrillKey: selectedKey, setSelectedDrillKey: setSelectedKey, selectedSource, setSelectedSource } =
@@ -149,8 +161,10 @@ export function LiveStreamingWorkspace() {
       defaultSource: "local"
     });
   const trackingStatusRef = useRef<string>("Tracking ready");
+  const framingWarningRef = useRef<string | null>(null);
 
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  const replayVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const mediaContainerRef = useRef<HTMLDivElement | null>(null);
   const liveStreamRef = useRef<MediaStream | null>(null);
@@ -222,9 +236,25 @@ export function LiveStreamingWorkspace() {
       sourceId: selectedDrill.sourceId
     };
   }, [selectedDrill]);
+  const phaseLabelMap = useMemo(() => buildPhaseLabelMap(selection.drill), [selection.drill]);
+  const requiredFramingJoints = useMemo(() => {
+    if (!selection.drill?.phases.length) {
+      return [];
+    }
+    const unique = new Set<CanonicalJointName>();
+    for (const phase of selection.drill.phases) {
+      for (const joint of phase.analysis?.matchHints?.requiredJoints ?? []) {
+        unique.add(joint);
+      }
+    }
+    if (unique.size > 0) {
+      return [...unique];
+    }
+    return selection.cameraView === "front" ? FULL_BODY_REQUIRED_JOINTS : [];
+  }, [selection.cameraView, selection.drill]);
 
   const summary = useMemo(() => (liveTrace ? buildLiveResultsSummary(liveTrace) : null), [liveTrace]);
-  const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace) : []), [liveTrace]);
+  const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace, phaseLabelMap) : []), [liveTrace, phaseLabelMap]);
   const replayPreviewState = resolveUnifiedResultPreviewState({
     hasRaw: Boolean(rawReplayUrl),
     hasAnnotated: Boolean(annotatedReplayUrl),
@@ -263,6 +293,21 @@ export function LiveStreamingWorkspace() {
     () => (liveHardwareZoom.supported ? resolveSelectedZoomPreset(liveHardwareZoom.value, liveHardwareZoom.presets) : null),
     [liveHardwareZoom]
   );
+  const replayUnavailableMessage = useMemo(() => {
+    if (replayState === "export-in-progress") {
+      return null;
+    }
+    if (replayPreviewSelection.warning) {
+      return replayPreviewSelection.warning;
+    }
+    if (replayState === "export-failed") {
+      return "Replay is unavailable for this session. Retake the drill and keep your full body in frame.";
+    }
+    if (!rawReplayUrl && !annotatedReplayUrl) {
+      return "Replay is unavailable for this session. Retake and keep your camera stable.";
+    }
+    return null;
+  }, [annotatedReplayUrl, rawReplayUrl, replayPreviewSelection.warning, replayState]);
 
   useEffect(() => {
     if (timelineMarkers.length === 0) {
@@ -291,6 +336,13 @@ export function LiveStreamingWorkspace() {
     }
     trackingStatusRef.current = nextStatus;
     setTrackingStatusLabel(nextStatus);
+  }, []);
+  const updateFramingWarning = useCallback((nextWarning: string | null) => {
+    if (framingWarningRef.current === nextWarning) {
+      return;
+    }
+    framingWarningRef.current = nextWarning;
+    setFramingWarning(nextWarning);
   }, []);
 
   useEffect(() => {
@@ -321,7 +373,7 @@ export function LiveStreamingWorkspace() {
       setStatus("unsupported");
       setErrorMessage("Live Streaming is unsupported in this browser. Use a browser with camera + MediaRecorder support.");
     }
-  }, [updateTrackingStatus]);
+  }, [updateFramingWarning, updateTrackingStatus]);
 
   const cleanupSession = useCallback(async (options?: { stopRecorder?: boolean; discardRecording?: boolean; nextStatus?: LiveSessionStatus }) => {
     if (liveLoopRef.current) {
@@ -373,7 +425,8 @@ export function LiveStreamingWorkspace() {
       setStatus(options.nextStatus);
     }
     updateTrackingStatus("Tracking ready");
-  }, [updateTrackingStatus]);
+    updateFramingWarning(null);
+  }, [updateFramingWarning, updateTrackingStatus]);
 
   const syncOverlayCanvasSize = useCallback((force = false) => {
     if (!force && !overlayNeedsResizeSyncRef.current) {
@@ -576,6 +629,7 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayFailureDetails(null);
     setLiveTrace(null);
     setSelectedMarkerId(null);
+    updateFramingWarning(null);
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
       setAnnotatedReplayUrl(null);
@@ -642,6 +696,11 @@ export function LiveStreamingWorkspace() {
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = stream;
         await previewVideoRef.current.play();
+        const width = previewVideoRef.current.videoWidth;
+        const height = previewVideoRef.current.videoHeight;
+        if (width > 0 && height > 0) {
+          setPreviewAspectRatio(width / height);
+        }
       }
     } catch (error) {
       const classified = classifyCameraError(error);
@@ -775,6 +834,26 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.landmarkUpdates += 1;
           stalePoseLoggedRef.current = false;
           updateTrackingStatus("Tracking active");
+          if (requiredFramingJoints.length > 0) {
+            const missingJoints = requiredFramingJoints.filter((joint) => {
+              const point = frame.joints[joint];
+              return !point || (point.confidence ?? 0) < JOINT_VISIBILITY_EXIT_THRESHOLD;
+            });
+            const missingRatio = missingJoints.length / requiredFramingJoints.length;
+            if (missingRatio >= 0.35) {
+              updateFramingWarning("Full body not visible. Move back so all required points are in frame.");
+              if (performance.now() - lastDiagnosticLogAtRef.current >= LIVE_DIAGNOSTIC_LOG_INTERVAL_MS) {
+                console.warn("[live-overlay] framing-warning", {
+                  reason: "required_joints_missing",
+                  missingCount: missingJoints.length,
+                  requiredCount: requiredFramingJoints.length,
+                  missingJoints
+                });
+              }
+            } else {
+              updateFramingWarning(null);
+            }
+          }
           logOverlayDiagnostics("draw-pose-frame");
         } else if (!stalePoseLoggedRef.current) {
           console.debug("[live-overlay] pose miss; reusing last stabilized frame", {
@@ -837,14 +916,14 @@ export function LiveStreamingWorkspace() {
       drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
         showDrillMetrics: selection.mode === "drill",
-        phaseLabels: buildPhaseLabelMap(selection.drill)
+        phaseLabels: phaseLabelMap
       });
 
       liveLoopRef.current = requestAnimationFrame(draw);
     };
 
     draw();
-  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, rawReplayUrl, selection, status, syncOverlayCanvasSize, updateTrackingStatus]);
+  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
 
   const updateHardwareZoom = useCallback(
     async (presetZoom: number) => {
@@ -904,13 +983,38 @@ export function LiveStreamingWorkspace() {
     const captureStopPerfNowMs = performance.now();
     const mediaStopMs = Math.max(mediaStartMsRef.current, previewVideoRef.current.currentTime * 1000);
     const raw = await recorder.stop();
-    if (!raw) {
+    if (!raw || raw.blob.size <= 0) {
+      console.error("[live-overlay] raw-replay-unavailable", {
+        hasRecorderResult: Boolean(raw),
+        blobSize: raw?.blob.size ?? 0
+      });
       setReplayState("export-failed");
       setStatus("failed");
-      setErrorMessage("Live recording did not finalize correctly. Please retake.");
+      setErrorMessage("Replay unavailable. Please retake and keep your camera steady.");
       return;
     }
-    const metadata = await readRecordedVideoMetadata(raw.blob);
+    let metadata: { durationMs: number; width: number; height: number };
+    try {
+      metadata = await readRecordedVideoMetadata(raw.blob);
+    } catch (error) {
+      console.error("[live-overlay] raw-metadata-failed", {
+        message: error instanceof Error ? error.message : "unknown"
+      });
+      setReplayState("export-failed");
+      setStatus("failed");
+      setErrorMessage("Replay metadata could not be read. Please retake.");
+      return;
+    }
+    if (metadata.durationMs <= 0) {
+      console.error("[live-overlay] raw-replay-invalid-duration", {
+        durationMs: metadata.durationMs,
+        blobSize: raw.blob.size
+      });
+      setReplayState("export-failed");
+      setStatus("failed");
+      setErrorMessage("Replay duration is invalid. Please retake.");
+      return;
+    }
     await cleanupSession();
 
     const completedAtIso = new Date().toISOString();
@@ -952,6 +1056,7 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayFailureMessage(null);
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
+    setPreviewAspectRatio(metadata.width > 0 && metadata.height > 0 ? metadata.width / metadata.height : 16 / 9);
 
     const analysisSession = buildAnalysisSessionFromLiveTrace(trace);
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
@@ -1137,7 +1242,7 @@ export function LiveStreamingWorkspace() {
 
       <article className="card live-streaming-results-card">
         <div className="live-streaming-preview-shell">
-          <div ref={mediaContainerRef} className="live-streaming-media-container">
+          <div ref={mediaContainerRef} className="live-streaming-media-container" style={{ aspectRatio: previewAspectRatio }}>
             <video
               ref={previewVideoRef}
               muted
@@ -1146,6 +1251,10 @@ export function LiveStreamingWorkspace() {
               onLoadedMetadata={() => {
                 overlayNeedsResizeSyncRef.current = true;
                 syncOverlayCanvasSize(true);
+                const video = previewVideoRef.current;
+                if (video?.videoWidth && video.videoHeight) {
+                  setPreviewAspectRatio(video.videoWidth / video.videoHeight);
+                }
               }}
               onResize={() => {
                 overlayNeedsResizeSyncRef.current = true;
@@ -1177,9 +1286,7 @@ export function LiveStreamingWorkspace() {
                 <span>{formatHardwareZoomLabel(liveHardwareZoom.value)}</span>
               </div>
             ) : null}
-            {status === "live-session-running" && !liveHardwareZoom.supported ? (
-              <div className="live-streaming-zoom-unsupported">Zoom not supported on this camera</div>
-            ) : null}
+            {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
           </div>
         </div>
 
@@ -1237,8 +1344,9 @@ export function LiveStreamingWorkspace() {
             ) : null}
             {preferredReplayDeliverySource ? <p className="muted" style={{ margin: 0 }}>Recommended delivery: {preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</p> : null}
             {(replayPreviewState === "showing_annotated_completed" || replayPreviewState === "showing_raw_completed" || replayPreviewState === "showing_raw_during_processing" || replayPreviewState === "annotated_failed_showing_raw") && replayUrl ? (
-              <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} />
+              <video ref={replayVideoRef} controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem", aspectRatio: previewAspectRatio }} />
             ) : null}
+            {!replayUrl && replayUnavailableMessage ? <div className="result-preview-warning"><strong>{replayUnavailableMessage}</strong></div> : null}
             {replayDownloadSafety.annotated?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.annotated.warning}</p> : null}
             {replayDownloadSafety.raw?.warning ? <p className="muted" style={{ margin: 0 }}>{replayDownloadSafety.raw.warning}</p> : null}
             {canToggleReplayPreview ? (
@@ -1264,6 +1372,7 @@ export function LiveStreamingWorkspace() {
 
             <section style={{ display: "grid", gap: "0.45rem" }}>
               <strong>Timeline</strong>
+              <p className="muted" style={{ margin: 0 }}>Click an event to jump in replay.</p>
               <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
                 {timelineMarkers.map((marker) => {
                   const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
@@ -1274,7 +1383,21 @@ export function LiveStreamingWorkspace() {
                       title={marker.label}
                       aria-label={marker.label}
                       aria-pressed={marker.id === selectedMarkerId}
-                      onClick={() => setSelectedMarkerId(marker.id)}
+                      onClick={() => {
+                        setSelectedMarkerId(marker.id);
+                        const replayVideo = replayVideoRef.current;
+                        if (!replayVideo) {
+                          console.warn("[live-overlay] replay-seek-skipped", { reason: "missing_replay_element", markerId: marker.id });
+                          return;
+                        }
+                        const wasPlaying = !replayVideo.paused && !replayVideo.ended;
+                        replayVideo.currentTime = Math.max(0, marker.timestampMs / 1000);
+                        if (wasPlaying) {
+                          void replayVideo.play().catch(() => {
+                            console.warn("[live-overlay] replay-seek-play-failed", { markerId: marker.id });
+                          });
+                        }
+                      }}
                       style={{
                         position: "absolute",
                         left: `${Math.min(99, Math.max(0, leftPercent))}%`,
@@ -1303,7 +1426,21 @@ export function LiveStreamingWorkspace() {
                       key={`${marker.id}_label`}
                       type="button"
                       className="studio-button"
-                      onClick={() => setSelectedMarkerId(marker.id)}
+                      onClick={() => {
+                        setSelectedMarkerId(marker.id);
+                        const replayVideo = replayVideoRef.current;
+                        if (!replayVideo) {
+                          console.warn("[live-overlay] replay-seek-skipped", { reason: "missing_replay_element", markerId: marker.id });
+                          return;
+                        }
+                        const wasPlaying = !replayVideo.paused && !replayVideo.ended;
+                        replayVideo.currentTime = Math.max(0, marker.timestampMs / 1000);
+                        if (wasPlaying) {
+                          void replayVideo.play().catch(() => {
+                            console.warn("[live-overlay] replay-seek-play-failed", { markerId: marker.id });
+                          });
+                        }
+                      }}
                       style={{
                         justifyContent: "flex-start",
                         borderColor: isActive ? "var(--border-strong)" : "var(--border)",
