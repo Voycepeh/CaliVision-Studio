@@ -12,6 +12,7 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
     summaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    mediaAspectRatio: 9 / 16,
     session: {
       sessionId: "s1",
       drillId: "d1",
@@ -26,6 +27,7 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
 
   assert.equal(model.state, "ready");
   assert.equal(model.timelineEvents[0]?.id, "e1");
+  assert.equal(model.mediaAspectRatio, 9 / 16);
 });
 
 test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () => {
@@ -39,9 +41,11 @@ test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () =
     downloads: [],
     diagnosticsSections: [],
     markers: [],
-    durationMs: 1000
+    durationMs: 1000,
+    mediaAspectRatio: 16 / 9
   });
 
   assert.equal(model.state, "loading");
   assert.ok(model.summaryChips.some((chip) => chip.id === "replay_state"));
+  assert.equal(model.mediaAspectRatio, 16 / 9);
 });

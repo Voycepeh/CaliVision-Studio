@@ -37,6 +37,7 @@ export type AnalysisViewerModel = {
   stateDetail?: string;
   progress?: number;
   videoUrl: string | null;
+  mediaAspectRatio?: number;
   canShowVideo: boolean;
   surface: ViewerSurface;
   surfaces: Array<{ id: ViewerSurface; label: string; available: boolean }>;

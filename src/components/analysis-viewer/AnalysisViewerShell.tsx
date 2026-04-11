@@ -1,6 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
+import { useEffect, useState } from "react";
 import type { AnalysisViewerModel, AnalysisViewerEvent, ViewerSurface } from "@/lib/analysis-viewer/types";
 
 type Props = {
@@ -59,11 +60,33 @@ function AnalysisVideoPane({
   onSurfaceChange: (surface: ViewerSurface) => void;
   overlayCanvas?: React.ReactNode;
 }) {
+  const [measuredAspectRatio, setMeasuredAspectRatio] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    setMeasuredAspectRatio(undefined);
+  }, [model.videoUrl]);
+
+  const resolvedAspectRatio = model.mediaAspectRatio && Number.isFinite(model.mediaAspectRatio) && model.mediaAspectRatio > 0
+    ? model.mediaAspectRatio
+    : measuredAspectRatio;
+
   return (
     <div style={{ display: "grid", gap: "0.5rem" }}>
       {model.canShowVideo && model.videoUrl ? (
-        <div style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: "16/9", borderRadius: "0.6rem", overflow: "hidden" }}>
-          <video ref={videoRef} controls src={model.videoUrl} playsInline style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }} />
+        <div style={{ position: "relative", width: "100%", maxWidth: "min(100%, 1100px)", maxHeight: "72vh", aspectRatio: resolvedAspectRatio, borderRadius: "0.6rem", overflow: "hidden" }}>
+          <video
+            ref={videoRef}
+            controls
+            src={model.videoUrl}
+            playsInline
+            onLoadedMetadata={(event) => {
+              const video = event.currentTarget;
+              if (video.videoWidth > 0 && video.videoHeight > 0) {
+                setMeasuredAspectRatio(video.videoWidth / video.videoHeight);
+              }
+            }}
+            style={{ width: "100%", height: "100%", objectFit: "contain", background: "#020617" }}
+          />
           {overlayCanvas}
         </div>
       ) : null}

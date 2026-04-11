@@ -612,6 +612,10 @@ export function UploadVideoWorkspace() {
         selectedEventId: selectedViewerEventId,
         session: activeSession,
         durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
+        mediaAspectRatio:
+          activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
+            ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
+            : undefined,
         summaryChips:
           activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
             ? [

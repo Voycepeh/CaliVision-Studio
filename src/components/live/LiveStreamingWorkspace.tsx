@@ -326,6 +326,10 @@ export function LiveStreamingWorkspace() {
         surface: completedPreviewSurface,
         selectedEventId: selectedMarkerId,
         durationMs: liveTrace?.video.durationMs ?? 0,
+        mediaAspectRatio:
+          liveTrace && liveTrace.video.width > 0 && liveTrace.video.height > 0
+            ? liveTrace.video.width / liveTrace.video.height
+            : undefined,
         markers: timelineMarkers,
         summaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },

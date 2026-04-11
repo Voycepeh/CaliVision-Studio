@@ -24,6 +24,7 @@ export function mapUploadAnalysisToViewerModel(input: {
   recommendedDeliveryLabel?: string;
   session: AnalysisSessionRecord | null;
   durationMs?: number;
+  mediaAspectRatio?: number;
   overlayFullscreenAction?: AnalysisViewerModel["overlayFullscreenAction"];
 }): AnalysisViewerModel {
   const timelineEvents = (input.session?.events ?? []).map((event) => ({
@@ -47,6 +48,7 @@ export function mapUploadAnalysisToViewerModel(input: {
     stateTitle: state === "loading" ? "Generating annotated video" : state === "warning" ? "Annotated video unavailable" : undefined,
     stateDetail: state === "loading" ? "Raw preview is available while render completes." : undefined,
     videoUrl: input.videoUrl,
+    mediaAspectRatio: input.mediaAspectRatio,
     canShowVideo: input.canShowVideo,
     surface: input.surface,
     surfaces: [
@@ -76,6 +78,7 @@ export function mapLiveAnalysisToViewerModel(input: {
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
   markers: LiveTimelineMarker[];
   durationMs: number;
+  mediaAspectRatio?: number;
   warnings?: string[];
   recommendedDeliveryLabel?: string;
 }): AnalysisViewerModel {
@@ -87,6 +90,7 @@ export function mapLiveAnalysisToViewerModel(input: {
     stateTitle: state === "loading" ? "Generating annotated video" : state === "error" ? "Replay unavailable" : undefined,
     stateDetail: input.replayState === "export-in-progress" ? input.replayStageLabel ?? "Processing export…" : undefined,
     videoUrl: input.videoUrl,
+    mediaAspectRatio: input.mediaAspectRatio,
     canShowVideo: Boolean(input.videoUrl),
     surface: input.surface,
     surfaces: [
