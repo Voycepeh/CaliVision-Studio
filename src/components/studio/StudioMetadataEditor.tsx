@@ -11,9 +11,7 @@ export function StudioMetadataEditor() {
     setDrillDescription,
     setDrillType,
     setDrillDifficulty,
-    setDrillDefaultView,
-    setManifestSchemaVersion,
-    setManifestPackageVersion
+    setDrillDefaultView
   } = useStudioState();
 
   if (!selectedPackage) {
@@ -78,34 +76,6 @@ export function StudioMetadataEditor() {
         </label>
       </div>
 
-      <div className="field-grid">
-        <label style={labelStyle}>
-          <span>Package version</span>
-          <input
-            value={selectedPackage.workingPackage.manifest.packageVersion}
-            onChange={(event) => setManifestPackageVersion(event.target.value)}
-            style={inputStyle}
-          />
-        </label>
-
-        <label style={labelStyle}>
-          <span>Schema version</span>
-          <select
-            value={selectedPackage.workingPackage.manifest.schemaVersion}
-            onChange={(event) => setManifestSchemaVersion(event.target.value as typeof selectedPackage.workingPackage.manifest.schemaVersion)}
-            style={inputStyle}
-          >
-            <option value="0.1.0">0.1.0</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="field-grid">
-        <label style={labelStyle}>
-          <span>Internal drill ID (system-generated)</span>
-          <input value={drill.drillId} style={inputStyle} readOnly />
-        </label>
-      </div>
     </section>
   );
 }

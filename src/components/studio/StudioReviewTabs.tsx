@@ -12,9 +12,10 @@ const TAB_OPTIONS: Array<{ id: ReviewTab; label: string }> = [
   { id: "validation", label: "Validation" }
 ];
 
-export function StudioReviewTabs() {
+export function StudioReviewTabs({ includePreview = true }: { includePreview?: boolean }) {
   const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
-  const [activeTab, setActiveTab] = useState<ReviewTab>("preview");
+  const [activeTab, setActiveTab] = useState<ReviewTab>(includePreview ? "preview" : "validation");
+  const reviewTabs = includePreview ? TAB_OPTIONS : TAB_OPTIONS.filter((tab) => tab.id !== "preview");
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -29,7 +30,7 @@ export function StudioReviewTabs() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
         <h3 style={{ margin: 0 }}>Review</h3>
         <div className="studio-tab-row" role="tablist" aria-label="Review tools">
-          {TAB_OPTIONS.map((option) => (
+          {reviewTabs.map((option) => (
             <button
               key={option.id}
               type="button"
@@ -44,7 +45,7 @@ export function StudioReviewTabs() {
         </div>
       </div>
 
-      {activeTab === "preview" ? <StudioAnimationPreviewPanel /> : null}
+      {includePreview && activeTab === "preview" ? <StudioAnimationPreviewPanel /> : null}
 
       {activeTab === "validation" ? (
         selectedPackage ? (
