@@ -328,7 +328,8 @@ export function LibraryOverview() {
           <div style={listStackStyle}>
             {filteredDrills.map((drill) => {
               const versions = versionsByDrillId[drill.drillId] ?? [];
-              const previewDrill = drill.currentVersion.packageJson.drills[0];
+              const workflowSourceVersion = drill.openDraftVersion ?? drill.currentVersion;
+              const previewDrill = workflowSourceVersion.packageJson.drills[0];
               return (
                 <article
                   key={drill.drillId}
