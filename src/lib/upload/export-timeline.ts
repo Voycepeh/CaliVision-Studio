@@ -16,6 +16,9 @@ function isFinitePositive(value: unknown): value is number {
 }
 
 function resolveDurationMs(timeline: PoseTimeline, mediaDurationMs?: number): { value: number; source: ExportTimelineResolution["durationSource"] } | null {
+  if (isFinitePositive(mediaDurationMs)) {
+    return { value: mediaDurationMs, source: "media-metadata" };
+  }
   if (isFinitePositive(timeline.video.durationMs)) {
     return { value: timeline.video.durationMs, source: "timeline-metadata" };
   }
@@ -23,9 +26,6 @@ function resolveDurationMs(timeline: PoseTimeline, mediaDurationMs?: number): { 
   const maxTimestamp = frameTimestamps.length > 0 ? Math.max(...frameTimestamps) : 0;
   if (isFinitePositive(maxTimestamp)) {
     return { value: maxTimestamp, source: "trace-frames" };
-  }
-  if (isFinitePositive(mediaDurationMs)) {
-    return { value: mediaDurationMs, source: "media-metadata" };
   }
   return null;
 }

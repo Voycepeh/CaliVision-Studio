@@ -77,3 +77,9 @@ test("resolveExportTimeline keeps 30-32 second clips aligned to source duration"
   assert.equal(resolved.fps, 30);
   assert.equal(resolved.totalFrames, 942);
 });
+
+test("resolveExportTimeline prefers source media duration when provided", () => {
+  const resolved = resolveExportTimeline(buildTimeline(), { mediaDurationMs: 4_700 });
+  assert.equal(resolved.durationMs, 4_700);
+  assert.equal(resolved.durationSource, "media-metadata");
+});

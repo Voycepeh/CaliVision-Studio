@@ -67,6 +67,21 @@ export type UploadJobArtifacts = {
     averageConfidence: number;
     sampledFrameCount: number;
     durationMs: number;
+    exportDiagnostics?: {
+      sourceDurationSec: number;
+      analyzedDurationSec: number;
+      renderedFrameCount: number;
+      renderFpsTarget: number;
+      firstFrameTsMs: number | null;
+      lastFrameTsMs: number | null;
+      expectedOutputDurationSec: number;
+      actualOutputDurationSec: number | null;
+      durationDriftSec: number | null;
+      durationDriftPct: number | null;
+      exportContainerType: string;
+      durationDriftWarning: boolean;
+      durationDriftWarningMessage?: string;
+    };
   };
   annotatedVideoBlob?: Blob;
   annotatedVideoMimeType?: string;

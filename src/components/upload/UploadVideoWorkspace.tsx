@@ -458,7 +458,7 @@ export function UploadVideoWorkspace() {
               completedAtIso: new Date().toISOString(),
               artefacts: {
                 poseTimeline: timeline,
-                processingSummary: buildAnalysisSummary(timeline),
+                processingSummary: buildAnalysisSummary(timeline, annotated?.diagnostics),
                 ...(annotated
                   ? {
                       annotatedVideoBlob: annotated.blob,
@@ -951,6 +951,11 @@ export function UploadVideoWorkspace() {
                 ) : null}
                 {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}
                 {downloadSafety.raw?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.raw.warning}</span> : null}
+                {activeJob.artefacts.processingSummary.exportDiagnostics?.durationDriftWarning ? (
+                  <span className="muted" style={{ fontSize: "0.8rem", color: "var(--warning-strong, #b45309)" }}>
+                    {activeJob.artefacts.processingSummary.exportDiagnostics.durationDriftWarningMessage ?? "Warning: annotated export duration drift detected."}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="pill"
