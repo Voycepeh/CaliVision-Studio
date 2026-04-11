@@ -920,7 +920,7 @@ export function LiveStreamingWorkspace() {
     setStatus("completed");
   }, [cleanupSession]);
 
-  const showReferencePanel = isReferencePanelVisible || status !== "live-session-running";
+  const showReferencePanel = isReferencePanelVisible;
 
   return (
     <section className="panel-content live-streaming-layout">
