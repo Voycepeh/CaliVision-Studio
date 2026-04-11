@@ -47,6 +47,7 @@ const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const EXPORT_DURATION_DRIFT_WARNING_PCT = 10;
 const EXPORT_DURATION_DIAGNOSTIC_TOLERANCE_RATIO = 0.02;
+const EXPORT_ENCODED_DURATION_TOLERANCE_MS = 350;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 type VideoFrameMetadata = {
@@ -551,7 +552,7 @@ export async function exportAnnotatedVideo(
   const frameDurationMs = exportPlan.frameDurationMs;
   const expectedFrameScheduleMs = buildDeterministicFrameSchedule(durationMs, exportFps);
   const expectedFrameCount = expectedFrameScheduleMs.length;
-  const stream = canvas.captureStream(0);
+  const stream = canvas.captureStream(exportFps);
   const mimeType = selectPreferredCaptureMimeType();
   logUploadEvent("ANNOTATED_EXPORT_CAPTURE_MIME_SELECTED", { mimeType });
   const recorder = new MediaRecorder(stream, { mimeType });
@@ -862,6 +863,16 @@ export async function exportAnnotatedVideo(
         durationDriftPct,
         driftThresholdPct: EXPORT_DURATION_DRIFT_WARNING_PCT
       });
+    }
+    if (muxedDurationMs !== null && muxedDurationMs > durationMs + EXPORT_ENCODED_DURATION_TOLERANCE_MS) {
+      logUploadEvent("ANNOTATED_EXPORT_DURATION_HARD_GUARD", {
+        sourceDurationMs: durationMs,
+        encodedDurationMs: muxedDurationMs,
+        toleranceMs: EXPORT_ENCODED_DURATION_TOLERANCE_MS
+      });
+      throw new Error(
+        `Annotated export duration exceeded source bounds (encoded=${muxedDurationMs}ms, source=${durationMs}ms, tolerance=${EXPORT_ENCODED_DURATION_TOLERANCE_MS}ms).`
+      );
     }
 
     options?.onProgress?.(1, "Annotated export complete");
