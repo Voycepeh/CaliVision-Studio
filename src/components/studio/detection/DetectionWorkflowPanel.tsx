@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapDetectionResultToPortablePose } from "@/lib/detection";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
@@ -11,16 +10,14 @@ import { useStudioState } from "@/components/studio/StudioState";
 
 export function DetectionWorkflowPanel({
   phaseId,
-  autoOpenSource
+  autoOpenSource,
+  entryMode = "upload",
+  onEntryModeChange = () => {}
 }: {
   phaseId: string;
   autoOpenSource?: "upload" | "camera" | null;
-  entryMode,
-  onEntryModeChange
-}: {
-  phaseId: string;
-  entryMode: "upload" | "camera";
-  onEntryModeChange: (mode: "upload" | "camera") => void;
+  entryMode?: "upload" | "camera";
+  onEntryModeChange?: (mode: "upload" | "camera") => void;
 }) {
   const {
     selectedPhaseSourceImage,
