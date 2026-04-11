@@ -9,8 +9,8 @@ import {
 } from "./media-capabilities.ts";
 
 test("selectPreferredCaptureMimeType chooses first supported candidate", () => {
-  const selected = selectPreferredCaptureMimeType((candidate) => candidate === "video/webm;codecs=vp9");
-  assert.equal(selected, "video/webm;codecs=vp9");
+  const selected = selectPreferredCaptureMimeType((candidate) => candidate === "video/webm;codecs=vp8");
+  assert.equal(selected, "video/webm;codecs=vp8");
 });
 
 test("detectDeliveryFormat never maps webm to mp4", () => {

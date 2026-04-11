@@ -13,7 +13,7 @@ export type PreviewSelectionResult = {
 };
 
 const MP4_RECORDER_CANDIDATES = ["video/mp4;codecs=avc1.42E01E", "video/mp4"];
-const WEBM_RECORDER_CANDIDATES = ["video/webm;codecs=vp9", "video/webm"];
+const WEBM_RECORDER_CANDIDATES = ["video/webm;codecs=vp8", "video/webm;codecs=vp9", "video/webm"];
 
 function normalizeMimeType(mimeType?: string | null): string {
   return (mimeType ?? "").trim().toLowerCase();
