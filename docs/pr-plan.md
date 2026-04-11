@@ -39,6 +39,15 @@ The split between top-level Drafts and My drills creates duplicate entries, conf
 
 Android runtime/live coaching responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
 
+## Post-analysis viewer consolidation (Upload Video + Live Streaming)
+
+- Shared `AnalysisViewerShell` module now owns post-analysis result viewing across Upload Video and Live Streaming.
+- Page containers keep acquisition/session controls local (file upload + queue controls on Upload Video, camera/session controls on Live Streaming).
+- Upload/Live now map page-specific result data through viewer adapters into one normalized contract:
+  - `mapUploadAnalysisToViewerModel(...)`
+  - `mapLiveAnalysisToViewerModel(...)`
+- Timeline interactions (event click to seek), surface switching (Annotated/Raw), summary chips, downloads, and diagnostics rendering are now aligned via the shared viewer model.
+
 ## Assumptions / non-goals for phase identity cleanup
 
 - Assumption: `phaseId` is treated as internal stable identity, while `name` is the canonical user-facing phase name in Drill Studio.
