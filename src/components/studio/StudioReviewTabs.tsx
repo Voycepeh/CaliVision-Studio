@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StudioAnimationPreviewPanel } from "@/components/studio/animation/StudioAnimationPreviewPanel";
 import { useStudioState } from "@/components/studio/StudioState";
-import { getSortedPhases } from "@/lib/editor/package-editor";
+import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 
 type ReviewTab = "preview" | "validation";
 
@@ -12,10 +12,18 @@ const TAB_OPTIONS: Array<{ id: ReviewTab; label: string }> = [
   { id: "validation", label: "Validation" }
 ];
 
-export function StudioReviewTabs({ includePreview = true }: { includePreview?: boolean }) {
+export function StudioReviewTabs() {
   const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
+  const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
+  const includePreview = selectedDrill?.drillType === "rep";
   const [activeTab, setActiveTab] = useState<ReviewTab>(includePreview ? "preview" : "validation");
   const reviewTabs = includePreview ? TAB_OPTIONS : TAB_OPTIONS.filter((tab) => tab.id !== "preview");
+
+  useEffect(() => {
+    if (!includePreview && activeTab === "preview") {
+      setActiveTab("validation");
+    }
+  }, [includePreview, activeTab]);
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -24,6 +32,20 @@ export function StudioReviewTabs({ includePreview = true }: { includePreview?: b
 
     return getSortedPhases(selectedPackage.workingPackage).find((phase) => phase.phaseId === selectedPhaseId) ?? null;
   }, [selectedPackage, selectedPhaseId]);
+
+  const holdStaticSummary = useMemo(() => {
+    if (!selectedDrill || selectedDrill.drillType !== "hold" || !selectedPackage) {
+      return null;
+    }
+    const holdPhase = getSortedPhases(selectedPackage.workingPackage).at(0);
+    return holdPhase
+      ? {
+          phaseName: holdPhase.name,
+          hasPose: holdPhase.poseSequence.length > 0,
+          durationMs: holdPhase.durationMs
+        }
+      : null;
+  }, [selectedDrill, selectedPackage]);
 
   return (
     <section style={{ display: "grid", gap: "0.6rem" }}>
@@ -88,6 +110,21 @@ export function StudioReviewTabs({ includePreview = true }: { includePreview?: b
                   {selectedPhaseDetection.status === "failed" ? <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li> : null}
                   {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">No source image and no pose data available yet for this phase.</li> : null}
                 </ul>
+              </div>
+            ) : null}
+
+            {selectedDrill?.drillType === "hold" ? (
+              <div className="card" style={{ display: "grid", gap: "0.35rem" }}>
+                <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Hold drill static summary</h4>
+                {holdStaticSummary ? (
+                  <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+                    <li>Primary hold phase: {holdStaticSummary.phaseName}</li>
+                    <li>Duration: {Math.round(holdStaticSummary.durationMs / 1000)}s</li>
+                    <li>Pose authored: {holdStaticSummary.hasPose ? "yes" : "no"}</li>
+                  </ul>
+                ) : (
+                  <p className="muted" style={{ margin: 0 }}>No hold phase found.</p>
+                )}
               </div>
             ) : null}
           </div>

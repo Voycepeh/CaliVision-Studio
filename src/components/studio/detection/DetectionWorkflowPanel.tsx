@@ -2,13 +2,19 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { mapDetectionResultToPortablePose } from "@/lib/detection";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { useStudioState } from "@/components/studio/StudioState";
 
-export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
+export function DetectionWorkflowPanel({
+  phaseId,
+  autoOpenSource
+}: {
+  phaseId: string;
+  autoOpenSource?: "upload" | "camera" | null;
+}) {
   const {
     selectedPhaseSourceImage,
     selectedPhaseDetection,
@@ -32,6 +38,18 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
     return mapPortablePoseToCanvasPoseModel(previewPose);
   }, [phaseId, selectedPhaseDetection.result]);
 
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (autoOpenSource === "upload") {
+      uploadInputRef.current?.click();
+    }
+    if (autoOpenSource === "camera") {
+      cameraInputRef.current?.click();
+    }
+  }, [autoOpenSource, phaseId]);
+
   return (
     <section className="card" style={{ display: "grid", gap: "0.75rem" }}>
       <h3 style={{ marginTop: 0, marginBottom: 0, fontSize: "0.95rem" }}>Phase image detection</h3>
@@ -42,8 +60,29 @@ export function DetectionWorkflowPanel({ phaseId }: { phaseId: string }) {
       <label style={labelStyle}>
         <span>Upload phase image (local only)</span>
         <input
+          ref={uploadInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
+          style={inputStyle}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+
+            await setSelectedPhaseImage(file);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
+
+      <label style={labelStyle}>
+        <span>Use camera (mobile/browser support)</span>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           style={inputStyle}
           onChange={async (event) => {
             const file = event.target.files?.[0];
