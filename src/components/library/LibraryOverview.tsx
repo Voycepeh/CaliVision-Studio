@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
+import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   createDrill,
@@ -54,6 +55,7 @@ export function LibraryOverview() {
   const [versionsByDrillId, setVersionsByDrillId] = useState<Record<string, DrillVersionSnapshot[]>>({});
   const [searchText, setSearchText] = useState("");
   const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
+  const [previewDrillId, setPreviewDrillId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
@@ -326,6 +328,8 @@ export function LibraryOverview() {
           <div style={listStackStyle}>
             {filteredDrills.map((drill) => {
               const versions = versionsByDrillId[drill.drillId] ?? [];
+              const workflowSourceVersion = drill.openDraftVersion ?? drill.currentVersion;
+              const previewDrill = workflowSourceVersion.packageJson.drills[0];
               return (
                 <article
                   key={drill.drillId}
@@ -350,25 +354,35 @@ export function LibraryOverview() {
                   </p>
 
                   <div style={compactActionRowStyle}>
-                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coach…", () => onOpenWorkflow(drill, "live"))}>Live Coach</button>
-                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>Upload Video</button>
-                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>Edit in Studio</button>
-                    {drill.activeReadyVersion ? (
-                      <button
-                        type="button"
-                        style={chipStyle(false)}
-                        onClick={() =>
-                          void runItemAction(`preview:${drill.drillId}`, "Opening preview…", async () => {
-                            const context = await resolveDrillContext(drill, false);
-                            persistActiveDrillContext(context);
-                            router.push(`/upload?drillKey=${encodeURIComponent(buildWorkflowDrillKey(context))}`);
-                          })
-                        }
-                      >
-                        Preview
-                      </button>
-                    ) : null}
+                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
+                      Analyze Video
+                    </button>
+                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coach…", () => onOpenWorkflow(drill, "live"))}>
+                      Live Coach
+                    </button>
+                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
+                      Edit in Studio
+                    </button>
+                    <button
+                      type="button"
+                      style={chipStyle(false)}
+                      aria-expanded={previewDrillId === drill.drillId}
+                      onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
+                    >
+                      {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
+                    </button>
                   </div>
+                  {previewDrillId === drill.drillId && previewDrill ? (
+                    <section style={previewPanelStyle}>
+                      <DrillSelectionPreviewPanel
+                        drill={previewDrill}
+                        sourceKind={signedInMode ? "hosted" : "local"}
+                        showSourceBadge
+                        compact
+                        quiet
+                      />
+                    </section>
+                  ) : null}
 
                   <div style={compactActionRowStyle}>
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
@@ -408,7 +422,6 @@ export function LibraryOverview() {
                   <InlineItemFeedback itemId={`drill:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`live:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`upload:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
-                  <InlineItemFeedback itemId={`preview:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`ready:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`publish:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`export:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
@@ -480,6 +493,7 @@ const listCardStyle: CSSProperties = { margin: 0, padding: "0.55rem", display: "
 const rowTitleWrapStyle: CSSProperties = { display: "grid", gap: "0.15rem" };
 const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.55rem", background: "rgba(19, 28, 42, 0.45)" };
 const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" };
+const previewPanelStyle: CSSProperties = { marginTop: "0.15rem", width: "min(100%, 460px)" };
 const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.45rem", alignItems: "end", flexWrap: "wrap" };
 const labelStyle: CSSProperties = { display: "grid", gap: "0.18rem", color: "var(--muted)", fontSize: "0.8rem" };
 const inputStyle: CSSProperties = { border: "1px solid var(--border)", borderRadius: "0.52rem", padding: "0.38rem 0.5rem", background: "var(--panel-soft)", color: "var(--text)", width: "100%" };
@@ -488,6 +502,7 @@ const tertiaryLinkStyle: CSSProperties = { color: "var(--muted)", textDecoration
 const noticeBaseStyle: CSSProperties = { margin: 0, fontSize: "0.76rem", borderRadius: "0.45rem", padding: "0.3rem 0.4rem", border: "1px solid" };
 const errorNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#f6cbcb", borderColor: "rgba(255, 120, 120, 0.55)", background: "rgba(120, 23, 23, 0.3)" };
 const successNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#d2f5da", borderColor: "rgba(100, 198, 132, 0.55)", background: "rgba(28, 72, 36, 0.33)" };
+const primaryActionChipStyle: CSSProperties = { ...chipStyle(true), fontWeight: 600, borderColor: "rgba(114, 168, 255, 0.75)" };
 function chipStyle(active: boolean): CSSProperties {
   return { border: `1px solid ${active ? "rgba(114, 168, 255, 0.55)" : "var(--border)"}`, borderRadius: "999px", padding: "0.24rem 0.55rem", fontSize: "0.76rem", color: active ? "var(--text)" : "var(--muted)", background: active ? "rgba(114, 168, 255, 0.12)" : "var(--panel-soft)", cursor: "pointer" };
 }
