@@ -296,13 +296,6 @@ main {
   font-size: 0.72rem;
 }
 
-.studio-authoring-workspace-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0.65rem;
-  min-width: 0;
-}
-
 .studio-route-surface {
   min-width: 0;
 }
@@ -403,14 +396,6 @@ main {
   background: rgba(114, 168, 255, 0.14);
   color: #cfe3ff;
   font-size: 0.78rem;
-}
-
-.studio-sticky-workspace {
-  display: none;
-}
-
-.studio-mobile-inline-section {
-  display: none;
 }
 
 .studio-tab-row {
@@ -551,23 +536,6 @@ main {
 }
 
 
-@media (min-width: 1180px) {
-  .studio-authoring-workspace-grid {
-    grid-template-columns: minmax(560px, 1.1fr) minmax(540px, 1fr);
-    align-items: start;
-    gap: 1.15rem;
-  }
-
-  .studio-sticky-workspace {
-    display: grid;
-    gap: 0.65rem;
-    align-content: start;
-    position: sticky;
-    top: 8.4rem;
-    transition: margin-top 180ms ease;
-  }
-}
-
 @media (max-width: 1280px) {
   .studio-resizable-grid {
     grid-template-columns: minmax(190px, var(--studio-left, 240px)) 10px minmax(0, 1fr) 10px minmax(210px, var(--studio-right, 270px));
@@ -603,10 +571,6 @@ main {
   .studio-resizable-grid {
     grid-template-columns: 1fr;
     min-height: auto;
-  }
-
-  .studio-sticky-workspace {
-    display: none;
   }
 
   .studio-action-bar {
@@ -1025,13 +989,6 @@ main {
   .page-shell,
   .home-shell {
     padding-inline: 1rem;
-  }
-}
-
-@media (max-width: 1024px) {
-  .studio-mobile-inline-section {
-    display: grid;
-    gap: 0.65rem;
   }
 }
 
