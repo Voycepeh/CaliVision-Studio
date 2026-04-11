@@ -15,6 +15,7 @@ import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workf
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
 import {
   buildLiveResultsSummary,
   classifyCameraError,
@@ -112,13 +113,6 @@ function triggerDownload(url: string, fileName: string) {
   document.body.removeChild(link);
 }
 
-
-function resolveLiveDownloadLabel(options: { kind: "raw" | "annotated"; downloadable?: boolean }): string {
-  if (options.downloadable !== false) {
-    return options.kind === "annotated" ? "Download annotated" : "Download raw";
-  }
-  return options.kind === "annotated" ? "Download annotated WebM (may not play)" : "Download raw WebM (may not play)";
-}
 
 export function LiveStreamingWorkspace() {
   const searchParams = useSearchParams();

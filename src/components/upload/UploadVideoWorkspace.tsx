@@ -17,6 +17,7 @@ import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-du
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
@@ -94,15 +95,6 @@ function createUploadSourceUri(jobId: string, fileName: string): string {
   return `upload://local/${jobId}/${encodeURIComponent(fileName)}`;
 }
 
-
-function resolveUploadDownloadLabel(options: { kind: "raw" | "annotated"; downloadable?: boolean }): string {
-  if (options.downloadable !== false) {
-    return options.kind === "annotated" ? "Download Annotated Video" : "Download Raw Video";
-  }
-  return options.kind === "annotated"
-    ? "Download Annotated WebM (may not play on this device)"
-    : "Download Raw WebM (may not play on this device)";
-}
 
 function resolvePhaseLabel(phaseId: string | undefined | null, labels: Record<string, string>): string {
   if (!phaseId) return "none";
