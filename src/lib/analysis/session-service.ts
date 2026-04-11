@@ -46,6 +46,7 @@ function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeo
     .reverse()
     .find((transition) => transition.type === "phase_enter" && transition.phaseId && transition.phaseId !== lastTransition?.phaseId);
   const repEvent = [...output.session.events].reverse().find((event) => event.type === "rep_complete");
+  const repRejectEvent = [...output.session.events].reverse().find((event) => event.type === "partial_attempt");
 
   return {
     phaseCount: runtimeModel.phaseCount,
@@ -74,6 +75,26 @@ function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeo
         ? "insufficient_phase_count_for_rep"
         : "loop_not_completed"
       : undefined,
+    loopStartTimestampMs: typeof repRejectEvent?.details?.loopStartTimestampMs === "number"
+      ? repRejectEvent.details.loopStartTimestampMs
+      : undefined,
+    loopEndTimestampMs: typeof repRejectEvent?.details?.loopEndTimestampMs === "number"
+      ? repRejectEvent.details.loopEndTimestampMs
+      : undefined,
+    computedRepDurationMs: typeof repRejectEvent?.details?.repDurationMs === "number"
+      ? repRejectEvent.details.repDurationMs
+      : undefined,
+    minRepDurationThresholdMs: typeof repRejectEvent?.details?.minRepDurationMs === "number"
+      ? repRejectEvent.details.minRepDurationMs
+      : undefined,
+    rejectReason: typeof repRejectEvent?.details?.rejectReason === "string"
+      ? repRejectEvent.details.rejectReason
+      : typeof repRejectEvent?.details?.reason === "string"
+        ? repRejectEvent.details.reason
+        : undefined,
+    legacyMetadataIgnored: typeof repRejectEvent?.details?.legacyMetadataIgnored === "boolean"
+      ? repRejectEvent.details.legacyMetadataIgnored
+      : runtimeModel.legacyOrderMismatch,
     legacyOrderMismatch: runtimeModel.legacyOrderMismatch,
     legacyOrderMismatchDetails: runtimeModel.legacyOrderMismatchDetails,
     modeSummary: runtimeModel.measurementMode === "rep" ? runtimeModel.repCompletionSummary : runtimeModel.holdSummary,

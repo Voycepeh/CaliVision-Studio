@@ -74,6 +74,9 @@ function extractRepEvents(
   let expectedIndex = 0;
   let cycleStartMs: number | null = null;
   let lastRepMs = -Number.MAX_SAFE_INTEGER;
+  const minimumRepDurationMs = Math.max(0, analysis.minimumRepDurationMs ?? 0);
+  const cooldownMs = Math.max(0, analysis.cooldownMs ?? 0);
+  const legacyMetadataIgnored = runtimeModel.legacyOrderMismatch;
 
   for (const transition of transitions) {
     if (transition.type !== "phase_enter" || !transition.phaseId) {
@@ -94,37 +97,58 @@ function extractRepEvents(
       expectedIndex += 1;
 
       if (expectedIndex >= sequence.length) {
-        const repDurationMs = cycleStartMs === null ? 0 : transition.timestampMs - cycleStartMs;
-        const passesMinDuration = repDurationMs >= analysis.minimumRepDurationMs;
-        const outsideCooldown = transition.timestampMs - lastRepMs >= analysis.cooldownMs;
+        const loopStartTimestampMs = cycleStartMs ?? transition.timestampMs;
+        const loopEndTimestampMs = transition.timestampMs;
+        const repDurationMs = Math.max(0, loopEndTimestampMs - loopStartTimestampMs);
+        const passesMinDuration = repDurationMs >= minimumRepDurationMs;
+        const outsideCooldown = loopEndTimestampMs - lastRepMs >= cooldownMs;
         if (passesMinDuration && outsideCooldown) {
           repCount += 1;
-          lastRepMs = transition.timestampMs;
+          lastRepMs = loopEndTimestampMs;
           addEvent({
-            timestampMs: transition.timestampMs,
+            timestampMs: loopEndTimestampMs,
             type: "rep_complete",
             repIndex: repCount,
-            details: { repDurationMs }
+            details: {
+              loopStartTimestampMs,
+              loopEndTimestampMs,
+              repDurationMs,
+              minRepDurationMs: minimumRepDurationMs,
+              legacyMetadataIgnored
+            }
           });
         } else {
           partialAttemptCount += 1;
           addEvent({
-            timestampMs: transition.timestampMs,
+            timestampMs: loopEndTimestampMs,
             type: "partial_attempt",
             details: {
+              loopStartTimestampMs,
+              loopEndTimestampMs,
               repDurationMs,
-              reason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active"
+              minRepDurationMs: minimumRepDurationMs,
+              rejectReason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
+              reason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
+              legacyMetadataIgnored
             }
           });
         }
 
-        expectedIndex = 0;
-        cycleStartMs = null;
+        expectedIndex = 1;
+        cycleStartMs = loopEndTimestampMs;
       }
       continue;
     }
 
     if (enteredIndex === 0) {
+      if (expectedIndex > 0) {
+        partialAttemptCount += 1;
+        addEvent({
+          timestampMs: transition.timestampMs,
+          type: "partial_attempt",
+          details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored }
+        });
+      }
       expectedIndex = 1;
       cycleStartMs = transition.timestampMs;
       continue;
