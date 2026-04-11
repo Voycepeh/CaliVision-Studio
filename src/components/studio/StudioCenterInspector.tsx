@@ -83,6 +83,7 @@ export function StudioCenterInspector() {
   const [showDetectionTools, setShowDetectionTools] = useState(false);
   const [workspaceAlignOffset, setWorkspaceAlignOffset] = useState(0);
   const phaseSequenceSectionRef = useRef<HTMLDivElement | null>(null);
+  const mobileEditorRef = useRef<HTMLDivElement | null>(null);
   const phaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
@@ -138,6 +139,14 @@ export function StudioCenterInspector() {
   }
 
   useEffect(() => {
+    if (workspaceMode !== "pose" || !workspaceActivePhaseId || typeof window === "undefined" || window.innerWidth > 1024) {
+      return;
+    }
+
+    mobileEditorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [workspaceMode, workspaceActivePhaseId]);
+
+  useEffect(() => {
     if (workspaceMode !== "pose" || !workspaceVisible || !workspacePhase?.phaseId) {
       setWorkspaceAlignOffset(0);
       return;
@@ -188,17 +197,17 @@ export function StudioCenterInspector() {
                     <div key={phase.phaseId} ref={(element) => {
                       phaseRowRefs.current[phase.phaseId] = element;
                     }} className="studio-phase-list-item card" data-selected={selectedPhase?.phaseId === phase.phaseId}>
-                      <div style={{ display: "grid", gap: "0.45rem" }}>
-                        <div style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
+                      <div className="studio-phase-item-grid">
+                        <div className="studio-phase-row-head">
                           <span className="studio-phase-sequence-pill">#{index + 1}</span>
-                          <input value={phase.name} onChange={(event) => renamePhase(phase.phaseId, event.target.value)} style={{ ...inputStyle, maxWidth: "420px" }} />
+                          <input value={phase.name} onChange={(event) => renamePhase(phase.phaseId, event.target.value)} style={{ ...inputStyle, width: "min(100%, 420px)" }} />
                           <button type="button" className="studio-button" onClick={() => selectPhase(phase.phaseId)}>Select</button>
                           {workspaceMode === "pose" && workspaceVisible && workspacePhase?.phaseId === phase.phaseId ? <span className="pill">Editing in workspace</span> : null}
                         </div>
 
-                        <div className="studio-action-row">
+                        <div className="studio-action-row studio-phase-actions">
                           <button type="button" className="studio-button studio-button-primary" onClick={() => openPoseWorkspace(phase.phaseId)}>Edit pose</button>
-                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)}>Upload image</button>
+                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)}>Image tools</button>
                           <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)} disabled>Use camera</button>
                           {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "up")} disabled={index === 0}>↑</button> : null}
                           {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "down")} disabled={index === displayedPhases.length - 1}>↓</button> : null}
@@ -222,7 +231,57 @@ export function StudioCenterInspector() {
 
           <WorkflowSection title="3. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs includePreview={false} />
+            <div className="studio-mobile-inline-section">
+              <StudioAnimationPreviewPanel compact />
+            </div>
           </WorkflowSection>
+
+          <div ref={mobileEditorRef} className="studio-mobile-inline-section">
+            {workspaceMode === "pose" && workspacePhase ? (
+              <section className="card" style={{ display: "grid", gap: "0.55rem" }}>
+                <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Mobile pose editor</h3>
+                <PoseCanvas
+                  pose={poseModel}
+                  title="Phase pose editor"
+                  subtitle={`Phase ${workspacePhase.order}: ${workspacePhase.name}`}
+                  selected
+                  editable
+                  selectedJointName={selectedJointName}
+                  onJointSelect={selectJoint}
+                  onJointMove={(joint, x, y) => setJointCoordinates(workspacePhase.phaseId, joint, x, y)}
+                  showPoseLayer={selectedPhaseOverlayState.showPose}
+                  sizeMode="balanced"
+                  imageLayer={
+                    selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                      ? {
+                          src: selectedPhaseSourceImage.objectUrl,
+                          naturalWidth: selectedPhaseSourceImage.width,
+                          naturalHeight: selectedPhaseSourceImage.height,
+                          opacity: selectedPhaseOverlayState.imageOpacity,
+                          fitMode: selectedPhaseOverlayState.fitMode,
+                          offsetX: selectedPhaseOverlayState.offsetX,
+                          offsetY: selectedPhaseOverlayState.offsetY
+                        }
+                      : null
+                  }
+                />
+                <div className="studio-action-row studio-phase-actions">
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
+                    {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
+                  </button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
+                    {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
+                  </button>
+                  <button type="button" onClick={() => setShowDetectionTools((current) => !current)} className="studio-button">
+                    {showDetectionTools ? "Hide upload tools" : "Upload tools"}
+                  </button>
+                  <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset</button>
+                  <button type="button" onClick={() => setWorkspaceMode("preview")} className="studio-button studio-button-primary">Done</button>
+                </div>
+                {showDetectionTools ? <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} /> : null}
+              </section>
+            ) : null}
+          </div>
         </div>
         <aside className="studio-sticky-workspace" style={workspaceMode === "pose" && workspaceVisible ? { marginTop: `${workspaceAlignOffset}px` } : undefined}>
           <div className="card" style={{ display: "grid", gap: "0.45rem" }}>
