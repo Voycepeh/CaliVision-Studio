@@ -46,7 +46,7 @@ const MIN_TIMESTAMP_STEP_MS = 1;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const EXPORT_DURATION_DRIFT_WARNING_PCT = 10;
-const EXPORT_DURATION_CLAMP_TOLERANCE_RATIO = 0.02;
+const EXPORT_DURATION_DIAGNOSTIC_TOLERANCE_RATIO = 0.02;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 type VideoFrameMetadata = {
@@ -575,7 +575,7 @@ export async function exportAnnotatedVideo(
   const sourceDurationSec = durationMs / 1000;
   const analyzedDurationSec = timeline.video.durationMs / 1000;
   const expectedOutputDurationSec = durationMs / 1000;
-  const maxRenderRuntimeMs = Math.round(durationMs * (1 + EXPORT_DURATION_CLAMP_TOLERANCE_RATIO));
+  const maxRenderRuntimeMs = Math.round(durationMs * (1 + EXPORT_DURATION_DIAGNOSTIC_TOLERANCE_RATIO));
   const exportProjection = createOverlayProjection({
     viewportWidth: canvas.width,
     viewportHeight: canvas.height,
@@ -664,6 +664,7 @@ export async function exportAnnotatedVideo(
       await new Promise<void>((resolve, reject) => {
         let settled = false;
         const renderStartedAtMs = performance.now();
+        let runtimeOverrunLogged = false;
 
         const finish = () => {
           if (settled) {
@@ -684,20 +685,15 @@ export async function exportAnnotatedVideo(
         };
 
         const processSourceMediaTime = (sourceMediaTimeMs: number) => {
-          if (performance.now() - renderStartedAtMs > maxRenderRuntimeMs) {
-            logUploadEvent("ANNOTATED_EXPORT_RENDER_RUNTIME_CLAMP", {
-              elapsedMs: Math.round(performance.now() - renderStartedAtMs),
+          const elapsedMs = Math.round(performance.now() - renderStartedAtMs);
+          if (!runtimeOverrunLogged && elapsedMs > maxRenderRuntimeMs) {
+            runtimeOverrunLogged = true;
+            logUploadEvent("ANNOTATED_EXPORT_RENDER_RUNTIME_OVERRUN_DIAGNOSTIC", {
+              elapsedMs,
               maxRenderRuntimeMs,
-              sourceDurationMs: durationMs
+              sourceDurationMs: durationMs,
+              note: "Diagnostic only; export completion remains source-timestamp-driven."
             });
-            const finalSelection = selectLatestEligibleScheduledFrame(expectedFrameScheduleMs, scheduleIndex, durationMs);
-            scheduleIndex = finalSelection.nextScheduleIndex;
-            scheduledFrameDrops += finalSelection.skippedScheduledFrames;
-            if (finalSelection.renderScheduleIndex !== null) {
-              renderFrameAtTimestamp(expectedFrameScheduleMs[finalSelection.renderScheduleIndex], durationMs);
-            }
-            finish();
-            return;
           }
           const clampedSourceMediaTimeMs = Math.max(0, Math.min(durationMs, sourceMediaTimeMs));
           decodedSourceFrameCount += 1;
@@ -852,9 +848,9 @@ export async function exportAnnotatedVideo(
     const durationDriftPct = durationDriftSec === null || expectedOutputDurationSec <= 0
       ? null
       : (durationDriftSec / expectedOutputDurationSec) * 100;
-    const durationDriftWarning = typeof durationDriftPct === "number" && durationDriftPct > EXPORT_DURATION_DRIFT_WARNING_PCT;
+    const durationDriftWarning = typeof durationDriftPct === "number" && Math.abs(durationDriftPct) > EXPORT_DURATION_DRIFT_WARNING_PCT;
     const durationDriftWarningMessage = durationDriftWarning
-      ? `Annotated export duration drift exceeded threshold (${durationDriftPct.toFixed(2)}% > ${EXPORT_DURATION_DRIFT_WARNING_PCT}%).`
+      ? `Annotated export duration drift exceeded threshold (${durationDriftPct.toFixed(2)}%, abs>${EXPORT_DURATION_DRIFT_WARNING_PCT}%).`
       : undefined;
 
     if (durationDriftWarning) {
