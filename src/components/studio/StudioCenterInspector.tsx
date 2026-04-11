@@ -80,6 +80,7 @@ export function StudioCenterInspector() {
   const [workspaceVisible, setWorkspaceVisible] = useState(true);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview");
   const [workspacePhaseId, setWorkspacePhaseId] = useState<string | null>(null);
+  const [showDetectionTools, setShowDetectionTools] = useState(false);
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
@@ -130,6 +131,7 @@ export function StudioCenterInspector() {
     setWorkspacePhaseId(phaseId);
     setWorkspaceMode("pose");
     setWorkspaceVisible(true);
+    setShowDetectionTools(false);
   }
 
   return (
@@ -194,7 +196,7 @@ export function StudioCenterInspector() {
           </WorkflowSection>
 
           <WorkflowSection title="3. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
-            <StudioReviewTabs />
+            <StudioReviewTabs includePreview={false} />
           </WorkflowSection>
         </div>
 
@@ -220,33 +222,32 @@ export function StudioCenterInspector() {
             <StudioAnimationPreviewPanel />
           ) : workspacePhase ? (
             <>
-              <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} />
-              <PoseCanvas
-                pose={poseModel}
-                title="Phase pose editor"
-                subtitle={`Phase ${workspacePhase.order}: ${workspacePhase.name}`}
-                selected
-                editable
-                selectedJointName={selectedJointName}
-                onJointSelect={selectJoint}
-                onJointMove={(joint, x, y) => setJointCoordinates(workspacePhase.phaseId, joint, x, y)}
-                showPoseLayer={selectedPhaseOverlayState.showPose}
-                sizeMode="balanced"
-                imageLayer={
-                  selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
-                    ? {
-                        src: selectedPhaseSourceImage.objectUrl,
-                        naturalWidth: selectedPhaseSourceImage.width,
-                        naturalHeight: selectedPhaseSourceImage.height,
-                        opacity: selectedPhaseOverlayState.imageOpacity,
-                        fitMode: selectedPhaseOverlayState.fitMode,
-                        offsetX: selectedPhaseOverlayState.offsetX,
-                        offsetY: selectedPhaseOverlayState.offsetY
-                      }
-                    : null
-                }
-              />
-              <section className="card">
+              <section className="card" style={{ display: "grid", gap: "0.55rem" }}>
+                <PoseCanvas
+                  pose={poseModel}
+                  title="Phase pose editor"
+                  subtitle={`Phase ${workspacePhase.order}: ${workspacePhase.name}`}
+                  selected
+                  editable
+                  selectedJointName={selectedJointName}
+                  onJointSelect={selectJoint}
+                  onJointMove={(joint, x, y) => setJointCoordinates(workspacePhase.phaseId, joint, x, y)}
+                  showPoseLayer={selectedPhaseOverlayState.showPose}
+                  sizeMode="balanced"
+                  imageLayer={
+                    selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                      ? {
+                          src: selectedPhaseSourceImage.objectUrl,
+                          naturalWidth: selectedPhaseSourceImage.width,
+                          naturalHeight: selectedPhaseSourceImage.height,
+                          opacity: selectedPhaseOverlayState.imageOpacity,
+                          fitMode: selectedPhaseOverlayState.fitMode,
+                          offsetX: selectedPhaseOverlayState.offsetX,
+                          offsetY: selectedPhaseOverlayState.offsetY
+                        }
+                      : null
+                  }
+                />
                 <div className="studio-action-row">
                   <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
                     {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
@@ -254,9 +255,13 @@ export function StudioCenterInspector() {
                   <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
                     {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
                   </button>
+                  <button type="button" onClick={() => setShowDetectionTools((current) => !current)} className="studio-button">
+                    {showDetectionTools ? "Hide upload tools" : "Upload tools"}
+                  </button>
                   <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset</button>
                   <button type="button" onClick={() => setWorkspaceMode("preview")} className="studio-button studio-button-primary">Done</button>
                 </div>
+                {showDetectionTools ? <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} /> : null}
               </section>
             </>
           ) : (
