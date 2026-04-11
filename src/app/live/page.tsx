@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { RoutePageIntro } from "@/components/layout/RoutePageIntro";
 import { LiveStreamingWorkspace } from "@/components/live/LiveStreamingWorkspace";
 
@@ -8,7 +9,9 @@ export default function LivePage() {
       title="Live Streaming"
       description="Run a browser camera session with lightweight live analysis, retain timestamped trace events, then export annotated replay without routing through Upload Video."
     >
-      <LiveStreamingWorkspace />
+      <Suspense fallback={<p className="muted">Loading live workspace…</p>}>
+        <LiveStreamingWorkspace />
+      </Suspense>
     </RoutePageIntro>
   );
 }

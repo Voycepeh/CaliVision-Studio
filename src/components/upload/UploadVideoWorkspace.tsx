@@ -661,8 +661,8 @@ export function UploadVideoWorkspace() {
     isProcessingAnnotated: hasActiveUpload
   });
   const downloadTargets = resolveAvailableDownloads({
-    hasRaw: Boolean(rawPreviewObjectUrl) && canDeliverRaw,
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl) && canDeliverAnnotated
+    hasRaw: Boolean(rawPreviewObjectUrl),
+    hasAnnotated: Boolean(annotatedPreviewObjectUrl)
   });
   const previewCompatibilityMessage = useMemo(() => {
     if (!activeJob?.artefacts) {
@@ -982,6 +982,7 @@ export function UploadVideoWorkspace() {
                   <button
                     type="button"
                     className="pill"
+                    disabled={!canDeliverAnnotated}
                     onClick={() =>
                       downloadBlob(
                         activeJob.artefacts!.annotatedVideoBlob!,
@@ -989,19 +990,19 @@ export function UploadVideoWorkspace() {
                       )
                     }
                   >
-                    Download Annotated Video
+                    {canDeliverAnnotated ? "Download Annotated Video" : "Annotated export (WebM, not Apple-safe yet)"}
                   </button>
                 ) : null}
                 {!canDeliverAnnotated && Boolean(annotatedPreviewObjectUrl) ? (
-                  <span className="muted">Annotated download is unavailable in this browser because this export format is not Apple-safe.</span>
+                  <span className="muted">Annotated export currently uses WebM in this browser and is not playable on Apple devices yet.</span>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
-                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)}>
-                    Download Raw Video
+                  <button type="button" className="pill" disabled={!canDeliverRaw} onClick={() => downloadBlob(activeJob.file, activeJob.fileName)}>
+                    {canDeliverRaw ? "Download Raw Video" : "Raw export (format not Apple-safe)"}
                   </button>
                 ) : null}
                 {!canDeliverRaw && Boolean(rawPreviewObjectUrl) ? (
-                  <span className="muted">Raw download is hidden because this browser cannot reliably play this format.</span>
+                  <span className="muted">Raw recording currently uses a browser-limited format and may not play on Apple devices.</span>
                 ) : null}
                 <button
                   type="button"

@@ -261,7 +261,7 @@ export function LiveStreamingWorkspace() {
     preferredCompletedSurface: completedPreviewSurface
   });
   const replayUrl = replayPreviewState === "showing_annotated_completed" ? annotatedReplayUrl : rawReplayUrl;
-  const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl) && canDeliverRawReplay, hasAnnotated: Boolean(annotatedReplayUrl) && canDeliverAnnotatedReplay });
+  const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl), hasAnnotated: Boolean(annotatedReplayUrl) });
   const canToggleReplayPreview = canToggleCompletedPreview({
     hasRaw: Boolean(rawReplayUrl) && canPlayRawReplay,
     hasAnnotated: Boolean(annotatedReplayUrl) && canPlayAnnotatedReplay,
@@ -1068,6 +1068,7 @@ export function LiveStreamingWorkspace() {
                           <button
                             type="button"
                             className="studio-button studio-button-primary"
+                            disabled={!canDeliverAnnotatedReplay}
                             onClick={() =>
                               triggerDownload(
                                 annotatedReplayUrl,
@@ -1075,23 +1076,24 @@ export function LiveStreamingWorkspace() {
                               )
                             }
                           >
-                            Download annotated
+                            {canDeliverAnnotatedReplay ? "Download annotated" : "Annotated export (WebM, not Apple-safe yet)"}
                           </button>
                         ) : null}
                         {!canDeliverAnnotatedReplay && annotatedReplayUrl ? (
-                          <span className="muted">Annotated download is unavailable because this export format is not Apple-safe.</span>
+                          <span className="muted">Annotated export currently uses WebM in this browser and is not playable on Apple devices yet.</span>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
                           <button
                             type="button"
                             className="studio-button"
+                            disabled={!canDeliverRawReplay}
                             onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionForVideoMimeType(rawReplayMimeType)}`)}
                           >
-                            Download raw
+                            {canDeliverRawReplay ? "Download raw" : "Raw export (format not Apple-safe)"}
                           </button>
                         ) : null}
                         {!canDeliverRawReplay && rawReplayUrl ? (
-                          <span className="muted">Raw download is hidden because this browser cannot reliably play this format.</span>
+                          <span className="muted">Raw recording currently uses a browser-limited format and may not play on Apple devices.</span>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
                           Retake
