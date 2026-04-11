@@ -116,6 +116,95 @@ export function StudioCenterInspector() {
     setExpandIntent("pose");
   }
 
+  const phaseCards = displayedPhases.map((phase, index) => {
+    const isExpanded = expandedPhaseId === phase.phaseId;
+    const phasePose = phase.poseSequence[0] ?? null;
+    const poseModel = mapPortablePoseToCanvasPoseModel(
+      phasePose
+        ? {
+            ...phasePose,
+            canvas: {
+              ...phasePose.canvas,
+              view: selectedPhaseEditorView
+            }
+          }
+        : null
+    );
+
+    return (
+      <div key={phase.phaseId} className="studio-phase-list-item card" data-selected={selectedPhase?.phaseId === phase.phaseId}>
+        <div className="studio-phase-item-grid">
+          <div className="studio-phase-row-head">
+            <span className="studio-phase-sequence-pill">#{index + 1}</span>
+            <input value={phase.name} onChange={(event) => renamePhase(phase.phaseId, event.target.value)} style={{ ...inputStyle, width: "min(100%, 420px)" }} />
+            {isExpanded ? <span className="pill">Editor open</span> : null}
+          </div>
+
+          <div className="studio-action-row studio-phase-actions">
+            <button type="button" className="studio-button studio-button-primary" onClick={() => openInlineEditor(phase.phaseId, "pose")}>Edit pose</button>
+            <button type="button" className="studio-button" onClick={() => openInlineEditor(phase.phaseId, "upload")}>Upload image</button>
+            <button type="button" className="studio-button" onClick={() => openInlineEditor(phase.phaseId, "camera")}>Use camera</button>
+            {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "up")} disabled={index === 0}>↑</button> : null}
+            {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "down")} disabled={index === displayedPhases.length - 1}>↓</button> : null}
+            {!holdDrill ? <button type="button" className="studio-button" onClick={() => duplicatePhase(phase.phaseId)}>Duplicate</button> : null}
+            {!holdDrill ? <button type="button" className="studio-button studio-button-danger" onClick={() => deletePhase(phase.phaseId)} disabled={displayedPhases.length <= 1}>Delete</button> : null}
+          </div>
+
+          <textarea
+            value={phase.summary ?? ""}
+            onChange={(event) => setPhaseSummary(phase.phaseId, event.target.value)}
+            style={{ ...inputStyle, minHeight: "54px", resize: "vertical" }}
+            placeholder="Optional phase notes"
+          />
+
+          {isExpanded ? (
+            <section className="card" style={{ display: "grid", gap: "0.55rem" }}>
+              <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Phase editor</h3>
+              <PoseCanvas
+                pose={poseModel}
+                title="Phase pose editor"
+                subtitle={`Phase ${phase.order}: ${phase.name}`}
+                selected
+                editable
+                selectedJointName={selectedJointName}
+                onJointSelect={selectJoint}
+                onJointMove={(joint, x, y) => setJointCoordinates(phase.phaseId, joint, x, y)}
+                showPoseLayer={selectedPhaseOverlayState.showPose}
+                sizeMode="balanced"
+                imageLayer={
+                  selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                    ? {
+                        src: selectedPhaseSourceImage.objectUrl,
+                        naturalWidth: selectedPhaseSourceImage.width,
+                        naturalHeight: selectedPhaseSourceImage.height,
+                        opacity: selectedPhaseOverlayState.imageOpacity,
+                        fitMode: selectedPhaseOverlayState.fitMode,
+                        offsetX: selectedPhaseOverlayState.offsetX,
+                        offsetY: selectedPhaseOverlayState.offsetY
+                      }
+                    : null
+                }
+              />
+
+              <div className="studio-action-row studio-phase-actions">
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
+                  {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
+                </button>
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
+                  {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
+                </button>
+                <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlays</button>
+                <button type="button" onClick={() => closeInlineEditor()} className="studio-button studio-button-primary">Done</button>
+              </div>
+
+              <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "pose" ? null : expandIntent} />
+            </section>
+          ) : null}
+        </div>
+      </div>
+    );
+  });
+
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
       <header>
