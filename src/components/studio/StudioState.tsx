@@ -1337,9 +1337,12 @@ export function StudioStateProvider({
     if (!selectedScopeKey || !selectedPhaseId || !selectedPackage) {
       return;
     }
+    const scopeKey = selectedScopeKey;
+    const phaseId = selectedPhaseId;
+    const packageKey = selectedPackage.packageKey;
 
     const mimeType = file.type || "application/octet-stream";
-    const identity = toPhaseAssetIdentity(selectedPhaseId, file.name, mimeType);
+    const identity = toPhaseAssetIdentity(phaseId, file.name, mimeType);
     const objectUrl = URL.createObjectURL(file);
 
     try {
@@ -1359,39 +1362,39 @@ export function StudioStateProvider({
 
       setPackageAssetBlobs((current) => ({
         ...current,
-        [selectedPackage.packageKey]: {
-          ...(current[selectedPackage.packageKey] ?? {}),
+        [packageKey]: {
+          ...(current[packageKey] ?? {}),
           [identity.assetId]: file
         }
       }));
 
       setPhaseSourceImages((current) => {
-        const existing = current[selectedScopeKey];
+        const existing = current[scopeKey];
         if (existing?.objectUrl) {
           URL.revokeObjectURL(existing.objectUrl);
         }
 
         return {
           ...current,
-          [selectedScopeKey]: sourceImage
+          [scopeKey]: sourceImage
         };
       });
       setPhaseOverlayState((current) => ({
         ...current,
-        [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
+        [scopeKey]: DEFAULT_PHASE_OVERLAY_STATE
       }));
 
       setPhaseDetectionState((current) => ({
         ...current,
-        [selectedScopeKey]: {
-          status: "uploaded",
+        [scopeKey]: {
+          status: "detecting",
           result: null,
-          message: "Image uploaded. Run detection to preview mapped canonical joints."
+          message: "Image ready. Detecting and applying pose..."
         }
       }));
 
-      withPhaseUpdate(selectedPhaseId, (phase) => {
-        const nextAsset = toPhaseAssetRef(selectedPhaseId, sourceImage);
+      withPhaseUpdate(phaseId, (phase) => {
+        const nextAsset = toPhaseAssetRef(phaseId, sourceImage);
         const existingIndex = phase.assetRefs.findIndex((asset) => asset.assetId === nextAsset.assetId);
 
         if (existingIndex >= 0) {
@@ -1413,7 +1416,7 @@ export function StudioStateProvider({
             type: "image",
             role: "phase-source-image",
             ownerDrillId: drill?.drillId,
-            ownerPhaseId: selectedPhaseId,
+            ownerPhaseId: phaseId,
             uri: identity.portableUri,
             mimeType,
             byteSize: file.size
@@ -1426,11 +1429,13 @@ export function StudioStateProvider({
           }
         })
       );
+
+      await runPoseDetectionForScope(scopeKey, phaseId, sourceImage);
     } catch {
       URL.revokeObjectURL(objectUrl);
       setPhaseDetectionState((current) => ({
         ...current,
-        [selectedScopeKey]: {
+        [scopeKey]: {
           status: "failed",
           result: null,
           message: "Image failed to load. Choose a different file and try again."
@@ -1575,45 +1580,67 @@ export function StudioStateProvider({
     );
   }
 
-  async function runPoseDetectionForSelectedPhase(): Promise<void> {
-    if (!selectedScopeKey || !selectedPhaseSourceImage) {
-      return;
-    }
-
+  async function runPoseDetectionForScope(scopeKey: string, phaseId: string, sourceImage: PhaseSourceImage): Promise<void> {
     setPhaseDetectionState((current) => ({
       ...current,
-      [selectedScopeKey]: {
+      [scopeKey]: {
         status: "detecting",
         result: null,
-        message: "Running MediaPipe pose detection on uploaded image..."
+        message: "Detecting and applying pose..."
       }
     }));
 
     try {
-      const image = await loadImageFromObjectUrl(selectedPhaseSourceImage.objectUrl);
+      const image = await loadImageFromObjectUrl(sourceImage.objectUrl);
       const result = await detectPoseFromImage(image);
+
+      if (result.status === "failed") {
+        setPhaseDetectionState((current) => ({
+          ...current,
+          [scopeKey]: {
+            status: "failed",
+            result,
+            message: "Pose detection failed. Try another image or retry detection."
+          }
+        }));
+        return;
+      }
+
+      withPhaseUpdate(phaseId, (phase, view) => {
+        const poseId = phase.poseSequence[0]?.poseId ?? `${phaseId}_pose_001`;
+        const nextPose = mapDetectionResultToPortablePose(result, {
+          poseId,
+          timestampMs: phase.poseSequence[0]?.timestampMs ?? phase.startOffsetMs ?? 0,
+          view
+        });
+        phase.poseSequence = [nextPose];
+      });
 
       setPhaseDetectionState((current) => ({
         ...current,
-        [selectedScopeKey]: {
-          status: result.status === "failed" ? "failed" : "detected",
+        [scopeKey]: {
+          status: "applied",
           result,
-          message:
-            result.status === "failed"
-              ? "Pose detection failed. Existing phase pose was preserved."
-              : `Detected ${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} canonical joints. Review and apply to replace phase pose.`
+          message: `Pose detected and applied (${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} joints).`
         }
       }));
     } catch (error) {
       setPhaseDetectionState((current) => ({
         ...current,
-        [selectedScopeKey]: {
+        [scopeKey]: {
           status: "failed",
           result: null,
           message: error instanceof Error ? error.message : "Unexpected detection failure."
         }
       }));
     }
+  }
+
+  async function runPoseDetectionForSelectedPhase(): Promise<void> {
+    if (!selectedScopeKey || !selectedPhaseSourceImage || !selectedPhaseId) {
+      return;
+    }
+    await runPoseDetectionForScope(selectedScopeKey, selectedPhaseId, selectedPhaseSourceImage);
   }
 
   function applyDetectionToSelectedPhase(): void {

@@ -210,6 +210,19 @@ main {
   flex-wrap: wrap;
 }
 
+.studio-joint-nudge-panel {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.studio-joint-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, auto));
+  justify-content: start;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .studio-button {
   border: 1px solid var(--border);
   border-radius: 0.55rem;
