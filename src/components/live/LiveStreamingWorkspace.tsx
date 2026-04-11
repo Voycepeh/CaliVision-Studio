@@ -28,6 +28,7 @@ import {
   getCameraSupportStatus,
   getHardwareZoomSupport,
   getSupportedZoomPresets,
+  getZoomDiagnostics,
   getReplayStateMessage,
   getReplayStateTone,
   mapLiveTraceToTimelineMarkers,
@@ -81,6 +82,29 @@ type LiveCadenceStats = {
 type LiveHardwareZoomState =
   | { supported: false; value: 1 }
   | { supported: true; value: number; min: number; max: number; step: number; presets: number[] };
+
+function getSupportedConstraintsZoomFlag(): boolean {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getSupportedConstraints) {
+    return false;
+  }
+  const constraints = navigator.mediaDevices.getSupportedConstraints() as MediaTrackSupportedConstraints & { zoom?: boolean };
+  return Boolean(constraints.zoom);
+}
+
+function buildLiveCameraConstraints(isRearCamera: boolean, supportsZoomConstraint: boolean): MediaStreamConstraints {
+  const facingMode = isRearCamera ? ({ ideal: "environment" } as const) : ({ ideal: "user" } as const);
+  const baseVideo: MediaTrackConstraints = { facingMode };
+  if (!supportsZoomConstraint) {
+    return { video: baseVideo, audio: false };
+  }
+  return {
+    video: {
+      ...baseVideo,
+      zoom: { ideal: 1 }
+    } as MediaTrackConstraints & { zoom?: ConstrainDouble },
+    audio: false
+  };
+}
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -150,6 +174,7 @@ export function LiveStreamingWorkspace() {
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
+  const [zoomSupportNote, setZoomSupportNote] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
   const [liveHardwareZoom, setLiveHardwareZoom] = useState<LiveHardwareZoomState>({ supported: false, value: 1 });
   const requestedDrillKey = searchParams.get("drillKey");
@@ -470,6 +495,7 @@ export function LiveStreamingWorkspace() {
     }
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
+    setZoomSupportNote(null);
   }, [updateFramingWarning, updateTrackingStatus]);
 
   const syncOverlayCanvasSize = useCallback((force = false) => {
@@ -699,13 +725,49 @@ export function LiveStreamingWorkspace() {
 
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: isRearCamera ? { ideal: "environment" } : { ideal: "user" } },
-        audio: false
-      });
+      const supportsZoomConstraint = getSupportedConstraintsZoomFlag();
+      const requestedConstraints = buildLiveCameraConstraints(isRearCamera, supportsZoomConstraint);
+      stream = await navigator.mediaDevices.getUserMedia(requestedConstraints);
       const activeVideoTrack = stream.getVideoTracks()[0] ?? null;
       activeVideoTrackRef.current = activeVideoTrack;
+      const rawCapabilities = activeVideoTrack?.getCapabilities ? (activeVideoTrack.getCapabilities() as { zoom?: unknown }) : null;
+      const rawCapabilityZoom = rawCapabilities?.zoom as { min?: unknown; max?: unknown; step?: unknown } | undefined;
+      const capabilityZoom =
+        typeof rawCapabilityZoom?.min === "number" && typeof rawCapabilityZoom?.max === "number"
+          ? {
+              min: rawCapabilityZoom.min,
+              max: rawCapabilityZoom.max,
+              step: typeof rawCapabilityZoom.step === "number" && Number.isFinite(rawCapabilityZoom.step) ? rawCapabilityZoom.step : 0.1
+            }
+          : null;
+      const rawSettings = activeVideoTrack?.getSettings ? (activeVideoTrack.getSettings() as { zoom?: unknown }) : null;
+      const settingsZoom = typeof rawSettings?.zoom === "number" && Number.isFinite(rawSettings.zoom) ? rawSettings.zoom : null;
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+      const rearCameras = devices.filter((device) => device.kind === "videoinput" && /back|rear|environment/i.test(device.label)).length;
       const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
+      const zoomDiagnostics = getZoomDiagnostics(zoomSupport, {
+        supportedConstraintsZoom: supportsZoomConstraint,
+        capabilityZoom,
+        settingsZoom,
+        rearCameraCount: rearCameras
+      });
+      if (zoomDiagnostics.zeroPointFiveExcludedReason === "included") {
+        setZoomSupportNote(null);
+      } else {
+        setZoomSupportNote("0.5x not exposed by this browser/camera track.");
+      }
+      console.info("[live-overlay] hardware-zoom diagnostics", {
+        facingMode: isRearCamera ? "rear" : "front",
+        requestedConstraints,
+        supportedConstraintsZoom: zoomDiagnostics.supportedConstraintsZoom,
+        capabilityZoom: zoomDiagnostics.capabilityZoom,
+        settingsZoom: zoomDiagnostics.settingsZoom,
+        derived: zoomDiagnostics.derived,
+        supportedPresets: zoomDiagnostics.supportedPresets,
+        zeroPointFiveExcludedReason: zoomDiagnostics.zeroPointFiveExcludedReason,
+        rearCameraCount: zoomDiagnostics.rearCameraCount,
+        separateRearLensLikely: Boolean(zoomDiagnostics.rearCameraCount && zoomDiagnostics.rearCameraCount > 1)
+      });
       if (zoomSupport.supported) {
         const availablePresets = getSupportedZoomPresets(zoomSupport, APP_HARDWARE_ZOOM_PRESETS);
         if (availablePresets.length > 0) {
@@ -736,14 +798,16 @@ export function LiveStreamingWorkspace() {
             facingMode: isRearCamera ? "rear" : "front",
             reason: "no_supported_presets",
             min: zoomSupport.min,
-            max: zoomSupport.max
+            max: zoomSupport.max,
+            zeroPointFiveExcludedReason: zoomDiagnostics.zeroPointFiveExcludedReason
           });
         }
       } else {
         selectedZoomRef.current = 1;
         setLiveHardwareZoom({ supported: false, value: 1 });
         console.info("[live-overlay] hardware-zoom unsupported", {
-          facingMode: isRearCamera ? "rear" : "front"
+          facingMode: isRearCamera ? "rear" : "front",
+          zeroPointFiveExcludedReason: zoomDiagnostics.zeroPointFiveExcludedReason
         });
       }
       liveStreamRef.current = stream;
@@ -1351,6 +1415,7 @@ export function LiveStreamingWorkspace() {
               </div>
             ) : null}
             {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
+            {status === "live-session-running" && zoomSupportNote ? <div className="live-streaming-zoom-unsupported">{zoomSupportNote}</div> : null}
           </div>
         </div>
 

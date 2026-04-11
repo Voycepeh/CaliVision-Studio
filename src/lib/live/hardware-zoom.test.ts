@@ -7,6 +7,7 @@ import {
   clampHardwareZoomValue,
   formatHardwareZoomLabel,
   getHardwareZoomSupport,
+  getZoomDiagnostics,
   getSupportedZoomPresets,
   resolveSelectedZoomPreset
 } from "./hardware-zoom.ts";
@@ -48,6 +49,21 @@ test("getSupportedZoomPresets de-duplicates snapped presets while preserving ord
   assert.deepEqual(supported, [1, 1.5, 2]);
 });
 
+test("getSupportedZoomPresets excludes 0.5x when min zoom is above 0.5", () => {
+  const supported = getSupportedZoomPresets({ supported: true, min: 1, max: 3, step: 0.1, current: 1 });
+  assert.equal(supported.includes(0.5), false);
+});
+
+test("getSupportedZoomPresets includes 0.5x when capability range supports it", () => {
+  const supported = getSupportedZoomPresets({ supported: true, min: 0.5, max: 3, step: 0.1, current: 1 });
+  assert.equal(supported.includes(0.5), true);
+});
+
+test("getSupportedZoomPresets keeps 0.5x available with step snapping tolerance", () => {
+  const supported = getSupportedZoomPresets({ supported: true, min: 0.5, max: 3, step: 0.3, current: 1 });
+  assert.equal(supported.includes(0.5), true);
+});
+
 test("getSupportedZoomPresets returns empty for unsupported tracks", () => {
   assert.deepEqual(getSupportedZoomPresets({ supported: false }, APP_HARDWARE_ZOOM_PRESETS), []);
 });
@@ -83,6 +99,23 @@ test("applyHardwareZoomPreset snaps to nearest valid step before apply", async (
 test("resolveSelectedZoomPreset returns only exact applied preset matches", () => {
   assert.equal(resolveSelectedZoomPreset(1.25, [1, 1.25, 1.5]), 1.25);
   assert.equal(resolveSelectedZoomPreset(1.2, [1, 1.25, 1.5]), null);
+});
+
+test("getZoomDiagnostics marks zoom as unsupported when capabilities are missing", () => {
+  const diagnostics = getZoomDiagnostics(
+    { supported: false },
+    { supportedConstraintsZoom: true, capabilityZoom: null, settingsZoom: null }
+  );
+  assert.equal(diagnostics.zeroPointFiveExcludedReason, "capabilities_missing");
+  assert.deepEqual(diagnostics.supportedPresets, []);
+});
+
+test("getZoomDiagnostics marks min zoom above 0.5 exclusion reason", () => {
+  const diagnostics = getZoomDiagnostics(
+    { supported: true, min: 1, max: 3, step: 0.1, current: 1 },
+    { supportedConstraintsZoom: true, capabilityZoom: { min: 1, max: 3, step: 0.1 }, settingsZoom: 1 }
+  );
+  assert.equal(diagnostics.zeroPointFiveExcludedReason, "min_zoom_above_half");
 });
 
 test("formatHardwareZoomLabel formats one decimal place", () => {

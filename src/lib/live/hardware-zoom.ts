@@ -16,6 +16,23 @@ export type ZoomTrackLike = {
 
 export const APP_HARDWARE_ZOOM_PRESETS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2] as const;
 const ZOOM_EPSILON = 0.0001;
+const ZOOM_DIAGNOSTIC_EPSILON = 0.005;
+
+export type ZoomDiagnostics = {
+  supportedConstraintsZoom: boolean;
+  capabilityZoom: { min: number; max: number; step: number } | null;
+  settingsZoom: number | null;
+  derived: { min: number; max: number; step: number; current: number } | null;
+  supportedPresets: number[];
+  zeroPointFiveExcludedReason:
+    | "included"
+    | "zoom_unsupported"
+    | "ptz_constraint_not_supported"
+    | "capabilities_missing"
+    | "min_zoom_above_half"
+    | "snapped_above_half";
+  rearCameraCount: number | null;
+};
 
 function toFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -57,6 +74,46 @@ export function getHardwareZoomSupport(track: ZoomTrackLike | null | undefined):
     max,
     step: step > 0 ? step : 0.1,
     current: normalizedCurrent
+  };
+}
+
+export function getZoomDiagnostics(
+  support: HardwareZoomSupport,
+  options: {
+    supportedConstraintsZoom: boolean;
+    capabilityZoom: { min: number; max: number; step: number } | null;
+    settingsZoom: number | null;
+    rearCameraCount?: number | null;
+  }
+): ZoomDiagnostics {
+  const supportedPresets = getSupportedZoomPresets(support, APP_HARDWARE_ZOOM_PRESETS);
+  const includesHalf = supportedPresets.some((preset) => Math.abs(preset - 0.5) <= ZOOM_DIAGNOSTIC_EPSILON);
+  let zeroPointFiveExcludedReason: ZoomDiagnostics["zeroPointFiveExcludedReason"] = "included";
+
+  if (!includesHalf) {
+    if (!support.supported) {
+      if (!options.supportedConstraintsZoom) {
+        zeroPointFiveExcludedReason = "ptz_constraint_not_supported";
+      } else if (!options.capabilityZoom) {
+        zeroPointFiveExcludedReason = "capabilities_missing";
+      } else {
+        zeroPointFiveExcludedReason = "zoom_unsupported";
+      }
+    } else if (support.min - ZOOM_DIAGNOSTIC_EPSILON > 0.5) {
+      zeroPointFiveExcludedReason = "min_zoom_above_half";
+    } else {
+      zeroPointFiveExcludedReason = "snapped_above_half";
+    }
+  }
+
+  return {
+    supportedConstraintsZoom: options.supportedConstraintsZoom,
+    capabilityZoom: options.capabilityZoom,
+    settingsZoom: options.settingsZoom,
+    derived: support.supported ? { min: support.min, max: support.max, step: support.step, current: support.current } : null,
+    supportedPresets,
+    zeroPointFiveExcludedReason,
+    rearCameraCount: options.rearCameraCount ?? null
   };
 }
 
