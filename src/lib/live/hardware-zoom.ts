@@ -68,9 +68,17 @@ export function getSupportedZoomPresets(
     return [];
   }
 
-  return appPresets
-    .filter((preset) => Number.isFinite(preset) && isWithinZoomRange(preset, support.min, support.max))
-    .map((preset) => clampHardwareZoomValue(preset, support));
+  const supportedPresets: number[] = [];
+  for (const preset of appPresets) {
+    if (!Number.isFinite(preset) || !isWithinZoomRange(preset, support.min, support.max)) {
+      continue;
+    }
+    const snappedPreset = clampHardwareZoomValue(preset, support);
+    if (!supportedPresets.some((value) => Math.abs(value - snappedPreset) <= ZOOM_EPSILON)) {
+      supportedPresets.push(snappedPreset);
+    }
+  }
+  return supportedPresets;
 }
 
 export function resolveSelectedZoomPreset(currentZoom: number, availablePresets: readonly number[]): number | null {

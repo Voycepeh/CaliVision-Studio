@@ -43,6 +43,11 @@ test("getSupportedZoomPresets filters app presets by capability range and step",
   assert.deepEqual(supported, [1, 1.2, 1.5]);
 });
 
+test("getSupportedZoomPresets de-duplicates snapped presets while preserving order", () => {
+  const supported = getSupportedZoomPresets({ supported: true, min: 1, max: 2, step: 0.5, current: 1 });
+  assert.deepEqual(supported, [1, 1.5, 2]);
+});
+
 test("getSupportedZoomPresets returns empty for unsupported tracks", () => {
   assert.deepEqual(getSupportedZoomPresets({ supported: false }, APP_HARDWARE_ZOOM_PRESETS), []);
 });
