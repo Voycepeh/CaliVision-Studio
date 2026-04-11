@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapDetectionResultToPortablePose } from "@/lib/detection";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
@@ -25,12 +25,19 @@ export function DetectionWorkflowPanel({
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase
   } = useStudioState();
-  const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraCaptureInputRef = useRef<HTMLInputElement | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const [cameraStatus, setCameraStatus] = useState<"idle" | "starting" | "live" | "error">("idle");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+
+  const stopCameraStream = useCallback(() => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraStatus("idle");
+    if (cameraVideoRef.current) {
+      cameraVideoRef.current.srcObject = null;
+    }
+  }, [cameraStream]);
 
   const previewPoseModel = useMemo(() => {
     const detectionResult = selectedPhaseDetection.result;
@@ -54,11 +61,12 @@ export function DetectionWorkflowPanel({
 
   useEffect(() => {
     if (entryMode !== "camera") {
+      stopCameraStream();
       return;
     }
 
     setCameraError(null);
-  }, [entryMode]);
+  }, [entryMode, stopCameraStream]);
 
   async function handleSelectedFile(file: File | null | undefined): Promise<void> {
     if (!file) {
@@ -75,12 +83,21 @@ export function DetectionWorkflowPanel({
       return;
     }
 
-    cameraStream?.getTracks().forEach((track) => track.stop());
+    stopCameraStream();
     setCameraStatus("starting");
     setCameraError(null);
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } } });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+      }
       setCameraStream(stream);
       if (cameraVideoRef.current) {
         cameraVideoRef.current.srcObject = stream;
@@ -137,7 +154,6 @@ export function DetectionWorkflowPanel({
           <label style={labelStyle}>
             <span>Upload phase image (local only)</span>
             <input
-              ref={uploadInputRef}
               type="file"
               accept="image/png,image/jpeg,image/webp"
               style={inputStyle}
@@ -150,7 +166,6 @@ export function DetectionWorkflowPanel({
           <label style={labelStyle}>
             <span>Mobile camera fallback (capture via file picker)</span>
             <input
-              ref={cameraCaptureInputRef}
               type="file"
               accept="image/*"
               capture="environment"
