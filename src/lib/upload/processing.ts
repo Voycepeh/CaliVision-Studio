@@ -45,6 +45,8 @@ const INITIAL_READY_TIMEOUT_MS = 8000;
 const MIN_TIMESTAMP_STEP_MS = 1;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
+const EXPORT_DURATION_DRIFT_WARNING_PCT = 10;
+const EXPORT_DURATION_CLAMP_TOLERANCE_RATIO = 0.02;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
 type VideoFrameMetadata = {
@@ -500,7 +502,25 @@ export async function exportAnnotatedVideo(
     phaseCount?: number;
     onProgress?: (progress: number, stageLabel: string) => void;
   }
-): Promise<{ blob: Blob; mimeType: string }> {
+): Promise<{
+  blob: Blob;
+  mimeType: string;
+  diagnostics: {
+    sourceDurationSec: number;
+    analyzedDurationSec: number;
+    renderedFrameCount: number;
+    renderFpsTarget: number;
+    firstFrameTsMs: number | null;
+    lastFrameTsMs: number | null;
+    expectedOutputDurationSec: number;
+    actualOutputDurationSec: number | null;
+    durationDriftSec: number | null;
+    durationDriftPct: number | null;
+    exportContainerType: string;
+    durationDriftWarning: boolean;
+    durationDriftWarningMessage?: string;
+  };
+}> {
   const { video, objectUrl } = await loadVideoElement(file);
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -552,6 +572,10 @@ export async function exportAnnotatedVideo(
   const phaseLabels = options?.phaseLabels;
   const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
+  const sourceDurationSec = durationMs / 1000;
+  const analyzedDurationSec = timeline.video.durationMs / 1000;
+  const expectedOutputDurationSec = durationMs / 1000;
+  const maxRenderRuntimeMs = Math.round(durationMs * (1 + EXPORT_DURATION_CLAMP_TOLERANCE_RATIO));
   const exportProjection = createOverlayProjection({
     viewportWidth: canvas.width,
     viewportHeight: canvas.height,
@@ -639,6 +663,7 @@ export async function exportAnnotatedVideo(
 
       await new Promise<void>((resolve, reject) => {
         let settled = false;
+        const renderStartedAtMs = performance.now();
 
         const finish = () => {
           if (settled) {
@@ -659,6 +684,21 @@ export async function exportAnnotatedVideo(
         };
 
         const processSourceMediaTime = (sourceMediaTimeMs: number) => {
+          if (performance.now() - renderStartedAtMs > maxRenderRuntimeMs) {
+            logUploadEvent("ANNOTATED_EXPORT_RENDER_RUNTIME_CLAMP", {
+              elapsedMs: Math.round(performance.now() - renderStartedAtMs),
+              maxRenderRuntimeMs,
+              sourceDurationMs: durationMs
+            });
+            const finalSelection = selectLatestEligibleScheduledFrame(expectedFrameScheduleMs, scheduleIndex, durationMs);
+            scheduleIndex = finalSelection.nextScheduleIndex;
+            scheduledFrameDrops += finalSelection.skippedScheduledFrames;
+            if (finalSelection.renderScheduleIndex !== null) {
+              renderFrameAtTimestamp(expectedFrameScheduleMs[finalSelection.renderScheduleIndex], durationMs);
+            }
+            finish();
+            return;
+          }
           const clampedSourceMediaTimeMs = Math.max(0, Math.min(durationMs, sourceMediaTimeMs));
           decodedSourceFrameCount += 1;
           if (firstDecodedTimestampMs === null) {
@@ -807,8 +847,47 @@ export async function exportAnnotatedVideo(
       });
     }
 
+    const actualOutputDurationSec = muxedDurationMs === null ? null : muxedDurationMs / 1000;
+    const durationDriftSec = actualOutputDurationSec === null ? null : actualOutputDurationSec - expectedOutputDurationSec;
+    const durationDriftPct = durationDriftSec === null || expectedOutputDurationSec <= 0
+      ? null
+      : (durationDriftSec / expectedOutputDurationSec) * 100;
+    const durationDriftWarning = typeof durationDriftPct === "number" && durationDriftPct > EXPORT_DURATION_DRIFT_WARNING_PCT;
+    const durationDriftWarningMessage = durationDriftWarning
+      ? `Annotated export duration drift exceeded threshold (${durationDriftPct.toFixed(2)}% > ${EXPORT_DURATION_DRIFT_WARNING_PCT}%).`
+      : undefined;
+
+    if (durationDriftWarning) {
+      logUploadEvent("ANNOTATED_EXPORT_DURATION_DRIFT_WARNING", {
+        sourceDurationSec,
+        expectedOutputDurationSec,
+        actualOutputDurationSec,
+        durationDriftSec,
+        durationDriftPct,
+        driftThresholdPct: EXPORT_DURATION_DRIFT_WARNING_PCT
+      });
+    }
+
     options?.onProgress?.(1, "Annotated export complete");
-    return { blob, mimeType };
+    return {
+      blob,
+      mimeType,
+      diagnostics: {
+        sourceDurationSec,
+        analyzedDurationSec,
+        renderedFrameCount: actualRenderedFrameCount,
+        renderFpsTarget: exportFps,
+        firstFrameTsMs: renderedTimestampsMs[0] ?? null,
+        lastFrameTsMs: renderedTimestampsMs.at(-1) ?? null,
+        expectedOutputDurationSec,
+        actualOutputDurationSec,
+        durationDriftSec,
+        durationDriftPct,
+        exportContainerType: (recorder.mimeType || mimeType || "unknown").split(";")[0] ?? "unknown",
+        durationDriftWarning,
+        ...(durationDriftWarningMessage ? { durationDriftWarningMessage } : {})
+      }
+    };
   } finally {
     if (recorder.state !== "inactive") {
       recorder.stop();
@@ -818,7 +897,24 @@ export async function exportAnnotatedVideo(
   }
 }
 
-export function buildAnalysisSummary(timeline: PoseTimeline) {
+export function buildAnalysisSummary(
+  timeline: PoseTimeline,
+  exportDiagnostics?: {
+    sourceDurationSec: number;
+    analyzedDurationSec: number;
+    renderedFrameCount: number;
+    renderFpsTarget: number;
+    firstFrameTsMs: number | null;
+    lastFrameTsMs: number | null;
+    expectedOutputDurationSec: number;
+    actualOutputDurationSec: number | null;
+    durationDriftSec: number | null;
+    durationDriftPct: number | null;
+    exportContainerType: string;
+    durationDriftWarning: boolean;
+    durationDriftWarningMessage?: string;
+  }
+) {
   let confidenceTotal = 0;
   let confidenceCount = 0;
 
@@ -836,7 +932,8 @@ export function buildAnalysisSummary(timeline: PoseTimeline) {
     schemaVersion: "upload-analysis-v1" as const,
     averageConfidence: confidenceCount === 0 ? 0 : confidenceTotal / confidenceCount,
     sampledFrameCount: timeline.frames.length,
-    durationMs: timeline.video.durationMs
+    durationMs: timeline.video.durationMs,
+    ...(exportDiagnostics ? { exportDiagnostics } : {})
   };
 }
 
