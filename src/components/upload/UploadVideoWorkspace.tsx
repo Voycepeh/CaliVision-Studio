@@ -513,7 +513,7 @@ export function UploadVideoWorkspace() {
       };
     }));
 
-    setUploadJobs((current) => [...queuedJobs, ...current]);
+    setUploadJobs((current) => [...current, ...queuedJobs]);
     setSelectedJobId((current) => current ?? queuedJobs[0]?.id ?? null);
   }, [selectedDrill]);
 
@@ -800,7 +800,16 @@ export function UploadVideoWorkspace() {
                 <button
                   type="button"
                   className="pill"
-                  onClick={() => setUploadJobs((current) => current.map((job) => (job.id === activeJob.id ? { ...job, status: "queued", stageLabel: "Ready to analyze", progress: 0, errorMessage: undefined, errorDetails: undefined } : job)))}
+                  onClick={() => {
+                    const retryJobId = activeJob.id;
+                    setUploadJobs((current) => {
+                      const retryTarget = current.find((job) => job.id === retryJobId);
+                      if (!retryTarget) return current;
+                      const withoutRetryTarget = current.filter((job) => job.id !== retryJobId);
+                      return [{ ...retryTarget, status: "queued", stageLabel: "Ready to analyze", progress: 0, errorMessage: undefined, errorDetails: undefined }, ...withoutRetryTarget];
+                    });
+                    setSelectedJobId(retryJobId);
+                  }}
                 >
                   Retry
                 </button>
