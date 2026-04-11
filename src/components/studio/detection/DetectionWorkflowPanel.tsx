@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { CSSProperties } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { mapDetectionResultToPortablePose } from "@/lib/detection";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
@@ -10,6 +11,10 @@ import { useStudioState } from "@/components/studio/StudioState";
 
 export function DetectionWorkflowPanel({
   phaseId,
+  autoOpenSource
+}: {
+  phaseId: string;
+  autoOpenSource?: "upload" | "camera" | null;
   entryMode,
   onEntryModeChange
 }: {
@@ -53,6 +58,17 @@ export function DetectionWorkflowPanel({
     return mapPortablePoseToCanvasPoseModel(previewPose);
   }, [phaseId, selectedPhaseDetection.result]);
 
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (autoOpenSource === "upload") {
+      uploadInputRef.current?.click();
+    }
+    if (autoOpenSource === "camera") {
+      cameraInputRef.current?.click();
+    }
+  }, [autoOpenSource, phaseId]);
   useEffect(() => {
     return () => {
       cameraStream?.getTracks().forEach((track) => track.stop());
@@ -144,6 +160,24 @@ export function DetectionWorkflowPanel({
         Upload a phase image, run detection, review the preview, then apply it to the selected phase.
       </p>
 
+      <label style={labelStyle}>
+        <span>Upload phase image (local only)</span>
+        <input
+          ref={uploadInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          style={inputStyle}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+
+            await setSelectedPhaseImage(file);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
       <div className="studio-action-row">
         <button type="button" className={`studio-button ${entryMode === "upload" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("upload")}>Upload image</button>
         <button type="button" className={`studio-button ${entryMode === "camera" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("camera")}>Use camera</button>
@@ -191,6 +225,26 @@ export function DetectionWorkflowPanel({
           {cameraError ? <p className="muted" style={{ margin: 0 }}>{cameraError}</p> : null}
         </div>
       )}
+
+      <label style={labelStyle}>
+        <span>Use camera (mobile/browser support)</span>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={inputStyle}
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+
+            await setSelectedPhaseImage(file);
+            event.currentTarget.value = "";
+          }}
+        />
+      </label>
 
       {selectedPhaseSourceImage ? (
         <div style={{ display: "grid", gap: "0.35rem" }}>
