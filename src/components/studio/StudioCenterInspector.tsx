@@ -25,6 +25,7 @@ const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
 };
 
 type WorkspaceMode = "preview" | "pose";
+type PoseEntryMode = "edit" | "upload" | "camera";
 
 function WorkflowSection({
   title,
@@ -81,6 +82,7 @@ export function StudioCenterInspector() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview");
   const [workspacePhaseId, setWorkspacePhaseId] = useState<string | null>(null);
   const [showDetectionTools, setShowDetectionTools] = useState(false);
+  const [detectionEntryMode, setDetectionEntryMode] = useState<"upload" | "camera">("upload");
   const [workspaceAlignOffset, setWorkspaceAlignOffset] = useState(0);
   const phaseSequenceSectionRef = useRef<HTMLDivElement | null>(null);
   const phaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -129,12 +131,16 @@ export function StudioCenterInspector() {
     else if (activeStepOverride === stepIndex) setActiveStepOverride(null);
   }
 
-  function openPoseWorkspace(phaseId: string): void {
+  function openPoseWorkspace(phaseId: string, mode: PoseEntryMode = "edit"): void {
     selectPhase(phaseId);
     setWorkspacePhaseId(phaseId);
     setWorkspaceMode("pose");
     setWorkspaceVisible(true);
-    setShowDetectionTools(false);
+    const shouldShowDetectionTools = mode !== "edit";
+    setShowDetectionTools(shouldShowDetectionTools);
+    if (mode === "upload" || mode === "camera") {
+      setDetectionEntryMode(mode);
+    }
   }
 
   useEffect(() => {
@@ -197,9 +203,9 @@ export function StudioCenterInspector() {
                         </div>
 
                         <div className="studio-action-row">
-                          <button type="button" className="studio-button studio-button-primary" onClick={() => openPoseWorkspace(phase.phaseId)}>Edit pose</button>
-                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)}>Upload image</button>
-                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)} disabled>Use camera</button>
+                          <button type="button" className="studio-button studio-button-primary" onClick={() => openPoseWorkspace(phase.phaseId, "edit")}>Edit pose</button>
+                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId, "upload")}>Upload image</button>
+                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId, "camera")}>Use camera</button>
                           {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "up")} disabled={index === 0}>↑</button> : null}
                           {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "down")} disabled={index === displayedPhases.length - 1}>↓</button> : null}
                           {!holdDrill ? <button type="button" className="studio-button" onClick={() => duplicatePhase(phase.phaseId)}>Duplicate</button> : null}
@@ -285,7 +291,7 @@ export function StudioCenterInspector() {
                   <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset</button>
                   <button type="button" onClick={() => setWorkspaceMode("preview")} className="studio-button studio-button-primary">Done</button>
                 </div>
-                {showDetectionTools ? <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} /> : null}
+                {showDetectionTools ? <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} entryMode={detectionEntryMode} onEntryModeChange={setDetectionEntryMode} /> : null}
               </section>
             </>
           ) : (
