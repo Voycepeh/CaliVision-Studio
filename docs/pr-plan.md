@@ -45,3 +45,9 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Assumption: legacy placeholders (`phase_top`, `phase_bottom`, `phase_new`) may exist in prior local/imported data and should be normalized on load.
 - Non-goal: introducing a new contract field for phase identity in this pass (the existing `phaseId` remains the portable identity field).
 - Non-goal: changing Android runtime ownership boundaries; runtime/live coaching remains in Android: <https://github.com/Voycepeh/CaliVision>.
+
+## Assumptions / non-goals for Live camera zoom handling
+
+- Assumption: phone browsers may expose 0.5x either as hardware PTZ zoom on the active rear track **or** as a separate rear ultrawide camera device.
+- Assumption: PTZ capability exposure alone is not sufficient to guarantee 0.5x availability; camera-device discovery is required after permission.
+- Non-goal: software zoom or crop-based fake zoom fallback for 0.5x in Live Streaming.
