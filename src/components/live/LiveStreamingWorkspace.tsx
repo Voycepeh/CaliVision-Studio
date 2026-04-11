@@ -340,15 +340,29 @@ export function LiveStreamingWorkspace() {
       zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
     });
   }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom]);
+  const canAttemptHalfXFallbackProbe = useMemo(() => {
+    if (halfXAccess.available || !isRearCamera) {
+      return false;
+    }
+    const activeTrack = activeVideoTrackRef.current;
+    const currentDeviceId = activeTrack?.getSettings?.().deviceId;
+    const alternateRearCount = cameraDescriptors.filter(
+      (descriptor) => descriptor.facing === "rear" && descriptor.deviceId !== currentDeviceId && descriptor.rearLensHint !== "telephoto"
+    ).length;
+    return alternateRearCount > 1;
+  }, [cameraDescriptors, halfXAccess.available, isRearCamera]);
   const zoomHelperText = useMemo(() => {
     if (status !== "live-session-running") {
       return null;
+    }
+    if (canAttemptHalfXFallbackProbe) {
+      return "Tap 0.5x to probe alternate rear cameras for ultrawide access";
     }
     if (!halfXAccess.available) {
       return "0.5x ultrawide lens not accessible from this browser session";
     }
     return zoomStatusMessage;
-  }, [halfXAccess.available, status, zoomStatusMessage]);
+  }, [canAttemptHalfXFallbackProbe, halfXAccess.available, status, zoomStatusMessage]);
   const replayUnavailableMessage = useMemo(() => {
     if (replayState === "export-in-progress") {
       return null;
@@ -1310,9 +1324,37 @@ export function LiveStreamingWorkspace() {
       facing: isRearCamera ? "rear" : "front",
       zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
     });
-    if (decision.strategy !== "switch-camera") {
+    let resolvedDecision = decision;
+    if (
+      decision.strategy === "unavailable" &&
+      decision.reason === "no_reliable_ultrawide_or_alternate_rear_candidate" &&
+      isRearCamera
+    ) {
+      console.info("[live-camera] HALF_X_PROBE_RETRY_START", {
+        reason: decision.reason,
+        rearCameraCount: cameraDescriptors.filter((descriptor) => descriptor.facing === "rear").length
+      });
+      try {
+        const probedDescriptors = await buildVideoInputDescriptors();
+        setCameraDescriptors(probedDescriptors);
+        resolvedDecision = chooseBestRearCameraForZoomPreset(0.5, probedDescriptors, {
+          deviceId: activeSettings?.deviceId,
+          facing: "rear",
+          zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
+        });
+        console.info("[live-camera] HALF_X_PROBE_RETRY_RESULT", {
+          strategy: resolvedDecision.strategy,
+          reason: resolvedDecision.reason
+        });
+      } catch (error) {
+        console.warn("[live-camera] HALF_X_PROBE_RETRY_FAILED", {
+          message: error instanceof Error ? error.message : "unknown"
+        });
+      }
+    }
+    if (resolvedDecision.strategy !== "switch-camera") {
       setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
-      console.info("[live-camera] HALF_X_UNAVAILABLE", { reason: decision.reason, source: activeCameraSource });
+      console.info("[live-camera] HALF_X_UNAVAILABLE", { reason: resolvedDecision.reason, source: activeCameraSource });
       return;
     }
 
@@ -1320,7 +1362,7 @@ export function LiveStreamingWorkspace() {
       if (activeSettings?.deviceId) {
         mainRearDeviceIdRef.current = activeSettings.deviceId;
       }
-      await switchToDevice(decision.camera.deviceId, "rear-ultrawide", "switch-to-ultrawide");
+      await switchToDevice(resolvedDecision.camera.deviceId, "rear-ultrawide", "switch-to-ultrawide");
       selectedZoomRef.current = 0.5;
       setSelectedZoomPreset(selectedZoomRef.current);
       setZoomStatusMessage("0.5x using ultrawide camera");
@@ -1328,14 +1370,18 @@ export function LiveStreamingWorkspace() {
       syncOverlayCanvasSize(true);
       console.info("[live-camera] HALF_X_RESOLUTION", {
         strategy: "camera-switch",
-        decisionReason: decision.reason,
-        deviceId: decision.camera.deviceId,
-        label: decision.camera.label
+        decisionReason: resolvedDecision.reason,
+        deviceId: resolvedDecision.camera.deviceId,
+        label: resolvedDecision.camera.label
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown";
       setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
-      console.warn("[live-camera] HALF_X_SWITCH_FAILED", { message, deviceId: decision.camera.deviceId, label: decision.camera.label });
+      console.warn("[live-camera] HALF_X_SWITCH_FAILED", {
+        message,
+        deviceId: resolvedDecision.camera.deviceId,
+        label: resolvedDecision.camera.label
+      });
     }
   }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom, status, switchToDevice, syncOverlayCanvasSize, updateHardwareZoom]);
 
@@ -1727,7 +1773,7 @@ export function LiveStreamingWorkspace() {
                 <div className="live-streaming-zoom-presets">
                   {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
                     const isActive = activeZoomPreset === preset;
-                    const isDisabled = preset === 0.5 && !halfXAccess.available;
+                    const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
                     return (
                       <button
                         key={preset}
@@ -1735,7 +1781,7 @@ export function LiveStreamingWorkspace() {
                         className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
                         aria-pressed={isActive}
                         disabled={isDisabled}
-                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : undefined}
+                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
                         onClick={() => {
                           void handleZoomPresetSelection(preset);
                         }}

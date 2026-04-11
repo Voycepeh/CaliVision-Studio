@@ -97,6 +97,38 @@ test("0.5 preset can use single generic alternate rear camera when labels are no
   assert.equal(decision.strategy, "switch-camera");
 });
 
+test("0.5 preset ranks multiple generic rear candidates by zoom profile when probed", () => {
+  const decision = chooseBestRearCameraForZoomPreset(
+    0.5,
+    [
+      {
+        deviceId: "rear-candidate-a",
+        label: "Back Camera 2",
+        facing: "rear",
+        rearLensHint: "unknown",
+        zoomSupport: { supported: true, min: 1, max: 1.4, step: 0.1, current: 1 }
+      },
+      {
+        deviceId: "rear-candidate-b",
+        label: "Back Camera 3",
+        facing: "rear",
+        rearLensHint: "unknown",
+        zoomSupport: { supported: true, min: 1, max: 2.4, step: 0.1, current: 1 }
+      }
+    ],
+    {
+      deviceId: "rear-main",
+      facing: "rear",
+      zoomSupport: { supported: true, min: 1, max: 3, step: 0.1, current: 1 }
+    }
+  );
+  assert.equal(decision.strategy, "switch-camera");
+  if (decision.strategy === "switch-camera") {
+    assert.equal(decision.reason, "best-generic-rear-camera");
+    assert.equal(decision.camera.deviceId, "rear-candidate-a");
+  }
+});
+
 test("preset logic remains on active hardware path for 1.25x", () => {
   const decision = chooseBestRearCameraForZoomPreset(
     1.25,
