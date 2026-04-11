@@ -13,7 +13,7 @@ import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
-import { resolveAvailableDownloads, type PreviewSurface } from "@/lib/results/preview-state";
+import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
@@ -32,6 +32,7 @@ import {
   formatHardwareZoomLabel,
   getCameraSupportStatus,
   getHardwareZoomSupport,
+  getReplayStateMessage,
   getSupportedZoomPresets,
   mapLiveTraceToTimelineMarkers,
   replaceStreamSafely,
@@ -295,6 +296,7 @@ export function LiveStreamingWorkspace() {
   }, [selection.cameraView, selection.drill]);
 
   const summary = useMemo(() => postAnalysisSnapshot?.summary ?? null, [postAnalysisSnapshot]);
+  const liveTrace = postAnalysisSnapshot;
   const timelineMarkers = useMemo(() => postAnalysisSnapshot?.timelineMarkers ?? [], [postAnalysisSnapshot]);
   const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl), hasAnnotated: Boolean(annotatedReplayUrl) });
   const activeReplaySurface: PreviewSurface = replayState === "export-in-progress" ? (showRawDuringProcessing ? "raw" : "annotated") : completedPreviewSurface;
@@ -319,6 +321,31 @@ export function LiveStreamingWorkspace() {
   const rawDownloadLabel = resolveLiveDownloadLabel({ kind: "raw", downloadable: replayDownloadSafety.raw?.downloadable });
   const replayUrl = replayPreviewSelection.source?.url ?? null;
   const replayMimeType = replayPreviewSelection.source?.mimeType ?? null;
+  const replayPreviewState = resolveUnifiedResultPreviewState({
+    hasRaw: Boolean(rawReplayUrl),
+    hasAnnotated: Boolean(annotatedReplayUrl),
+    isProcessingAnnotated: replayState === "export-in-progress",
+    annotatedFailed: replayState === "raw-fallback",
+    userRequestedRawDuringProcessing: showRawDuringProcessing,
+    preferredCompletedSurface: completedPreviewSurface
+  });
+  const canToggleReplayPreview = canToggleCompletedPreview({
+    hasRaw: Boolean(rawReplayUrl),
+    hasAnnotated: Boolean(annotatedReplayUrl),
+    isProcessingAnnotated: replayState === "export-in-progress"
+  });
+  const trackingStatusLabel = trackingStatusRef.current;
+  const replayTone: "success" | "warning" | "danger" | "neutral" = replayState === "annotated-ready"
+    ? "success"
+    : replayState === "export-in-progress"
+      ? "warning"
+      : replayState === "export-failed"
+        ? "danger"
+        : "neutral";
+  const selectedMarker = useMemo(
+    () => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null,
+    [timelineMarkers, selectedMarkerId]
+  );
   const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
   const shouldShowSessionToolbar = isSessionStageActive || isStageFullscreen;
   const activeZoomPreset = resolveSelectedZoomPreset(selectedZoomPreset, APP_HARDWARE_ZOOM_PRESETS);
@@ -2026,7 +2053,7 @@ export function LiveStreamingWorkspace() {
               <p className="muted" style={{ margin: 0 }}>Click an event to jump in replay.</p>
               <div style={{ position: "relative", height: "1.3rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.04)" }}>
                 {timelineMarkers.map((marker) => {
-                  const leftPercent = liveTrace.video.durationMs > 0 ? (marker.timestampMs / liveTrace.video.durationMs) * 100 : 0;
+                  const leftPercent = liveTrace.durationMs > 0 ? (marker.timestampMs / liveTrace.durationMs) * 100 : 0;
                   return (
                     <button
                       key={marker.id}
@@ -2105,22 +2132,23 @@ export function LiveStreamingWorkspace() {
               </div>
             </section>
 
+            {postAnalysisSnapshot && liveViewerModel ? (
+              <AnalysisViewerShell
+                model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
+                videoRef={replayVideoRef}
+                onSurfaceChange={(surface) => {
+                  setCompletedPreviewSurface(surface);
+                  if (replayState === "export-in-progress") {
+                    setShowRawDuringProcessing(surface === "raw");
+                  }
+                }}
+                onEventSelect={(event) => {
+                  setSelectedMarkerId(event.id);
+                  seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
+                }}
+              />
+            ) : null}
           </>
-        {postAnalysisSnapshot && liveViewerModel ? (
-          <AnalysisViewerShell
-            model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
-            videoRef={replayVideoRef}
-            onSurfaceChange={(surface) => {
-              setCompletedPreviewSurface(surface);
-              if (replayState === "export-in-progress") {
-                setShowRawDuringProcessing(surface === "raw");
-              }
-            }}
-            onEventSelect={(event) => {
-              setSelectedMarkerId(event.id);
-              seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
-            }}
-          />
         ) : null}
       </article>
     </section>
