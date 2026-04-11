@@ -22,6 +22,8 @@ type TraceState = {
   confidenceGateOpen: boolean;
   activeHoldStartMs: number | null;
   expectedSequenceIndex: number;
+  cycleStartMs: number | null;
+  lastRepMs: number;
   runtimeModel: PhaseRuntimeModel | null;
 };
 const PHASE_CONFIRMATION_FRAMES = 2;
@@ -87,6 +89,8 @@ export function createLiveTraceAccumulator(input: {
     confidenceGateOpen: false,
     activeHoldStartMs: null,
     expectedSequenceIndex: 0,
+    cycleStartMs: null,
+    lastRepMs: -Number.MAX_SAFE_INTEGER,
     runtimeModel: input.drillSelection.drill?.analysis
       ? buildPhaseRuntimeModel(input.drillSelection.drill, input.drillSelection.drill.analysis)
       : null
@@ -141,21 +145,71 @@ export function createLiveTraceAccumulator(input: {
     }
 
     if (state.runtimeModel?.measurementMode === "rep") {
-      const seq = state.runtimeModel.orderedPhaseIds;
-      const expectedPhase = seq[state.expectedSequenceIndex];
-      const index = seq.indexOf(nextPhaseId ?? "");
+      const sequence = state.runtimeModel.loopPhaseIds;
+      if (sequence.length < 2) {
+        state.currentPhaseId = nextPhaseId;
+        return;
+      }
+      const expectedPhase = sequence[state.expectedSequenceIndex];
+      const enteredIndex = sequence.indexOf(nextPhaseId ?? "");
+      const analysis = drill?.analysis;
+      const minimumRepDurationMs = Math.max(0, analysis?.minimumRepDurationMs ?? 0);
+      const cooldownMs = Math.max(0, analysis?.cooldownMs ?? 0);
+      const legacyMetadataIgnored = state.runtimeModel.legacyOrderMismatch;
 
       if (nextPhaseId === expectedPhase) {
-        state.expectedSequenceIndex += 1;
-        if (state.expectedSequenceIndex >= seq.length) {
-          state.repCount += 1;
-          addEvent({ timestampMs, type: "rep_complete", repIndex: state.repCount });
-          state.expectedSequenceIndex = 0;
+        if (state.expectedSequenceIndex === 0) {
+          state.cycleStartMs = timestampMs;
         }
-      } else if (index >= 0) {
+        state.expectedSequenceIndex += 1;
+        if (state.expectedSequenceIndex >= sequence.length) {
+          const loopStartTimestampMs = state.cycleStartMs ?? timestampMs;
+          const loopEndTimestampMs = timestampMs;
+          const repDurationMs = Math.max(0, loopEndTimestampMs - loopStartTimestampMs);
+          const passesMinDuration = repDurationMs >= minimumRepDurationMs;
+          const outsideCooldown = loopEndTimestampMs - state.lastRepMs >= cooldownMs;
+          if (passesMinDuration && outsideCooldown) {
+            state.repCount += 1;
+            state.lastRepMs = loopEndTimestampMs;
+            addEvent({
+              timestampMs,
+              type: "rep_complete",
+              repIndex: state.repCount,
+              details: { loopStartTimestampMs, loopEndTimestampMs, repDurationMs, minRepDurationMs: minimumRepDurationMs, legacyMetadataIgnored }
+            });
+          } else {
+            state.partialAttemptCount += 1;
+            addEvent({
+              timestampMs,
+              type: "partial_attempt",
+              details: {
+                loopStartTimestampMs,
+                loopEndTimestampMs,
+                repDurationMs,
+                minRepDurationMs: minimumRepDurationMs,
+                reason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
+                rejectReason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
+                legacyMetadataIgnored
+              }
+            });
+          }
+          state.expectedSequenceIndex = 1;
+          state.cycleStartMs = loopEndTimestampMs;
+        }
+      } else if (enteredIndex === 0) {
+        if (state.expectedSequenceIndex > 0) {
+          state.partialAttemptCount += 1;
+          addEvent({ timestampMs, type: "partial_attempt", details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored } });
+        }
+        state.expectedSequenceIndex = 1;
+        state.cycleStartMs = timestampMs;
+      } else if (enteredIndex > state.expectedSequenceIndex) {
+        state.expectedSequenceIndex = enteredIndex + 1;
+      } else if (state.expectedSequenceIndex > 0) {
         state.partialAttemptCount += 1;
-        addEvent({ timestampMs, type: "partial_attempt", details: { reason: "sequence_reset" } });
-        state.expectedSequenceIndex = index + 1;
+        addEvent({ timestampMs, type: "partial_attempt", details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored } });
+        state.expectedSequenceIndex = 0;
+        state.cycleStartMs = null;
       }
     }
 

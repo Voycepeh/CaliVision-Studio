@@ -102,6 +102,47 @@ function buildDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
   };
 }
 
+function buildThreePhaseDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
+  return buildDrill({
+    phases: [
+      {
+        phaseId: "phase1",
+        order: 1,
+        name: "Phase 1",
+        durationMs: 400,
+        poseSequence: [makePose("p_phase1", 0, 0.2)],
+        assetRefs: [],
+        analysis: { matchHints: { requiredJoints: ["leftWrist", "rightWrist", "leftShoulder", "rightShoulder"] } }
+      },
+      {
+        phaseId: "phase2",
+        order: 2,
+        name: "Phase 2",
+        durationMs: 400,
+        poseSequence: [makePose("p_phase2", 400, 0.5)],
+        assetRefs: [],
+        analysis: { matchHints: { requiredJoints: ["leftWrist", "rightWrist", "leftShoulder", "rightShoulder"] } }
+      },
+      {
+        phaseId: "phase3",
+        order: 3,
+        name: "Phase 3",
+        durationMs: 400,
+        poseSequence: [makePose("p_phase3", 800, 0.8)],
+        assetRefs: [],
+        analysis: { matchHints: { requiredJoints: ["leftWrist", "rightWrist", "leftShoulder", "rightShoulder"] } }
+      }
+    ],
+    analysis: {
+      ...buildDrill().analysis!,
+      orderedPhaseSequence: ["phase3", "legacy", "phase1", "phase2"],
+      criticalPhaseIds: ["phase1", "phase2", "phase3"],
+      minimumRepDurationMs: 240
+    },
+    ...overrides
+  });
+}
+
 test("simple rep completion top->bottom->top", () => {
   const drill = buildDrill();
   const frames = [
@@ -435,4 +476,50 @@ test("runtime follows authored phase order when legacy analysis order is differe
 
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
   assert.equal(result.session.summary.repCount, 1);
+});
+
+test("valid repeated 3-phase authored loops continue counting reps beyond first loop", () => {
+  const drill = buildThreePhaseDrill();
+  const frames = [
+    poseFrame(0, 0.2), poseFrame(100, 0.2),
+    poseFrame(220, 0.5), poseFrame(320, 0.5),
+    poseFrame(440, 0.8), poseFrame(540, 0.8),
+    poseFrame(700, 0.2), poseFrame(800, 0.2),
+    poseFrame(930, 0.5), poseFrame(1030, 0.5),
+    poseFrame(1160, 0.8), poseFrame(1260, 0.8),
+    poseFrame(1420, 0.2), poseFrame(1520, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 2);
+  assert.equal(result.session.events.filter((event) => event.type === "rep_complete").length, 2);
+  assert.equal(result.session.events.some((event) => event.type === "partial_attempt" && event.details?.reason === "below_minimum_rep_duration"), false);
+});
+
+test("reps are rejected only when genuinely below minimum duration threshold", () => {
+  const drill = buildThreePhaseDrill({
+    analysis: {
+      ...buildThreePhaseDrill().analysis!,
+      minimumRepDurationMs: 320
+    }
+  });
+  const frames = [
+    poseFrame(0, 0.2), poseFrame(40, 0.2),
+    poseFrame(90, 0.5), poseFrame(130, 0.5),
+    poseFrame(180, 0.8), poseFrame(220, 0.8),
+    poseFrame(260, 0.2), poseFrame(300, 0.2),
+    poseFrame(450, 0.5), poseFrame(550, 0.5),
+    poseFrame(680, 0.8), poseFrame(780, 0.8),
+    poseFrame(930, 0.2), poseFrame(1030, 0.2)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  assert.equal(result.session.summary.repCount, 1);
+  const rejected = result.session.events.find((event) => event.type === "partial_attempt" && event.details?.reason === "below_minimum_rep_duration");
+  assert.ok(rejected);
+  assert.equal(typeof rejected?.details?.loopStartTimestampMs, "number");
+  assert.equal(typeof rejected?.details?.loopEndTimestampMs, "number");
+  assert.equal(typeof rejected?.details?.repDurationMs, "number");
+  assert.equal(rejected?.details?.minRepDurationMs, 320);
+  assert.equal(rejected?.details?.rejectReason, "below_minimum_rep_duration");
 });

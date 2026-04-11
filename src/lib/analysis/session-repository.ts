@@ -74,6 +74,12 @@ export type AnalysisSessionRecord = {
       attemptedNextPhase?: string | null;
       rejectedReason?: string;
       noRepReason?: string;
+      loopStartTimestampMs?: number;
+      loopEndTimestampMs?: number;
+      computedRepDurationMs?: number;
+      minRepDurationThresholdMs?: number;
+      rejectReason?: string;
+      legacyMetadataIgnored?: boolean;
       legacyOrderMismatch?: boolean;
       legacyOrderMismatchDetails?: string[];
       modeSummary?: string;
