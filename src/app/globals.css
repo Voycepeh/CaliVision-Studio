@@ -545,7 +545,7 @@ main {
     align-content: start;
     position: sticky;
     top: 8.4rem;
-    margin-top: 1.35rem;
+    transition: margin-top 180ms ease;
   }
 }
 

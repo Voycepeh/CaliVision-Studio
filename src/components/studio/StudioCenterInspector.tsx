@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
@@ -81,6 +81,9 @@ export function StudioCenterInspector() {
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview");
   const [workspacePhaseId, setWorkspacePhaseId] = useState<string | null>(null);
   const [showDetectionTools, setShowDetectionTools] = useState(false);
+  const [workspaceAlignOffset, setWorkspaceAlignOffset] = useState(0);
+  const phaseSequenceSectionRef = useRef<HTMLDivElement | null>(null);
+  const phaseRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
@@ -134,6 +137,25 @@ export function StudioCenterInspector() {
     setShowDetectionTools(false);
   }
 
+  useEffect(() => {
+    if (workspaceMode !== "pose" || !workspaceVisible || !workspacePhase?.phaseId) {
+      setWorkspaceAlignOffset(0);
+      return;
+    }
+
+    const sequenceEl = phaseSequenceSectionRef.current;
+    const rowEl = phaseRowRefs.current[workspacePhase.phaseId];
+    if (!sequenceEl || !rowEl) {
+      setWorkspaceAlignOffset(0);
+      return;
+    }
+
+    const sequenceTop = sequenceEl.getBoundingClientRect().top + window.scrollY;
+    const rowTop = rowEl.getBoundingClientRect().top + window.scrollY;
+    const offset = Math.max(0, Math.min(320, rowTop - sequenceTop));
+    setWorkspaceAlignOffset(offset);
+  }, [workspaceMode, workspaceVisible, workspacePhase?.phaseId, displayedPhases.length]);
+
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
       <header>
@@ -161,9 +183,11 @@ export function StudioCenterInspector() {
                   <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" disabled={holdDrill}>Add phase</button>
                 </div>
 
-                <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>
+                <div ref={phaseSequenceSectionRef} style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>
                   {displayedPhases.map((phase, index) => (
-                    <div key={phase.phaseId} className="studio-phase-list-item card" data-selected={selectedPhase?.phaseId === phase.phaseId}>
+                    <div key={phase.phaseId} ref={(element) => {
+                      phaseRowRefs.current[phase.phaseId] = element;
+                    }} className="studio-phase-list-item card" data-selected={selectedPhase?.phaseId === phase.phaseId}>
                       <div style={{ display: "grid", gap: "0.45rem" }}>
                         <div style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
                           <span className="studio-phase-sequence-pill">#{index + 1}</span>
@@ -201,7 +225,7 @@ export function StudioCenterInspector() {
           </WorkflowSection>
         </div>
 
-        <aside className="studio-sticky-workspace">
+        <aside className="studio-sticky-workspace" style={workspaceMode === "pose" && workspaceVisible ? { marginTop: `${workspaceAlignOffset}px` } : undefined}>
           <div className="card" style={{ display: "grid", gap: "0.45rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem" }}>
               <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Workspace</h3>
