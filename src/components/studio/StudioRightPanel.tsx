@@ -27,7 +27,7 @@ export function StudioRightPanel() {
   return (
     <section style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
       <p className="muted" style={{ margin: 0 }}>
-        Internal IDs, drill file compatibility details, and detection diagnostics.
+        Internal IDs and compatibility controls are available here when you need them.
       </p>
 
       {selectedPackage && drill ? (
@@ -61,81 +61,51 @@ export function StudioRightPanel() {
       ) : null}
 
       <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
-        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Drill draft identity and save state</h4>
+        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Technical status snapshot</h4>
         {selectedPackage && drill ? (
           <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
-            <li>Drill title: {drill.title}</li>
-            <li>Drill ID: {drill.drillId}</li>
-            <li>Selected phase ID: {selectedPhase?.phaseId ?? "none"}</li>
-            <li>Drill file ID (technical): {selectedPackage.workingPackage.manifest.packageId}</li>
-            <li>Drill file version (technical): {selectedPackage.workingPackage.manifest.packageVersion}</li>
+            <li>Selected phase: {selectedPhase?.phaseId ?? "none"}</li>
             <li>Dirty state: {selectedPackage.isDirty ? "unsaved changes" : "saved"}</li>
+            <li>Validation: {selectedPackage.validation.isValid ? "valid" : "issues detected"} ({selectedPackage.validation.issues.length} total issues)</li>
+            <li>Detection: {selectedPhase ? selectedPhaseDetection.status : "select a phase"}</li>
           </ul>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>Open a drill to view details.</p>
+          <p className="muted" style={{ margin: 0 }}>Open a drill to view technical status.</p>
         )}
       </section>
 
-      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
-        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Detection state</h4>
-        {selectedPhase ? (
-          <div style={{ display: "grid", gap: "0.35rem" }}>
-            <p className="muted" style={{ margin: 0 }}>Status: {selectedPhaseDetection.status}</p>
-            <p className="muted" style={{ margin: 0 }}>{selectedPhaseDetection.message}</p>
-            {selectedPhaseSourceImage ? (
+      <details className="card">
+        <summary style={{ cursor: "pointer", fontWeight: 600 }}>Diagnostics (optional)</summary>
+        {selectedPackage && drill ? (
+          <div style={{ display: "grid", gap: "0.55rem", marginTop: "0.6rem" }}>
+            <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>Drill title: {drill.title}</li>
+              <li>Drill ID: {drill.drillId}</li>
+              <li>Drill file ID (technical): {selectedPackage.workingPackage.manifest.packageId}</li>
+              <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
+              <li>Packaged assets: {selectedPackage.workingPackage.assets.filter((asset) => asset.uri.startsWith("package://")).length}</li>
+            </ul>
+            {selectedPhase && selectedPhaseSourceImage ? (
               <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
                 <li>Source image: {selectedPhaseSourceImage.fileName}</li>
                 <li>Origin: {selectedPhaseSourceImage.origin}</li>
                 <li>Portable URI: {selectedPhaseSourceImage.portableUri}</li>
               </ul>
-            ) : (
-              <p className="muted" style={{ margin: 0 }}>No image is attached to the selected phase.</p>
-            )}
-          </div>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>Select a phase to inspect detection workflow internals.</p>
-        )}
-      </section>
-
-      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
-        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Drill file asset manifest</h4>
-        {selectedPackage ? (
-          <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
-            <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
-            <li>Packaged assets: {selectedPackage.workingPackage.assets.filter((asset) => asset.uri.startsWith("package://")).length}</li>
-            <li>Phase images: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "phase-source-image").length}</li>
-            <li>Thumbnails: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-thumbnail").length}</li>
-            <li>Previews: {selectedPackage.workingPackage.assets.filter((asset) => asset.role === "drill-preview").length}</li>
-          </ul>
-        ) : (
-          <p className="muted" style={{ margin: 0 }}>No drill selected.</p>
-        )}
-      </section>
-
-      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
-        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Validation internals</h4>
-        {selectedPackage ? (
-          <>
-            <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
-              <li>Valid drill file: {selectedPackage.validation.isValid ? "yes" : "no"}</li>
-              <li>Errors: {selectedPackage.validation.errors.length}</li>
-              <li>Warnings: {selectedPackage.validation.warnings.length}</li>
-              <li>Total issues: {selectedPackage.validation.issues.length}</li>
-            </ul>
+            ) : null}
             {selectedPackage.validation.issues.length > 0 ? (
-              <ul style={{ marginBottom: 0, paddingLeft: "1rem" }}>
+              <ul style={{ margin: 0, paddingLeft: "1rem" }}>
                 {selectedPackage.validation.issues.map((issue, index) => (
                   <li key={`${issue.path}-${index}`} className="muted">[{issue.severity}] {issue.path}: {issue.message}</li>
                 ))}
               </ul>
             ) : (
-              <p className="muted" style={{ marginBottom: 0 }}>No validation issues.</p>
+              <p className="muted" style={{ margin: 0 }}>No validation issues.</p>
             )}
-          </>
+          </div>
         ) : (
-          <p className="muted" style={{ margin: 0 }}>Load a drill file to inspect validation internals.</p>
+          <p className="muted" style={{ marginTop: "0.6rem", marginBottom: 0 }}>Load a drill file to inspect diagnostics.</p>
         )}
-      </section>
+      </details>
     </section>
   );
 }
