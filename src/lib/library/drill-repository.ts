@@ -1,4 +1,4 @@
-import { ensureVersioningMetadata, getPrimarySamplePackage } from "@/lib/package";
+import { ensureVersioningMetadata } from "@/lib/package";
 import { deleteHostedLibraryItem, listHostedLibrary, upsertHostedLibraryItem } from "@/lib/hosted/library-repository";
 import type { AuthSession } from "@/lib/auth/supabase-auth";
 import { deleteDraft, loadDraft, loadDraftList, saveDraft, type LocalDraftRecord, type LocalDraftSummary } from "@/lib/persistence/local-draft-store";
@@ -89,6 +89,46 @@ function createUniqueId(prefix: "draft" | "drill"): string {
     return `${prefix}-${crypto.randomUUID()}`;
   }
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function createEmptyDraftPackage(input: { drillId: string; draftId: string; nowIso: string }): DrillPackage {
+  return {
+    manifest: {
+      schemaVersion: "0.1.0",
+      packageId: input.drillId,
+      packageVersion: "0.1.0",
+      createdAtIso: input.nowIso,
+      updatedAtIso: input.nowIso,
+      source: "web-studio",
+      compatibility: {
+        androidMinVersion: "1.0.0",
+        androidTargetContract: "0.1.0"
+      },
+      versioning: {
+        packageSlug: input.drillId,
+        lineageId: input.drillId,
+        versionId: input.draftId,
+        revision: 1,
+        draftStatus: "draft"
+      }
+    },
+    drills: [
+      {
+        drillId: input.drillId,
+        title: "",
+        drillType: "rep",
+        difficulty: "beginner",
+        tags: [],
+        primaryView: "front",
+        phases: [],
+        draftSetup: {
+          movementTypeConfigured: false,
+          cameraViewConfigured: false
+        }
+      } as DrillPackage["drills"][number]
+    ],
+    assets: []
+  };
 }
 
 function mapLocalPersistenceError(error: unknown): Error {
@@ -337,31 +377,14 @@ export async function createDrill(context?: DrillRepositoryContext): Promise<{ d
   const now = new Date().toISOString();
   const draftId = createUniqueId("draft");
   const drillId = createUniqueId("drill");
-  const pkg = ensureVersioningMetadata(structuredClone(getPrimarySamplePackage()));
-  pkg.manifest.packageId = drillId;
-  pkg.manifest.packageVersion = "0.1.0";
-  pkg.manifest.createdAtIso = now;
-  pkg.manifest.updatedAtIso = now;
-  pkg.manifest.versioning = {
-    ...(pkg.manifest.versioning ?? {}),
-    packageSlug: pkg.manifest.versioning?.packageSlug ?? drillId,
-    lineageId: drillId,
-    versionId: draftId,
-    revision: 1,
-    draftStatus: "draft"
-  };
-  if (pkg.drills[0]) {
-    pkg.drills[0].drillId = drillId;
-    pkg.drills[0].title = "New drill";
-    pkg.drills[0].slug = undefined;
-  }
+  const pkg = ensureVersioningMetadata(createEmptyDraftPackage({ drillId, draftId, nowIso: now }));
 
   if (isCloudContext(resolved)) {
     const saved = await upsertHostedLibraryItem(resolved.session, pkg);
     if (!saved.ok) {
       throw new Error(saved.error);
     }
-    return { drillId, draftVersionId: pkg.manifest.versioning.versionId };
+    return { drillId, draftVersionId: pkg.manifest.versioning?.versionId ?? draftId };
   }
 
   try {

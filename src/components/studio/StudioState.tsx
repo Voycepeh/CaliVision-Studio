@@ -161,6 +161,7 @@ type StudioStateValue = {
   runPublishReadinessCheck: () => Promise<void>;
   runMockPublish: () => Promise<void>;
   publishWorkflow: PublishWorkflowState;
+  readinessChecklist: ReturnType<typeof validateVersionReadiness> | null;
   updatePublishingMetadata: (partial: Partial<DrillPackagePublishingMetadata>) => void;
   duplicateSelectedPackage: () => void;
   forkSelectedPackage: () => void;
@@ -198,6 +199,20 @@ const DEFAULT_PUBLISH_WORKFLOW_STATE: PublishWorkflowState = {
   recentPublishes: [],
   message: "Run publish readiness checks to prepare a mock publish."
 };
+
+type DraftSetupFlags = {
+  movementTypeConfigured?: boolean;
+  cameraViewConfigured?: boolean;
+};
+
+function readDraftSetupFlags(drill: PortableDrill | null): DraftSetupFlags {
+  return ((drill as PortableDrill & { draftSetup?: DraftSetupFlags } | null)?.draftSetup ?? {});
+}
+
+function writeDraftSetupFlags(drill: PortableDrill, partial: DraftSetupFlags): void {
+  const current = readDraftSetupFlags(drill);
+  (drill as PortableDrill & { draftSetup?: DraftSetupFlags }).draftSetup = { ...current, ...partial };
+}
 
 function createInitialPackages(): EditablePackageEntry[] {
   const registryEntries = loadLocalRegistryEntries();
@@ -369,6 +384,10 @@ export function StudioStateProvider({
   const previousPhaseIndexesRef = useRef<PreviousPhaseIndexMap>({});
 
   const selectedPackage = useMemo(() => packages.find((item) => item.packageKey === selectedPackageKey) ?? null, [packages, selectedPackageKey]);
+  const readinessChecklist = useMemo(
+    () => (selectedPackage ? validateVersionReadiness(selectedPackage.workingPackage) : null),
+    [selectedPackage]
+  );
 
   useEffect(() => {
     packagesRef.current = packages;
@@ -1110,6 +1129,7 @@ export function StudioStateProvider({
         }
 
         drill.drillType = drillType;
+        writeDraftSetupFlags(drill, { movementTypeConfigured: true });
       })
     );
   }
@@ -1136,6 +1156,7 @@ export function StudioStateProvider({
         }
 
         drill.primaryView = view;
+        writeDraftSetupFlags(drill, { cameraViewConfigured: true });
         drill.phases = drill.phases.map((phase) => ({
           ...phase,
           poseSequence: phase.poseSequence.map((pose) => ({
@@ -1857,6 +1878,7 @@ export function StudioStateProvider({
     runPublishReadinessCheck,
     runMockPublish,
     publishWorkflow,
+    readinessChecklist,
     updatePublishingMetadata,
     duplicateSelectedPackage,
     forkSelectedPackage,

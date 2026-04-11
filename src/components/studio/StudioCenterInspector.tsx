@@ -256,7 +256,19 @@ export function StudioCenterInspector() {
               <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" disabled={holdDrill}>Add phase</button>
             </div>
 
-            <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>{phaseCards}</div>
+            {displayedPhases.length === 0 ? (
+              <div className="card" style={{ marginTop: "0.55rem", display: "grid", gap: "0.45rem" }}>
+                <strong>Add your first phase</strong>
+                <p className="muted" style={{ margin: 0 }}>
+                  This draft starts empty. Add a phase, then author its pose from upload, camera, or manual editing.
+                </p>
+                <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" style={{ width: "fit-content" }}>
+                  Add first phase
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>{phaseCards}</div>
+            )}
           </>
         )}
       </WorkflowSection>

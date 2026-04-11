@@ -68,17 +68,18 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 
 ## Library drill/version lifecycle flow (available now)
 
-1. `Create new drill` creates one drill identity with one open **working draft** (no released version yet).
+1. `Create new drill` creates one drill identity with one open **working draft** (no released version yet) that starts as a true empty draft (blank title, no auto-seeded phases/pose content).
 2. Version numbers belong to released revisions only (`v1`, `v2`, `v3`).
 3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
-4. `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
-5. `Publish` updates publish status on the current released version and does not create duplicate version rows.
-6. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
-7. `Import drill file` writes to the active workspace only:
+4. `Mark Ready` is blocked until required draft fields are complete (title, movement type, camera view, and at least one authored phase with user-defined content). Incomplete drafts can still be saved/edited.
+5. When requirements are satisfied, `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
+6. `Publish` updates publish status on the current released version and does not create duplicate version rows.
+7. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
+8. `Import drill file` writes to the active workspace only:
    - signed out → **Browser workspace** (local storage),
    - signed in → **Cloud workspace** (hosted storage).
-8. Duplicate imports are explicitly reported (for example, “already exists in Browser workspace / Cloud workspace”) instead of silently no-oping.
-9. When signed in, Library does not silently merge browser-local drills into cloud-owned drill rows; local-vs-cloud ownership is clearly separated in messaging.
+9. Duplicate imports are explicitly reported (for example, “already exists in Browser workspace / Cloud workspace”) instead of silently no-oping.
+10. When signed in, Library does not silently merge browser-local drills into cloud-owned drill rows; local-vs-cloud ownership is clearly separated in messaging.
 
 ## Hosted drafts foundation (April 2026)
 
