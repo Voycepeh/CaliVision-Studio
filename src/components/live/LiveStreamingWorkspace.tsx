@@ -106,6 +106,27 @@ function buildLiveCameraConstraints(isRearCamera: boolean, supportsZoomConstrain
   };
 }
 
+async function requestLiveCameraStream(isRearCamera: boolean): Promise<{
+  stream: MediaStream;
+  requestedConstraints: MediaStreamConstraints;
+  fallbackUsed: boolean;
+  supportsZoomConstraint: boolean;
+}> {
+  const supportsZoomConstraint = getSupportedConstraintsZoomFlag();
+  const requestedConstraints = buildLiveCameraConstraints(isRearCamera, supportsZoomConstraint);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(requestedConstraints);
+    return { stream, requestedConstraints, fallbackUsed: false, supportsZoomConstraint };
+  } catch (error) {
+    if (!supportsZoomConstraint) {
+      throw error;
+    }
+    const fallbackConstraints = buildLiveCameraConstraints(isRearCamera, false);
+    const stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+    return { stream, requestedConstraints, fallbackUsed: true, supportsZoomConstraint };
+  }
+}
+
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
   const video = document.createElement("video");
@@ -725,9 +746,10 @@ export function LiveStreamingWorkspace() {
 
     let stream: MediaStream;
     try {
-      const supportsZoomConstraint = getSupportedConstraintsZoomFlag();
-      const requestedConstraints = buildLiveCameraConstraints(isRearCamera, supportsZoomConstraint);
-      stream = await navigator.mediaDevices.getUserMedia(requestedConstraints);
+      const streamRequest = await requestLiveCameraStream(isRearCamera);
+      const supportsZoomConstraint = streamRequest.supportsZoomConstraint;
+      const requestedConstraints = streamRequest.requestedConstraints;
+      stream = streamRequest.stream;
       const activeVideoTrack = stream.getVideoTracks()[0] ?? null;
       activeVideoTrackRef.current = activeVideoTrack;
       const rawCapabilities = activeVideoTrack?.getCapabilities ? (activeVideoTrack.getCapabilities() as { zoom?: unknown }) : null;
@@ -759,6 +781,7 @@ export function LiveStreamingWorkspace() {
       console.info("[live-overlay] hardware-zoom diagnostics", {
         facingMode: isRearCamera ? "rear" : "front",
         requestedConstraints,
+        fallbackUsed: streamRequest.fallbackUsed,
         supportedConstraintsZoom: zoomDiagnostics.supportedConstraintsZoom,
         capabilityZoom: zoomDiagnostics.capabilityZoom,
         settingsZoom: zoomDiagnostics.settingsZoom,
