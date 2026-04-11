@@ -84,6 +84,16 @@ type LiveHardwareZoomState =
   | { supported: false; value: 1 }
   | { supported: true; value: number; min: number; max: number; step: number; presets: number[] };
 
+type LivePostAnalysisSnapshot = {
+  traceId: string;
+  durationMs: number;
+  width: number;
+  height: number;
+  summary: ReturnType<typeof buildLiveResultsSummary>;
+  timelineMarkers: ReturnType<typeof mapLiveTraceToTimelineMarkers>;
+  cameraView?: LiveDrillSelection["cameraView"];
+};
+
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
   const video = document.createElement("video");
@@ -137,6 +147,7 @@ export function LiveStreamingWorkspace() {
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [isRearCamera, setIsRearCamera] = useState(true);
   const [liveTrace, setLiveTrace] = useState<LiveSessionTrace | null>(null);
+  const [postAnalysisSnapshot, setPostAnalysisSnapshot] = useState<LivePostAnalysisSnapshot | null>(null);
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
   const [rawReplayBlob, setRawReplayBlob] = useState<Blob | null>(null);
   const [rawReplayMimeType, setRawReplayMimeType] = useState<string | null>(null);
@@ -264,8 +275,8 @@ export function LiveStreamingWorkspace() {
     return selection.cameraView === "front" ? FULL_BODY_REQUIRED_JOINTS : [];
   }, [selection.cameraView, selection.drill]);
 
-  const summary = useMemo(() => (liveTrace ? buildLiveResultsSummary(liveTrace) : null), [liveTrace]);
-  const timelineMarkers = useMemo(() => (liveTrace ? mapLiveTraceToTimelineMarkers(liveTrace, phaseLabelMap) : []), [liveTrace, phaseLabelMap]);
+  const summary = postAnalysisSnapshot?.summary ?? null;
+  const timelineMarkers = postAnalysisSnapshot?.timelineMarkers ?? [];
   const replayDownloads = resolveAvailableDownloads({ hasRaw: Boolean(rawReplayUrl), hasAnnotated: Boolean(annotatedReplayUrl) });
   const activeReplaySurface: PreviewSurface = replayState === "export-in-progress" ? (showRawDuringProcessing ? "raw" : "annotated") : completedPreviewSurface;
   const activeReplaySource = activeReplaySurface === "annotated"
@@ -318,7 +329,7 @@ export function LiveStreamingWorkspace() {
   }, [activeReplaySurface, annotatedReplayUrl, rawReplayUrl, replayPreviewSelection.warning, replayState]);
   const liveViewerModel = useMemo(
     () => {
-      if (!liveTrace) {
+      if (!postAnalysisSnapshot) {
         return null;
       }
       return mapLiveAnalysisToViewerModel({
@@ -327,11 +338,11 @@ export function LiveStreamingWorkspace() {
         videoUrl: replayUrl,
         surface: completedPreviewSurface,
         selectedEventId: selectedMarkerId,
-        durationMs: liveTrace.video.durationMs,
+        durationMs: postAnalysisSnapshot.durationMs,
         hasAnnotatedReady: Boolean(annotatedReplayUrl),
         mediaAspectRatio:
-          liveTrace && liveTrace.video.width > 0 && liveTrace.video.height > 0
-            ? liveTrace.video.width / liveTrace.video.height
+          postAnalysisSnapshot.width > 0 && postAnalysisSnapshot.height > 0
+            ? postAnalysisSnapshot.width / postAnalysisSnapshot.height
             : undefined,
         markers: timelineMarkers,
         primarySummaryChips: [
@@ -355,7 +366,7 @@ export function LiveStreamingWorkspace() {
             ? [{
                 id: "annotated",
                 label: annotatedDownloadLabel,
-                onDownload: () => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`),
+                onDownload: () => triggerDownload(annotatedReplayUrl, `${postAnalysisSnapshot.traceId}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`),
                 hint: replayDownloadSafety.annotated?.warning ?? undefined
               }]
             : []),
@@ -363,7 +374,7 @@ export function LiveStreamingWorkspace() {
             ? [{
                 id: "raw",
                 label: rawDownloadLabel,
-                onDownload: () => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`),
+                onDownload: () => triggerDownload(rawReplayUrl, `${postAnalysisSnapshot.traceId}-raw.${extensionFromMimeType(rawReplayMimeType)}`),
                 hint: replayDownloadSafety.raw?.warning ?? undefined
               }]
             : [])
@@ -382,7 +393,7 @@ export function LiveStreamingWorkspace() {
       });
     },
     [
-      liveTrace,
+      postAnalysisSnapshot,
       replayState,
       replayExportStageLabel,
       replayUrl,
@@ -397,7 +408,6 @@ export function LiveStreamingWorkspace() {
       selection.cameraView,
       replayDownloads,
       annotatedReplayUrl,
-      liveTrace?.traceId,
       annotatedReplayMimeType,
       replayDownloadSafety.annotated?.warning,
       rawReplayUrl,
@@ -422,7 +432,7 @@ export function LiveStreamingWorkspace() {
   }, [timelineMarkers]);
 
   useEffect(() => {
-    if (!liveTrace) {
+    if (!postAnalysisSnapshot) {
       return;
     }
     console.info("[live-overlay] PREVIEW_DELIVERY_SELECTION", {
@@ -462,7 +472,7 @@ export function LiveStreamingWorkspace() {
         mimeType: replayMimeType
       });
     }
-  }, [activeReplaySurface, annotatedReplayBlob, annotatedReplayMimeType, annotatedReplayUrl, liveTrace, rawReplayBlob, rawReplayMimeType, rawReplayUrl, replayDownloadSafety.annotated?.downloadable, replayDownloadSafety.raw?.downloadable, replayMimeType, replayPreviewSelection.blockedByCompatibility, replayPreviewSelection.source, replayPreviewSelection.warning]);
+  }, [activeReplaySurface, annotatedReplayBlob, annotatedReplayMimeType, annotatedReplayUrl, postAnalysisSnapshot, rawReplayBlob, rawReplayMimeType, rawReplayUrl, replayDownloadSafety.annotated?.downloadable, replayDownloadSafety.raw?.downloadable, replayMimeType, replayPreviewSelection.blockedByCompatibility, replayPreviewSelection.source, replayPreviewSelection.warning]);
 
   const updateTrackingStatus = useCallback((nextStatus: string) => {
     if (trackingStatusRef.current === nextStatus) {
@@ -810,6 +820,7 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
     setLiveTrace(null);
+    setPostAnalysisSnapshot(null);
     setSelectedMarkerId(null);
     updateFramingWarning(null);
     if (annotatedReplayUrl) {
@@ -1174,6 +1185,7 @@ export function LiveStreamingWorkspace() {
       setRawReplayMimeType(null);
     }
     setLiveTrace(null);
+    setPostAnalysisSnapshot(null);
     setReplayState("idle");
     setReplayExportStageLabel(null);
     setShowRawDuringProcessing(false);
@@ -1257,7 +1269,18 @@ export function LiveStreamingWorkspace() {
       traceFreshness
     });
 
+    const completedSummary = buildLiveResultsSummary(trace);
+    const completedTimelineMarkers = mapLiveTraceToTimelineMarkers(trace, phaseLabelMap);
     setLiveTrace(trace);
+    setPostAnalysisSnapshot({
+      traceId: trace.traceId,
+      durationMs: trace.video.durationMs,
+      width: trace.video.width,
+      height: trace.video.height,
+      summary: completedSummary,
+      timelineMarkers: completedTimelineMarkers,
+      cameraView: selection.cameraView
+    });
     const rawUrl = URL.createObjectURL(raw.blob);
     setRawReplayUrl(rawUrl);
     setRawReplayBlob(raw.blob);
@@ -1444,13 +1467,13 @@ export function LiveStreamingWorkspace() {
                     {status === "completed" ? (
                       <>
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
-                          <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
+                          <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${postAnalysisSnapshot?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
                             title={replayDownloadSafety.annotated?.warning ?? undefined}>
                             {annotatedDownloadLabel}
                           </button>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
-                          <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
+                          <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${postAnalysisSnapshot?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
                             title={replayDownloadSafety.raw?.warning ?? undefined}>
                             {rawDownloadLabel}
                           </button>
@@ -1552,7 +1575,7 @@ export function LiveStreamingWorkspace() {
           </div>
         </div>
 
-        {liveTrace && liveViewerModel ? (
+        {postAnalysisSnapshot && liveViewerModel ? (
           <AnalysisViewerShell
             model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
             videoRef={replayVideoRef}
