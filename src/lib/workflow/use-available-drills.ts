@@ -59,18 +59,6 @@ export function useAvailableDrills(input: {
   }, [input.storageKey, selectedDrillKey]);
 
   useEffect(() => {
-    if (selectedDrillKey && selectedDrillKey !== input.fallbackKey) {
-      const expectedSource = resolveSelectedSourceForKey({
-        options: drillOptions,
-        selectedKey: selectedDrillKey,
-        fallbackKey: input.fallbackKey,
-        defaultSource: selectedSource
-      });
-      if (expectedSource !== selectedSource) {
-        setSelectedSource(expectedSource);
-        return;
-      }
-    }
     setSelectedDrillKey((current) =>
       ensureVisibleDrillSelection({
         selectedKey: current,
@@ -79,7 +67,7 @@ export function useAvailableDrills(input: {
         fallbackKey: input.fallbackKey
       })
     );
-  }, [drillOptionGroups, drillOptions, input.fallbackKey, selectedDrillKey, selectedSource]);
+  }, [drillOptionGroups, input.fallbackKey, selectedSource]);
 
   return {
     drillOptions,
