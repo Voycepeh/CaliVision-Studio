@@ -35,6 +35,7 @@ import {
   getReplayStateTone,
   mapLiveTraceToTimelineMarkers,
   replaceStreamSafely,
+  resolveHalfXAccessDecision,
   resolveSelectedZoomPreset,
   type VideoInputDescriptor,
   stopMediaStream,
@@ -327,6 +328,27 @@ export function LiveStreamingWorkspace() {
   const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
   const shouldShowSessionToolbar = isSessionStageActive || isStageFullscreen;
   const activeZoomPreset = resolveSelectedZoomPreset(selectedZoomPreset, APP_HARDWARE_ZOOM_PRESETS);
+  const halfXAccess = useMemo(() => {
+    if (activeCameraSource === "rear-ultrawide") {
+      return { available: true, reason: "switchable-ultrawide" as const };
+    }
+    const activeTrack = activeVideoTrackRef.current;
+    const activeSettings = activeTrack?.getSettings?.();
+    return resolveHalfXAccessDecision(cameraDescriptors, {
+      deviceId: activeSettings?.deviceId,
+      facing: isRearCamera ? "rear" : "front",
+      zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
+    });
+  }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom]);
+  const zoomHelperText = useMemo(() => {
+    if (status !== "live-session-running") {
+      return null;
+    }
+    if (!halfXAccess.available) {
+      return "0.5x ultrawide lens not accessible from this browser session";
+    }
+    return zoomStatusMessage;
+  }, [halfXAccess.available, status, zoomStatusMessage]);
   const replayUnavailableMessage = useMemo(() => {
     if (replayState === "export-in-progress") {
       return null;
@@ -804,6 +826,15 @@ export function LiveStreamingWorkspace() {
             : null
         }))
       });
+      const rearDescriptors = descriptors.filter((descriptor) => descriptor.facing === "rear");
+      const rearMainCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "main");
+      const rearUltrawideCandidates = rearDescriptors.filter((descriptor) => descriptor.rearLensHint === "ultrawide");
+      console.info("[live-camera] REAR_CAMERA_CANDIDATES", {
+        rearCameraCount: rearDescriptors.length,
+        mainRearCandidates: rearMainCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
+        ultrawideRearCandidates: rearUltrawideCandidates.map((descriptor) => ({ deviceId: descriptor.deviceId, label: descriptor.label })),
+        noUltrawideReason: rearUltrawideCandidates.length === 0 ? "no_ultrawide_labeled_rear_camera" : null
+      });
       const zoomSupport = getHardwareZoomSupport(activeVideoTrack);
       console.info("[live-camera] ACTIVE_TRACK_ZOOM_CAPABILITIES", {
         deviceId: activeTrackSettings?.deviceId ?? "unknown",
@@ -1228,12 +1259,12 @@ export function LiveStreamingWorkspace() {
             });
           } catch (error) {
             const message = error instanceof Error ? error.message : "unknown";
-            setZoomStatusMessage(`${formatHardwareZoomLabel(presetZoom)} not exposed on this browser/camera`);
+            setZoomStatusMessage("Unable to restore main rear camera in this browser session");
             console.warn("[live-camera] MAIN_REAR_RESTORE_FAILED", { presetZoom, message, deviceId: restoreTargetDeviceId });
             return;
           }
         } else {
-          setZoomStatusMessage(`${formatHardwareZoomLabel(presetZoom)} not exposed on this browser/camera`);
+          setZoomStatusMessage("Unable to identify a main rear camera in this browser session");
           console.info("[live-camera] MAIN_REAR_RESTORE_UNAVAILABLE", { presetZoom, reason: "no_confident_main_rear_candidate" });
           return;
         }
@@ -1241,11 +1272,11 @@ export function LiveStreamingWorkspace() {
 
       const applied = await updateHardwareZoom(presetZoom);
       if (!applied && presetZoom > 1) {
-        setZoomStatusMessage(`${formatHardwareZoomLabel(presetZoom)} not exposed on this browser/camera`);
+        setZoomStatusMessage(null);
       } else if (!applied && presetZoom === 1) {
         selectedZoomRef.current = 1;
         setSelectedZoomPreset(1);
-        setZoomStatusMessage(isRearCamera ? "1x using main rear camera" : "1x using front camera");
+        setZoomStatusMessage(null);
       } else {
         setZoomStatusMessage(null);
       }
@@ -1253,7 +1284,7 @@ export function LiveStreamingWorkspace() {
     }
 
     if (presetZoom !== 0.5) {
-      setZoomStatusMessage(`${formatHardwareZoomLabel(presetZoom)} not exposed on this browser/camera`);
+      setZoomStatusMessage(null);
       return;
     }
 
@@ -1274,7 +1305,7 @@ export function LiveStreamingWorkspace() {
       zoomSupport: liveHardwareZoom.supported ? { ...liveHardwareZoom, current: liveHardwareZoom.value } : { supported: false }
     });
     if (decision.strategy !== "switch-camera") {
-      setZoomStatusMessage("0.5x not exposed on this browser/camera");
+      setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
       console.info("[live-camera] HALF_X_UNAVAILABLE", { reason: decision.reason, source: activeCameraSource });
       return;
     }
@@ -1292,7 +1323,7 @@ export function LiveStreamingWorkspace() {
       console.info("[live-camera] HALF_X_RESOLUTION", { strategy: "camera-switch", deviceId: decision.camera.deviceId, label: decision.camera.label });
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown";
-      setZoomStatusMessage("0.5x not exposed on this browser/camera");
+      setZoomStatusMessage("0.5x ultrawide lens not accessible from this browser session");
       console.warn("[live-camera] HALF_X_SWITCH_FAILED", { message, deviceId: decision.camera.deviceId, label: decision.camera.label });
     }
   }, [activeCameraSource, cameraDescriptors, isRearCamera, liveHardwareZoom, status, switchToDevice, syncOverlayCanvasSize, updateHardwareZoom]);
@@ -1685,12 +1716,15 @@ export function LiveStreamingWorkspace() {
                 <div className="live-streaming-zoom-presets">
                   {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
                     const isActive = activeZoomPreset === preset;
+                    const isDisabled = preset === 0.5 && !halfXAccess.available;
                     return (
                       <button
                         key={preset}
                         type="button"
                         className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
                         aria-pressed={isActive}
+                        disabled={isDisabled}
+                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : undefined}
                         onClick={() => {
                           void handleZoomPresetSelection(preset);
                         }}
@@ -1704,8 +1738,12 @@ export function LiveStreamingWorkspace() {
               </div>
             ) : null}
             {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
-            {status === "live-session-running" && zoomStatusMessage ? <div className="live-streaming-zoom-unsupported">{zoomStatusMessage}</div> : null}
           </div>
+          {zoomHelperText ? (
+            <p className="muted" style={{ marginTop: "0.45rem", marginBottom: 0, fontSize: "0.82rem" }}>
+              {zoomHelperText}
+            </p>
+          ) : null}
         </div>
 
         {liveTrace ? (

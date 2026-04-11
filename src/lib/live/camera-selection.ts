@@ -20,6 +20,10 @@ export type RearMainCameraDecision =
   | { strategy: "switch-camera"; reason: "main-rear-camera"; camera: VideoInputDescriptor }
   | { strategy: "unavailable"; reason: string };
 
+export type HalfXAccessDecision =
+  | { available: true; reason: "hardware-zoom" | "switchable-ultrawide" }
+  | { available: false; reason: string };
+
 export type CurrentTrackZoomInfo = {
   deviceId?: string;
   facing: CameraFacingInference;
@@ -66,7 +70,13 @@ export function inferCameraFacingFromLabelOrSettings(label: string, settings?: M
 
 function inferRearLensHintFromLabel(label: string): RearLensHint {
   const normalized = normalizeLabel(label);
-  if (normalized.includes("ultra") || normalized.includes("wide") || normalized.includes("0.5") || normalized.includes("0,5")) {
+  if (
+    normalized.includes("ultra wide") ||
+    normalized.includes("ultrawide") ||
+    normalized.includes("ultra-wide") ||
+    normalized.includes("0.5") ||
+    normalized.includes("0,5")
+  ) {
     return "ultrawide";
   }
   if (normalized.includes("tele") || normalized.includes("zoom") || normalized.includes("periscope")) {
@@ -221,4 +231,15 @@ export function chooseBestRearMainCamera(
   }
 
   return { strategy: "unavailable", reason: "no_confident_main_rear_candidate" };
+}
+
+export function resolveHalfXAccessDecision(candidates: VideoInputDescriptor[], currentTrackInfo: CurrentTrackZoomInfo): HalfXAccessDecision {
+  const zoomDecision = chooseBestRearCameraForZoomPreset(0.5, candidates, currentTrackInfo);
+  if (zoomDecision.strategy === "hardware-zoom") {
+    return { available: true, reason: "hardware-zoom" };
+  }
+  if (zoomDecision.strategy === "switch-camera") {
+    return { available: true, reason: "switchable-ultrawide" };
+  }
+  return { available: false, reason: zoomDecision.reason };
 }

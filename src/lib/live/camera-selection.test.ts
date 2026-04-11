@@ -5,6 +5,7 @@ import {
   chooseBestRearMainCamera,
   inferCameraFacingFromLabelOrSettings,
   probeVideoDeviceCapabilities,
+  resolveHalfXAccessDecision,
   replaceStreamSafely,
   type VideoInputDescriptor
 } from "./camera-selection.ts";
@@ -99,6 +100,26 @@ test("supports floating tolerance for 0.5 capability checks", () => {
 test("inferCameraFacingFromLabelOrSettings infers rear from labels and settings", () => {
   assert.equal(inferCameraFacingFromLabelOrSettings("Back Camera"), "rear");
   assert.equal(inferCameraFacingFromLabelOrSettings("", { facingMode: "user" }), "front");
+});
+
+test("resolveHalfXAccessDecision reports unavailable when no hardware or ultrawide path exists", () => {
+  const decision = resolveHalfXAccessDecision(
+    [
+      {
+        deviceId: "rear-main",
+        label: "Rear Main Camera",
+        facing: "rear",
+        rearLensHint: "main",
+        zoomSupport: { supported: true, min: 1, max: 2, step: 0.1, current: 1 }
+      }
+    ],
+    {
+      deviceId: "rear-main",
+      facing: "rear",
+      zoomSupport: { supported: true, min: 1, max: 2, step: 0.1, current: 1 }
+    }
+  );
+  assert.equal(decision.available, false);
 });
 
 test("probeVideoDeviceCapabilities stops probe tracks", async () => {
