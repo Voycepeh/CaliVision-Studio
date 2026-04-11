@@ -14,7 +14,7 @@ import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
-import { extensionFromMimeType, resolveSafeDelivery, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import {
   buildLiveResultsSummary,
   classifyCameraError,
@@ -236,6 +236,10 @@ export function LiveStreamingWorkspace() {
       ...(rawReplayUrl ? [{ id: "raw" as const, url: rawReplayUrl, mimeType: rawReplayMimeType }] : [])
     ]
   });
+  const preferredReplayDeliverySource = selectPreferredDeliverySource([
+    ...(annotatedReplayUrl ? [{ id: "annotated" as const, url: annotatedReplayUrl, mimeType: annotatedReplayMimeType }] : []),
+    ...(rawReplayUrl ? [{ id: "raw" as const, url: rawReplayUrl, mimeType: rawReplayMimeType }] : [])
+  ]);
   const replayDownloadSafety = {
     annotated: annotatedReplayMimeType ? resolveSafeDelivery({ mimeType: annotatedReplayMimeType }) : null,
     raw: rawReplayMimeType ? resolveSafeDelivery({ mimeType: rawReplayMimeType }) : null
@@ -1067,16 +1071,14 @@ export function LiveStreamingWorkspace() {
                       <>
                         {replayDownloads.includes("annotated") && annotatedReplayUrl ? (
                           <button type="button" className="studio-button studio-button-primary" onClick={() => triggerDownload(annotatedReplayUrl, `${liveTrace?.traceId ?? "live-session"}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`)}
-                            disabled={replayDownloadSafety.annotated ? !replayDownloadSafety.annotated.downloadable : false}
                             title={replayDownloadSafety.annotated?.warning ?? undefined}>
-                            Download annotated
+                            {replayDownloadSafety.annotated?.downloadable === false ? "Download annotated WebM (may not play)" : "Download annotated"}
                           </button>
                         ) : null}
                         {replayDownloads.includes("raw") && rawReplayUrl ? (
                           <button type="button" className="studio-button" onClick={() => triggerDownload(rawReplayUrl, `${liveTrace?.traceId ?? "live-session"}-raw.${extensionFromMimeType(rawReplayMimeType)}`)}
-                            disabled={replayDownloadSafety.raw ? !replayDownloadSafety.raw.downloadable : false}
                             title={replayDownloadSafety.raw?.warning ?? undefined}>
-                            Download raw
+                            {replayDownloadSafety.raw?.downloadable === false ? "Download raw WebM (may not play)" : "Download raw"}
                           </button>
                         ) : null}
                         <button type="button" className="studio-button" onClick={() => void startSession()}>
@@ -1196,6 +1198,7 @@ export function LiveStreamingWorkspace() {
                 <strong>{replayPreviewSelection.warning}</strong>
               </div>
             ) : null}
+            {preferredReplayDeliverySource ? <p className="muted" style={{ margin: 0 }}>Recommended delivery: {preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</p> : null}
             {(replayPreviewState === "showing_annotated_completed" || replayPreviewState === "showing_raw_completed" || replayPreviewState === "showing_raw_during_processing" || replayPreviewState === "annotated_failed_showing_raw") && replayUrl ? (
               <video controls src={replayUrl} style={{ width: "100%", borderRadius: "0.8rem" }} />
             ) : null}

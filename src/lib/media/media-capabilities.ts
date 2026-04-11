@@ -116,6 +116,21 @@ export function selectPreviewSource(options: {
   };
 }
 
+
+export function selectPreferredDeliverySource(sources: MediaSourceOption[], options?: { isAppleLike?: boolean; canPlayType?: (candidate: string) => string }): MediaSourceOption | null {
+  const appleLike = options?.isAppleLike ?? isLikelyAppleSafariEnvironment();
+  const mp4 = sources.find((source) => detectDeliveryFormat(source.mimeType) === "mp4") ?? null;
+  if (mp4) {
+    return mp4;
+  }
+  const firstPlayableWebm = sources.find((source) => {
+    if (detectDeliveryFormat(source.mimeType) !== "webm") return false;
+    if (!appleLike) return true;
+    return canLikelyPlayMimeType(source.mimeType ?? "video/webm", options?.canPlayType);
+  }) ?? null;
+  return firstPlayableWebm ?? sources[0] ?? null;
+}
+
 export function resolveSafeDelivery(options: {
   mimeType?: string | null;
   isAppleLike?: boolean;

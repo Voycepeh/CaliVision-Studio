@@ -4,6 +4,7 @@ import {
   detectDeliveryFormat,
   resolveSafeDelivery,
   selectPreferredCaptureMimeType,
+  selectPreferredDeliverySource,
   selectPreviewSource
 } from "./media-capabilities.ts";
 
@@ -40,4 +41,14 @@ test("resolveSafeDelivery disables apple-like webm-only download", () => {
   assert.equal(safety.downloadable, false);
   assert.equal(safety.format, "webm");
   assert.match(safety.warning ?? "", /may not play/i);
+});
+
+
+test("selectPreferredDeliverySource prefers mp4 when available", () => {
+  const selected = selectPreferredDeliverySource([
+    { id: "annotated", url: "blob:1", mimeType: "video/webm" },
+    { id: "raw", url: "blob:2", mimeType: "video/mp4" }
+  ]);
+
+  assert.equal(selected?.id, "raw");
 });

@@ -16,7 +16,7 @@ import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
-import { extensionFromMimeType, resolveSafeDelivery, selectPreviewSource } from "@/lib/media/media-capabilities";
+import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
@@ -553,6 +553,10 @@ export function UploadVideoWorkspace() {
       ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: activeJob?.file?.type }] : [])
     ]
   });
+  const preferredDeliverySource = selectPreferredDeliverySource([
+    ...(activeJob?.artefacts?.annotatedVideoMimeType ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl ?? "", mimeType: activeJob.artefacts.annotatedVideoMimeType }] : []),
+    ...(activeJob?.file?.type ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: activeJob.file.type }] : [])
+  ]);
   const downloadSafety = {
     annotated: activeJob?.artefacts?.annotatedVideoMimeType
       ? resolveSafeDelivery({ mimeType: activeJob.artefacts.annotatedVideoMimeType })
@@ -862,20 +866,20 @@ export function UploadVideoWorkspace() {
 
               {activeJob.artefacts ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
+                {preferredDeliverySource ? <span className="muted" style={{ fontSize: "0.8rem", width: "100%" }}>Recommended delivery: {preferredDeliverySource.id === "annotated" ? "Annotated" : "Raw"}</span> : null}
                 {downloadTargets.includes("annotated") ? (
                   <button
                     type="button"
                     className="pill"
                     onClick={() => downloadBlob(activeJob.artefacts!.annotatedVideoBlob!, `${createArtifactBaseName(activeJob.fileName)}.annotated-video.${extensionFromMimeType(activeJob.artefacts?.annotatedVideoMimeType)}`)}
-                    disabled={downloadSafety.annotated ? !downloadSafety.annotated.downloadable : false}
                     title={downloadSafety.annotated?.warning ?? undefined}
                   >
-                    Download Annotated Video
+                    {downloadSafety.annotated?.downloadable === false ? "Download Annotated WebM (may not play on this device)" : "Download Annotated Video"}
                   </button>
                 ) : null}
                 {downloadTargets.includes("raw") ? (
-                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} disabled={downloadSafety.raw ? !downloadSafety.raw.downloadable : false} title={downloadSafety.raw?.warning ?? undefined}>
-                    Download Raw Video
+                  <button type="button" className="pill" onClick={() => downloadBlob(activeJob.file, activeJob.fileName)} title={downloadSafety.raw?.warning ?? undefined}>
+                    {downloadSafety.raw?.downloadable === false ? "Download Raw WebM (may not play on this device)" : "Download Raw Video"}
                   </button>
                 ) : null}
                 {downloadSafety.annotated?.warning ? <span className="muted" style={{ fontSize: "0.8rem" }}>{downloadSafety.annotated.warning}</span> : null}
