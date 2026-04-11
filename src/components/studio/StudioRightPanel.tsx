@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { StudioInspectorAccordion } from "@/components/studio/StudioInspectorAccordion";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 
@@ -61,7 +60,8 @@ export function StudioRightPanel() {
         </div>
       ) : null}
 
-      <StudioInspectorAccordion title="Drill draft identity and save state" >
+      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
+        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Drill draft identity and save state</h4>
         {selectedPackage && drill ? (
           <ul className="muted" style={{ margin: 0, paddingLeft: "1rem" }}>
             <li>Drill title: {drill.title}</li>
@@ -74,9 +74,10 @@ export function StudioRightPanel() {
         ) : (
           <p className="muted" style={{ margin: 0 }}>Open a drill to view details.</p>
         )}
-      </StudioInspectorAccordion>
+      </section>
 
-      <StudioInspectorAccordion title="Detection state" >
+      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
+        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Detection state</h4>
         {selectedPhase ? (
           <div style={{ display: "grid", gap: "0.35rem" }}>
             <p className="muted" style={{ margin: 0 }}>Status: {selectedPhaseDetection.status}</p>
@@ -94,9 +95,10 @@ export function StudioRightPanel() {
         ) : (
           <p className="muted" style={{ margin: 0 }}>Select a phase to inspect detection workflow internals.</p>
         )}
-      </StudioInspectorAccordion>
+      </section>
 
-      <StudioInspectorAccordion title="Drill file asset manifest" >
+      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
+        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Drill file asset manifest</h4>
         {selectedPackage ? (
           <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
             <li>Total assets: {selectedPackage.workingPackage.assets.length}</li>
@@ -108,9 +110,10 @@ export function StudioRightPanel() {
         ) : (
           <p className="muted" style={{ margin: 0 }}>No drill selected.</p>
         )}
-      </StudioInspectorAccordion>
+      </section>
 
-      <StudioInspectorAccordion title="Validation internals" >
+      <section className="card" style={{ display: "grid", gap: "0.45rem" }}>
+        <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Validation internals</h4>
         {selectedPackage ? (
           <>
             <ul className="muted" style={{ marginTop: 0, paddingLeft: "1rem" }}>
@@ -132,7 +135,7 @@ export function StudioRightPanel() {
         ) : (
           <p className="muted" style={{ margin: 0 }}>Load a drill file to inspect validation internals.</p>
         )}
-      </StudioInspectorAccordion>
+      </section>
     </section>
   );
 }

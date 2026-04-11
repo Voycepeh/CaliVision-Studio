@@ -7,6 +7,7 @@ import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
+import { StudioAnimationPreviewPanel } from "@/components/studio/animation/StudioAnimationPreviewPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
@@ -411,10 +412,10 @@ export function StudioCenterInspector() {
           <div className="card" style={{ display: "grid", gap: "0.4rem" }}>
             <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Live workspace context</h3>
             <p className="muted" style={{ margin: 0 }}>
-              Keep this panel visible while you move through the authoring flow.
+              Supporting visual context while you progress through the main authoring flow.
             </p>
           </div>
-          <StudioReviewTabs />
+          <StudioAnimationPreviewPanel />
           {selectedPhase ? (
             <PoseCanvas
               pose={poseModel}
