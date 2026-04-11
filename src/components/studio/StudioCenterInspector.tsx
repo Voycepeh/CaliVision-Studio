@@ -6,56 +6,25 @@ import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
-import { StudioRightPanel } from "@/components/studio/StudioRightPanel";
 import { StudioAnimationPreviewPanel } from "@/components/studio/animation/StudioAnimationPreviewPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
-import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
-import { buildPhaseRuntimeModel, buildPhaseSimilarityWarnings } from "@/lib/analysis";
-import { STANDARD_AUTHORING_JOINTS } from "@/lib/pose/canonical";
-import type { CanonicalJointName } from "@/lib/schema/contracts";
-
-const NUDGE_STEP = 0.01;
 
 const WORKFLOW_SECTION_IDS = {
   drillSetup: 0,
   phaseSequence: 1,
-  poseAuthoring: 2,
-  review: 3,
-  advanced: 4
+  review: 2
 } as const;
 
 const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
   [WORKFLOW_SECTION_IDS.drillSetup]: true,
   [WORKFLOW_SECTION_IDS.phaseSequence]: true,
-  [WORKFLOW_SECTION_IDS.poseAuthoring]: true,
-  [WORKFLOW_SECTION_IDS.review]: false,
-  [WORKFLOW_SECTION_IDS.advanced]: false
+  [WORKFLOW_SECTION_IDS.review]: false
 };
 
-type FocusRegion = "full" | "upper" | "lower" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg";
-
-const FOCUS_OPTIONS: Array<{ value: FocusRegion; label: string }> = [
-  { value: "full", label: "Full body" },
-  { value: "upper", label: "Upper body" },
-  { value: "lower", label: "Lower body" },
-  { value: "leftArm", label: "Left arm" },
-  { value: "rightArm", label: "Right arm" },
-  { value: "leftLeg", label: "Left leg" },
-  { value: "rightLeg", label: "Right leg" }
-];
-
-const REGION_JOINTS: Record<FocusRegion, CanonicalJointName[]> = {
-  full: STANDARD_AUTHORING_JOINTS.map((joint) => joint.name),
-  upper: ["nose", "leftEye", "rightEye", "leftEar", "rightEar", "leftShoulder", "rightShoulder", "leftElbow", "rightElbow", "leftWrist", "rightWrist"],
-  lower: ["leftHip", "rightHip", "leftKnee", "rightKnee", "leftAnkle", "rightAnkle"],
-  leftArm: ["leftShoulder", "leftElbow", "leftWrist"],
-  rightArm: ["rightShoulder", "rightElbow", "rightWrist"],
-  leftLeg: ["leftHip", "leftKnee", "leftAnkle"],
-  rightLeg: ["rightHip", "rightKnee", "rightAnkle"]
-};
+type WorkspaceMode = "preview" | "pose";
 
 function WorkflowSection({
   title,
@@ -76,12 +45,9 @@ function WorkflowSection({
     <details className="card studio-workflow-section" data-current={stepIndex === currentStepIndex} open={open} onToggle={(event) => onToggle((event.currentTarget as HTMLDetailsElement).open, stepIndex)}>
       <summary className="studio-workflow-section-summary">
         <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-          <span className="studio-workflow-chevron" aria-hidden="true">
-            {open ? "▾" : "▸"}
-          </span>
+          <span className="studio-workflow-chevron" aria-hidden="true">{open ? "▾" : "▸"}</span>
           <span>{title}</span>
         </span>
-        {stepIndex === currentStepIndex ? <strong className="pill">Current step</strong> : null}
       </summary>
       <div className="studio-workflow-section-body">{children}</div>
     </details>
@@ -96,7 +62,6 @@ export function StudioCenterInspector() {
     selectPhase,
     selectJoint,
     renamePhase,
-    setPhaseDuration,
     setPhaseSummary,
     selectedPhaseEditorView,
     addPhase,
@@ -104,90 +69,74 @@ export function StudioCenterInspector() {
     duplicatePhase,
     movePhase,
     setJointCoordinates,
-    nudgeJoint,
-    revertSelectedJoint,
     selectedPhaseSourceImage,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
     resetSelectedPhaseOverlayState
   } = useStudioState();
 
-  const [focusRegion, setFocusRegion] = useState<FocusRegion>("full");
-  const [isPoseCanvasExpanded, setIsPoseCanvasExpanded] = useState(false);
   const [activeStepOverride, setActiveStepOverride] = useState<number | null>(null);
   const [sectionOpenState, setSectionOpenState] = useState<Record<number, boolean>>({});
+  const [workspaceVisible, setWorkspaceVisible] = useState(true);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("preview");
+  const [workspacePhaseId, setWorkspacePhaseId] = useState<string | null>(null);
 
   const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
   const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
+  const holdDrill = selectedDrill?.drillType === "hold";
+  const displayedPhases = useMemo(() => (holdDrill ? phases.slice(0, 1) : phases), [holdDrill, phases]);
+
   const selectedPhase = useMemo(() => phases.find((phase) => phase.phaseId === selectedPhaseId) ?? null, [phases, selectedPhaseId]);
-  const runtimeModel = useMemo(() => {
-    if (!selectedDrill?.analysis) {
-      return null;
-    }
-    return buildPhaseRuntimeModel(selectedDrill, selectedDrill.analysis);
-  }, [selectedDrill]);
-  const phaseSimilarityWarnings = useMemo(() => {
-    if (!selectedDrill || !runtimeModel) {
-      return [];
-    }
-    return buildPhaseSimilarityWarnings(selectedDrill, runtimeModel);
-  }, [selectedDrill, runtimeModel]);
-  const selectedPose = selectedPhase?.poseSequence[0] ?? null;
+  const workspaceActivePhaseId = workspacePhaseId ?? selectedPhaseId;
+  const workspacePhase = useMemo(() => phases.find((phase) => phase.phaseId === workspaceActivePhaseId) ?? null, [phases, workspaceActivePhaseId]);
+  const workspacePose = workspacePhase?.poseSequence[0] ?? null;
   const poseModel = useMemo(
     () =>
       mapPortablePoseToCanvasPoseModel(
-        selectedPose
+        workspacePose
           ? {
-              ...selectedPose,
+              ...workspacePose,
               canvas: {
-                ...selectedPose.canvas,
+                ...workspacePose.canvas,
                 view: selectedPhaseEditorView
               }
             }
           : null
       ),
-    [selectedPose, selectedPhaseEditorView]
+    [workspacePose, selectedPhaseEditorView]
   );
-  const focusJointSet = useMemo(() => new Set(REGION_JOINTS[focusRegion]), [focusRegion]);
-  const selectedJoint = selectedJointName ? selectedPose?.joints[selectedJointName] : null;
 
   const inferredStepIndex = useMemo(() => {
     if (!selectedPackage) return WORKFLOW_SECTION_IDS.drillSetup;
     if (!selectedPhase) return WORKFLOW_SECTION_IDS.phaseSequence;
-    if (!selectedPose) return WORKFLOW_SECTION_IDS.poseAuthoring;
     return WORKFLOW_SECTION_IDS.review;
-  }, [selectedPackage, selectedPhase, selectedPose]);
+  }, [selectedPackage, selectedPhase]);
 
   const currentStepIndex = activeStepOverride ?? inferredStepIndex;
 
   function isSectionOpen(stepIndex: number): boolean {
-    if (sectionOpenState[stepIndex] !== undefined) {
-      return sectionOpenState[stepIndex];
-    }
-
+    if (sectionOpenState[stepIndex] !== undefined) return sectionOpenState[stepIndex];
     return DEFAULT_OPEN_SECTIONS[stepIndex] ?? false;
   }
 
   function handleSectionToggle(isOpen: boolean, stepIndex: number): void {
-    setSectionOpenState((current) => ({
-      ...current,
-      [stepIndex]: isOpen
-    }));
+    setSectionOpenState((current) => ({ ...current, [stepIndex]: isOpen }));
+    if (isOpen) setActiveStepOverride(stepIndex);
+    else if (activeStepOverride === stepIndex) setActiveStepOverride(null);
+  }
 
-    if (isOpen) {
-      setActiveStepOverride(stepIndex);
-    } else if (activeStepOverride === stepIndex) {
-      setActiveStepOverride(null);
-    }
+  function openPoseWorkspace(phaseId: string): void {
+    selectPhase(phaseId);
+    setWorkspacePhaseId(phaseId);
+    setWorkspaceMode("pose");
+    setWorkspaceVisible(true);
   }
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-      <header className="studio-workflow-header">
-        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio sequential authoring flow</h2>
-        <p className="muted" style={{ margin: 0 }}>
-          Build one continuous flow: drill setup, phase sequence, pose authoring, review, then technical details.
-        </p>
+      <header>
+        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio editor</h2>
+        <p className="muted" style={{ margin: 0 }}>Define your drill, organize phases, then review animation.</p>
       </header>
 
       <StudioActionBar />
@@ -203,270 +152,121 @@ export function StudioCenterInspector() {
               <p className="muted" style={{ margin: 0 }}>Open a drill to manage phases.</p>
             ) : (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.25rem" }}>
-                  <p className="muted" style={{ margin: 0 }}>Select a phase, then reorder, duplicate, or delete as needed.</p>
-                  <div className="studio-action-row">
-                    <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary">Add phase</button>
-                    <button type="button" onClick={() => selectPhase(null)} className="studio-button">Clear selection</button>
-                  </div>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "0.45rem", flexWrap: "wrap", alignItems: "center" }}>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {holdDrill ? "Hold drills use one primary phase in this simplified workflow." : `Rep drill with ${displayedPhases.length} phases.`}
+                  </p>
+                  <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" disabled={holdDrill}>Add phase</button>
                 </div>
-                <div style={{ display: "grid", gap: "0.35rem", padding: "0.55rem 0.65rem", border: "1px solid var(--border)", borderRadius: "0.6rem", background: "rgba(110, 168, 255, 0.04)" }}>
-                  <small className="muted">You have {phases.length} phases.</small>
-                  {runtimeModel ? (
-                    <>
-                      <small className="muted">Runtime loop: {runtimeModel.loopLabel || "n/a"}</small>
-                      <small className="muted">Mode: {runtimeModel.measurementMode === "rep" ? "Rep" : "Hold"}</small>
-                      <small className="muted">{runtimeModel.measurementMode === "rep" ? runtimeModel.repCompletionSummary : runtimeModel.holdSummary}</small>
-                    </>
-                  ) : (
-                    <small className="muted">Runtime loop follows authored phase order and auto-closes to phase 1.</small>
-                  )}
-                </div>
-                {phaseSimilarityWarnings.length > 0 ? (
-                  <div style={{ display: "grid", gap: "0.35rem", padding: "0.55rem 0.65rem", border: "1px solid rgba(245, 158, 11, 0.38)", borderRadius: "0.6rem", background: "rgba(245, 158, 11, 0.08)" }}>
-                    <strong style={{ fontSize: "0.82rem" }}>Phase similarity warnings</strong>
-                    {phaseSimilarityWarnings.slice(0, 4).map((warning) => (
-                      <small key={`${warning.phaseAId}-${warning.phaseBId}`} className="muted">
-                        {warning.severity === "ambiguous" ? "Highly similar" : "Similar"}: {warning.phaseBLabel} looks close to {warning.phaseALabel}
-                        {warning.adjacentInLoop ? " (adjacent in loop)" : ""}. Consider increasing pose contrast.
-                      </small>
-                    ))}
-                  </div>
-                ) : null}
-                <div style={{ display: "grid", gap: "0.5rem", marginTop: "0.65rem" }}>
-                  {phases.map((phase, index) => (
-                    <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>
-                      <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle} className="studio-phase-select-button">
-                        <div className="studio-phase-list-heading">
-                          <strong className="studio-phase-list-title">
-                            <span className="studio-phase-sequence-pill">#{phase.order}</span> {phase.name}
-                          </strong>
-                          <span className="muted studio-phase-list-meta">{formatDurationShort(phase.durationMs)} • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
-                        </div>
-                        <small className="muted studio-phase-list-subline">{phase.summary?.trim() ? phase.summary : "Add notes or source image for this phase."}</small>
-                      </button>
 
-                      <div className="studio-action-row">
-                        <button type="button" onClick={() => movePhase(phase.phaseId, "up")} className="studio-button" disabled={index === 0}>Move up</button>
-                        <button type="button" onClick={() => movePhase(phase.phaseId, "down")} className="studio-button" disabled={index === phases.length - 1}>Move down</button>
-                        <button type="button" onClick={() => duplicatePhase(phase.phaseId)} className="studio-button">Duplicate</button>
-                        <button type="button" onClick={() => deletePhase(phase.phaseId)} className="studio-button studio-button-danger" disabled={phases.length <= 1}>Delete</button>
+                <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>
+                  {displayedPhases.map((phase, index) => (
+                    <div key={phase.phaseId} className="studio-phase-list-item card" data-selected={selectedPhase?.phaseId === phase.phaseId}>
+                      <div style={{ display: "grid", gap: "0.45rem" }}>
+                        <div style={{ display: "flex", gap: "0.45rem", alignItems: "center", flexWrap: "wrap" }}>
+                          <span className="studio-phase-sequence-pill">#{index + 1}</span>
+                          <input value={phase.name} onChange={(event) => renamePhase(phase.phaseId, event.target.value)} style={{ ...inputStyle, maxWidth: "420px" }} />
+                          <button type="button" className="studio-button" onClick={() => selectPhase(phase.phaseId)}>Select</button>
+                        </div>
+
+                        <div className="studio-action-row">
+                          <button type="button" className="studio-button studio-button-primary" onClick={() => openPoseWorkspace(phase.phaseId)}>Edit pose</button>
+                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)}>Upload image</button>
+                          <button type="button" className="studio-button" onClick={() => openPoseWorkspace(phase.phaseId)} disabled>Use camera</button>
+                          {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "up")} disabled={index === 0}>↑</button> : null}
+                          {!holdDrill ? <button type="button" className="studio-button" onClick={() => movePhase(phase.phaseId, "down")} disabled={index === displayedPhases.length - 1}>↓</button> : null}
+                          {!holdDrill ? <button type="button" className="studio-button" onClick={() => duplicatePhase(phase.phaseId)}>Duplicate</button> : null}
+                          {!holdDrill ? <button type="button" className="studio-button studio-button-danger" onClick={() => deletePhase(phase.phaseId)} disabled={displayedPhases.length <= 1}>Delete</button> : null}
+                        </div>
+
+                        <textarea
+                          value={phase.summary ?? ""}
+                          onChange={(event) => setPhaseSummary(phase.phaseId, event.target.value)}
+                          style={{ ...inputStyle, minHeight: "54px", resize: "vertical" }}
+                          placeholder="Optional phase notes"
+                        />
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {selectedPhase ? (
-                  <div className="card studio-selected-phase-basics">
-                    <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Saved phase fields</h4>
-                    <p className="muted" style={{ margin: 0 }}>Persisted in the drill file/package: phase label, duration, and author notes.</p>
-                    <div className="field-grid">
-                      <label style={labelStyle}>
-                        <span>Phase label</span>
-                        <input value={selectedPhase.name} onChange={(event) => renamePhase(selectedPhase.phaseId, event.target.value)} style={inputStyle} />
-                      </label>
-
-                      <label style={labelStyle}>
-                        <span>Duration (seconds)</span>
-                        <input
-                          type="number"
-                          min={0.1}
-                          step={0.1}
-                          value={Number((selectedPhase.durationMs / 1000).toFixed(1))}
-                          onChange={(event) => {
-                            const secondsValue = Number(event.target.value);
-                            if (!Number.isFinite(secondsValue)) {
-                              return;
-                            }
-                            setPhaseDuration(selectedPhase.phaseId, Math.max(1, Math.round(secondsValue * 1000)));
-                          }}
-                          style={inputStyle}
-                        />
-                      </label>
-                    </div>
-
-                    <label style={labelStyle}>
-                      <span>Summary / notes</span>
-                      <textarea value={selectedPhase.summary ?? ""} onChange={(event) => setPhaseSummary(selectedPhase.phaseId, event.target.value)} style={{ ...inputStyle, minHeight: "74px", resize: "vertical" }} />
-                    </label>
-                  </div>
-                ) : null}
               </>
             )}
           </WorkflowSection>
 
-          <WorkflowSection title="3. Pose authoring" stepIndex={WORKFLOW_SECTION_IDS.poseAuthoring} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.poseAuthoring)} onToggle={handleSectionToggle}>
-            {selectedPhase ? (
-              <>
-                <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} />
-                <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
-                  <h4 style={{ margin: 0, fontSize: "0.92rem", gridColumn: "1 / -1" }}>Editor tools</h4>
-                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
-                    Use one camera view for the full drill. All phases automatically follow this view.
-                  </p>
-                  <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
-                    Camera view: <strong>{selectedDrill?.primaryView ?? "front"}</strong>
-                  </p>
-                  <label style={labelStyle}>
-                    <span>Selected joint (workspace only)</span>
-                    <select value={selectedJointName ?? ""} style={inputStyle} onChange={(event) => selectJoint((event.target.value || null) as CanonicalJointName | null)}>
-                      <option value="">None</option>
-                      {STANDARD_AUTHORING_JOINTS.map((joint) => <option key={joint.name} value={joint.name}>{joint.label}</option>)}
-                    </select>
-                  </label>
-
-                  <label style={labelStyle}>
-                    <span>Focus region (workspace only)</span>
-                    <select value={focusRegion} style={inputStyle} onChange={(event) => setFocusRegion(event.target.value as FocusRegion)}>
-                      {FOCUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
-                  </label>
-
-                  <label style={labelStyle}>
-                    <span>Canvas focus mode (workspace only)</span>
-                    <button type="button" onClick={() => setIsPoseCanvasExpanded((current) => !current)} className="studio-button" aria-pressed={isPoseCanvasExpanded}>
-                      {isPoseCanvasExpanded ? "Standard canvas" : "Focus canvas"}
-                    </button>
-                  </label>
-                </section>
-
-                <PoseCanvas
-                  pose={poseModel}
-                  title="Phase pose editor"
-                  subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.name}`}
-                  selected
-                  editable
-                  selectedJointName={selectedJointName}
-                  onJointSelect={selectJoint}
-                  onJointMove={(joint, x, y) => setJointCoordinates(selectedPhase.phaseId, joint, x, y)}
-                  focusJointNames={focusJointSet}
-                  showPoseLayer={selectedPhaseOverlayState.showPose}
-                  sizeMode={isPoseCanvasExpanded ? "focus" : "balanced"}
-                  imageLayer={
-                    selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
-                      ? {
-                          src: selectedPhaseSourceImage.objectUrl,
-                          naturalWidth: selectedPhaseSourceImage.width,
-                          naturalHeight: selectedPhaseSourceImage.height,
-                          opacity: selectedPhaseOverlayState.imageOpacity,
-                          fitMode: selectedPhaseOverlayState.fitMode,
-                          offsetX: selectedPhaseOverlayState.offsetX,
-                          offsetY: selectedPhaseOverlayState.offsetY
-                        }
-                      : null
-                  }
-                />
-
-                <section className="card studio-selected-joint-controls">
-                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Selected joint editor</h4>
-                  {selectedJointName ? (
-                    <>
-                      <div className="field-grid">
-                        <label style={labelStyle}>
-                          <span>X (normalized 0-1)</span>
-                          <input type="number" min={0} max={1} step={0.01} value={selectedJoint?.x ?? 0.5} onChange={(event) => setJointCoordinates(selectedPhase.phaseId, selectedJointName, Number(event.target.value), selectedJoint?.y ?? 0.5)} style={inputStyle} />
-                        </label>
-                        <label style={labelStyle}>
-                          <span>Y (normalized 0-1)</span>
-                          <input type="number" min={0} max={1} step={0.01} value={selectedJoint?.y ?? 0.5} onChange={(event) => setJointCoordinates(selectedPhase.phaseId, selectedJointName, selectedJoint?.x ?? 0.5, Number(event.target.value))} style={inputStyle} />
-                        </label>
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: "0.35rem" }}>
-                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, -NUDGE_STEP)}>↑</button>
-                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, -NUDGE_STEP, 0)}>←</button>
-                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, NUDGE_STEP, 0)}>→</button>
-                        <button type="button" className="studio-button" onClick={() => nudgeJoint(selectedPhase.phaseId, selectedJointName, 0, NUDGE_STEP)}>↓</button>
-                        <button type="button" className="studio-button" onClick={() => revertSelectedJoint(selectedPhase.phaseId, selectedJointName)}>Revert joint</button>
-                      </div>
-                    </>
-                  ) : <p className="muted" style={{ margin: 0 }}>Select a joint from the canvas or dropdown to nudge and refine it.</p>}
-                </section>
-
-                <section className="card studio-overlay-controls">
-                  <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Overlay alignment</h4>
-                  <div className="studio-action-row">
-                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
-                      {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
-                    </button>
-                    <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
-                      {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
-                    </button>
-                    <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlay</button>
-                  </div>
-                </section>
-              </>
-            ) : <p className="muted" style={{ margin: 0 }}>Select a phase to begin pose authoring.</p>}
-          </WorkflowSection>
-
-          <WorkflowSection title="4. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
+          <WorkflowSection title="3. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs />
-          </WorkflowSection>
-
-          <WorkflowSection title="5. Advanced technical details" stepIndex={WORKFLOW_SECTION_IDS.advanced} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.advanced)} onToggle={handleSectionToggle}>
-            <StudioRightPanel />
           </WorkflowSection>
         </div>
 
         <aside className="studio-sticky-workspace">
-          <div className="card" style={{ display: "grid", gap: "0.4rem" }}>
-            <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Live workspace context</h3>
-            <p className="muted" style={{ margin: 0 }}>
-              Supporting visual context while you progress through the main authoring flow.
-            </p>
-          </div>
-          <StudioAnimationPreviewPanel />
-          {selectedPhase ? (
-            <PoseCanvas
-              pose={poseModel}
-              title="Selected phase pose"
-              subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.name}`}
-              selected
-              selectedJointName={selectedJointName}
-              onJointSelect={selectJoint}
-              focusJointNames={focusJointSet}
-              showPoseLayer={selectedPhaseOverlayState.showPose}
-              sizeMode="balanced"
-              imageLayer={
-                selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
-                  ? {
-                      src: selectedPhaseSourceImage.objectUrl,
-                      naturalWidth: selectedPhaseSourceImage.width,
-                      naturalHeight: selectedPhaseSourceImage.height,
-                      opacity: selectedPhaseOverlayState.imageOpacity,
-                      fitMode: selectedPhaseOverlayState.fitMode,
-                      offsetX: selectedPhaseOverlayState.offsetX,
-                      offsetY: selectedPhaseOverlayState.offsetY
-                    }
-                  : null
-              }
-            />
-          ) : (
-            <div className="card">
-              <p className="muted" style={{ margin: 0 }}>Select a phase in Step 2 to see its pose workspace preview here.</p>
+          <div className="card" style={{ display: "grid", gap: "0.45rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem" }}>
+              <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Workspace</h3>
+              <button type="button" className="studio-button" onClick={() => setWorkspaceVisible((current) => !current)}>
+                {workspaceVisible ? "Hide" : "Show"}
+              </button>
             </div>
+            {workspaceVisible ? (
+              <div className="studio-action-row">
+                <button type="button" className={`studio-button ${workspaceMode === "preview" ? "studio-button-primary" : ""}`} onClick={() => setWorkspaceMode("preview")}>Animation</button>
+                <button type="button" className={`studio-button ${workspaceMode === "pose" ? "studio-button-primary" : ""}`} onClick={() => setWorkspaceMode("pose")} disabled={!workspacePhase}>Phase pose</button>
+              </div>
+            ) : null}
+          </div>
+
+          {!workspaceVisible ? (
+            <div className="card"><p className="muted" style={{ margin: 0 }}>Workspace hidden.</p></div>
+          ) : workspaceMode === "preview" ? (
+            <StudioAnimationPreviewPanel />
+          ) : workspacePhase ? (
+            <>
+              <DetectionWorkflowPanel phaseId={workspacePhase.phaseId} />
+              <PoseCanvas
+                pose={poseModel}
+                title="Phase pose editor"
+                subtitle={`Phase ${workspacePhase.order}: ${workspacePhase.name}`}
+                selected
+                editable
+                selectedJointName={selectedJointName}
+                onJointSelect={selectJoint}
+                onJointMove={(joint, x, y) => setJointCoordinates(workspacePhase.phaseId, joint, x, y)}
+                showPoseLayer={selectedPhaseOverlayState.showPose}
+                sizeMode="balanced"
+                imageLayer={
+                  selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                    ? {
+                        src: selectedPhaseSourceImage.objectUrl,
+                        naturalWidth: selectedPhaseSourceImage.width,
+                        naturalHeight: selectedPhaseSourceImage.height,
+                        opacity: selectedPhaseOverlayState.imageOpacity,
+                        fitMode: selectedPhaseOverlayState.fitMode,
+                        offsetX: selectedPhaseOverlayState.offsetX,
+                        offsetY: selectedPhaseOverlayState.offsetY
+                      }
+                    : null
+                }
+              />
+              <section className="card">
+                <div className="studio-action-row">
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
+                    {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
+                  </button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
+                    {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
+                  </button>
+                  <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset</button>
+                  <button type="button" onClick={() => setWorkspaceMode("preview")} className="studio-button studio-button-primary">Done</button>
+                </div>
+              </section>
+            </>
+          ) : (
+            <div className="card"><p className="muted" style={{ margin: 0 }}>Select a phase and click Edit pose to open the workspace.</p></div>
           )}
         </aside>
       </div>
     </div>
   );
 }
-
-const phaseButtonStyle: CSSProperties = {
-  textAlign: "left",
-  border: "none",
-  background: "transparent",
-  color: "var(--text)",
-  padding: 0,
-  cursor: "pointer"
-};
-
-const labelStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.2rem",
-  color: "var(--muted)",
-  fontSize: "0.85rem"
-};
 
 const inputStyle: CSSProperties = {
   border: "1px solid var(--border)",
