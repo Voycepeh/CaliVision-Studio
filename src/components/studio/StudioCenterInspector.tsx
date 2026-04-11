@@ -19,19 +19,19 @@ import type { CanonicalJointName } from "@/lib/schema/contracts";
 const NUDGE_STEP = 0.01;
 
 const WORKFLOW_SECTION_IDS = {
-  drillInfo: 0,
-  phases: 1,
-  sourceImage: 2,
-  poseAuthoring: 3,
-  review: 4
+  drillSetup: 0,
+  phaseSequence: 1,
+  poseAuthoring: 2,
+  review: 3,
+  advanced: 4
 } as const;
 
 const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
-  [WORKFLOW_SECTION_IDS.drillInfo]: true,
-  [WORKFLOW_SECTION_IDS.phases]: true,
-  [WORKFLOW_SECTION_IDS.sourceImage]: false,
-  [WORKFLOW_SECTION_IDS.poseAuthoring]: false,
-  [WORKFLOW_SECTION_IDS.review]: false
+  [WORKFLOW_SECTION_IDS.drillSetup]: true,
+  [WORKFLOW_SECTION_IDS.phaseSequence]: true,
+  [WORKFLOW_SECTION_IDS.poseAuthoring]: true,
+  [WORKFLOW_SECTION_IDS.review]: false,
+  [WORKFLOW_SECTION_IDS.advanced]: false
 };
 
 type FocusRegion = "full" | "upper" | "lower" | "leftArm" | "rightArm" | "leftLeg" | "rightLeg";
@@ -151,12 +151,11 @@ export function StudioCenterInspector() {
   const selectedJoint = selectedJointName ? selectedPose?.joints[selectedJointName] : null;
 
   const inferredStepIndex = useMemo(() => {
-    if (!selectedPackage) return WORKFLOW_SECTION_IDS.drillInfo;
-    if (!selectedPhase) return WORKFLOW_SECTION_IDS.phases;
-    if (!selectedPhaseSourceImage) return WORKFLOW_SECTION_IDS.sourceImage;
+    if (!selectedPackage) return WORKFLOW_SECTION_IDS.drillSetup;
+    if (!selectedPhase) return WORKFLOW_SECTION_IDS.phaseSequence;
     if (!selectedPose) return WORKFLOW_SECTION_IDS.poseAuthoring;
     return WORKFLOW_SECTION_IDS.review;
-  }, [selectedPackage, selectedPhase, selectedPhaseSourceImage, selectedPose]);
+  }, [selectedPackage, selectedPhase, selectedPose]);
 
   const currentStepIndex = activeStepOverride ?? inferredStepIndex;
 
@@ -183,22 +182,22 @@ export function StudioCenterInspector() {
 
   return (
     <div className="panel-content studio-scrollable-panel" style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-      <header>
-        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio editor workflow</h2>
+      <header className="studio-workflow-header">
+        <h2 style={{ marginTop: 0, marginBottom: "0.3rem" }}>Drill Studio sequential authoring flow</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Work top-to-bottom: drill info, phases, source image, pose refinement, and review.
+          Build one continuous flow: drill setup, phase sequence, pose authoring, review, then technical details.
         </p>
       </header>
 
       <StudioActionBar />
 
       <div className="studio-authoring-workspace-grid">
-        <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-          <WorkflowSection title="Drill info" stepIndex={WORKFLOW_SECTION_IDS.drillInfo} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillInfo)} onToggle={handleSectionToggle}>
+        <div className="studio-authoring-main-flow">
+          <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
             <StudioMetadataEditor />
           </WorkflowSection>
 
-          <WorkflowSection title="Phases" stepIndex={WORKFLOW_SECTION_IDS.phases} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phases)} onToggle={handleSectionToggle}>
+          <WorkflowSection title="2. Phase sequence" stepIndex={WORKFLOW_SECTION_IDS.phaseSequence} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phaseSequence)} onToggle={handleSectionToggle}>
             {!selectedPackage ? (
               <p className="muted" style={{ margin: 0 }}>Open a drill to manage phases.</p>
             ) : (
@@ -238,7 +237,9 @@ export function StudioCenterInspector() {
                     <div key={phase.phaseId} className="studio-phase-list-item" data-selected={selectedPhase?.phaseId === phase.phaseId}>
                       <button type="button" onClick={() => selectPhase(phase.phaseId)} style={phaseButtonStyle} className="studio-phase-select-button">
                         <div className="studio-phase-list-heading">
-                          <strong className="studio-phase-list-title">{phase.order}. {phase.name}</strong>
+                          <strong className="studio-phase-list-title">
+                            <span className="studio-phase-sequence-pill">#{phase.order}</span> {phase.name}
+                          </strong>
                           <span className="muted studio-phase-list-meta">{formatDurationShort(phase.durationMs)} • {phase.assetRefs.length > 0 ? "image attached" : "no image"}</span>
                         </div>
                         <small className="muted studio-phase-list-subline">{phase.summary?.trim() ? phase.summary : "Add notes or source image for this phase."}</small>
@@ -293,15 +294,10 @@ export function StudioCenterInspector() {
             )}
           </WorkflowSection>
 
-          <WorkflowSection title="Phase source image" stepIndex={WORKFLOW_SECTION_IDS.sourceImage} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.sourceImage)} onToggle={handleSectionToggle}>
-            {selectedPhase ? <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} /> : <p className="muted" style={{ margin: 0 }}>Select a phase to upload an image and run detection.</p>}
-          </WorkflowSection>
-        </div>
-
-        <div style={{ display: "grid", gap: "0.65rem", alignContent: "start" }}>
-          <WorkflowSection title="Pose authoring" stepIndex={WORKFLOW_SECTION_IDS.poseAuthoring} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.poseAuthoring)} onToggle={handleSectionToggle}>
+          <WorkflowSection title="3. Pose authoring" stepIndex={WORKFLOW_SECTION_IDS.poseAuthoring} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.poseAuthoring)} onToggle={handleSectionToggle}>
             {selectedPhase ? (
               <>
+                <DetectionWorkflowPanel phaseId={selectedPhase.phaseId} />
                 <section className="card studio-inspector-controls-row" style={{ marginBottom: "0.65rem" }}>
                   <h4 style={{ margin: 0, fontSize: "0.92rem", gridColumn: "1 / -1" }}>Editor tools</h4>
                   <p className="muted" style={{ margin: 0, gridColumn: "1 / -1", fontSize: "0.82rem" }}>
@@ -402,11 +398,54 @@ export function StudioCenterInspector() {
             ) : <p className="muted" style={{ margin: 0 }}>Select a phase to begin pose authoring.</p>}
           </WorkflowSection>
 
-          <WorkflowSection title="Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
+          <WorkflowSection title="4. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
             <StudioReviewTabs />
           </WorkflowSection>
-          <StudioRightPanel />
+
+          <WorkflowSection title="5. Advanced technical details" stepIndex={WORKFLOW_SECTION_IDS.advanced} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.advanced)} onToggle={handleSectionToggle}>
+            <StudioRightPanel />
+          </WorkflowSection>
         </div>
+
+        <aside className="studio-sticky-workspace">
+          <div className="card" style={{ display: "grid", gap: "0.4rem" }}>
+            <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Live workspace context</h3>
+            <p className="muted" style={{ margin: 0 }}>
+              Keep this panel visible while you move through the authoring flow.
+            </p>
+          </div>
+          <StudioReviewTabs />
+          {selectedPhase ? (
+            <PoseCanvas
+              pose={poseModel}
+              title="Selected phase pose"
+              subtitle={`Phase ${selectedPhase.order}: ${selectedPhase.name}`}
+              selected
+              selectedJointName={selectedJointName}
+              onJointSelect={selectJoint}
+              focusJointNames={focusJointSet}
+              showPoseLayer={selectedPhaseOverlayState.showPose}
+              sizeMode="balanced"
+              imageLayer={
+                selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                  ? {
+                      src: selectedPhaseSourceImage.objectUrl,
+                      naturalWidth: selectedPhaseSourceImage.width,
+                      naturalHeight: selectedPhaseSourceImage.height,
+                      opacity: selectedPhaseOverlayState.imageOpacity,
+                      fitMode: selectedPhaseOverlayState.fitMode,
+                      offsetX: selectedPhaseOverlayState.offsetX,
+                      offsetY: selectedPhaseOverlayState.offsetY
+                    }
+                  : null
+              }
+            />
+          ) : (
+            <div className="card">
+              <p className="muted" style={{ margin: 0 }}>Select a phase in Step 2 to see its pose workspace preview here.</p>
+            </div>
+          )}
+        </aside>
       </div>
     </div>
   );

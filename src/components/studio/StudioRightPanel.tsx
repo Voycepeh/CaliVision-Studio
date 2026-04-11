@@ -6,7 +6,14 @@ import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 
 export function StudioRightPanel() {
-  const { selectedPackage, selectedPhaseId, selectedPhaseSourceImage, selectedPhaseDetection } = useStudioState();
+  const {
+    selectedPackage,
+    selectedPhaseId,
+    selectedPhaseSourceImage,
+    selectedPhaseDetection,
+    setManifestSchemaVersion,
+    setManifestPackageVersion
+  } = useStudioState();
 
   const selectedPhase = useMemo(() => {
     if (!selectedPackage) {
@@ -19,11 +26,40 @@ export function StudioRightPanel() {
   const drill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
 
   return (
-    <details className="card" style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
-      <summary style={{ cursor: "pointer", fontWeight: 600 }}>Advanced technical details</summary>
-      <p className="muted" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
-        Internal IDs, validation internals, and detection diagnostics are hidden by default.
+    <section style={{ display: "grid", gap: "0.7rem", alignContent: "start" }}>
+      <p className="muted" style={{ margin: 0 }}>
+        Internal IDs, drill file compatibility details, and detection diagnostics.
       </p>
+
+      {selectedPackage && drill ? (
+        <div className="card" style={{ display: "grid", gap: "0.55rem" }}>
+          <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Drill file compatibility metadata</h4>
+          <div className="field-grid">
+            <label style={labelStyle}>
+              <span>Drill file version (technical)</span>
+              <input
+                value={selectedPackage.workingPackage.manifest.packageVersion}
+                onChange={(event) => setManifestPackageVersion(event.target.value)}
+                style={inputStyle}
+              />
+            </label>
+            <label style={labelStyle}>
+              <span>Schema version (technical)</span>
+              <select
+                value={selectedPackage.workingPackage.manifest.schemaVersion}
+                onChange={(event) => setManifestSchemaVersion(event.target.value as typeof selectedPackage.workingPackage.manifest.schemaVersion)}
+                style={inputStyle}
+              >
+                <option value="0.1.0">0.1.0</option>
+              </select>
+            </label>
+          </div>
+          <label style={labelStyle}>
+            <span>Internal drill ID (system-generated)</span>
+            <input value={drill.drillId} style={inputStyle} readOnly />
+          </label>
+        </div>
+      ) : null}
 
       <StudioInspectorAccordion title="Drill draft identity and save state" >
         {selectedPackage && drill ? (
@@ -97,6 +133,21 @@ export function StudioRightPanel() {
           <p className="muted" style={{ margin: 0 }}>Load a drill file to inspect validation internals.</p>
         )}
       </StudioInspectorAccordion>
-    </details>
+    </section>
   );
 }
+
+const labelStyle = {
+  display: "grid",
+  gap: "0.2rem",
+  color: "var(--muted)",
+  fontSize: "0.85rem"
+} as const;
+
+const inputStyle = {
+  border: "1px solid var(--border)",
+  borderRadius: "0.5rem",
+  background: "var(--panel-soft)",
+  color: "var(--text)",
+  padding: "0.45rem"
+} as const;

@@ -370,6 +370,30 @@ main {
   border-color: var(--accent);
 }
 
+.studio-authoring-main-flow {
+  display: grid;
+  gap: 0.8rem;
+  align-content: start;
+}
+
+.studio-phase-sequence-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  padding: 0.15rem 0.45rem;
+  margin-right: 0.3rem;
+  border-radius: 999px;
+  border: 1px solid rgba(114, 168, 255, 0.38);
+  background: rgba(114, 168, 255, 0.14);
+  color: #cfe3ff;
+  font-size: 0.78rem;
+}
+
+.studio-sticky-workspace {
+  display: none;
+}
+
 .studio-tab-row {
   display: flex;
   flex-wrap: wrap;
@@ -510,8 +534,20 @@ main {
 
 @media (min-width: 1180px) {
   .studio-authoring-workspace-grid {
-    grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.25fr);
+    grid-template-columns: minmax(440px, 1.35fr) minmax(360px, 1fr);
     align-items: start;
+    gap: 0.85rem;
+  }
+
+  .studio-sticky-workspace {
+    display: grid;
+    gap: 0.65rem;
+    align-content: start;
+    position: sticky;
+    top: 5.25rem;
+    max-height: calc(100vh - 6rem);
+    overflow: auto;
+    padding-right: 0.25rem;
   }
 }
 
@@ -550,6 +586,10 @@ main {
   .studio-resizable-grid {
     grid-template-columns: 1fr;
     min-height: auto;
+  }
+
+  .studio-sticky-workspace {
+    display: none;
   }
 
   .studio-action-bar {
