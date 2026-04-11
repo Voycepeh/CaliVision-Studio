@@ -75,6 +75,22 @@ export function ensureVisibleDrillSelection(input: {
   return visibleOptions[0]?.key ?? input.fallbackKey;
 }
 
+export function resolveSelectedSourceForKey(input: {
+  options: AvailableDrillOption[];
+  selectedKey: string;
+  fallbackKey: string;
+  defaultSource: DrillSourceKind;
+}): DrillSourceKind {
+  if (!input.selectedKey || input.selectedKey === input.fallbackKey) {
+    return input.defaultSource;
+  }
+  const matching = input.options.find((option) => option.key === input.selectedKey);
+  if (!matching) {
+    return input.defaultSource;
+  }
+  return toDrillSourceKind(matching.sourceKind);
+}
+
 export function persistSelectedDrillKey(storageKey: string, selectedKey: string): void {
   if (typeof window === "undefined" || !selectedKey) {
     return;

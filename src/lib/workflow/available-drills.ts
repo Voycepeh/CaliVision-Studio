@@ -5,6 +5,7 @@ export {
   buildDrillOptionGroups,
   ensureVisibleDrillSelection,
   persistSelectedDrillKey,
+  resolveSelectedSourceForKey,
   resolveWorkflowDrillKey,
   type AvailableDrillDisplayOption,
   type AvailableDrillOption

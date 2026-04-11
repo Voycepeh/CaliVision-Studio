@@ -5,6 +5,7 @@ import {
   ensureVisibleDrillSelection,
   loadAvailableDrillOptions,
   persistSelectedDrillKey,
+  resolveSelectedSourceForKey,
   resolveWorkflowDrillKey,
   type AvailableDrillOption
 } from "@/lib/workflow/available-drills";
@@ -28,15 +29,24 @@ export function useAvailableDrills(input: {
     setDrillOptionsLoading(true);
     const options = await loadAvailableDrillOptions({ session: input.session, isConfigured: input.isConfigured });
     setDrillOptions(options);
-    setSelectedDrillKey((current) =>
-      resolveWorkflowDrillKey({
+    setSelectedDrillKey((current) => {
+      const resolvedKey = resolveWorkflowDrillKey({
         options,
         requestedDrillKey: input.requestedDrillKey,
         currentKey: current,
         storageKey: input.storageKey,
         fallbackKey: input.fallbackKey
-      })
-    );
+      });
+      setSelectedSource((existingSource) =>
+        resolveSelectedSourceForKey({
+          options,
+          selectedKey: resolvedKey,
+          fallbackKey: input.fallbackKey,
+          defaultSource: existingSource
+        })
+      );
+      return resolvedKey;
+    });
     setDrillOptionsLoading(false);
   }, [input.fallbackKey, input.isConfigured, input.requestedDrillKey, input.session, input.storageKey]);
 
@@ -49,6 +59,18 @@ export function useAvailableDrills(input: {
   }, [input.storageKey, selectedDrillKey]);
 
   useEffect(() => {
+    if (selectedDrillKey && selectedDrillKey !== input.fallbackKey) {
+      const expectedSource = resolveSelectedSourceForKey({
+        options: drillOptions,
+        selectedKey: selectedDrillKey,
+        fallbackKey: input.fallbackKey,
+        defaultSource: selectedSource
+      });
+      if (expectedSource !== selectedSource) {
+        setSelectedSource(expectedSource);
+        return;
+      }
+    }
     setSelectedDrillKey((current) =>
       ensureVisibleDrillSelection({
         selectedKey: current,
@@ -57,7 +79,7 @@ export function useAvailableDrills(input: {
         fallbackKey: input.fallbackKey
       })
     );
-  }, [drillOptionGroups, input.fallbackKey, selectedSource]);
+  }, [drillOptionGroups, drillOptions, input.fallbackKey, selectedDrillKey, selectedSource]);
 
   return {
     drillOptions,

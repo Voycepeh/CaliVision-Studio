@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildDrillOptionGroups,
   ensureVisibleDrillSelection,
+  resolveSelectedSourceForKey,
   resolveWorkflowDrillKey,
   type AvailableDrillOption
 } from "./available-drill-selection.ts";
@@ -46,5 +47,22 @@ test("resolveWorkflowDrillKey uses requested key before current/stored and falls
   assert.equal(
     resolveWorkflowDrillKey({ options, requestedDrillKey: "local:a:d1", currentKey: "nope", storageKey: "no-storage", fallbackKey: "freestyle" }),
     "local:a:d1"
+  );
+});
+
+test("resolveSelectedSourceForKey returns cloud for hosted selection even when default is local", () => {
+  const options: AvailableDrillOption[] = [
+    { key: "local:a:d1", label: "One", sourceKind: "local", sourceId: "a", drill: { ...baseDrill, drillId: "d1", title: "One" } },
+    { key: "hosted:h:d2", label: "Two", sourceKind: "hosted", sourceId: "h", drill: { ...baseDrill, drillId: "d2", title: "Two" } }
+  ];
+
+  assert.equal(
+    resolveSelectedSourceForKey({
+      options,
+      selectedKey: "hosted:h:d2",
+      fallbackKey: "freestyle",
+      defaultSource: "local"
+    }),
+    "cloud"
   );
 });
