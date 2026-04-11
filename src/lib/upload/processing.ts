@@ -5,6 +5,7 @@ import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
+import { selectPreferredCaptureMimeType } from "@/lib/media/media-capabilities";
 import {
   buildDeterministicFrameSchedule,
   buildEmissionPlanFromSourceTimes,
@@ -193,13 +194,9 @@ async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; 
 }
 
 function pickNormalizationMimeType(): string {
-  const preferred = ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm"];
-  for (const candidate of preferred) {
-    if (MediaRecorder.isTypeSupported(candidate)) {
-      return candidate;
-    }
-  }
-  return "video/webm";
+  const selected = selectPreferredCaptureMimeType();
+  logUploadEvent("NORMALIZATION_CAPTURE_MIME_SELECTED", { mimeType: selected });
+  return selected;
 }
 
 async function normalizeVideoForAnalysis(file: File, diagnostics: VideoDiagnostics, signal?: AbortSignal): Promise<File> {
@@ -535,7 +532,8 @@ export async function exportAnnotatedVideo(
   const expectedFrameScheduleMs = buildDeterministicFrameSchedule(durationMs, exportFps);
   const expectedFrameCount = expectedFrameScheduleMs.length;
   const stream = canvas.captureStream(0);
-  const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9") ? "video/webm;codecs=vp9" : "video/webm";
+  const mimeType = selectPreferredCaptureMimeType();
+  logUploadEvent("ANNOTATED_EXPORT_CAPTURE_MIME_SELECTED", { mimeType });
   const recorder = new MediaRecorder(stream, { mimeType });
   const [videoTrack] = stream.getVideoTracks();
   const requestFrame = videoTrack && "requestFrame" in videoTrack ? () => (videoTrack as CanvasCaptureMediaStreamTrack).requestFrame() : null;
