@@ -1,6 +1,7 @@
 import type { AnalysisEvent, AnalysisSession, PortableDrill, PortableDrillAnalysis } from "../schema/contracts.ts";
 import { buildPhaseRuntimeModel, type PhaseRuntimeModel } from "./phase-runtime.ts";
 import type { SmoothedPhaseFrame, SmootherTransition } from "./types.ts";
+import { advanceRepSequence, createRepSequenceProgress } from "./rep-sequence-engine.ts";
 
 export function extractAnalysisEvents(
   drill: PortableDrill,
@@ -69,11 +70,7 @@ function extractRepEvents(
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
-  let repCount = 0;
-  let partialAttemptCount = 0;
-  let expectedIndex = 0;
-  let cycleStartMs: number | null = null;
-  let lastRepMs = -Number.MAX_SAFE_INTEGER;
+  const progress = createRepSequenceProgress();
   const minimumRepDurationMs = Math.max(0, analysis.minimumRepDurationMs ?? 0);
   const cooldownMs = Math.max(0, analysis.cooldownMs ?? 0);
   const legacyMetadataIgnored = runtimeModel.legacyOrderMismatch;
@@ -83,95 +80,47 @@ function extractRepEvents(
       continue;
     }
 
-    const entered = transition.phaseId;
-    const exactExpected = sequence[expectedIndex];
-    const enteredIndex = sequence.indexOf(entered);
-    if (enteredIndex < 0) {
-      continue;
-    }
+    const step = advanceRepSequence({
+      sequence,
+      event: { timestampMs: transition.timestampMs, phaseId: transition.phaseId },
+      progress,
+      minimumRepDurationMs,
+      cooldownMs,
+      allowForwardJump: Boolean(
+        transition.fromPhaseId
+          && runtimeModel.allowedTransitionKeys.has(`${transition.fromPhaseId}->${transition.phaseId}`)
+      )
+    });
 
-    if (entered === exactExpected) {
-      if (expectedIndex === 0) {
-        cycleStartMs = transition.timestampMs;
-      }
-      expectedIndex += 1;
-
-      if (expectedIndex >= sequence.length) {
-        const loopStartTimestampMs = cycleStartMs ?? transition.timestampMs;
-        const loopEndTimestampMs = transition.timestampMs;
-        const repDurationMs = Math.max(0, loopEndTimestampMs - loopStartTimestampMs);
-        const passesMinDuration = repDurationMs >= minimumRepDurationMs;
-        const outsideCooldown = loopEndTimestampMs - lastRepMs >= cooldownMs;
-        if (passesMinDuration && outsideCooldown) {
-          repCount += 1;
-          lastRepMs = loopEndTimestampMs;
-          addEvent({
-            timestampMs: loopEndTimestampMs,
-            type: "rep_complete",
-            repIndex: repCount,
-            details: {
-              loopStartTimestampMs,
-              loopEndTimestampMs,
-              repDurationMs,
-              minRepDurationMs: minimumRepDurationMs,
-              legacyMetadataIgnored
-            }
-          });
-        } else {
-          partialAttemptCount += 1;
-          addEvent({
-            timestampMs: loopEndTimestampMs,
-            type: "partial_attempt",
-            details: {
-              loopStartTimestampMs,
-              loopEndTimestampMs,
-              repDurationMs,
-              minRepDurationMs: minimumRepDurationMs,
-              rejectReason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
-              reason: !passesMinDuration ? "below_minimum_rep_duration" : "cooldown_active",
-              legacyMetadataIgnored
-            }
-          });
+    if (step.kind === "rep_complete") {
+      addEvent({
+        timestampMs: transition.timestampMs,
+        type: "rep_complete",
+        repIndex: step.progress.repCount,
+        details: {
+          ...step.details,
+          minRepDurationMs: minimumRepDurationMs,
+          legacyMetadataIgnored
         }
-
-        expectedIndex = 1;
-        cycleStartMs = loopEndTimestampMs;
-      }
+      });
       continue;
     }
 
-    if (enteredIndex === 0) {
-      if (expectedIndex > 0) {
-        partialAttemptCount += 1;
-        addEvent({
-          timestampMs: transition.timestampMs,
-          type: "partial_attempt",
-          details: { reason: "sequence_reset", rejectReason: "sequence_reset", legacyMetadataIgnored }
-        });
-      }
-      expectedIndex = 1;
-      cycleStartMs = transition.timestampMs;
-      continue;
-    }
-
-    if (enteredIndex > expectedIndex) {
-      expectedIndex = enteredIndex + 1;
-      continue;
-    }
-
-    if (expectedIndex > 0) {
-      partialAttemptCount += 1;
+    if (step.kind === "partial_attempt") {
       addEvent({
         timestampMs: transition.timestampMs,
         type: "partial_attempt",
-        details: { reason: "sequence_reset" }
+        details: {
+          ...step.details,
+          rejectReason: step.details.reason,
+          minRepDurationMs: minimumRepDurationMs,
+          legacyMetadataIgnored
+        }
       });
     }
-    expectedIndex = 0;
-    cycleStartMs = null;
   }
 
-  return { repCount, partialAttemptCount };
+  return { repCount: progress.repCount, partialAttemptCount: progress.partialAttemptCount };
 }
 
 function extractHoldEvents(

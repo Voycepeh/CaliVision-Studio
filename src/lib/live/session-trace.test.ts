@@ -128,3 +128,48 @@ test("analyzed frame state keeps pose and overlay synchronized by timestamp", ()
   assert.equal(analyzed.poseFrame?.timestampMs, 250);
   assert.ok(analyzed.overlay.timestampMs >= 0);
 });
+
+
+test("hold drills still accumulate hold duration without rep progression", () => {
+  const holdDrill = {
+    ...drill,
+    analysis: {
+      ...drill.analysis,
+      measurementType: "hold" as const,
+      targetHoldPhaseId: "up",
+      minimumHoldDurationMs: 0
+    }
+  };
+
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_hold",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: holdDrill as never,
+      drillBindingLabel: holdDrill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 100, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 500, joints: holdDrill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 700, joints: holdDrill.phases[1].poseSequence[0].joints });
+
+  const finalized = trace.finalize(
+    {
+      durationMs: 800,
+      width: 720,
+      height: 1280,
+      mimeType: "video/webm",
+      sizeBytes: 2000,
+      timing: { mediaStartMs: 0, mediaStopMs: 800, captureStartPerfNowMs: 10, captureStopPerfNowMs: 810 }
+    },
+    "2026-04-08T00:00:03.000Z"
+  );
+
+  assert.equal(finalized.summary.repCount, 0);
+  assert.ok((finalized.summary.holdDurationMs ?? 0) > 0);
+});
