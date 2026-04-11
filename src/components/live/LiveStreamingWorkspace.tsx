@@ -150,7 +150,6 @@ export function LiveStreamingWorkspace() {
   const [annotatedReplayFailureMessage, setAnnotatedReplayFailureMessage] = useState<string | null>(null);
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
   const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
-  const [trackingStatusLabel, setTrackingStatusLabel] = useState<string>("Tracking ready");
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
   const [isStageFullscreen, setIsStageFullscreen] = useState(false);
@@ -318,14 +317,17 @@ export function LiveStreamingWorkspace() {
     return null;
   }, [activeReplaySurface, annotatedReplayUrl, rawReplayUrl, replayPreviewSelection.warning, replayState]);
   const liveViewerModel = useMemo(
-    () =>
-      mapLiveAnalysisToViewerModel({
+    () => {
+      if (!liveTrace) {
+        return null;
+      }
+      return mapLiveAnalysisToViewerModel({
         replayState,
         replayStageLabel: replayExportStageLabel,
         videoUrl: replayUrl,
         surface: completedPreviewSurface,
         selectedEventId: selectedMarkerId,
-        durationMs: liveTrace?.video.durationMs ?? 0,
+        durationMs: liveTrace.video.durationMs,
         hasAnnotatedReady: Boolean(annotatedReplayUrl),
         mediaAspectRatio:
           liveTrace && liveTrace.video.width > 0 && liveTrace.video.height > 0
@@ -340,7 +342,12 @@ export function LiveStreamingWorkspace() {
           { id: "phases", label: "Phase result", value: summary?.phaseSummaryLabel ?? "No phase transitions detected" }
         ],
         technicalStatusChips: [
-          { id: "tracking", label: "Tracking", value: trackingStatusLabel, tone: trackingStatusLabel === "Tracking active" ? "success" : trackingStatusLabel === "Tracking lost" ? "warning" : "neutral" },
+          {
+            id: "tracking",
+            label: "Tracking",
+            value: trackingStatusRef.current,
+            tone: trackingStatusRef.current === "Tracking active" ? "success" : trackingStatusRef.current === "Tracking lost" ? "warning" : "neutral"
+          },
           ...(selection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(selection.cameraView) }] : [])
         ],
         downloads: [
@@ -372,14 +379,15 @@ export function LiveStreamingWorkspace() {
         recommendedDeliveryLabel: preferredReplayDeliverySource
           ? `Recommended delivery: ${preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}`
           : undefined
-      }),
+      });
+    },
     [
+      liveTrace,
       replayState,
       replayExportStageLabel,
       replayUrl,
       completedPreviewSurface,
       selectedMarkerId,
-      liveTrace?.video.durationMs,
       timelineMarkers,
       summary?.drillLabel,
       summary?.durationLabel,
@@ -387,7 +395,6 @@ export function LiveStreamingWorkspace() {
       summary?.holdSummaryLabel,
       summary?.phaseSummaryLabel,
       selection.cameraView,
-      trackingStatusLabel,
       replayDownloads,
       annotatedReplayUrl,
       liveTrace?.traceId,
@@ -462,7 +469,6 @@ export function LiveStreamingWorkspace() {
       return;
     }
     trackingStatusRef.current = nextStatus;
-    setTrackingStatusLabel(nextStatus);
   }, []);
   const updateFramingWarning = useCallback((nextWarning: string | null) => {
     if (framingWarningRef.current === nextWarning) {
@@ -1546,7 +1552,7 @@ export function LiveStreamingWorkspace() {
           </div>
         </div>
 
-        {liveTrace ? (
+        {liveTrace && liveViewerModel ? (
           <AnalysisViewerShell
             model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
             videoRef={replayVideoRef}
