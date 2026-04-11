@@ -23,19 +23,6 @@ export function DetectionWorkflowPanel({
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase
   } = useStudioState();
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
-  const [cameraStatus, setCameraStatus] = useState<"idle" | "starting" | "live" | "error">("idle");
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-
-  const stopCameraStream = useCallback(() => {
-    cameraStream?.getTracks().forEach((track) => track.stop());
-    setCameraStream(null);
-    setCameraStatus("idle");
-    if (cameraVideoRef.current) {
-      cameraVideoRef.current.srcObject = null;
-    }
-  }, [cameraStream]);
 
   const previewPoseModel = useMemo(() => {
     const detectionResult = selectedPhaseDetection.result;
@@ -76,73 +63,6 @@ export function DetectionWorkflowPanel({
           ref={uploadInputRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
-          style={inputStyle}
-          onChange={async (event) => {
-            const file = event.target.files?.[0];
-            if (!file) {
-              return;
-            }
-
-            await setSelectedPhaseImage(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
-      <div className="studio-action-row">
-        <button type="button" className={`studio-button ${entryMode === "upload" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("upload")}>Upload image</button>
-        <button type="button" className={`studio-button ${entryMode === "camera" ? "studio-button-primary" : ""}`} onClick={() => onEntryModeChange("camera")}>Use camera</button>
-      </div>
-
-      {entryMode === "upload" ? (
-        <>
-          <label style={labelStyle}>
-            <span>Upload phase image (local only)</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              style={inputStyle}
-              onChange={async (event) => {
-                await handleSelectedFile(event.target.files?.[0]);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-          <label style={labelStyle}>
-            <span>Mobile camera fallback (capture via file picker)</span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={inputStyle}
-              onChange={async (event) => {
-                await handleSelectedFile(event.target.files?.[0]);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-        </>
-      ) : (
-        <div style={{ display: "grid", gap: "0.45rem" }}>
-          <div className="studio-action-row">
-            <button type="button" className="studio-button" onClick={() => startCamera()} disabled={cameraStatus === "starting"}>
-              {cameraStatus === "starting" ? "Starting camera..." : "Start camera"}
-            </button>
-            <button type="button" className="studio-button studio-button-primary" onClick={() => captureFromVideo()} disabled={cameraStatus !== "live"}>
-              Capture image
-            </button>
-          </div>
-          <video ref={cameraVideoRef} playsInline muted autoPlay style={{ width: "100%", maxHeight: "220px", objectFit: "cover", borderRadius: "0.55rem", border: "1px solid var(--border)", background: "#101010" }} />
-          {cameraError ? <p className="muted" style={{ margin: 0 }}>{cameraError}</p> : null}
-        </div>
-      )}
-
-      <label style={labelStyle}>
-        <span>Use camera (mobile/browser support)</span>
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
           style={inputStyle}
           onChange={async (event) => {
             const file = event.target.files?.[0];

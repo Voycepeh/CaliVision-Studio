@@ -661,7 +661,7 @@ export function LiveStreamingWorkspace() {
       if (annotatedReplayUrlRef.current) URL.revokeObjectURL(annotatedReplayUrlRef.current);
       if (rawReplayUrlRef.current) URL.revokeObjectURL(rawReplayUrlRef.current);
     };
-  }, []);
+  }, [cleanupSession]);
 
   const buildStabilizedPoseFrame = useCallback(
     (landmarks: Array<{ x: number; y: number; visibility?: number }>, timestampMs: number) => {
