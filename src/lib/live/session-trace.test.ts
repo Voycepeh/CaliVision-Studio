@@ -76,6 +76,7 @@ test("phase transitions require confirmation and ignore confidence gate jitter",
     drillSelection: {
       mode: "drill",
       drill: drill as never,
+      cameraView: "side",
       drillBindingLabel: drill.title,
       drillBindingSource: "local"
     },
@@ -114,6 +115,7 @@ test("analyzed frame state keeps pose and overlay synchronized by timestamp", ()
     drillSelection: {
       mode: "drill",
       drill: drill as never,
+      cameraView: "side",
       drillBindingLabel: drill.title,
       drillBindingSource: "local"
     },
@@ -147,6 +149,7 @@ test("hold drills still accumulate hold duration without rep progression", () =>
     drillSelection: {
       mode: "drill",
       drill: holdDrill as never,
+      cameraView: "side",
       drillBindingLabel: holdDrill.title,
       drillBindingSource: "local"
     },

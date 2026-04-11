@@ -12,7 +12,8 @@ const trace: LiveSessionTrace = {
   drillSelection: {
     mode: "freestyle",
     drillBindingLabel: "No drill · Freestyle",
-    drillBindingSource: "freestyle"
+    drillBindingSource: "freestyle",
+    cameraView: "front"
   },
   cadenceFps: 10,
   video: { durationMs: 2000, width: 720, height: 1280, mimeType: "video/webm", sizeBytes: 1200, timing: { mediaStartMs: 0, mediaStopMs: 2000, captureStartPerfNowMs: 1, captureStopPerfNowMs: 2001 } },

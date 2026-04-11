@@ -1,6 +1,6 @@
 import { runDrillAnalysisPipeline } from "./analysis-runner.ts";
 import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "./phase-runtime.ts";
-import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics, type DrillCameraView } from "./camera-view.ts";
+import { formatCameraViewLabel, type DrillCameraView } from "./camera-view.ts";
 import type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 import type { PoseTimeline } from "../upload/types.ts";
@@ -27,7 +27,7 @@ type PersistUploadInput = {
   sourceUri?: string;
   sourceLabel?: string;
   annotatedVideoUri?: string;
-  resolvedCameraView?: DrillCameraView;
+  resolvedCameraView: DrillCameraView;
 };
 
 function createRuntimeDiagnostics(drill: PortableDrill, output: ReturnType<typeof runDrillAnalysisPipeline>) {
@@ -148,13 +148,9 @@ function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>)
 }
 
 export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): AnalysisSessionRecord {
-  const cameraViewResolution = input.resolvedCameraView
-    ? { cameraView: input.resolvedCameraView, diagnostics: { usedFallback: false } }
-    : resolveDrillCameraViewWithDiagnostics(input.drill);
-
   const output = runDrillAnalysisPipeline({
     drill: input.drill,
-    cameraView: cameraViewResolution.cameraView,
+    cameraView: input.resolvedCameraView,
     sampledFrames: input.timeline.frames,
     sourceType: "upload-video",
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
@@ -187,9 +183,8 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
     debug: {
       detector: input.timeline.detector,
       cadenceFps: input.timeline.cadenceFps,
-      cameraView: cameraViewResolution.cameraView,
-      cameraViewLabel: formatCameraViewLabel(cameraViewResolution.cameraView),
-      cameraViewWarning: cameraViewResolution.diagnostics.warning,
+      cameraView: input.resolvedCameraView,
+      cameraViewLabel: formatCameraViewLabel(input.resolvedCameraView),
       sourceVideoFileName: input.timeline.video.fileName,
       smootherTransitions: output.transitions,
       smoothedFrames: output.smoothedFrames,

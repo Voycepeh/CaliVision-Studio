@@ -115,7 +115,8 @@ test("upload analysis path persists exactly one completed session", async () => 
     sourceId: "upload-job-1",
     sourceLabel: "attempt.mp4",
     sourceUri: "upload://local/upload-job-1/attempt.mp4",
-    annotatedVideoUri: "upload://local/upload-job-1/attempt.annotated-video.webm"
+    annotatedVideoUri: "upload://local/upload-job-1/attempt.annotated-video.webm",
+    resolvedCameraView: "side"
   });
 
   const sessions = await repository.listRecentSessions();
@@ -139,7 +140,8 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
     drillVersion: "sample-v1",
     timeline: createTimeline(),
     sourceId: "upload-job-build-only",
-    sourceLabel: "attempt.mp4"
+    sourceLabel: "attempt.mp4",
+    resolvedCameraView: "side"
   });
 
   assert.equal(built.sourceId, "upload-job-build-only");
@@ -165,21 +167,6 @@ test("buildCompletedUploadAnalysisSession uses snapshotted resolvedCameraView wh
 
   assert.equal(built.debug?.cameraView, "side");
   assert.equal(built.debug?.cameraViewLabel, "Side");
-  assert.equal(built.debug?.cameraViewWarning, undefined);
-});
-
-test("buildCompletedUploadAnalysisSession reports fallback warning for invalid drill view", () => {
-  const drill = buildDrill();
-  Object.assign(drill as unknown as { primaryView: string }, { primaryView: "UNKNOWN" });
-
-  const built = buildCompletedUploadAnalysisSession({
-    drill,
-    timeline: createTimeline(),
-    sourceId: "upload-camera-invalid"
-  });
-
-  assert.equal(built.debug?.cameraView, "front");
-  assert.match(built.debug?.cameraViewWarning ?? "", /defaulting to front/i);
 });
 
 test("runtime diagnostics flag legacy analysis order mismatch without overriding authored order", () => {
@@ -195,7 +182,8 @@ test("runtime diagnostics flag legacy analysis order mismatch without overriding
     drillVersion: "sample-v1",
     timeline: createTimeline(),
     sourceId: "upload-mismatch",
-    sourceLabel: "attempt.mp4"
+    sourceLabel: "attempt.mp4",
+    resolvedCameraView: "side"
   });
 
   assert.equal(built.debug?.runtimeDiagnostics?.legacyOrderMismatch, true);
@@ -234,7 +222,8 @@ test("completed upload with no sampled frames is persisted as partial", async ()
     repository,
     drill,
     timeline,
-    sourceId: "upload-empty"
+    sourceId: "upload-empty",
+    resolvedCameraView: "front"
   });
 
   assert.equal(session.status, "partial");
@@ -251,7 +240,8 @@ test("completed upload with zero analyzed duration is persisted as partial", asy
     repository,
     drill,
     timeline,
-    sourceId: "upload-zero-duration"
+    sourceId: "upload-zero-duration",
+    resolvedCameraView: "front"
   });
 
   assert.equal(session.frameSamples.length > 0, true);

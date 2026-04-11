@@ -1,5 +1,5 @@
 import type { PortableDrill } from "@/lib/schema/contracts";
-import { resolveDrillCameraViewWithDiagnostics } from "../analysis/camera-view.ts";
+import type { DrillCameraView } from "../analysis/camera-view.ts";
 
 export function resolveSelectedDrillKey(options: Array<{ key: string }>, currentKey?: string | null, storedKey?: string | null): string | null {
   const preferred = currentKey ?? storedKey ?? options[0]?.key ?? null;
@@ -10,6 +10,7 @@ export function resolveSelectedDrillKey(options: Array<{ key: string }>, current
 }
 
 export function createUploadJobDrillSelection(input: {
+  cameraView: DrillCameraView;
   selectedDrill?: {
     key: string;
     sourceKind: "local" | "hosted";
@@ -21,6 +22,7 @@ export function createUploadJobDrillSelection(input: {
   if (!input.selectedDrill) {
     return {
       mode: "freestyle" as const,
+      cameraView: input.cameraView,
       drillVersion: undefined,
       drillBinding: {
         drillName: "No drill (Freestyle overlay)",
@@ -31,20 +33,12 @@ export function createUploadJobDrillSelection(input: {
   }
 
   const drill = input.selectedDrill.drill;
-  const resolvedCameraView = resolveDrillCameraViewWithDiagnostics(drill);
-  if (resolvedCameraView.diagnostics.warning && process.env.NODE_ENV !== "production") {
-    console.warn("[upload-analysis] DRILL_CAMERA_VIEW_FALLBACK", {
-      warning: resolvedCameraView.diagnostics.warning,
-      drillId: drill.drillId,
-      drillTitle: drill.title
-    });
-  }
   const drillVersion = input.selectedDrill.packageVersion;
   return {
     mode: "drill" as const,
     drill,
     drillVersion,
-    cameraView: resolvedCameraView.cameraView,
+    cameraView: input.cameraView,
     drillBinding: {
       drillId: drill.drillId,
       drillName: drill.title,

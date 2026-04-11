@@ -18,7 +18,7 @@ export type LiveDrillSelection = {
   mode: "freestyle" | "drill";
   drill?: PortableDrill;
   drillVersion?: string;
-  cameraView?: DrillCameraView;
+  cameraView: DrillCameraView;
   drillBindingLabel: string;
   drillBindingSource: "freestyle" | "local" | "hosted";
   sourceId?: string;

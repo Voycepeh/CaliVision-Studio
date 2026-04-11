@@ -10,7 +10,8 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { buildPhaseRuntimeModel } from "@/lib/analysis";
-import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
+import { formatCameraViewLabel } from "@/lib/analysis";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { resolveAvailableDownloads, type PreviewSurface } from "@/lib/results/preview-state";
@@ -145,6 +146,7 @@ export function LiveStreamingWorkspace() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [isRearCamera, setIsRearCamera] = useState(true);
+  const [selectedCameraView, setSelectedCameraView] = useState<DrillCameraView>("front");
   const [postAnalysisSnapshot, setPostAnalysisSnapshot] = useState<LivePostAnalysisSnapshot | null>(null);
   const [rawReplayUrl, setRawReplayUrl] = useState<string | null>(null);
   const [rawReplayBlob, setRawReplayBlob] = useState<Blob | null>(null);
@@ -232,30 +234,22 @@ export function LiveStreamingWorkspace() {
     if (!selectedDrill) {
       return {
         mode: "freestyle",
+        cameraView: selectedCameraView,
         drillBindingLabel: "No drill · Freestyle",
         drillBindingSource: "freestyle"
       };
-    }
-
-    const resolvedCameraView = resolveDrillCameraViewWithDiagnostics(selectedDrill.drill);
-    if (resolvedCameraView.diagnostics.warning && process.env.NODE_ENV !== "production") {
-      console.warn("[live-analysis] DRILL_CAMERA_VIEW_FALLBACK", {
-        warning: resolvedCameraView.diagnostics.warning,
-        drillId: selectedDrill.drill.drillId,
-        drillTitle: selectedDrill.drill.title
-      });
     }
 
     return {
       mode: "drill",
       drill: selectedDrill.drill,
       drillVersion: selectedDrill.packageVersion,
-      cameraView: resolvedCameraView.cameraView,
+      cameraView: selectedCameraView,
       drillBindingLabel: selectedDrill.drill.title,
       drillBindingSource: selectedDrill.sourceKind,
       sourceId: selectedDrill.sourceId
     };
-  }, [selectedDrill]);
+  }, [selectedCameraView, selectedDrill]);
   const phaseLabelMap = useMemo(() => buildPhaseLabelMap(selection.drill), [selection.drill]);
   const requiredFramingJoints = useMemo(() => {
     if (!selection.drill?.phases.length) {
@@ -1400,6 +1394,18 @@ export function LiveStreamingWorkspace() {
                   >
                     <option value="rear">Rear camera</option>
                     <option value="front">Front camera</option>
+                  </select>
+                </label>
+                <label className="live-streaming-control-field">
+                  <span>Camera view</span>
+                  <select
+                    className="live-streaming-control-input"
+                    value={selectedCameraView}
+                    onChange={(event) => setSelectedCameraView(event.target.value as DrillCameraView)}
+                    disabled={status === "live-session-running" || status === "requesting-permission"}
+                  >
+                    <option value="front">Front view</option>
+                    <option value="side">Side view</option>
                   </select>
                 </label>
                 <label className="live-streaming-control-field">

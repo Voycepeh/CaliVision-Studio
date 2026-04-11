@@ -13,6 +13,7 @@ import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
@@ -167,6 +168,7 @@ export function UploadVideoWorkspace() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [analysisSessionsByJobId, setAnalysisSessionsByJobId] = useState<Record<string, AnalysisSessionRecord | null>>({});
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
+  const [selectedCameraView, setSelectedCameraView] = useState<DrillCameraView>("front");
   const [traceStepMs, setTraceStepMs] = useState<number>(DEFAULT_TRACE_STEP_MS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
@@ -500,13 +502,13 @@ export function UploadVideoWorkspace() {
         stageLabel: "Ready to analyze",
         progress: 0,
         createdAtIso: createdAt,
-        drillSelection: createUploadJobDrillSelection({ selectedDrill })
+        drillSelection: createUploadJobDrillSelection({ selectedDrill, cameraView: selectedCameraView })
       };
     }));
 
     setUploadJobs((current) => [...current, ...queuedJobs]);
     setSelectedJobId((current) => current ?? queuedJobs[0]?.id ?? null);
-  }, [selectedDrill]);
+  }, [selectedCameraView, selectedDrill]);
 
   const openFileChooser = useCallback(() => {
     const fileInput = fileInputRef.current;
@@ -649,7 +651,7 @@ export function UploadVideoWorkspace() {
             ? [
                 { id: "replay", label: "Replay", value: uploadPreviewState.includes("showing") ? "Available" : "Unavailable" },
                 { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
-                ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
+                { id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) },
                 { id: "status", label: "Run status", value: activeSession.status }
               ]
             : [],
@@ -825,6 +827,17 @@ export function UploadVideoWorkspace() {
                         ))}
                       </optgroup>
                     )}
+                  </select>
+                </label>
+                <label className="muted" style={{ fontSize: "0.85rem" }}>
+                  Camera view
+                  <select
+                    value={selectedCameraView}
+                    onChange={(event) => setSelectedCameraView(event.target.value as DrillCameraView)}
+                    style={{ marginLeft: "0.35rem", minWidth: 120 }}
+                  >
+                    <option value="front">Front</option>
+                    <option value="side">Side</option>
                   </select>
                 </label>
                 <label className="muted" style={{ fontSize: "0.85rem" }}>

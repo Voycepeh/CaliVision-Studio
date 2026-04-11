@@ -24,6 +24,7 @@ function buildUploadJob(overrides: Partial<UploadJob> = {}): UploadJob {
     progress: 0,
     createdAtIso: "2026-04-08T00:00:00.000Z",
     drillSelection: {
+      cameraView: "side",
       drill: {
         drillId: "drill-1",
         slug: "drill-1",

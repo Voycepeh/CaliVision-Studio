@@ -13,6 +13,7 @@ const trace: LiveSessionTrace = {
     mode: "drill",
     drillBindingLabel: "Air Squat",
     drillBindingSource: "local",
+    cameraView: "side",
     drill: {
       drillId: "squat_1",
       slug: "air-squat",

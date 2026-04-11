@@ -5,7 +5,7 @@ export type UploadJobDrillSelection = {
   drill?: PortableDrill;
   drillVersion?: string;
   mode?: "freestyle" | "drill";
-  cameraView?: DrillCameraView;
+  cameraView: DrillCameraView;
   drillBinding: {
     drillId?: string;
     drillName: string;
