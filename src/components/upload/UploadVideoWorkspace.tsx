@@ -14,7 +14,7 @@ import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
-import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, formatStoredDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
+import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
@@ -52,16 +52,6 @@ function formatConfidence(value?: number): string {
 
 function formatTraceStepLabel(stepMs: number): string {
   return `${(stepMs / 1000).toFixed(1)}s`;
-}
-
-function formatDrillBindingSource(sourceKind: UploadJob["drillSelection"]["drillBinding"]["sourceKind"]): string {
-  if (sourceKind === "local" || sourceKind === "hosted") {
-    return formatStoredDrillSourceLabel(sourceKind);
-  }
-  if (sourceKind === "freestyle") {
-    return "Freestyle";
-  }
-  return "Unknown";
 }
 
 function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string> {
@@ -184,8 +174,9 @@ function formatDiagnosticEvent(event: AnalysisSessionRecord["events"][number], p
 export function UploadVideoWorkspace() {
   const searchParams = useSearchParams();
   const { session, isConfigured, persistenceMode } = useAuth();
-  const [activeJob, setActiveJob] = useState<UploadJob | null>(null);
-  const [activeSession, setActiveSession] = useState<AnalysisSessionRecord | null>(null);
+  const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [analysisSessionsByJobId, setAnalysisSessionsByJobId] = useState<Record<string, AnalysisSessionRecord | null>>({});
   const [cadenceFps, setCadenceFps] = useState(DEFAULT_CADENCE_FPS);
   const [traceStepMs, setTraceStepMs] = useState<number>(DEFAULT_TRACE_STEP_MS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -200,6 +191,14 @@ export function UploadVideoWorkspace() {
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
+  const activeJob = useMemo(
+    () => (selectedJobId ? uploadJobs.find((job) => job.id === selectedJobId) ?? null : uploadJobs[0] ?? null),
+    [selectedJobId, uploadJobs]
+  );
+  const activeSession = useMemo(
+    () => (activeJob ? analysisSessionsByJobId[activeJob.id] ?? null : null),
+    [activeJob, analysisSessionsByJobId]
+  );
   const requestedDrillKey = searchParams.get("drillKey");
   const {
     drillOptions,
@@ -352,87 +351,91 @@ export function UploadVideoWorkspace() {
     return () => cancelAnimationFrame(raf);
   }, [activeJob, activeSession, rawPreviewObjectUrl]);
 
-  const startSingleRun = useCallback(async (file: File) => {
-    const metadata = await readVideoMetadata(file);
-    const jobId = crypto.randomUUID();
-    const nextJob: UploadJob = {
-      id: jobId,
-      file,
-      fileName: file.name,
-      fileSizeBytes: file.size,
-      durationMs: metadata.durationMs,
+  const startQueuedJob = useCallback(async (jobId: string) => {
+    const queuedJob = uploadJobs.find((job) => job.id === jobId);
+    if (!queuedJob || queuedJob.status !== "queued") {
+      return;
+    }
+
+    const processingJob: UploadJob = {
+      ...queuedJob,
       status: "processing",
       stageLabel: "Initializing MediaPipe Pose Landmarker",
       progress: 0,
-      createdAtIso: new Date().toISOString(),
       startedAtIso: new Date().toISOString(),
-      drillSelection: createUploadJobDrillSelection({ selectedDrill })
+      errorMessage: undefined,
+      errorDetails: undefined
     };
 
-    setActiveSession(null);
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("annotated");
     setAnnotatedFailureDetails(null);
-    setActiveJob(nextJob);
+    setSelectedJobId(jobId);
+    setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: null }));
+    setUploadJobs((current) => current.map((job) => (job.id === jobId ? processingJob : job)));
 
     const controller = new AbortController();
     activeAbortRef.current = controller;
 
     try {
-      const { timeline, analysisFile, analysisSourceKind } = await processVideoFile(nextJob.file, {
+      const { timeline, analysisFile, analysisSourceKind } = await processVideoFile(processingJob.file, {
         cadenceFps,
         signal: controller.signal,
-        onProgress: (progress, stageLabel) => setActiveJob((current) => (current ? { ...current, progress, stageLabel } : current))
+        onProgress: (progress, stageLabel) => setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel } : job)))
       });
 
-      const completedSession = (nextJob.drillSelection.mode ?? "drill") === "drill" && nextJob.drillSelection.drill
+      const completedSession = (processingJob.drillSelection.mode ?? "drill") === "drill" && processingJob.drillSelection.drill
         ? buildCompletedUploadAnalysisSession({
-            drill: nextJob.drillSelection.drill,
-            drillVersion: nextJob.drillSelection.drillVersion,
+            drill: processingJob.drillSelection.drill,
+            drillVersion: processingJob.drillSelection.drillVersion,
             drillBinding: {
-              drillId: nextJob.drillSelection.drill.drillId,
-              drillName: nextJob.drillSelection.drillBinding.drillName,
-              drillVersion: nextJob.drillSelection.drillVersion,
-              sourceKind: nextJob.drillSelection.drillBinding.sourceKind === "freestyle" ? "unknown" : nextJob.drillSelection.drillBinding.sourceKind,
-              sourceId: nextJob.drillSelection.drillBinding.sourceId,
-              sourceLabel: nextJob.drillSelection.drillBinding.sourceLabel
+              drillId: processingJob.drillSelection.drill.drillId,
+              drillName: processingJob.drillSelection.drillBinding.drillName,
+              drillVersion: processingJob.drillSelection.drillVersion,
+              sourceKind: processingJob.drillSelection.drillBinding.sourceKind === "freestyle" ? "unknown" : processingJob.drillSelection.drillBinding.sourceKind,
+              sourceId: processingJob.drillSelection.drillBinding.sourceId,
+              sourceLabel: processingJob.drillSelection.drillBinding.sourceLabel
             },
-            resolvedCameraView: nextJob.drillSelection.cameraView,
+            resolvedCameraView: processingJob.drillSelection.cameraView,
             timeline,
-            sourceId: nextJob.id,
-            sourceLabel: nextJob.fileName,
-            sourceUri: createUploadSourceUri(nextJob.id, nextJob.fileName),
-            annotatedVideoUri: createUploadSourceUri(nextJob.id, `${createArtifactBaseName(nextJob.fileName)}.annotated-video.webm`)
+            sourceId: processingJob.id,
+            sourceLabel: processingJob.fileName,
+            sourceUri: createUploadSourceUri(processingJob.id, processingJob.fileName),
+            annotatedVideoUri: createUploadSourceUri(processingJob.id, `${createArtifactBaseName(processingJob.fileName)}.annotated-video.webm`)
           })
         : null;
 
-      setActiveJob((current) => (current ? {
-        ...current,
-        progress: 0.97,
-        stageLabel: analysisSourceKind === "normalized" ? "Rendering annotated video (normalized source)" : "Rendering annotated video"
-      } : current));
+      setUploadJobs((current) => current.map((job) => (
+        job.id === jobId
+          ? {
+              ...job,
+              progress: 0.97,
+              stageLabel: analysisSourceKind === "normalized" ? "Rendering annotated video (normalized source)" : "Rendering annotated video"
+            }
+          : job
+      )));
 
       const overlayOptions = {
         includeAnalysisOverlay: true,
         analysisSession: completedSession,
-        overlayModeLabel: (nextJob.drillSelection.mode ?? "drill") === "drill"
-          ? nextJob.drillSelection.drillBinding.drillName
+        overlayModeLabel: (processingJob.drillSelection.mode ?? "drill") === "drill"
+          ? processingJob.drillSelection.drillBinding.drillName
           : "No drill · Freestyle overlay",
-        includeDrillMetrics: (nextJob.drillSelection.mode ?? "drill") === "drill",
-        phaseLabels: buildPhaseLabelMap(nextJob.drillSelection.drill),
-        phaseCount: nextJob.drillSelection.drill?.analysis
-          ? buildPhaseRuntimeModel(nextJob.drillSelection.drill, nextJob.drillSelection.drill.analysis).phaseCount
-          : nextJob.drillSelection.drill?.phases.length
+        includeDrillMetrics: (processingJob.drillSelection.mode ?? "drill") === "drill",
+        phaseLabels: buildPhaseLabelMap(processingJob.drillSelection.drill),
+        phaseCount: processingJob.drillSelection.drill?.analysis
+          ? buildPhaseRuntimeModel(processingJob.drillSelection.drill, processingJob.drillSelection.drill.analysis).phaseCount
+          : processingJob.drillSelection.drill?.phases.length
       };
 
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
-        annotated = await exportAnnotatedVideo(nextJob.file, timeline, overlayOptions);
+        annotated = await exportAnnotatedVideo(processingJob.file, timeline, overlayOptions);
       } catch (error) {
         if (analysisSourceKind === "normalized") {
           console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
-            fileName: nextJob.fileName,
+            fileName: processingJob.fileName,
             reason: error instanceof Error ? error.message : "unknown"
           });
           try {
@@ -445,10 +448,10 @@ export function UploadVideoWorkspace() {
         }
       }
 
-      setActiveJob((current) =>
-        current
+      setUploadJobs((current) => current.map((job) => (
+        job.id === jobId
           ? {
-              ...current,
+              ...job,
               status: "completed",
               progress: 1,
               stageLabel: "Completed",
@@ -464,16 +467,16 @@ export function UploadVideoWorkspace() {
                   : {})
               }
             }
-          : current
-      );
-      setActiveSession(completedSession);
+          : job
+      )));
+      setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: completedSession }));
     } catch (error) {
       const cancelled = error instanceof DOMException && error.name === "AbortError";
       const message = error instanceof Error ? error.message : "Upload processing failed";
-      setActiveJob((current) =>
-        current
+      setUploadJobs((current) => current.map((job) => (
+        job.id === jobId
           ? {
-              ...current,
+              ...job,
               status: cancelled ? "cancelled" : "failed",
               stageLabel: cancelled ? "Cancelled" : "Failed",
               errorMessage: cancelled
@@ -483,18 +486,36 @@ export function UploadVideoWorkspace() {
                   : "Processing failed. Retry to start a fresh local processing context.",
               errorDetails: message
             }
-          : current
-      );
+          : job
+      )));
     } finally {
       activeAbortRef.current = null;
     }
-  }, [cadenceFps, selectedDrill]);
+  }, [cadenceFps, uploadJobs]);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
-    const firstVideo = Array.from(files).find((file) => file.type.startsWith("video/"));
-    if (!firstVideo) return;
-    await startSingleRun(firstVideo);
-  }, [startSingleRun]);
+    const videos = Array.from(files).filter((file) => file.type.startsWith("video/"));
+    if (videos.length === 0) return;
+    const createdAt = new Date().toISOString();
+    const queuedJobs: UploadJob[] = await Promise.all(videos.map(async (file) => {
+      const metadata = await readVideoMetadata(file);
+      return {
+        id: crypto.randomUUID(),
+        file,
+        fileName: file.name,
+        fileSizeBytes: file.size,
+        durationMs: metadata.durationMs,
+        status: "queued",
+        stageLabel: "Ready to analyze",
+        progress: 0,
+        createdAtIso: createdAt,
+        drillSelection: createUploadJobDrillSelection({ selectedDrill })
+      };
+    }));
+
+    setUploadJobs((current) => [...queuedJobs, ...current]);
+    setSelectedJobId((current) => current ?? queuedJobs[0]?.id ?? null);
+  }, [selectedDrill]);
 
   const openFileChooser = useCallback(() => {
     const fileInput = fileInputRef.current;
@@ -506,8 +527,9 @@ export function UploadVideoWorkspace() {
   const resetUploadWorkflow = useCallback(() => {
     activeAbortRef.current?.abort();
     activeAbortRef.current = null;
-    setActiveJob(null);
-    setActiveSession(null);
+    setUploadJobs([]);
+    setSelectedJobId(null);
+    setAnalysisSessionsByJobId({});
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
@@ -522,6 +544,18 @@ export function UploadVideoWorkspace() {
     }
     setWorkflowResetKey((current) => nextUploadWorkflowResetKey(current));
   }, []);
+
+  useEffect(() => {
+    const processingJob = uploadJobs.find((job) => job.status === "processing");
+    if (processingJob || activeAbortRef.current) {
+      return;
+    }
+    const nextQueued = uploadJobs.find((job) => job.status === "queued");
+    if (!nextQueued) {
+      return;
+    }
+    void startQueuedJob(nextQueued.id);
+  }, [startQueuedJob, uploadJobs]);
 
   const activePhaseLabels = useMemo(() => buildPhaseLabelMap(activeJob?.drillSelection.drill), [activeJob?.drillSelection.drill]);
   const traceRows = useMemo(() => {
@@ -569,6 +603,7 @@ export function UploadVideoWorkspace() {
   const rawDownloadLabel = resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable });
   const shouldCollapseReferencePanel = hasActiveUpload || hasCompletedResult;
   const showReferencePanel = isReferencePanelVisible;
+  const queueHasMultiple = uploadJobs.length > 1;
 
   useEffect(() => {
     if (!activeJob) {
@@ -691,7 +726,7 @@ export function UploadVideoWorkspace() {
                 style={{ margin: 0 }}
               >
                 <strong>Drop a video here or click to upload</strong>
-                <p className="muted" style={{ margin: "0.35rem 0 0" }}>A new upload replaces the previous run on this page.</p>
+                <p className="muted" style={{ margin: "0.35rem 0 0" }}>Uploads are queued locally on this page and run one at a time.</p>
               </div>
               <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
                 Freestyle mode is the default for reliable overlay output. Choose a drill only when you want rep/phase metrics.
@@ -722,51 +757,68 @@ export function UploadVideoWorkspace() {
           />
         }
       />
-      {activeJob ? (
-            <article className="card" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
-                <div>
-                  <strong>{activeJob.fileName}</strong>
-                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                    {formatBytes(activeJob.fileSizeBytes)} • {formatDuration(activeJob.durationMs)} • {activeJob.status}
+      {uploadJobs.length > 0 ? (
+        <article className="card" style={{ margin: 0, padding: queueHasMultiple ? undefined : "0.8rem 1rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+            <strong>{queueHasMultiple ? "Upload queue" : "Current upload job"}</strong>
+            <button type="button" className="pill" onClick={resetUploadWorkflow}>Start fresh</button>
+          </div>
+          <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.55rem" }}>
+            {uploadJobs.map((job) => {
+              const selected = job.id === activeJob?.id;
+              return (
+                <button
+                  key={job.id}
+                  type="button"
+                  onClick={() => setSelectedJobId(job.id)}
+                  style={{
+                    textAlign: "left",
+                    border: selected ? "1px solid var(--accent)" : "1px solid var(--border)",
+                    borderRadius: "0.55rem",
+                    background: selected ? "var(--accent-soft)" : "transparent",
+                    padding: queueHasMultiple ? "0.6rem 0.75rem" : "0.55rem 0.7rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <strong style={{ fontSize: "0.92rem" }}>{job.fileName}</strong>
+                    <span className="muted" style={{ fontSize: "0.82rem", textTransform: "capitalize" }}>{job.status}</span>
+                  </div>
+                  <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.8rem" }}>
+                    {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)}
                   </p>
-                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                    Mode: {activeJob.drillSelection.drillBinding.drillName} ({formatDrillBindingSource(activeJob.drillSelection.drillBinding.sourceKind)})
-                  </p>
-                  {activeJob.drillSelection.cameraView ? (
-                    <p className="muted" style={{ margin: "0.2rem 0 0" }}>
-                      Camera View: {formatCameraViewLabel(activeJob.drillSelection.cameraView)}
-                    </p>
-                  ) : null}
-                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>{activeJob.stageLabel}</p>
-                  {activeJob.errorMessage ? <p style={{ margin: "0.2rem 0 0", color: "#f0b47d" }}>{activeJob.errorMessage}</p> : null}
-                  {activeJob.errorDetails ? (
-                    <details style={{ marginTop: "0.3rem" }}>
-                      <summary className="muted" style={{ cursor: "pointer" }}>Technical details</summary>
-                      <pre className="muted" style={{ whiteSpace: "pre-wrap", marginTop: "0.35rem" }}>{activeJob.errorDetails}</pre>
-                    </details>
-                  ) : null}
-                </div>
-                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "start" }}>
-                  {activeJob.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
-                  {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
-                    <button type="button" className="pill" onClick={() => void startSingleRun(activeJob.file)}>Retry</button>
-                  ) : null}
-                  <button type="button" className="pill" onClick={resetUploadWorkflow}>Start fresh</button>
-                </div>
-              </div>
-              <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.4rem" }} />
-            </article>
+                  <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.8rem" }}>{job.stageLabel}</p>
+                  {(job.status === "processing" || job.status === "queued") ? <progress max={1} value={job.progress} style={{ width: "100%", marginTop: "0.3rem" }} /> : null}
+                </button>
+              );
+            })}
+          </div>
+          {activeJob ? (
+            <div style={{ marginTop: "0.55rem", display: "flex", gap: "0.4rem", flexWrap: "wrap", alignItems: "center" }}>
+              {activeJob.status === "processing" ? <button type="button" className="pill" onClick={() => activeAbortRef.current?.abort()}>Cancel</button> : null}
+              {(activeJob.status === "failed" || activeJob.status === "cancelled") ? (
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={() => setUploadJobs((current) => current.map((job) => (job.id === activeJob.id ? { ...job, status: "queued", stageLabel: "Ready to analyze", progress: 0, errorMessage: undefined, errorDetails: undefined } : job)))}
+                >
+                  Retry
+                </button>
+              ) : null}
+              {activeJob.errorMessage ? <span style={{ color: "#f0b47d", fontSize: "0.85rem" }}>{activeJob.errorMessage}</span> : null}
+            </div>
           ) : null}
+        </article>
+      ) : null}
 
           {activeJob ? (
             <section className="card" style={{ margin: 0 }}>
               <h3 style={{ marginTop: 0 }}>Analysis result</h3>
               {uploadPreviewState === "processing_annotated" ? (
                 <div className="result-preview-processing">
-                  <strong>Generating annotated video</strong>
-                  <p className="muted">You can preview the raw recording while this finishes.</p>
-                  <progress max={1} value={activeJob.progress} style={{ width: "100%" }} />
+                  <strong>Generating annotated video for the selected upload.</strong>
+                  <p className="muted" style={{ margin: "0.2rem 0 0" }}>Raw preview is available while render completes.</p>
+                  <progress max={1} value={activeJob.progress} style={{ width: "100%", marginTop: "0.35rem", maxWidth: 360 }} />
                   <button type="button" className="pill" onClick={() => setShowRawDuringProcessing(true)}>Show raw instead</button>
                 </div>
               ) : null}
@@ -825,23 +877,25 @@ export function UploadVideoWorkspace() {
                   </button>
                 </div>
               ) : null}
-              <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
-                <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
-                <button
-                  type="button"
-                  className="pill"
-                  onClick={async () => {
-                    if (!fullscreenContainerRef.current) return;
-                    if (document.fullscreenElement) {
-                      await document.exitFullscreen();
-                      return;
-                    }
-                    await fullscreenContainerRef.current.requestFullscreen();
-                  }}
-                >
-                  Overlay Fullscreen
-                </button>
-              </div>
+              {previewSelection.source ? (
+                <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.45rem", flexWrap: "wrap" }}>
+                  <span className="muted" style={{ fontSize: "0.82rem" }}>Use Overlay Fullscreen to keep pose + HUD visible together.</span>
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={async () => {
+                      if (!fullscreenContainerRef.current) return;
+                      if (document.fullscreenElement) {
+                        await document.exitFullscreen();
+                        return;
+                      }
+                      await fullscreenContainerRef.current.requestFullscreen();
+                    }}
+                  >
+                    Overlay Fullscreen
+                  </button>
+                </div>
+              ) : null}
 
               {activeJob.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill" ? (
                 <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", marginTop: "0.6rem" }}>
