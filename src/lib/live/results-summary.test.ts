@@ -64,7 +64,7 @@ test("buildLiveResultsSummary returns rep/hold/phase labels", () => {
 });
 
 test("mapLiveTraceToTimelineMarkers includes rep/hold/phase events in order", () => {
-  const markers = mapLiveTraceToTimelineMarkers(trace);
+  const markers = mapLiveTraceToTimelineMarkers(trace, { setup: "1. Setup", descent: "2. Hands Up" });
   assert.deepEqual(
     markers.map((marker) => ({ id: marker.id, kind: marker.kind })),
     [
@@ -76,6 +76,8 @@ test("mapLiveTraceToTimelineMarkers includes rep/hold/phase events in order", ()
     ]
   );
   assert.match(markers[0].label, /3s/);
+  assert.match(markers[0].label, /1\. Setup/);
+  assert.match(markers[3].label, /2\. Hands Up/);
 });
 
 test("getReplayStateMessage returns truthful fallback message", () => {

@@ -1,5 +1,6 @@
 import type { AnalysisEvent } from "../schema/contracts.ts";
 import { formatDurationClock, toFiniteNonNegativeMs } from "../format/safe-duration.ts";
+import { formatReplayTimelineEventLabel } from "../analysis/event-labels.ts";
 import type { LiveSessionTrace } from "./types.ts";
 
 export type ReplayTerminalState =
@@ -65,29 +66,7 @@ export function buildLiveResultsSummary(trace: LiveSessionTrace): LiveResultsSum
   };
 }
 
-function formatPhaseLabel(event: AnalysisEvent): string {
-  if (event.phaseId) {
-    return `Phase: ${event.phaseId}`;
-  }
-  return "Phase transition";
-}
-
-function formatTimelineEventLabel(event: AnalysisEvent): string {
-  if (event.type === "rep_complete") {
-    return event.repIndex ? `Rep ${event.repIndex}` : "Rep complete";
-  }
-  if (event.type === "hold_start") {
-    return event.phaseId ? `Hold start (${event.phaseId})` : "Hold start";
-  }
-  if (event.type === "hold_end") {
-    const durationMs = toFiniteNonNegativeMs(Number(event.details?.durationMs ?? 0)) ?? 0;
-    const durationLabel = durationMs > 0 ? ` · ${formatDurationClock(durationMs)}` : "";
-    return `${event.phaseId ? `Hold end (${event.phaseId})` : "Hold end"}${durationLabel}`;
-  }
-  return formatPhaseLabel(event);
-}
-
-export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace): LiveTimelineMarker[] {
+export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace, phaseLabels?: Record<string, string>): LiveTimelineMarker[] {
   return trace.events
     .filter((event) => event.type === "rep_complete" || event.type === "hold_start" || event.type === "hold_end" || event.type === "phase_enter")
     .map((event) => {
@@ -96,7 +75,7 @@ export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace): LiveTime
         id: event.eventId,
         timestampMs: event.timestampMs,
         kind,
-        label: `${formatDurationClock(event.timestampMs)} · ${formatTimelineEventLabel(event)}`
+        label: `${formatDurationClock(event.timestampMs)} · ${formatReplayTimelineEventLabel(event, phaseLabels)}`
       };
     })
     .sort((a, b) => a.timestampMs - b.timestampMs);
