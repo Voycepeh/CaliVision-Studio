@@ -16,8 +16,9 @@
 4. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
 5. Upload a phase image.
 6. Run detection and apply/refine pose.
-7. Preview and validation review, with a quick `Back to version actions` jump to return to Save Draft / Mark Ready controls.
-8. Open advanced diagnostics only when needed (collapsible, hidden by default).
+7. Preview and validation review.
+8. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
+9. Open advanced diagnostics only when needed (collapsible, hidden by default).
 
 ## Current Upload Video flow
 

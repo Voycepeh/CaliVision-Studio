@@ -47,33 +47,23 @@ export function StudioReviewTabs() {
       : null;
   }, [selectedDrill, selectedPackage]);
 
-  function jumpToVersionActions(): void {
-    const actions = document.getElementById("drill-version-actions");
-    actions?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   return (
     <section style={{ display: "grid", gap: "0.6rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
         <h3 style={{ margin: 0 }}>Review</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <div className="studio-tab-row" role="tablist" aria-label="Review tools">
-            {reviewTabs.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === option.id}
-                className={activeTab === option.id ? "active" : ""}
-                onClick={() => setActiveTab(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <button type="button" className="studio-button" onClick={jumpToVersionActions}>
-            Back to version actions
-          </button>
+        <div className="studio-tab-row" role="tablist" aria-label="Review tools">
+          {reviewTabs.map((option) => (
+            <button
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === option.id}
+              className={activeTab === option.id ? "active" : ""}
+              onClick={() => setActiveTab(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
 

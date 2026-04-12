@@ -18,7 +18,7 @@ export function StudioActionBar() {
   const isDirty = saveStatusLabel.startsWith("Unsaved");
 
   return (
-    <section id="drill-version-actions" className="card studio-action-bar" aria-label="Studio draft actions">
+    <section className="card studio-action-bar" aria-label="Studio draft actions">
       <div className="studio-action-bar-status">
         <strong>Drill version actions</strong>
         <span className="pill">{persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}</span>
