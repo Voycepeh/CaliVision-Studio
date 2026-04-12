@@ -17,6 +17,8 @@ export function mapUploadAnalysisToViewerModel(input: {
   videoUrl: string | null;
   canShowVideo: boolean;
   surface: ViewerSurface;
+  hasRaw: boolean;
+  hasAnnotated: boolean;
   selectedEventId: string | null;
   primarySummaryChips: AnalysisViewerModel["primarySummaryChips"];
   technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
@@ -48,18 +50,17 @@ export function mapUploadAnalysisToViewerModel(input: {
         ? "ready"
         : "empty";
 
-  const annotatedAvailability =
-    state === "loading"
-      ? "processing"
-      : input.previewState === "showing_annotated_completed" || (input.videoUrl && input.surface === "annotated")
-        ? "ready"
-        : "unavailable";
-  const rawAvailability =
-    state === "loading"
-      ? "processing"
-      : input.previewState === "showing_raw_completed" || input.previewState === "annotated_failed_showing_raw" || input.previewState === "showing_raw_during_processing"
-        ? "ready"
-        : "unavailable";
+  const isProcessing = input.previewState.includes("processing");
+  const rawExplicitDuringProcessing = input.previewState === "showing_raw_during_processing";
+
+  const annotatedAvailability = isProcessing
+    ? "processing"
+    : input.hasAnnotated
+      ? "ready"
+      : "unavailable";
+  const rawAvailability = input.hasRaw && (!isProcessing || rawExplicitDuringProcessing)
+    ? "ready"
+    : "unavailable";
   const replayChip = input.replayStateLabel
     ? [{
         id: "replay_state",
@@ -92,7 +93,7 @@ export function mapUploadAnalysisToViewerModel(input: {
         id: "raw",
         label: "Raw",
         availability: rawAvailability,
-        description: rawAvailability === "processing" ? "Processing…" : rawAvailability === "unavailable" ? "Unavailable" : undefined
+        description: rawAvailability === "unavailable" ? "Unavailable" : undefined
       }
     ],
     timelineDurationMs: input.durationMs,

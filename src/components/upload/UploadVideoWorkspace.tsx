@@ -592,17 +592,19 @@ export function UploadVideoWorkspace() {
 
   const hasActiveUpload = activeJob?.status === "processing";
   const hasCompletedResult = activeJob?.status === "completed" && Boolean(activeJob.artefacts);
+  const hasRawPreview = Boolean(rawPreviewObjectUrl);
+  const hasAnnotatedPreview = Boolean(annotatedPreviewObjectUrl);
   const uploadPreviewState = resolveUnifiedResultPreviewState({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl),
+    hasRaw: hasRawPreview,
+    hasAnnotated: hasAnnotatedPreview,
     isProcessingAnnotated: hasActiveUpload,
     annotatedFailed: Boolean(annotatedFailureDetails) && hasCompletedResult,
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
   const downloadTargets = resolveAvailableDownloads({
-    hasRaw: Boolean(rawPreviewObjectUrl),
-    hasAnnotated: Boolean(annotatedPreviewObjectUrl)
+    hasRaw: hasRawPreview,
+    hasAnnotated: hasAnnotatedPreview
   });
   const previewSelection = selectPreviewSource({
     preferredId: uploadPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
@@ -649,6 +651,8 @@ export function UploadVideoWorkspace() {
         videoUrl: previewUrl,
         canShowVideo: Boolean(previewUrl),
         surface: completedPreviewSurface,
+        hasRaw: hasRawPreview,
+        hasAnnotated: hasAnnotatedPreview,
         selectedEventId: selectedViewerEventId,
         session: activeSession,
         processingStageLabel: activeJob?.stageLabel ?? null,
