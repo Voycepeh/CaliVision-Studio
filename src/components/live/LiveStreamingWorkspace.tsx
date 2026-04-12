@@ -17,9 +17,7 @@ import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overla
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
-import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
-import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
