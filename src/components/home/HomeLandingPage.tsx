@@ -34,8 +34,6 @@ const cards: HomeCard[] = [
   },
 ];
 
-const proofItems = ["Rep counting", "Hold timing", "Phase detection", "Browser-based on-device processing"];
-
 function HomeIcon({ name }: { name: IconName }) {
   if (name === "upload") {
     return (
@@ -90,8 +88,8 @@ export function HomeLandingPage() {
         </section>
 
         <HomeDemoMedia
-          title="Drill-aware analysis preview"
-          caption="Drop in a drill, run upload or live, and review overlay plus metrics."
+          title="Product demo preview"
+          caption="Future demo clip should show drill selection, upload/live capture, and overlay review with rep/hold/phase-aware feedback."
           placeholderLabel="Product demo coming soon"
           steps={["Choose or author a drill", "Upload or stream", "Review overlay and metrics"]}
         />
@@ -110,12 +108,6 @@ export function HomeLandingPage() {
               <h2>{card.title}</h2>
               <p>{card.description}</p>
             </Link>
-          ))}
-        </section>
-
-        <section className="home-proof" aria-label="Product outcomes">
-          {proofItems.map((item) => (
-            <span key={item} className="pill home-proof-pill">{item}</span>
           ))}
         </section>
       </main>
