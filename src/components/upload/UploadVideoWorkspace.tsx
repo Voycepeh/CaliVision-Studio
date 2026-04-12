@@ -782,7 +782,9 @@ export function UploadVideoWorkspace() {
       downloadSafety.raw?.warning,
       traceRows,
       previewSelection.warning,
-      preferredDeliverySource
+      preferredDeliverySource,
+      hasRawPreview,
+      hasAnnotatedPreview
     ]
   );
 
