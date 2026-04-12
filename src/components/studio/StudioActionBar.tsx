@@ -10,7 +10,7 @@ export function StudioActionBar() {
     draftVersionLabel,
     selectedPackage,
     readinessChecklist,
-    saveSelectedToHosted,
+    saveSelectedDraft,
     markSelectedVersionReady,
     persistenceMode
   } = useStudioState();
@@ -18,7 +18,7 @@ export function StudioActionBar() {
   const isDirty = saveStatusLabel.startsWith("Unsaved");
 
   return (
-    <section className="card studio-action-bar" aria-label="Studio draft actions">
+    <section id="drill-version-actions" className="card studio-action-bar" aria-label="Studio draft actions">
       <div className="studio-action-bar-status">
         <strong>Drill version actions</strong>
         <span className="pill">{persistenceMode === "cloud" ? "Cloud workspace" : "Browser workspace"}</span>
@@ -27,8 +27,8 @@ export function StudioActionBar() {
       </div>
 
       <div className="studio-action-groups" role="group" aria-label="Editing actions">
-        <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
-          {persistenceMode === "cloud" ? "Save draft" : "Cloud save (sign in)"}
+        <button type="button" onClick={() => void saveSelectedDraft()} className="studio-button" disabled={!selectedPackage || (persistenceMode === "cloud" && (!userEmail || !isConfigured))}>
+          {persistenceMode === "cloud" ? "Save draft" : "Save draft (local)"}
         </button>
         <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage}>
           Mark Ready
