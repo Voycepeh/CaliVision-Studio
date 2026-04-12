@@ -7,7 +7,7 @@ export default function UploadPage() {
     <RoutePageIntro
       navActive="upload"
       title="Upload Video"
-      description="Upload one or more videos and run local browser-based MediaPipe pose analysis with downloadable overlays and JSON artifacts."
+      description="Select a drill, upload a video, and review drill-aware overlay feedback with reps, holds, and phase transitions."
     >
       <Suspense fallback={<div className="text-sm text-slate-500">Loading upload workspace…</div>}>
         <UploadVideoWorkspace />

@@ -891,6 +891,71 @@ main {
   line-height: 1.5;
 }
 
+.home-demo {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-demo-frame {
+  border: 1px solid rgba(145, 173, 204, 0.25);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(26, 38, 56, 0.82), rgba(11, 17, 26, 0.98));
+  aspect-ratio: 16 / 9;
+}
+
+.home-demo-video,
+.home-demo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.home-demo-video {
+  object-fit: cover;
+  background: #05090f;
+}
+
+.home-demo-placeholder {
+  background:
+    radial-gradient(circle at 22% 20%, rgba(114, 168, 255, 0.24), transparent 35%),
+    radial-gradient(circle at 78% 68%, rgba(114, 168, 255, 0.16), transparent 36%),
+    linear-gradient(180deg, rgba(18, 28, 42, 0.9), rgba(10, 16, 24, 0.96));
+}
+
+.home-demo-placeholder-pill {
+  border-color: rgba(114, 168, 255, 0.55);
+  background: rgba(7, 13, 22, 0.75);
+}
+
+.home-demo-caption {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.home-demo-caption strong {
+  font-size: 0.95rem;
+}
+
+.home-demo-caption p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.home-demo-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.home-demo-step {
+  border-color: rgba(114, 168, 255, 0.4);
+  background: rgba(114, 168, 255, 0.08);
+}
+
 .home-feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1030,6 +1095,28 @@ main {
   border: 1px solid rgba(128, 157, 192, 0.26);
   background: rgba(114, 168, 255, 0.06);
   margin: 0;
+}
+
+.setup-guidance-card {
+  display: grid;
+  gap: 0.6rem;
+  background: rgba(114, 168, 255, 0.06);
+  border: 1px solid rgba(114, 168, 255, 0.28);
+}
+
+.setup-guidance-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+}
+
+.setup-guidance-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
 }
 
 .drill-setup-header-card {

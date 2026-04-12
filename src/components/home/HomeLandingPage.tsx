@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
+import { HomeDemoMedia } from "@/components/home/HomeDemoMedia";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 
 type IconName = "upload" | "studio" | "live";
@@ -15,20 +16,20 @@ type HomeCard = {
 const cards: HomeCard[] = [
   {
     icon: "studio",
-    title: "Drill Library",
-    description: "Create your own drills or start from shared ones.",
+    title: "Create or use a drill",
+    description: "Start from your own drill or pick one from your library and Drill Exchange.",
     href: "/library"
   },
   {
     icon: "upload",
     title: "Upload Video",
-    description: "Analyze existing video files with browser pose processing and replay exports.",
+    description: "Upload a clip, run drill-aware analysis, and review overlay, phases, reps, and holds.",
     href: "/upload"
   },
   {
     icon: "live",
-    title: "Live Streaming",
-    description: "Run a browser camera session with trace retention and post-session annotated replay.",
+    title: "Start live coaching",
+    description: "Start a browser camera session for live overlay feedback and post-session replay review.",
     href: "/live"
   },
 ];
@@ -80,11 +81,18 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <h1>CaliVision</h1>
+          <h1>Drill-aware calisthenics motion analysis</h1>
           <p className="home-subtitle">
-            Build drills in Studio, analyze existing files in Upload Video, and run browser Live Streaming sessions with post-session replay exports.
+            Create drills, analyze videos, and get live overlay feedback in one browser-first workflow.
           </p>
         </section>
+
+        <HomeDemoMedia
+          title="Product demo preview"
+          caption="Future demo clip should show drill selection, upload/live capture, and overlay review with rep/hold/phase-aware feedback."
+          placeholderLabel="Product demo coming soon"
+          steps={["Choose or author a drill", "Upload or stream", "Review overlay and metrics"]}
+        />
 
         <section className="home-feature-grid" aria-label="Core entry points">
           {cards.map((card) => (

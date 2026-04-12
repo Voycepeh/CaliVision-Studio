@@ -25,6 +25,7 @@ import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
+import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
@@ -51,6 +52,12 @@ function formatConfidence(value?: number): string {
     return "n/a";
   }
   return `${Math.round(value * 100)}%`;
+}
+
+function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
+  if (view === "front") return "Front";
+  if (view === "rear") return "Rear";
+  return "Side";
 }
 
 
@@ -775,7 +782,7 @@ export function UploadVideoWorkspace() {
               description={
                 shouldCollapseReferencePanel
                   ? "Upload is active. Video and processing stay in the main workspace."
-                  : "Reference animation is optional while you set up the upload."
+                  : "Pick a drill, verify capture setup, then upload to analyze."
               }
               showReferencePanel={showReferencePanel}
               onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
@@ -784,6 +791,11 @@ export function UploadVideoWorkspace() {
                   Choose video
                 </button>
               }
+            />
+            <CaptureSetupGuidance
+              mode="upload"
+              cameraViewLabel={selectedDrill?.drill ? formatExpectedViewLabel(selectedDrill.drill.primaryView) : null}
+              drillTypeLabel={selectedDrill?.drill ? (selectedDrill.drill.drillType === "rep" ? "Rep" : "Hold") : null}
             />
             <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
@@ -862,7 +874,7 @@ export function UploadVideoWorkspace() {
                 <p className="muted" style={{ margin: "0.35rem 0 0" }}>Uploads are queued locally on this page and run one at a time.</p>
               </div>
               <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
-                Freestyle mode is the default for reliable overlay output. Choose a drill only when you want rep/phase metrics.
+                Freestyle mode gives overlay-only analysis. Select a drill when you want drill-aware rep, hold, and phase metrics.
               </p>
               <input
                 ref={fileInputRef}

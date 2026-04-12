@@ -7,7 +7,7 @@ export default function LivePage() {
     <RoutePageIntro
       navActive="live"
       title="Live Streaming"
-      description="Run a browser camera session with lightweight live analysis, retain timestamped trace events, then export annotated replay without routing through Upload Video."
+      description="Pick a drill, start a browser camera session, and receive live drill-aware overlay feedback with replay metrics after capture."
     >
       <Suspense fallback={<div className="text-sm text-slate-500">Loading live workspace…</div>}>
         <LiveStreamingWorkspace />
