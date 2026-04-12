@@ -129,6 +129,40 @@ test("analyzed frame state keeps pose and overlay synchronized by timestamp", ()
   assert.ok(analyzed.overlay.timestampMs >= 0);
 });
 
+test("finalized live trace preserves advancing capture and source media timestamps", () => {
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_source_advancing",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: drill as never,
+      drillBindingLabel: drill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: drill.phases[0].poseSequence[0].joints }, { sourceMediaTimeMs: 0 });
+  trace.pushFrame({ timestampMs: 180, joints: drill.phases[0].poseSequence[0].joints }, { sourceMediaTimeMs: 170 });
+  trace.pushFrame({ timestampMs: 360, joints: drill.phases[1].poseSequence[0].joints }, { sourceMediaTimeMs: 350 });
+
+  const finalized = trace.finalize(
+    {
+      durationMs: 400,
+      width: 720,
+      height: 1280,
+      mimeType: "video/webm",
+      sizeBytes: 2000,
+      timing: { mediaStartMs: 0, mediaStopMs: 400, captureStartPerfNowMs: 10, captureStopPerfNowMs: 410 }
+    },
+    "2026-04-08T00:00:01.000Z"
+  );
+
+  assert.equal(finalized.captures.length, 3);
+  assert.ok((finalized.captures[1]?.timestampMs ?? 0) > (finalized.captures[0]?.timestampMs ?? 0));
+  assert.ok((finalized.captures[2]?.sourceMediaTimeMs ?? 0) > (finalized.captures[1]?.sourceMediaTimeMs ?? 0));
+});
+
 
 test("hold drills still accumulate hold duration without rep progression", () => {
   const holdDrill = {
