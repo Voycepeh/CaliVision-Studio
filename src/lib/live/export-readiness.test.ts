@@ -31,7 +31,8 @@ function makeTrace(overrides?: Partial<LiveSessionTrace>): LiveSessionTrace {
       { timestampMs: 500, sourceMediaTimeMs: 480, frame: { timestampMs: 500, joints: {} }, frameSample: { timestampMs: 500, confidence: 0.6 } }
     ],
     events: [],
-    summary: { repCount: 0, holdDurationMs: 0, analyzedDurationMs: 5000, confidenceAvg: 0.55, lowConfidenceFrames: 0 }
+    summary: { repCount: 0, holdDurationMs: 0, analyzedDurationMs: 5000, confidenceAvg: 0.55, lowConfidenceFrames: 0 },
+    ...overrides
   };
 }
 
