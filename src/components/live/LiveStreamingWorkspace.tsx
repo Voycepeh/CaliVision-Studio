@@ -32,6 +32,7 @@ import {
   formatHardwareZoomLabel,
   getCameraSupportStatus,
   getHardwareZoomSupport,
+  getReplayStateMessage,
   getSupportedZoomPresets,
   mapLiveTraceToTimelineMarkers,
   getReplayStateMessage,
@@ -297,6 +298,7 @@ export function LiveStreamingWorkspace() {
   }, [selection.cameraView, selection.drill]);
 
   const summary = useMemo(() => postAnalysisSnapshot?.summary ?? null, [postAnalysisSnapshot]);
+  const liveTrace = postAnalysisSnapshot;
   const timelineMarkers = useMemo(() => postAnalysisSnapshot?.timelineMarkers ?? [], [postAnalysisSnapshot]);
   const selectedMarker = useMemo(
     () => (selectedMarkerId ? timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null : null),
@@ -2126,6 +2128,22 @@ export function LiveStreamingWorkspace() {
               </div>
             </section>
 
+            {postAnalysisSnapshot && liveViewerModel ? (
+              <AnalysisViewerShell
+                model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
+                videoRef={replayVideoRef}
+                onSurfaceChange={(surface) => {
+                  setCompletedPreviewSurface(surface);
+                  if (replayState === "export-in-progress") {
+                    setShowRawDuringProcessing(surface === "raw");
+                  }
+                }}
+                onEventSelect={(event) => {
+                  setSelectedMarkerId(event.id);
+                  seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
+                }}
+              />
+            ) : null}
           </>
         ) : null}
         {postAnalysisSnapshot && liveViewerModel ? (
