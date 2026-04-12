@@ -12,7 +12,7 @@ import {
   measureFramePacingStats,
   selectLatestEligibleScheduledFrame
 } from "@/lib/upload/export-frame-pacing";
-import { buildMonotonicSampleTimestamps, computeMinimumViableSamples, shouldFailSampling } from "@/lib/upload/processing-sampling";
+import { buildMonotonicSampleTimestamps, shouldFailSampling } from "@/lib/upload/processing-sampling";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
