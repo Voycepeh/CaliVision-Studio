@@ -40,6 +40,8 @@ import {
   type VideoInputDescriptor,
   stopMediaStream,
   summarizeLiveTraceFreshness,
+  assessLiveTraceExportReadiness,
+  formatLiveTraceExportDiagnostics,
   type LiveDrillSelection,
   type LiveSessionStatus,
   type ReplayTerminalState
@@ -1602,11 +1604,25 @@ export function LiveStreamingWorkspace() {
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
 
     try {
-      if (!traceFreshness.hasSufficientFreshness) {
-        throw new Error(
-          `Pose not updating reliably (${traceFreshness.failureReasons.join("; ")}).`
-        );
+      const exportReadiness = assessLiveTraceExportReadiness(trace);
+      const exportDiagnosticsLabel = formatLiveTraceExportDiagnostics({
+        diagnostics: exportReadiness.diagnostics,
+        failureReasons: exportReadiness.failureReasons,
+        warnings: exportReadiness.warnings
+      });
+
+      if (!exportReadiness.canAttemptAnnotatedExport) {
+        throw new Error(`Annotated replay rejected: non-renderable finalized trace (${exportDiagnosticsLabel}).`);
       }
+
+      if (exportReadiness.degradeToSparseExport) {
+        console.warn("[live-overlay] annotated-export-degraded-trace", {
+          traceFreshness,
+          exportReadiness,
+          exportDiagnostics: exportDiagnosticsLabel
+        });
+      }
+
       const annotated = await exportAnnotatedReplayFromLiveTrace({
         rawVideo: rawFile,
         trace,
@@ -1644,11 +1660,18 @@ export function LiveStreamingWorkspace() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Annotated replay generation failed.";
-      console.error("[live-overlay] annotated export failed", { message });
+      const exportReadiness = assessLiveTraceExportReadiness(trace);
+      const traceDiagnostics = formatLiveTraceExportDiagnostics({
+        diagnostics: exportReadiness.diagnostics,
+        failureReasons: exportReadiness.failureReasons,
+        warnings: exportReadiness.warnings
+      });
+      const failureDetails = `${message} | ${traceDiagnostics}`;
+      console.error("[live-overlay] annotated export failed", { message, traceDiagnostics });
       setReplayState("raw-fallback");
       setReplayExportStageLabel("Annotated export failed");
       setAnnotatedReplayFailureMessage("Annotated video could not be generated. Your raw video is still available.");
-      setAnnotatedReplayFailureDetails(message);
+      setAnnotatedReplayFailureDetails(failureDetails);
       setAnnotatedReplayBlob(null);
       setAnnotatedReplayMimeType(null);
     }
