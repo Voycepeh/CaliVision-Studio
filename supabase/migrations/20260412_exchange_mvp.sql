@@ -22,7 +22,7 @@ create table if not exists public.exchange_publications (
   is_active boolean not null default true
 );
 
-create unique index if not exists exchange_publications_owner_drill_idx on public.exchange_publications (owner_user_id, source_drill_id);
+create unique index if not exists exchange_publications_owner_source_version_idx on public.exchange_publications (owner_user_id, source_version_id);
 create unique index if not exists exchange_publications_slug_idx on public.exchange_publications (slug);
 create index if not exists exchange_publications_source_version_idx on public.exchange_publications (source_version_id);
 create index if not exists exchange_publications_discovery_idx on public.exchange_publications (is_active, visibility, published_at desc);
@@ -37,6 +37,7 @@ create table if not exists public.exchange_forks (
 
 create index if not exists exchange_forks_published_drill_idx on public.exchange_forks (published_drill_id);
 create index if not exists exchange_forks_forked_by_user_idx on public.exchange_forks (forked_by_user_id, created_at desc);
+create unique index if not exists exchange_forks_user_publication_unique_idx on public.exchange_forks (published_drill_id, forked_by_user_id);
 
 alter table public.exchange_publications enable row level security;
 alter table public.exchange_forks enable row level security;

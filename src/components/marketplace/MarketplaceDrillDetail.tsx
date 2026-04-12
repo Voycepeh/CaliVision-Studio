@@ -4,8 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { getExchangePublicationBySlug, recordExchangeFork, type ExchangePublication } from "@/lib/exchange";
-import { forkPublishedDrillToLibrary, type DrillRepositoryContext } from "@/lib/library";
+import {
+  findExistingExchangeFork,
+  getExchangePublicationBySlug,
+  recordExchangeFork,
+  updateExchangeForkTarget,
+  type ExchangePublication
+} from "@/lib/exchange";
+import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
 import { setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 type Props = {
@@ -18,6 +24,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   const [entry, setEntry] = useState<ExchangePublication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [pendingFork, setPendingFork] = useState(false);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
@@ -53,7 +60,25 @@ export function MarketplaceDrillDetail({ slug }: Props) {
 
     setPendingFork(true);
     setError("");
+    setWarning("");
     try {
+      const existingFork = await findExistingExchangeFork(session, entry.id);
+      if (!existingFork.ok) {
+        throw new Error(existingFork.error);
+      }
+      if (existingFork.value) {
+        const existingEditable = await loadEditableVersionForDrill(existingFork.value.forkedPrivateDrillId, repositoryContext);
+        if (existingEditable) {
+          setActiveDrillContext({
+            drillId: existingEditable.drillId,
+            sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
+            sourceId: existingEditable.sourceId
+          });
+          router.push(`/studio?drillId=${encodeURIComponent(existingEditable.drillId)}`);
+          return;
+        }
+      }
+
       const forked = await forkPublishedDrillToLibrary(
         { publishedPackage: entry.snapshotPackage, publishedDrillId: entry.id },
         repositoryContext
@@ -63,7 +88,13 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         forkedPrivateDrillId: forked.drillId
       });
       if (!lineage.ok) {
-        throw new Error(lineage.error);
+        const repair = await updateExchangeForkTarget(session, {
+          publishedDrillId: entry.id,
+          forkedPrivateDrillId: forked.drillId
+        });
+        if (!repair.ok) {
+          setWarning(`Fork lineage sync is delayed: ${lineage.error}`);
+        }
       }
 
       setActiveDrillContext({
@@ -120,6 +151,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       <button type="button" className="pill" onClick={() => void onFork()} disabled={pendingFork}>
         {pendingFork ? "Forking…" : "Fork / Remix into My Drills"}
       </button>
+      {warning ? <p className="muted" style={{ margin: 0, color: "#f3d59b" }}>{warning}</p> : null}
       {error ? <p role="alert" style={{ margin: 0, color: "#f6cbcb" }}>{error}</p> : null}
     </section>
   );

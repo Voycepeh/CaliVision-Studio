@@ -86,8 +86,8 @@ export function LibraryOverview() {
     [session, signedInMode]
   );
 
-  const exchangeBySourceDrillId = useMemo(
-    () => Object.fromEntries(myExchangePublications.map((publication) => [publication.sourceDrillId, publication])),
+  const exchangeBySourceVersionId = useMemo(
+    () => Object.fromEntries(myExchangePublications.map((publication) => [publication.sourceVersionId, publication])),
     [myExchangePublications]
   );
 
@@ -417,7 +417,7 @@ export function LibraryOverview() {
               const versions = versionsByDrillId[drill.drillId] ?? [];
               const workflowSourceVersion = drill.openDraftVersion ?? drill.currentVersion;
               const previewDrill = workflowSourceVersion.packageJson.drills[0];
-              const exchangePublication = exchangeBySourceDrillId[drill.drillId];
+              const exchangePublication = drill.activeReadyVersion ? exchangeBySourceVersionId[drill.activeReadyVersion.versionId] : undefined;
               const publishDraft = publishDraftByDrillId[drill.drillId] ?? buildPublishDraftFromDrill(drill);
               return (
                 <article

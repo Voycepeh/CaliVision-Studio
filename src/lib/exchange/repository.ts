@@ -29,6 +29,13 @@ export type ExchangePublication = {
   isActive: boolean;
 };
 
+export type ExchangeForkRecord = {
+  publishedDrillId: string;
+  forkedPrivateDrillId: string;
+  forkedByUserId: string;
+  createdAtIso: string;
+};
+
 type ExchangePublicationRow = {
   id: string;
   source_drill_id: string;
@@ -54,6 +61,12 @@ type ExchangePublicationRow = {
 };
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+type ExchangeForkRow = {
+  published_drill_id: string;
+  forked_private_drill_id: string;
+  forked_by_user_id: string;
+  created_at: string;
+};
 
 type PublishExchangeInput = {
   sourceVersion: DrillVersionSnapshot;
@@ -190,7 +203,7 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
   const drill = input.sourceVersion.packageJson.drills[0];
   const baseTitle = trimOrFallback(input.metadata.title, drill?.title ?? "Untitled drill");
   const existingResponse = await fetch(
-    `${env.url}/rest/v1/exchange_publications?select=id,slug&owner_user_id=eq.${encodeURIComponent(session.user.id)}&source_drill_id=eq.${encodeURIComponent(input.sourceVersion.drillId)}&limit=1`,
+    `${env.url}/rest/v1/exchange_publications?select=id,slug&owner_user_id=eq.${encodeURIComponent(session.user.id)}&source_version_id=eq.${encodeURIComponent(input.sourceVersion.versionId)}&limit=1`,
     { headers: headers(session) }
   );
   if (!existingResponse.ok) {
@@ -234,7 +247,7 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
     is_active: true
   };
 
-  const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_drill_id`, {
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_version_id`, {
     method: "POST",
     headers: {
       ...headers(session),
@@ -253,6 +266,34 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
   }
 
   return { ok: true, value: mapRow(rows[0]) };
+}
+
+export async function findExistingExchangeFork(session: AuthSession, publishedDrillId: string): Promise<Result<ExchangeForkRecord | null>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(
+    `${env.url}/rest/v1/exchange_forks?select=*&published_drill_id=eq.${encodeURIComponent(publishedDrillId)}&forked_by_user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`,
+    { headers: headers(session) }
+  );
+  if (!response.ok) {
+    return { ok: false, error: `Failed to check existing fork lineage: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangeForkRow[];
+  const row = rows[0];
+  if (!row) {
+    return { ok: true, value: null };
+  }
+  return {
+    ok: true,
+    value: {
+      publishedDrillId: row.published_drill_id,
+      forkedPrivateDrillId: row.forked_private_drill_id,
+      forkedByUserId: row.forked_by_user_id,
+      createdAtIso: row.created_at
+    }
+  };
 }
 
 export async function listExchangePublications(params: {
@@ -330,7 +371,10 @@ export async function recordExchangeFork(
 
   const response = await fetch(`${env.url}/rest/v1/exchange_forks`, {
     method: "POST",
-    headers: headers(session),
+    headers: {
+      ...headers(session),
+      Prefer: "resolution=ignore-duplicates"
+    },
     body: JSON.stringify({
       published_drill_id: input.publishedDrillId,
       forked_private_drill_id: input.forkedPrivateDrillId,
@@ -340,6 +384,31 @@ export async function recordExchangeFork(
 
   if (!response.ok) {
     return { ok: false, error: `Failed to save fork lineage: ${await readBackendError(response)}` };
+  }
+
+  return { ok: true, value: undefined };
+}
+
+export async function updateExchangeForkTarget(
+  session: AuthSession,
+  input: { publishedDrillId: string; forkedPrivateDrillId: string }
+): Promise<Result<void>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(
+    `${env.url}/rest/v1/exchange_forks?published_drill_id=eq.${encodeURIComponent(input.publishedDrillId)}&forked_by_user_id=eq.${encodeURIComponent(session.user.id)}`,
+    {
+      method: "PATCH",
+      headers: headers(session),
+      body: JSON.stringify({
+        forked_private_drill_id: input.forkedPrivateDrillId
+      })
+    }
+  );
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to update fork lineage target: ${await readBackendError(response)}` };
   }
 
   return { ok: true, value: undefined };
