@@ -28,7 +28,7 @@ export function TopBar() {
     duplicateSelectedPackage,
     forkSelectedPackage,
     createSelectedPackageNewVersion,
-    saveSelectedToHosted,
+    saveSelectedDraft,
     persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
@@ -100,8 +100,8 @@ export function TopBar() {
         <button type="button" onClick={exportSelectedPackage} style={actionButtonStyle}>
           Export drill
         </button>
-        <button type="button" onClick={() => void saveSelectedToHosted()} style={actionButtonStyle} disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
-          {persistenceMode === "cloud" ? "Save to account" : "Cloud save (sign in)"}
+        <button type="button" onClick={() => void saveSelectedDraft()} style={actionButtonStyle} disabled={!selectedPackage || (persistenceMode === "cloud" && (!userEmail || !isConfigured))}>
+          {persistenceMode === "cloud" ? "Save to account" : "Save draft (local)"}
         </button>
         <button type="button" onClick={openPublishPanel} style={actionButtonStyle}>
           Share to Exchange (Mock)

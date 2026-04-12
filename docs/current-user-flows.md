@@ -17,7 +17,8 @@
 5. Upload a phase image.
 6. Run detection and apply/refine pose.
 7. Preview and validation review.
-8. Open advanced diagnostics only when needed (collapsible, hidden by default).
+8. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
+9. Open advanced diagnostics only when needed (collapsible, hidden by default).
 
 ## Current Upload Video flow
 
@@ -72,7 +73,7 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 2. Version numbers belong to released revisions only (`v1`, `v2`, `v3`).
 3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
 4. `Mark Ready` is blocked until required draft fields are complete (title, movement type, camera view, and at least one authored phase with user-defined content). Incomplete drafts can still be saved/edited.
-5. When requirements are satisfied, `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
+5. When requirements are satisfied, `Mark Ready` first saves the current draft snapshot, then finalizes that saved draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
 6. `Publish` updates publish status on the current released version and does not create duplicate version rows.
 7. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
 8. `Import drill file` writes to the active workspace only:
