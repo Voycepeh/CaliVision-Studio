@@ -20,7 +20,9 @@ import { resolveAvailableDownloads, resolveUnifiedResultPreviewState, type Previ
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
+import { getReplayStateMessage, getReplayStateTone, type ReplayTerminalState } from "@/lib/live/results-summary";
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
@@ -58,6 +60,15 @@ function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
   if (view === "front") return "Front";
   if (view === "rear") return "Rear";
   return "Side";
+}
+
+function resolveUploadReplayState(job: UploadJob | null | undefined, previewState: string): ReplayTerminalState {
+  if (!job) return "idle";
+  if (job.status === "processing" || previewState.includes("processing")) return "export-in-progress";
+  if (job.status === "failed" || job.status === "cancelled") return "export-failed";
+  if (job.status === "completed" && job.artefacts?.annotatedVideoBlob) return "annotated-ready";
+  if (job.status === "completed") return "raw-fallback";
+  return "idle";
 }
 
 
@@ -429,7 +440,13 @@ export function UploadVideoWorkspace() {
 
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
-        annotated = await exportAnnotatedVideo(processingJob.file, timeline, overlayOptions);
+        annotated = await exportAnnotatedVideo(processingJob.file, timeline, {
+          ...overlayOptions,
+          onProgress: (progress, stageLabel) => {
+            const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
+            setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
+          }
+        });
       } catch (error) {
         if (analysisSourceKind === "normalized") {
           console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
@@ -437,7 +454,13 @@ export function UploadVideoWorkspace() {
             reason: error instanceof Error ? error.message : "unknown"
           });
           try {
-            annotated = await exportAnnotatedVideo(analysisFile, timeline, overlayOptions);
+            annotated = await exportAnnotatedVideo(analysisFile, timeline, {
+              ...overlayOptions,
+              onProgress: (progress, stageLabel) => {
+                const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
+                setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
+              }
+            });
           } catch (normalizedError) {
             setAnnotatedFailureDetails(normalizedError instanceof Error ? normalizedError.message : "Annotated export failed");
           }
@@ -452,7 +475,12 @@ export function UploadVideoWorkspace() {
               ...job,
               status: "completed",
               progress: 1,
-              stageLabel: "Completed",
+              stageLabel: formatAnnotatedRenderProgressLabel({
+                stageLabel: annotated?.diagnostics
+                  ? `Rendering frames ${annotated.diagnostics.renderedFrameCount}/${Math.max(1, Math.floor(annotated.diagnostics.sourceDurationSec * annotated.diagnostics.renderFpsTarget) + 1)}`
+                  : "Annotated export complete",
+                completed: true
+              }) ?? "Completed",
               completedAtIso: new Date().toISOString(),
               artefacts: {
                 poseTimeline: timeline,
@@ -610,14 +638,22 @@ export function UploadVideoWorkspace() {
   }, [activeSession]);
 
   const uploadViewerModel = useMemo(
-    () =>
-      mapUploadAnalysisToViewerModel({
+    () => {
+      const replayState = resolveUploadReplayState(activeJob, uploadPreviewState);
+      const replayLabelBase = getReplayStateMessage(replayState);
+      const replayStatusLabel = replayState === "export-in-progress" && activeJob?.stageLabel
+        ? `${replayLabelBase} · ${activeJob.stageLabel}`
+        : replayLabelBase;
+      return mapUploadAnalysisToViewerModel({
         previewState: uploadPreviewState,
         videoUrl: previewUrl,
         canShowVideo: Boolean(previewUrl),
         surface: completedPreviewSurface,
         selectedEventId: selectedViewerEventId,
         session: activeSession,
+        processingStageLabel: activeJob?.stageLabel ?? null,
+        replayStateLabel: replayStatusLabel,
+        replayTone: getReplayStateTone(replayState),
         durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
         mediaAspectRatio:
           activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
@@ -725,7 +761,8 @@ export function UploadVideoWorkspace() {
               }
             }
           : undefined
-      }),
+      });
+    },
     [
       uploadPreviewState,
       previewUrl,
@@ -932,7 +969,16 @@ export function UploadVideoWorkspace() {
                   <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.8rem" }}>
                     {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)}
                   </p>
-                  <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.8rem" }}>{job.stageLabel}</p>
+                  <p
+                    style={{
+                      margin: "0.16rem 0 0",
+                      fontSize: "0.8rem",
+                      color: job.status === "completed" ? "#8ce7bf" : job.status === "processing" ? "#f7d58b" : "var(--text-muted)"
+                    }}
+                  >
+                    {job.stageLabel}
+                    {job.status === "processing" && parseFrameProgress(job.stageLabel) ? " (in progress)" : ""}
+                  </p>
                   {(job.status === "processing" || job.status === "queued") ? <progress max={1} value={job.progress} style={{ width: "100%", marginTop: "0.3rem" }} /> : null}
                 </button>
               );
