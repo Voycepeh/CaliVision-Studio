@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
+import { HomeDemoMedia } from "@/components/home/HomeDemoMedia";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 
 type IconName = "upload" | "studio" | "live";
@@ -34,12 +35,6 @@ const cards: HomeCard[] = [
 ];
 
 const proofItems = ["Rep counting", "Hold timing", "Phase detection", "Browser-based on-device processing"];
-
-const workflowSteps = [
-  { title: "Author drill", description: "Create or select a drill with phase structure and expected camera view." },
-  { title: "Upload or stream", description: "Analyze an existing video or start a live browser camera session." },
-  { title: "Review overlay + metrics", description: "Inspect replay overlays, rep counts, holds, and phase transitions." }
-];
 
 function HomeIcon({ name }: { name: IconName }) {
   if (name === "upload") {
@@ -92,10 +87,14 @@ export function HomeLandingPage() {
           <p className="home-subtitle">
             Create drills, analyze videos, and get live overlay feedback in one browser-first workflow.
           </p>
-          <p className="home-subtitle home-subtitle-secondary">
-            CaliVision helps you move from authored drill intent to measurable reps, holds, and phase quality.
-          </p>
         </section>
+
+        <HomeDemoMedia
+          title="Drill-aware analysis preview"
+          caption="Drop in a drill, run upload or live, and review overlay plus metrics."
+          placeholderLabel="Product demo coming soon"
+          steps={["Choose or author a drill", "Upload or stream", "Review overlay and metrics"]}
+        />
 
         <section className="home-feature-grid" aria-label="Core entry points">
           {cards.map((card) => (
@@ -117,15 +116,6 @@ export function HomeLandingPage() {
         <section className="home-proof" aria-label="Product outcomes">
           {proofItems.map((item) => (
             <span key={item} className="pill home-proof-pill">{item}</span>
-          ))}
-        </section>
-
-        <section className="home-workflow" aria-label="Core workflow">
-          {workflowSteps.map((step, index) => (
-            <article key={step.title} className="home-workflow-step">
-              <strong>{index + 1}. {step.title}</strong>
-              <p>{step.description}</p>
-            </article>
           ))}
         </section>
       </main>
