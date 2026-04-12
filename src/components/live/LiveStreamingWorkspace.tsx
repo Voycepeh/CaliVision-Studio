@@ -103,6 +103,8 @@ type LivePostAnalysisSnapshot = {
   cameraView?: LiveDrillSelection["cameraView"];
 };
 
+type LiveWorkspacePhase = "idle" | "live" | "processing" | "ready";
+
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
   const video = document.createElement("video");
@@ -347,8 +349,22 @@ export function LiveStreamingWorkspace() {
     () => timelineMarkers.find((marker) => marker.id === selectedMarkerId) ?? null,
     [timelineMarkers, selectedMarkerId]
   );
-  const isSessionStageActive = status === "live-session-running" || status === "requesting-permission" || status === "stopping-finalizing";
-  const shouldShowSessionToolbar = isSessionStageActive || isStageFullscreen;
+  const workspacePhase: LiveWorkspacePhase = useMemo(() => {
+    if (status === "live-session-running" || status === "requesting-permission") {
+      return "live";
+    }
+    if (status === "stopping-finalizing" || replayState === "export-in-progress") {
+      return "processing";
+    }
+    if (status === "completed" && postAnalysisSnapshot) {
+      return "ready";
+    }
+    return "idle";
+  }, [postAnalysisSnapshot, replayState, status]);
+  const isLivePhase = workspacePhase === "live";
+  const isPostAnalysisPhase = workspacePhase === "processing" || workspacePhase === "ready";
+  const isSessionStageActive = isLivePhase;
+  const shouldShowSessionToolbar = isLivePhase || isStageFullscreen;
   const activeZoomPreset = resolveSelectedZoomPreset(selectedZoomPreset, APP_HARDWARE_ZOOM_PRESETS);
   const halfXAccess = useMemo(() => {
     if (activeCameraSource === "rear-ultrawide") {
@@ -1743,7 +1759,7 @@ export function LiveStreamingWorkspace() {
 
   return (
     <section className={`panel-content live-streaming-layout ${isSessionStageActive ? "live-streaming-layout--session-active" : ""}`}>
-      <div className={`card live-streaming-intro-card ${isSessionStageActive ? "live-streaming-passive-chrome-hidden" : ""}`}>
+      <div className={`card live-streaming-intro-card ${isLivePhase || isPostAnalysisPhase ? "live-streaming-passive-chrome-hidden" : ""}`}>
         <strong>Live session setup</strong>
         <p className="muted" style={{ margin: "0.35rem 0 0" }}>
           Choose drill, frame your body, start session, and receive live drill-aware feedback with replay export at the end.
@@ -1751,7 +1767,7 @@ export function LiveStreamingWorkspace() {
       </div>
 
       {/* Shared setup shell keeps Upload and Live aligned while preserving source-specific inputs. */}
-      <div className={isSessionStageActive ? "live-streaming-passive-chrome-hidden" : undefined}>
+      <div className={isLivePhase || isPostAnalysisPhase ? "live-streaming-passive-chrome-hidden" : undefined}>
       <DrillSetupShell
         showReferencePanel={showReferencePanel}
         leftPane={
@@ -1900,83 +1916,85 @@ export function LiveStreamingWorkspace() {
       </div>
 
       <article ref={sessionStageRef} className={`card live-streaming-results-card ${isSessionStageActive ? "live-streaming-results-card--session-active" : ""}`}>
-        <div className="live-streaming-preview-shell">
-          {shouldShowSessionToolbar ? (
-            <div className="live-streaming-session-toolbar">
-              <div className="pill">Drill: {selection.drillBindingLabel}</div>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                {status === "live-session-running" ? (
-                  <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
-                    Stop session
-                  </button>
-                ) : null}
-                {isFullscreenSupported ? (
-                  <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
-                    {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                  </button>
-                ) : (
-                  <span className="pill">Fullscreen unavailable</span>
-                )}
-              </div>
-            </div>
-          ) : null}
-          <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
-            <video
-              ref={previewVideoRef}
-              muted
-              playsInline
-              className="live-streaming-video"
-              onLoadedMetadata={() => {
-                overlayNeedsResizeSyncRef.current = true;
-                syncOverlayCanvasSize(true);
-                const video = previewVideoRef.current;
-                if (video?.videoWidth && video.videoHeight) {
-                  setPreviewAspectRatio(video.videoWidth / video.videoHeight);
-                }
-              }}
-              onResize={() => {
-                overlayNeedsResizeSyncRef.current = true;
-              }}
-              style={{ display: status === "completed" ? "none" : "block", transform: isRearCamera ? "none" : "scaleX(-1)" }}
-            />
-            <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
-            {status === "live-session-running" ? (
-              <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
-                <span className="live-streaming-zoom-label">Zoom</span>
-                <div className="live-streaming-zoom-presets">
-                  {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
-                    const isActive = activeZoomPreset === preset;
-                    const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
-                        aria-pressed={isActive}
-                        disabled={isDisabled}
-                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
-                        onClick={() => {
-                          void handleZoomPresetSelection(preset);
-                        }}
-                      >
-                        {formatHardwareZoomLabel(preset)}
-                      </button>
-                    );
-                  })}
+        {isLivePhase ? (
+          <div className="live-streaming-preview-shell">
+            {shouldShowSessionToolbar ? (
+              <div className="live-streaming-session-toolbar">
+                <div className="pill">Drill: {selection.drillBindingLabel}</div>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  {status === "live-session-running" ? (
+                    <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+                      Stop session
+                    </button>
+                  ) : null}
+                  {isFullscreenSupported ? (
+                    <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
+                      {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                    </button>
+                  ) : (
+                    <span className="pill">Fullscreen unavailable</span>
+                  )}
                 </div>
-                <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
               </div>
             ) : null}
-            {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
+            <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
+              <video
+                ref={previewVideoRef}
+                muted
+                playsInline
+                className="live-streaming-video"
+                onLoadedMetadata={() => {
+                  overlayNeedsResizeSyncRef.current = true;
+                  syncOverlayCanvasSize(true);
+                  const video = previewVideoRef.current;
+                  if (video?.videoWidth && video.videoHeight) {
+                    setPreviewAspectRatio(video.videoWidth / video.videoHeight);
+                  }
+                }}
+                onResize={() => {
+                  overlayNeedsResizeSyncRef.current = true;
+                }}
+                style={{ transform: isRearCamera ? "none" : "scaleX(-1)" }}
+              />
+              <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
+              {status === "live-session-running" ? (
+                <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
+                  <span className="live-streaming-zoom-label">Zoom</span>
+                  <div className="live-streaming-zoom-presets">
+                    {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
+                      const isActive = activeZoomPreset === preset;
+                      const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                          aria-pressed={isActive}
+                          disabled={isDisabled}
+                          title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
+                          onClick={() => {
+                            void handleZoomPresetSelection(preset);
+                          }}
+                        >
+                          {formatHardwareZoomLabel(preset)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
+                </div>
+              ) : null}
+              {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
+            </div>
+            {zoomHelperText ? (
+              <p className="muted" style={{ marginTop: "0.45rem", marginBottom: 0, fontSize: "0.82rem" }}>
+                {zoomHelperText}
+              </p>
+            ) : null}
           </div>
-          {zoomHelperText ? (
-            <p className="muted" style={{ marginTop: "0.45rem", marginBottom: 0, fontSize: "0.82rem" }}>
-              {zoomHelperText}
-            </p>
-          ) : null}
-        </div>
+        ) : null}
 
-        {liveTrace ? (
+        {isPostAnalysisPhase && liveTrace ? (
           <>
             <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
               <div className="pill">Drill: {summary?.drillLabel ?? "Freestyle"}</div>
@@ -2158,6 +2176,12 @@ export function LiveStreamingWorkspace() {
               />
             ) : null}
           </>
+        ) : null}
+        {isPostAnalysisPhase && !liveTrace ? (
+          <div className="result-preview-processing">
+            <strong>Finalizing replay</strong>
+            <p className="muted" style={{ margin: 0 }}>Preparing post-analysis results…</p>
+          </div>
         ) : null}
       </article>
     </section>
