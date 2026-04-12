@@ -17,7 +17,8 @@
 5. Upload a phase image.
 6. Run detection and apply/refine pose.
 7. Preview and validation review.
-8. Open advanced diagnostics only when needed (collapsible, hidden by default).
+8. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
+9. Open advanced diagnostics only when needed (collapsible, hidden by default).
 
 ## Current Upload Video flow
 

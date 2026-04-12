@@ -14,13 +14,15 @@ import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-v
 const WORKFLOW_SECTION_IDS = {
   drillSetup: 0,
   phaseSequence: 1,
-  review: 2
+  review: 2,
+  versionActions: 3
 } as const;
 
 const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
   [WORKFLOW_SECTION_IDS.drillSetup]: true,
   [WORKFLOW_SECTION_IDS.phaseSequence]: true,
-  [WORKFLOW_SECTION_IDS.review]: false
+  [WORKFLOW_SECTION_IDS.review]: false,
+  [WORKFLOW_SECTION_IDS.versionActions]: false
 };
 
 type ExpandIntent = "pose" | "upload";
@@ -237,8 +239,6 @@ export function StudioCenterInspector() {
         <p className="muted" style={{ margin: 0 }}>Define your drill, organize phases, then review animation.</p>
       </header>
 
-      <StudioActionBar />
-
       <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
         <StudioMetadataEditor />
       </WorkflowSection>
@@ -274,6 +274,10 @@ export function StudioCenterInspector() {
 
       <WorkflowSection title="3. Review" stepIndex={WORKFLOW_SECTION_IDS.review} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.review)} onToggle={handleSectionToggle}>
         <StudioReviewTabs />
+      </WorkflowSection>
+
+      <WorkflowSection title="4. Drill version actions" stepIndex={WORKFLOW_SECTION_IDS.versionActions} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.versionActions)} onToggle={handleSectionToggle}>
+        <StudioActionBar />
       </WorkflowSection>
     </div>
   );

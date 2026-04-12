@@ -166,7 +166,7 @@ type StudioStateValue = {
   duplicateSelectedPackage: () => void;
   forkSelectedPackage: () => void;
   createSelectedPackageNewVersion: () => void;
-  saveSelectedToHosted: () => Promise<void>;
+  saveSelectedDraft: () => Promise<boolean>;
   markSelectedVersionReady: () => Promise<void>;
   persistenceMode: "local" | "cloud";
 };
@@ -775,47 +775,98 @@ export function StudioStateProvider({
     : "No draft selected";
 
 
-  async function saveSelectedToHosted(): Promise<void> {
+  async function saveSelectedDraft(): Promise<boolean> {
     if (!selectedPackage) {
-      return;
-    }
-    if (!isConfigured || !session) {
-      setHostedSaveState("error");
-      return;
+      return false;
     }
 
-    setHostedSaveState("saving");
-    const upsert = await upsertHostedLibraryItem(session, selectedPackage.workingPackage);
-    if (!upsert.ok) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("[studio] Cloud draft save failed", {
-          packageId: selectedPackage.workingPackage.manifest.packageId,
-          packageVersion: selectedPackage.workingPackage.manifest.packageVersion,
-          error: upsert.error
-        });
+    if (persistenceMode === "cloud") {
+      if (!isConfigured || !session) {
+        setHostedSaveState("error");
+        return false;
       }
-      setHostedSaveState("error");
-      return;
+
+      setHostedSaveState("saving");
+      const upsert = await upsertHostedLibraryItem(session, selectedPackage.workingPackage);
+      if (!upsert.ok) {
+        if (process.env.NODE_ENV !== "production") {
+          console.error("[studio] Cloud draft save failed", {
+            packageId: selectedPackage.workingPackage.manifest.packageId,
+            packageVersion: selectedPackage.workingPackage.manifest.packageVersion,
+            error: upsert.error
+          });
+        }
+        setHostedSaveState("error");
+        return false;
+      }
+
+      const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId ?? upsert.value.id;
+      setHostedVersionIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: versionId }));
+      setPackages((current) =>
+        current.map((entry) => {
+          if (entry.packageKey !== selectedPackage.packageKey) {
+            return entry;
+          }
+
+          const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(selectedPackage.workingPackage);
+          if (hasNewerEdits) {
+            return entry;
+          }
+
+          return markPackagePersisted(entry, selectedPackage.workingPackage);
+        })
+      );
+      setLastSavedAtByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.updatedAtIso }));
+      setHostedSaveState("saved");
+      return true;
     }
 
-    const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId ?? upsert.value.id;
-    setHostedVersionIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: versionId }));
-    setPackages((current) =>
-      current.map((entry) => {
-        if (entry.packageKey !== selectedPackage.packageKey) {
-          return entry;
-        }
+    setLocalSaveState("saving");
+    try {
+      const fallbackDraftId = toDraftIdFromPackage(selectedPackage);
+      const packageKeyDraftId = draftIdFromPackageKey(selectedPackage.packageKey);
+      const draftId = draftIdsByPackageKey[selectedPackage.packageKey] ?? packageKeyDraftId ?? fallbackDraftId;
+      const result = await saveDraft({
+        draftId,
+        sourceLabel: selectedPackage.sourceLabel,
+        packageJson: selectedPackage.workingPackage,
+        assetsById: packageAssetBlobs[selectedPackage.packageKey] ?? {}
+      });
+      setDraftIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: draftId }));
+      setPackages((current) =>
+        current.map((entry) => {
+          if (entry.packageKey !== selectedPackage.packageKey) {
+            return entry;
+          }
 
-        const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(selectedPackage.workingPackage);
-        if (hasNewerEdits) {
-          return entry;
-        }
+          const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(selectedPackage.workingPackage);
+          if (hasNewerEdits) {
+            return entry;
+          }
 
-        return markPackagePersisted(entry, selectedPackage.workingPackage);
-      })
-    );
-    setLastSavedAtByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: upsert.value.updatedAtIso }));
-    setHostedSaveState("saved");
+          return markPackagePersisted(entry, selectedPackage.workingPackage);
+        })
+      );
+      setLastSavedAtByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: result.updatedAtIso }));
+      setLocalSaveState("saved");
+      return true;
+    } catch {
+      setLocalSaveState("error");
+      return false;
+    }
+  }
+
+  async function saveSelectedDraftBeforeReady(): Promise<boolean> {
+    const saved = await saveSelectedDraft();
+    if (!saved) {
+      setImportFeedback({
+        status: "error",
+        message: "Save failed. Save this draft before marking ready.",
+        issues: []
+      });
+      return false;
+    }
+    return true;
   }
 
   async function markSelectedVersionReady(): Promise<void> {
@@ -830,6 +881,11 @@ export function StudioStateProvider({
         message: `Ready requirements not met (${readiness.issues.length} issue${readiness.issues.length === 1 ? "" : "s"}).`,
         issues: []
       });
+      return;
+    }
+
+    const draftSaved = await saveSelectedDraftBeforeReady();
+    if (!draftSaved) {
       return;
     }
 
@@ -1883,7 +1939,7 @@ export function StudioStateProvider({
     duplicateSelectedPackage,
     forkSelectedPackage,
     createSelectedPackageNewVersion,
-    saveSelectedToHosted,
+    saveSelectedDraft,
     markSelectedVersionReady,
     persistenceMode
   };
