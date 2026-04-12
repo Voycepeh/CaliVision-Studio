@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { createOverlayProjectionFromLayout, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
@@ -17,9 +17,7 @@ import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overla
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
-import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
-import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
@@ -641,12 +639,26 @@ export function LiveStreamingWorkspace() {
 
     const video = previewVideoRef.current;
     if (video?.videoWidth && video.videoHeight) {
-      overlayProjectionRef.current = createOverlayProjection({
-        viewportWidth: resized.cssWidth,
-        viewportHeight: resized.cssHeight,
+      const containerBounds = container.getBoundingClientRect();
+      const videoBounds = video.getBoundingClientRect();
+      const objectFit = typeof window === "undefined" ? "contain" : window.getComputedStyle(video).objectFit;
+      const fitMode = objectFit === "cover" ? "cover" : "contain";
+      overlayProjectionRef.current = createOverlayProjectionFromLayout({
         sourceWidth: video.videoWidth,
         sourceHeight: video.videoHeight,
-        fitMode: "contain",
+        containerRect: {
+          left: containerBounds.left,
+          top: containerBounds.top,
+          width: containerBounds.width,
+          height: containerBounds.height
+        },
+        videoRect: {
+          left: videoBounds.left,
+          top: videoBounds.top,
+          width: videoBounds.width,
+          height: videoBounds.height
+        },
+        fitMode,
         mirrored: !isRearCamera
       });
     }
@@ -1872,7 +1884,7 @@ export function LiveStreamingWorkspace() {
                 }}
                 style={{ transform: isRearCamera ? "none" : "scaleX(-1)" }}
               />
-              <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: status === "live-session-running" ? "block" : "none" }} />
+              <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: isLivePhase ? "block" : "none" }} />
               {status === "live-session-running" ? (
                 <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
                   <span className="live-streaming-zoom-label">Zoom</span>

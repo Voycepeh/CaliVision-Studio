@@ -37,6 +37,13 @@ export type OverlayProjection = {
   rotationDegrees?: number;
 };
 
+export type RectLike = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
 export function fitVideoCoverRect(input: VideoCoverRectInput): VideoCoverRect {
   const projection = createVideoProjection({
     sourceWidth: input.videoWidth,
@@ -78,6 +85,38 @@ export function createOverlayProjection(input: {
     offsetY: projection.renderedRect.y,
     mirrored: projection.mirrorX,
     rotationDegrees: projection.rotationDegrees
+  };
+}
+
+export function createOverlayProjectionFromLayout(input: {
+  sourceWidth: number;
+  sourceHeight: number;
+  containerRect: RectLike;
+  videoRect?: RectLike | null;
+  fitMode?: VideoFitMode;
+  mirrored?: boolean;
+  rotationDegrees?: number;
+}): OverlayProjection {
+  const containerWidth = Math.max(0, input.containerRect.width);
+  const containerHeight = Math.max(0, input.containerRect.height);
+  const videoRect = input.videoRect;
+  const viewportWidth = videoRect && videoRect.width > 0 ? videoRect.width : containerWidth;
+  const viewportHeight = videoRect && videoRect.height > 0 ? videoRect.height : containerHeight;
+  const projection = createOverlayProjection({
+    viewportWidth,
+    viewportHeight,
+    sourceWidth: input.sourceWidth,
+    sourceHeight: input.sourceHeight,
+    fitMode: input.fitMode,
+    mirrored: input.mirrored,
+    rotationDegrees: input.rotationDegrees
+  });
+  const relativeOffsetX = videoRect ? videoRect.left - input.containerRect.left : 0;
+  const relativeOffsetY = videoRect ? videoRect.top - input.containerRect.top : 0;
+  return {
+    ...projection,
+    offsetX: projection.offsetX + relativeOffsetX,
+    offsetY: projection.offsetY + relativeOffsetY
   };
 }
 
