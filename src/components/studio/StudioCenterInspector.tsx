@@ -6,6 +6,7 @@ import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
+import { StudioPublishPanel } from "@/components/studio/StudioPublishPanel";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
@@ -238,6 +239,7 @@ export function StudioCenterInspector() {
       </header>
 
       <StudioActionBar />
+      <StudioPublishPanel />
 
       <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
         <StudioMetadataEditor />

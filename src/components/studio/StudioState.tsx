@@ -779,9 +779,46 @@ export function StudioStateProvider({
     if (!selectedPackage) {
       return;
     }
+    if (persistenceMode === "local") {
+      try {
+        setLocalSaveState("saving");
+        const fallbackDraftId = toDraftIdFromPackage(selectedPackage);
+        const packageKeyDraftId = draftIdFromPackageKey(selectedPackage.packageKey);
+        const draftId = draftIdsByPackageKeyRef.current[selectedPackage.packageKey] ?? packageKeyDraftId ?? fallbackDraftId;
+        const result = await saveDraft({
+          draftId,
+          sourceLabel: selectedPackage.sourceLabel,
+          packageJson: selectedPackage.workingPackage,
+          assetsById: packageAssetBlobsRef.current[selectedPackage.packageKey] ?? {}
+        });
+
+        setDraftIdsByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: draftId }));
+        setPackages((current) =>
+          current.map((entry) => {
+            if (entry.packageKey !== selectedPackage.packageKey) {
+              return entry;
+            }
+
+            const hasNewerEdits = JSON.stringify(entry.workingPackage) !== JSON.stringify(selectedPackage.workingPackage);
+            if (hasNewerEdits) {
+              return entry;
+            }
+
+            return markPackagePersisted(entry, selectedPackage.workingPackage);
+          })
+        );
+        setLastSavedAtByPackageKey((current) => ({ ...current, [selectedPackage.packageKey]: result.updatedAtIso }));
+        setLocalSaveState("saved");
+      } catch {
+        setLocalSaveState("error");
+        throw new Error("Local draft save failed.");
+      }
+      return;
+    }
+
     if (!isConfigured || !session) {
       setHostedSaveState("error");
-      return;
+      throw new Error("Cloud draft save unavailable.");
     }
 
     setHostedSaveState("saving");
@@ -795,7 +832,7 @@ export function StudioStateProvider({
         });
       }
       setHostedSaveState("error");
-      return;
+      throw new Error("Cloud draft save failed.");
     }
 
     const versionId = selectedPackage.workingPackage.manifest.versioning?.versionId ?? upsert.value.id;
@@ -843,9 +880,10 @@ export function StudioStateProvider({
       return;
     }
 
-    setImportFeedback({ status: "warning", message: "Marking draft ready…", issues: [] });
+    setImportFeedback({ status: "warning", message: "Saving draft before marking ready…", issues: [] });
 
     try {
+      await saveSelectedToHosted();
       await markVersionReady(versionId, persistenceMode === "cloud" && session ? { mode: "cloud", session } : { mode: "local" });
       const readyRevision = selectedPackage.workingPackage.manifest.versioning?.revision ?? 1;
       setImportFeedback({
@@ -859,7 +897,7 @@ export function StudioStateProvider({
     } catch {
       setImportFeedback({
         status: "error",
-        message: "Could not mark this draft ready. Make sure you are editing an open draft, then try again.",
+        message: "Could not save and mark this draft ready. Save draft first, then retry Mark Ready.",
         issues: []
       });
     }

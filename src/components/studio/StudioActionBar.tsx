@@ -12,6 +12,7 @@ export function StudioActionBar() {
     readinessChecklist,
     saveSelectedToHosted,
     markSelectedVersionReady,
+    openPublishPanel,
     persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
@@ -27,15 +28,27 @@ export function StudioActionBar() {
       </div>
 
       <div className="studio-action-groups" role="group" aria-label="Editing actions">
-        <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || persistenceMode !== "cloud" || !userEmail || !isConfigured}>
-          {persistenceMode === "cloud" ? "Save draft" : "Cloud save (sign in)"}
+        <button type="button" onClick={() => void saveSelectedToHosted()} className="studio-button" disabled={!selectedPackage || (persistenceMode === "cloud" && (!userEmail || !isConfigured))}>
+          Save draft
         </button>
         <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage}>
           Mark Ready
         </button>
+        <button type="button" onClick={openPublishPanel} className="studio-button" disabled={!selectedPackage}>
+          Publish to Exchange
+        </button>
         <Link href="/library" className="pill">
           Back to Library
         </Link>
+      </div>
+
+      <div style={{ gridColumn: "1 / -1" }} className="card">
+        <strong style={{ fontSize: "0.9rem" }}>3. Review — quick publish flow</strong>
+        <ol style={{ margin: "0.35rem 0 0 1rem", paddingLeft: "0.75rem" }}>
+          <li className="muted" style={{ fontSize: "0.8rem" }}>Save draft before changing status.</li>
+          <li className="muted" style={{ fontSize: "0.8rem" }}>Mark Ready after required fields are complete.</li>
+          <li className="muted" style={{ fontSize: "0.8rem" }}>Use Publish to Exchange after Ready review checks pass.</li>
+        </ol>
       </div>
 
       {selectedPackage && readinessChecklist && !readinessChecklist.isReady ? (
