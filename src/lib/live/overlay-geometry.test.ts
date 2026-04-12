@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createOverlayProjection, fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize } from "./overlay-geometry.ts";
+import { createOverlayProjection, fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize, resolvePreviewContainerSize } from "./overlay-geometry.ts";
 
 test("fitVideoCoverRect models CSS object-fit: cover crop offsets", () => {
   const rect = fitVideoCoverRect({
@@ -125,4 +125,23 @@ test("createOverlayProjection flips x projection when camera changes between rea
   const frontProjected = projectNormalizedPoint(samplePoint, front);
   assert.equal(Math.round(rearProjected.y), Math.round(frontProjected.y));
   assert.equal(Math.round(rearProjected.x + frontProjected.x), Math.round(rear.offsetX * 2 + rear.renderedWidth));
+});
+
+
+test("resolvePreviewContainerSize falls back to live DOM bounds when cached ResizeObserver size is zero", () => {
+  const fromCache = resolvePreviewContainerSize({
+    cachedWidth: 640,
+    cachedHeight: 360,
+    measuredWidth: 800,
+    measuredHeight: 450
+  });
+  assert.deepEqual(fromCache, { width: 640, height: 360 });
+
+  const fromMeasured = resolvePreviewContainerSize({
+    cachedWidth: 0,
+    cachedHeight: 0,
+    measuredWidth: 800,
+    measuredHeight: 450
+  });
+  assert.deepEqual(fromMeasured, { width: 800, height: 450 });
 });

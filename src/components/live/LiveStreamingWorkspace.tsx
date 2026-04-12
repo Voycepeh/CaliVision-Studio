@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
@@ -40,8 +40,6 @@ import {
   type VideoInputDescriptor,
   stopMediaStream,
   summarizeLiveTraceFreshness,
-  assessLiveTraceExportReadiness,
-  formatLiveTraceExportDiagnostics,
   type LiveDrillSelection,
   type LiveSessionStatus,
   type ReplayTerminalState
@@ -1074,13 +1072,20 @@ export function LiveStreamingWorkspace() {
       const mediaTraceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
       const traceTimestampMs = Math.max(lastPoseFrameAtRef.current + LIVE_MIN_TRACE_TIMESTAMP_STEP_MS, Math.max(mediaTraceTimestampMs, elapsedTraceTimestampMs));
       const pixelRatio = overlayPixelRatioRef.current;
+      const liveContainerBounds = mediaContainerRef.current?.getBoundingClientRect();
+      const liveContainerSize = resolvePreviewContainerSize({
+        cachedWidth: containerSizeRef.current.width,
+        cachedHeight: containerSizeRef.current.height,
+        measuredWidth: liveContainerBounds?.width,
+        measuredHeight: liveContainerBounds?.height
+      });
       if (
         !isPreviewSurfaceReady({
           readyState: previewVideo.readyState,
           videoWidth: previewVideo.videoWidth,
           videoHeight: previewVideo.videoHeight,
-          containerWidth: Math.round(containerSizeRef.current.width),
-          containerHeight: Math.round(containerSizeRef.current.height),
+          containerWidth: Math.round(liveContainerSize.width),
+          containerHeight: Math.round(liveContainerSize.height),
           canvasWidth: canvas.width,
           canvasHeight: canvas.height
         })
@@ -1604,25 +1609,11 @@ export function LiveStreamingWorkspace() {
     const rawFile = new File([raw.blob], `${trace.traceId}.webm`, { type: raw.mimeType });
 
     try {
-      const exportReadiness = assessLiveTraceExportReadiness(trace);
-      const exportDiagnosticsLabel = formatLiveTraceExportDiagnostics({
-        diagnostics: exportReadiness.diagnostics,
-        failureReasons: exportReadiness.failureReasons,
-        warnings: exportReadiness.warnings
-      });
-
-      if (!exportReadiness.canAttemptAnnotatedExport) {
-        throw new Error(`Annotated replay rejected: non-renderable finalized trace (${exportDiagnosticsLabel}).`);
+      if (!traceFreshness.hasSufficientFreshness) {
+        throw new Error(
+          `Pose not updating reliably (${traceFreshness.failureReasons.join("; ")}).`
+        );
       }
-
-      if (exportReadiness.degradeToSparseExport) {
-        console.warn("[live-overlay] annotated-export-degraded-trace", {
-          traceFreshness,
-          exportReadiness,
-          exportDiagnostics: exportDiagnosticsLabel
-        });
-      }
-
       const annotated = await exportAnnotatedReplayFromLiveTrace({
         rawVideo: rawFile,
         trace,
@@ -1660,18 +1651,11 @@ export function LiveStreamingWorkspace() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Annotated replay generation failed.";
-      const exportReadiness = assessLiveTraceExportReadiness(trace);
-      const traceDiagnostics = formatLiveTraceExportDiagnostics({
-        diagnostics: exportReadiness.diagnostics,
-        failureReasons: exportReadiness.failureReasons,
-        warnings: exportReadiness.warnings
-      });
-      const failureDetails = `${message} | ${traceDiagnostics}`;
-      console.error("[live-overlay] annotated export failed", { message, traceDiagnostics });
+      console.error("[live-overlay] annotated export failed", { message });
       setReplayState("raw-fallback");
       setReplayExportStageLabel("Annotated export failed");
       setAnnotatedReplayFailureMessage("Annotated video could not be generated. Your raw video is still available.");
-      setAnnotatedReplayFailureDetails(failureDetails);
+      setAnnotatedReplayFailureDetails(message);
       setAnnotatedReplayBlob(null);
       setAnnotatedReplayMimeType(null);
     }

@@ -94,6 +94,28 @@ export function resolveOverlayCanvasSize(input: OverlayCanvasSizeInput): Overlay
   };
 }
 
+
+export function resolvePreviewContainerSize(input: {
+  cachedWidth: number;
+  cachedHeight: number;
+  measuredWidth?: number;
+  measuredHeight?: number;
+}): { width: number; height: number } {
+  const cachedWidth = Number.isFinite(input.cachedWidth) ? Math.max(0, input.cachedWidth) : 0;
+  const cachedHeight = Number.isFinite(input.cachedHeight) ? Math.max(0, input.cachedHeight) : 0;
+  if (cachedWidth > 0 && cachedHeight > 0) {
+    return { width: cachedWidth, height: cachedHeight };
+  }
+
+  const measuredWidth = Number.isFinite(input.measuredWidth) ? Math.max(0, input.measuredWidth ?? 0) : 0;
+  const measuredHeight = Number.isFinite(input.measuredHeight) ? Math.max(0, input.measuredHeight ?? 0) : 0;
+  if (measuredWidth > 0 && measuredHeight > 0) {
+    return { width: measuredWidth, height: measuredHeight };
+  }
+
+  return { width: 0, height: 0 };
+}
+
 export function isPreviewSurfaceReady(input: {
   readyState: number;
   videoWidth: number;

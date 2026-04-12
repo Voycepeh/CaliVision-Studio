@@ -1,6 +1,5 @@
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import { exportAnnotatedVideo } from "../upload/processing.ts";
-import { assessLiveTraceExportReadiness, formatLiveTraceExportDiagnostics } from "./export-readiness.ts";
 import type { LiveSessionTrace } from "./types.ts";
 
 export async function exportAnnotatedReplayFromLiveTrace(input: {
@@ -9,13 +8,6 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
   analysisSession: AnalysisSessionRecord;
   onProgress?: (progress: number, stageLabel: string) => void;
 }): Promise<{ blob: Blob; mimeType: string; diagnostics: Awaited<ReturnType<typeof exportAnnotatedVideo>>["diagnostics"] }> {
-  const readiness = assessLiveTraceExportReadiness(input.trace);
-  if (!readiness.canAttemptAnnotatedExport) {
-    throw new Error(
-      `Annotated export rejected: finalized live trace is not renderable (${formatLiveTraceExportDiagnostics({ diagnostics: readiness.diagnostics, failureReasons: readiness.failureReasons })}).`
-    );
-  }
-
   const timeline = {
     schemaVersion: "upload-video-v1" as const,
     detector: "mediapipe-pose-landmarker" as const,
@@ -38,13 +30,6 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
     }
     return acc;
   }, {});
-
-  if (readiness.degradeToSparseExport) {
-    console.warn("[live-overlay] annotated-export-degraded-trace", {
-      diagnostics: readiness.diagnostics,
-      warnings: readiness.warnings
-    });
-  }
 
   return exportAnnotatedVideo(input.rawVideo, timeline, {
     analysisSession: input.analysisSession,
