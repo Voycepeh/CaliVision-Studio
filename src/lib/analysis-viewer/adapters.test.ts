@@ -8,6 +8,8 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
     videoUrl: "blob://demo",
     canShowVideo: true,
     surface: "annotated",
+    hasRaw: true,
+    hasAnnotated: true,
     selectedEventId: null,
     primarySummaryChips: [],
     downloads: [],
@@ -38,6 +40,8 @@ test("mapUploadAnalysisToViewerModel surfaces formatted annotated render progres
     videoUrl: null,
     canShowVideo: false,
     surface: "raw",
+    hasRaw: true,
+    hasAnnotated: false,
     selectedEventId: null,
     primarySummaryChips: [],
     technicalStatusChips: [],
@@ -52,6 +56,80 @@ test("mapUploadAnalysisToViewerModel surfaces formatted annotated render progres
   assert.equal(model.state, "loading");
   assert.equal(model.stateDetail, "Rendering annotated video… 172/642 frames");
   assert.ok(model.technicalStatusChips.some((chip) => chip.id === "replay_state" && chip.tone === "warning"));
+});
+
+test("mapUploadAnalysisToViewerModel keeps both surfaces ready after completed upload when annotated is preferred", () => {
+  const model = mapUploadAnalysisToViewerModel({
+    previewState: "showing_annotated_completed",
+    videoUrl: "blob://annotated",
+    canShowVideo: true,
+    surface: "annotated",
+    hasRaw: true,
+    hasAnnotated: true,
+    selectedEventId: null,
+    primarySummaryChips: [],
+    downloads: [],
+    diagnosticsSections: [],
+    session: null
+  });
+
+  assert.equal(model.surfaces.find((surface) => surface.id === "annotated")?.availability, "ready");
+  assert.equal(model.surfaces.find((surface) => surface.id === "raw")?.availability, "ready");
+});
+
+test("mapUploadAnalysisToViewerModel marks annotated unavailable when only raw upload media exists", () => {
+  const model = mapUploadAnalysisToViewerModel({
+    previewState: "showing_raw_completed",
+    videoUrl: "blob://raw",
+    canShowVideo: true,
+    surface: "raw",
+    hasRaw: true,
+    hasAnnotated: false,
+    selectedEventId: null,
+    primarySummaryChips: [],
+    downloads: [],
+    diagnosticsSections: [],
+    session: null
+  });
+
+  assert.equal(model.surfaces.find((surface) => surface.id === "annotated")?.availability, "unavailable");
+  assert.equal(model.surfaces.find((surface) => surface.id === "raw")?.availability, "ready");
+});
+
+test("mapUploadAnalysisToViewerModel preserves processing UX when annotated render is still in progress", () => {
+  const defaultProcessing = mapUploadAnalysisToViewerModel({
+    previewState: "processing_annotated",
+    videoUrl: null,
+    canShowVideo: false,
+    surface: "annotated",
+    hasRaw: true,
+    hasAnnotated: false,
+    selectedEventId: null,
+    primarySummaryChips: [],
+    downloads: [],
+    diagnosticsSections: [],
+    session: null
+  });
+
+  assert.equal(defaultProcessing.surfaces.find((surface) => surface.id === "annotated")?.availability, "processing");
+  assert.equal(defaultProcessing.surfaces.find((surface) => surface.id === "raw")?.availability, "unavailable");
+
+  const rawRequestedDuringProcessing = mapUploadAnalysisToViewerModel({
+    previewState: "showing_raw_during_processing",
+    videoUrl: "blob://raw",
+    canShowVideo: true,
+    surface: "raw",
+    hasRaw: true,
+    hasAnnotated: false,
+    selectedEventId: null,
+    primarySummaryChips: [],
+    downloads: [],
+    diagnosticsSections: [],
+    session: null
+  });
+
+  assert.equal(rawRequestedDuringProcessing.surfaces.find((surface) => surface.id === "annotated")?.availability, "processing");
+  assert.equal(rawRequestedDuringProcessing.surfaces.find((surface) => surface.id === "raw")?.availability, "ready");
 });
 
 test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () => {
