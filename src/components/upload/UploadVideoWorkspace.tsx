@@ -12,6 +12,7 @@ import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
+import { inspectUploadCompatibility, type UploadCompatibilityReport, type UploadPreflightDecision } from "@/lib/upload/compatibility";
 import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
@@ -60,6 +61,16 @@ function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
   if (view === "front") return "Front";
   if (view === "rear") return "Rear";
   return "Side";
+}
+
+function formatCompatibilityReason(reason: string): string {
+  if (reason === "incomplete or low-confidence metadata") {
+    return "Could not confidently confirm compatibility from metadata.";
+  }
+  if (reason === "QuickTime/MOV container can include fragile metadata") {
+    return "QuickTime/MOV metadata can be fragile in browser analysis.";
+  }
+  return reason;
 }
 
 function resolveUploadReplayState(job: UploadJob | null | undefined, previewState: string): ReplayTerminalState {
@@ -199,6 +210,8 @@ export function UploadVideoWorkspace() {
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
+  const [preflightPrompt, setPreflightPrompt] = useState<{ file: File; report: UploadCompatibilityReport } | null>(null);
+  const preflightResolverRef = useRef<((choice: UploadPreflightDecision) => void) | null>(null);
   const activeJob = useMemo(
     () => (selectedJobId ? uploadJobs.find((job) => job.id === selectedJobId) ?? null : uploadJobs[0] ?? null),
     [selectedJobId, uploadJobs]
@@ -390,6 +403,7 @@ export function UploadVideoWorkspace() {
     try {
       const { timeline, analysisFile, analysisSourceKind } = await processVideoFile(processingJob.file, {
         cadenceFps,
+        normalizationStrategy: processingJob.preflightChoice === "normalize" ? "force" : "off",
         signal: controller.signal,
         onProgress: (progress, stageLabel) => setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel } : job)))
       });
@@ -519,13 +533,37 @@ export function UploadVideoWorkspace() {
     }
   }, [cadenceFps, uploadJobs]);
 
+  const requestPreflightChoice = useCallback((file: File, report: UploadCompatibilityReport): Promise<UploadPreflightDecision> => {
+    if (report.level === "supported") {
+      return Promise.resolve("try_anyway");
+    }
+    setPreflightPrompt({ file, report });
+    return new Promise<UploadPreflightDecision>((resolve) => {
+      preflightResolverRef.current = resolve;
+    });
+  }, []);
+
+  const resolvePreflightChoice = useCallback((choice: UploadPreflightDecision) => {
+    const resolver = preflightResolverRef.current;
+    preflightResolverRef.current = null;
+    setPreflightPrompt(null);
+    resolver?.(choice);
+  }, []);
+
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
-    const videos = Array.from(files).filter((file) => file.type.startsWith("video/"));
-    if (videos.length === 0) return;
+    const candidates = Array.from(files);
+    if (candidates.length === 0) return;
     const createdAt = new Date().toISOString();
-    const queuedJobs: UploadJob[] = await Promise.all(videos.map(async (file) => {
+    const queuedJobs: UploadJob[] = [];
+
+    for (const file of candidates) {
+      const compatibility = await inspectUploadCompatibility(file);
+      const choice = compatibility.level === "supported" ? "try_anyway" : await requestPreflightChoice(file, compatibility);
+      if (choice === "cancel") {
+        continue;
+      }
       const metadata = await readVideoMetadata(file);
-      return {
+      queuedJobs.push({
         id: crypto.randomUUID(),
         file,
         fileName: file.name,
@@ -535,13 +573,19 @@ export function UploadVideoWorkspace() {
         stageLabel: "Ready to analyze",
         progress: 0,
         createdAtIso: createdAt,
+        compatibility,
+        preflightChoice: choice === "normalize" ? "normalize" : "try_anyway",
         drillSelection: createUploadJobDrillSelection({ selectedDrill })
-      };
-    }));
+      });
+    }
+
+    if (queuedJobs.length === 0) {
+      return;
+    }
 
     setUploadJobs((current) => [...current, ...queuedJobs]);
     setSelectedJobId((current) => current ?? queuedJobs[0]?.id ?? null);
-  }, [selectedDrill]);
+  }, [requestPreflightChoice, selectedDrill]);
 
   const openFileChooser = useCallback(() => {
     const fileInput = fileInputRef.current;
@@ -569,6 +613,11 @@ export function UploadVideoWorkspace() {
     if (fileInputRef.current) {
       clearFileInputValue(fileInputRef.current);
     }
+    if (preflightResolverRef.current) {
+      preflightResolverRef.current("cancel");
+      preflightResolverRef.current = null;
+    }
+    setPreflightPrompt(null);
     setWorkflowResetKey((current) => nextUploadWorkflowResetKey(current));
   }, []);
 
@@ -919,6 +968,9 @@ export function UploadVideoWorkspace() {
               <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
                 Freestyle mode gives overlay-only analysis. Select a drill when you want drill-aware rep, hold, and phase metrics.
               </p>
+              <p className="muted" style={{ margin: 0, fontSize: "0.84rem" }}>
+                Recommended: MP4 (H.264/AVC, AAC or no audio, 24/30/60 fps). Apple/Android camera videos using HEVC, HDR, or high-FPS capture may need normalization first.
+              </p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -975,6 +1027,9 @@ export function UploadVideoWorkspace() {
                   <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.8rem" }}>
                     {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)}
                   </p>
+                  <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.77rem" }}>
+                    Compatibility: {job.compatibility?.level ?? "unknown"}{job.preflightChoice === "normalize" ? " · normalize first" : " · try anyway"}
+                  </p>
                   <p
                     style={{
                       margin: "0.16rem 0 0",
@@ -1015,6 +1070,46 @@ export function UploadVideoWorkspace() {
             </div>
           ) : null}
         </article>
+      ) : null}
+
+      {preflightPrompt ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(4,8,14,0.72)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 60,
+            padding: "1rem"
+          }}
+        >
+          <article className="card" style={{ width: "min(620px, 96vw)", margin: 0, display: "grid", gap: "0.75rem" }}>
+            <h3 style={{ margin: 0 }}>
+              {preflightPrompt.report.level === "unsupported" ? "This file type is not officially supported." : "This upload may not analyze reliably."}
+            </h3>
+            <p className="muted" style={{ margin: 0 }}>
+              {preflightPrompt.file.name}
+            </p>
+            <p className="muted" style={{ margin: 0 }}>
+              CaliVision officially supports MP4 with H.264/AVC video and common browser-friendly 8-bit camera formats.
+            </p>
+            {preflightPrompt.report.reasons.length > 0 ? (
+              <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
+                {preflightPrompt.report.reasons.map((reason) => (
+                  <li key={reason} className="muted">{formatCompatibilityReason(reason)}</li>
+                ))}
+              </ul>
+            ) : null}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.45rem", flexWrap: "wrap" }}>
+              <button type="button" className="pill" onClick={() => resolvePreflightChoice("cancel")}>Cancel</button>
+              <button type="button" className="pill" onClick={() => resolvePreflightChoice("try_anyway")}>Try anyway</button>
+              <button type="button" onClick={() => resolvePreflightChoice("normalize")}>Normalize automatically</button>
+            </div>
+          </article>
+        </div>
       ) : null}
 
           {activeJob ? (

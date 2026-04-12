@@ -6,6 +6,7 @@ import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 import { selectPreferredCaptureMimeType } from "@/lib/media/media-capabilities";
+import { classifyUploadCompatibility } from "@/lib/upload/compatibility";
 import {
   buildDeterministicFrameSchedule,
   buildEmissionPlanFromSourceTimes,
@@ -17,6 +18,7 @@ export type ProcessVideoOptions = {
   cadenceFps: number;
   signal?: AbortSignal;
   onProgress?: (progress: number, stageLabel: string) => void;
+  normalizationStrategy?: "auto" | "force" | "off";
 };
 
 type SourceKind = "original" | "normalized";
@@ -114,29 +116,21 @@ async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
 }
 
 function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
-  const reasons: string[] = [];
-  const width = diagnostics.width ?? 0;
-  const height = diagnostics.height ?? 0;
-  const isPortrait = width > 0 && height > 0 && height > width;
-  if (isPortrait && typeof diagnostics.rotationMetadata === "number" && diagnostics.rotationMetadata % 360 !== 0) {
-    reasons.push("portrait source has non-zero rotation metadata");
-  }
-
-  if (diagnostics.isHdrSource) {
-    reasons.push("HDR/HLG transfer detected or inferred");
-  }
-
-  const codec = diagnostics.codec?.toLowerCase() ?? "";
-  if (codec.includes("hevc") || codec.includes("hvc1") || codec.includes("hev1") || codec.includes("h265")) {
-    reasons.push("HEVC/H.265 decoder-fragile source");
-  }
-
-  if (diagnostics.hasSuspiciousMetadata) {
-    reasons.push("suspicious or incomplete metadata");
-  }
-
-  if (!file.type) {
-    reasons.push("missing mime type metadata");
+  const compatibility = classifyUploadCompatibility({
+    fileName: file.name,
+    mimeType: file.type,
+    width: diagnostics.width,
+    height: diagnostics.height,
+    durationMs: diagnostics.durationMs,
+    fps: diagnostics.fps,
+    codec: diagnostics.codec,
+    colorTransfer: diagnostics.colorTransfer,
+    isHdr: diagnostics.isHdrSource,
+    rotationMetadata: diagnostics.rotationMetadata
+  });
+  const reasons = [...compatibility.reasons];
+  if (diagnostics.hasSuspiciousMetadata && !reasons.includes("incomplete or low-confidence metadata")) {
+    reasons.push("incomplete or low-confidence metadata");
   }
 
   return { required: reasons.length > 0, reasons };
@@ -384,7 +378,10 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   let analysisFile = file;
   let analysisSourceKind: SourceKind = "original";
 
-  if (normalizationDecision.required) {
+  const normalizationStrategy = options.normalizationStrategy ?? "auto";
+  const shouldRunNormalization = normalizationStrategy === "force" || (normalizationStrategy === "auto" && normalizationDecision.required);
+
+  if (shouldRunNormalization) {
     logUploadEvent("NORMALIZATION_REQUIRED", {
       fileName: file.name,
       reasons: normalizationDecision.reasons
@@ -409,6 +406,11 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       (preprocessingError as Error & { cause?: unknown }).cause = error;
       throw preprocessingError;
     }
+  } else if (normalizationDecision.required && normalizationStrategy === "off") {
+    logUploadEvent("NORMALIZATION_BYPASSED_BY_USER", {
+      fileName: file.name,
+      reasons: normalizationDecision.reasons
+    });
   }
 
   logUploadEvent("ANALYSIS_SOURCE_SELECTED", {

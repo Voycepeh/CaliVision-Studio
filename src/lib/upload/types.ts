@@ -1,5 +1,6 @@
 import type { CanonicalJointName, PortableDrill } from "@/lib/schema/contracts";
 import type { DrillCameraView } from "@/lib/analysis/camera-view";
+import type { UploadCompatibilityReport } from "@/lib/upload/compatibility";
 
 export type UploadJobDrillSelection = {
   drill?: PortableDrill;
@@ -32,6 +33,8 @@ export type UploadJob = {
   createdAtIso: string;
   startedAtIso?: string;
   completedAtIso?: string;
+  compatibility?: UploadCompatibilityReport;
+  preflightChoice?: "normalize" | "try_anyway";
   drillSelection: UploadJobDrillSelection;
   artefacts?: UploadJobArtifacts;
 };
