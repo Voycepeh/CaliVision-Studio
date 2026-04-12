@@ -48,19 +48,21 @@ import {
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
+import { projectionInputsChanged, projectionStatsForDiagnostics, shouldRevalidatePreviewSurface, type OverlayProjectionInputs } from "@/lib/live/live-overlay-hot-path";
 
-const LIVE_ANALYSIS_CADENCE_FPS = 10;
-const LIVE_OVERLAY_PRESENTATION_FPS = 30;
+const LIVE_ANALYSIS_CADENCE_FPS = 18;
+const LIVE_OVERLAY_PRESENTATION_FPS = 45;
 const LIVE_ANALYSIS_INTERVAL_MS = Math.round(1000 / LIVE_ANALYSIS_CADENCE_FPS);
 const LIVE_PRESENTATION_INTERVAL_MS = Math.round(1000 / LIVE_OVERLAY_PRESENTATION_FPS);
 const FREESTYLE_KEY = "freestyle";
-const LANDMARK_SMOOTHING_ALPHA = 0.38;
+const LANDMARK_SMOOTHING_ALPHA = 0.62;
 const JOINT_VISIBILITY_ENTER_THRESHOLD = 0.52;
 const JOINT_VISIBILITY_EXIT_THRESHOLD = 0.42;
 const JOINT_VISIBILITY_GRACE_SAMPLES = 2;
 const LIVE_POSE_STALE_HOLD_MS = 420;
 const LIVE_POSE_STALE_WARNING_MS = 1_200;
 const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
+const LIVE_PREVIEW_READINESS_CHECK_INTERVAL_MS = 220;
 const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
 const LIVE_SELECTED_DRILL_STORAGE_KEY = "live.selected-drill";
 const LIVE_HUD_UPDATE_INTERVAL_MS = 250;
@@ -83,6 +85,9 @@ type LiveCadenceStats = {
   landmarkUpdates: number;
   presentationTicks: number;
   stalePoseReuseCount: number;
+  totalDetectionDurationMs: number;
+  latestDetectionDurationMs: number;
+  lastDrawAtMs: number;
 };
 
 type LiveHardwareZoomState =
@@ -219,7 +224,9 @@ export function LiveStreamingWorkspace() {
   const overlayNeedsResizeSyncRef = useRef(true);
   const overlayPixelRatioRef = useRef(1);
   const overlayProjectionRef = useRef<OverlayProjection | null>(null);
+  const overlayProjectionInputsRef = useRef<OverlayProjectionInputs | null>(null);
   const lastOverlayDiagnosticsAtRef = useRef(0);
+  const lastPreviewReadyCheckAtRef = useRef(0);
   const lastPoseFrameAtRef = useRef<number>(0);
   const lastAcceptedLandmarkTimestampRef = useRef<number>(0);
   const lastAcceptedLandmarkPerfNowRef = useRef<number>(0);
@@ -242,7 +249,10 @@ export function LiveStreamingWorkspace() {
     detectionSuccesses: 0,
     landmarkUpdates: 0,
     presentationTicks: 0,
-    stalePoseReuseCount: 0
+    stalePoseReuseCount: 0,
+    totalDetectionDurationMs: 0,
+    latestDetectionDurationMs: 0,
+    lastDrawAtMs: 0
   });
 
   const selectedDrill = useMemo(
@@ -487,6 +497,8 @@ export function LiveStreamingWorkspace() {
 
   useEffect(() => {
     overlayNeedsResizeSyncRef.current = true;
+    overlayProjectionInputsRef.current = null;
+    lastPreviewReadyCheckAtRef.current = 0;
     console.debug("[live-overlay] remap-trigger", {
       reason: "camera-switch",
       facingMode: isRearCamera ? "rear" : "front"
@@ -594,7 +606,10 @@ export function LiveStreamingWorkspace() {
       detectionSuccesses: 0,
       landmarkUpdates: 0,
       presentationTicks: 0,
-      stalePoseReuseCount: 0
+      stalePoseReuseCount: 0,
+      totalDetectionDurationMs: 0,
+      latestDetectionDurationMs: 0,
+      lastDrawAtMs: 0
     };
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
@@ -643,24 +658,41 @@ export function LiveStreamingWorkspace() {
       const videoBounds = video.getBoundingClientRect();
       const objectFit = typeof window === "undefined" ? "contain" : window.getComputedStyle(video).objectFit;
       const fitMode = objectFit === "cover" ? "cover" : "contain";
-      overlayProjectionRef.current = createOverlayProjectionFromLayout({
+      const nextProjectionInputs: OverlayProjectionInputs = {
         sourceWidth: video.videoWidth,
         sourceHeight: video.videoHeight,
-        containerRect: {
-          left: containerBounds.left,
-          top: containerBounds.top,
-          width: containerBounds.width,
-          height: containerBounds.height
-        },
-        videoRect: {
-          left: videoBounds.left,
-          top: videoBounds.top,
-          width: videoBounds.width,
-          height: videoBounds.height
-        },
+        containerLeft: containerBounds.left,
+        containerTop: containerBounds.top,
+        containerWidth: containerBounds.width,
+        containerHeight: containerBounds.height,
+        videoLeft: videoBounds.left,
+        videoTop: videoBounds.top,
+        videoWidth: videoBounds.width,
+        videoHeight: videoBounds.height,
         fitMode,
         mirrored: !isRearCamera
-      });
+      };
+      if (projectionInputsChanged(overlayProjectionInputsRef.current, nextProjectionInputs)) {
+        overlayProjectionRef.current = createOverlayProjectionFromLayout({
+          sourceWidth: nextProjectionInputs.sourceWidth,
+          sourceHeight: nextProjectionInputs.sourceHeight,
+          containerRect: {
+            left: nextProjectionInputs.containerLeft,
+            top: nextProjectionInputs.containerTop,
+            width: nextProjectionInputs.containerWidth,
+            height: nextProjectionInputs.containerHeight
+          },
+          videoRect: {
+            left: nextProjectionInputs.videoLeft,
+            top: nextProjectionInputs.videoTop,
+            width: nextProjectionInputs.videoWidth,
+            height: nextProjectionInputs.videoHeight
+          },
+          fitMode: nextProjectionInputs.fitMode,
+          mirrored: nextProjectionInputs.mirrored
+        });
+        overlayProjectionInputsRef.current = nextProjectionInputs;
+      }
     }
     overlayNeedsResizeSyncRef.current = false;
   }, [isRearCamera]);
@@ -1073,6 +1105,7 @@ export function LiveStreamingWorkspace() {
 
       const elapsedMs = performance.now() - startedAtRef.current;
       liveCadenceStatsRef.current.renderFrames += 1;
+      liveCadenceStatsRef.current.lastDrawAtMs = performance.now();
       const previewVideo = previewVideoRef.current;
       syncOverlayCanvasSize();
       const projection = overlayProjectionRef.current;
@@ -1087,32 +1120,42 @@ export function LiveStreamingWorkspace() {
       const mediaTraceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
       const traceTimestampMs = Math.max(lastPoseFrameAtRef.current + LIVE_MIN_TRACE_TIMESTAMP_STEP_MS, Math.max(mediaTraceTimestampMs, elapsedTraceTimestampMs));
       const pixelRatio = overlayPixelRatioRef.current;
-      const liveContainerBounds = mediaContainerRef.current?.getBoundingClientRect();
-      const liveContainerSize = resolvePreviewContainerSize({
-        cachedWidth: containerSizeRef.current.width,
-        cachedHeight: containerSizeRef.current.height,
-        measuredWidth: liveContainerBounds?.width,
-        measuredHeight: liveContainerBounds?.height
+      const shouldCheckPreviewReadiness = shouldRevalidatePreviewSurface({
+        nowMs: performance.now(),
+        lastCheckAtMs: lastPreviewReadyCheckAtRef.current,
+        intervalMs: LIVE_PREVIEW_READINESS_CHECK_INTERVAL_MS,
+        needsResizeSync: overlayNeedsResizeSyncRef.current
       });
-      if (
-        !isPreviewSurfaceReady({
-          readyState: previewVideo.readyState,
-          videoWidth: previewVideo.videoWidth,
-          videoHeight: previewVideo.videoHeight,
-          containerWidth: Math.round(liveContainerSize.width),
-          containerHeight: Math.round(liveContainerSize.height),
-          canvasWidth: canvas.width,
-          canvasHeight: canvas.height
-        })
-      ) {
-        logOverlayDiagnostics("draw-skipped-preview-not-ready");
-        if (sessionActiveRef.current) {
-          liveLoopRef.current = requestAnimationFrame(draw);
+      if (shouldCheckPreviewReadiness) {
+        lastPreviewReadyCheckAtRef.current = performance.now();
+        const liveContainerBounds = mediaContainerRef.current?.getBoundingClientRect();
+        const liveContainerSize = resolvePreviewContainerSize({
+          cachedWidth: containerSizeRef.current.width,
+          cachedHeight: containerSizeRef.current.height,
+          measuredWidth: liveContainerBounds?.width,
+          measuredHeight: liveContainerBounds?.height
+        });
+        if (
+          !isPreviewSurfaceReady({
+            readyState: previewVideo.readyState,
+            videoWidth: previewVideo.videoWidth,
+            videoHeight: previewVideo.videoHeight,
+            containerWidth: Math.round(liveContainerSize.width),
+            containerHeight: Math.round(liveContainerSize.height),
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height
+          })
+        ) {
+          logOverlayDiagnostics("draw-skipped-preview-not-ready");
+          if (sessionActiveRef.current) {
+            liveLoopRef.current = requestAnimationFrame(draw);
+          }
+          return;
         }
-        return;
       }
 
       if (elapsedMs >= nextAnalysisAtMs) {
+        const detectionStartAtMs = performance.now();
         let detectionTimestampMs = Math.max(lastDetectionTimestampRef.current + 1, Math.round(mediaTimeMs));
         if (Math.round(mediaTimeMs) === lastVideoTimeMsRef.current) {
           repeatedVideoTimestampCountRef.current += 1;
@@ -1122,10 +1165,13 @@ export function LiveStreamingWorkspace() {
           lastVideoTimeMsRef.current = Math.round(mediaTimeMs);
         }
         const result = landmarkerRef.current.detectForVideo(previewVideo, detectionTimestampMs);
+        const detectionDurationMs = performance.now() - detectionStartAtMs;
         lastDetectionTimestampRef.current = detectionTimestampMs;
         const landmarks = result.landmarks?.[0];
         liveCadenceStatsRef.current.analysisTicks += 1;
         liveCadenceStatsRef.current.detectionInvocations += 1;
+        liveCadenceStatsRef.current.latestDetectionDurationMs = detectionDurationMs;
+        liveCadenceStatsRef.current.totalDetectionDurationMs += detectionDurationMs;
         if (landmarks) {
           const frame = buildStabilizedPoseFrame(landmarks, traceTimestampMs);
           traceRef.current.pushFrame(frame, { sourceMediaTimeMs: mediaTraceTimestampMs });
@@ -1225,7 +1271,13 @@ export function LiveStreamingWorkspace() {
           renderedLandmarkTimestampMs: lastRenderedLandmarkTimestampRef.current,
           renderedLandmarkAgeMs: staleLandmarkAgeMs,
           reusedPreviousLandmarks: canReuseStalePose && staleForMs > LIVE_ANALYSIS_INTERVAL_MS,
-          repeatedVideoTimestampCount: repeatedVideoTimestampCountRef.current
+          repeatedVideoTimestampCount: repeatedVideoTimestampCountRef.current,
+          analysisFpsEffective: Number((liveCadenceStatsRef.current.analysisTicks / Math.max(1, elapsedMs / 1000)).toFixed(1)),
+          presentationFpsEffective: Number((liveCadenceStatsRef.current.presentationTicks / Math.max(1, elapsedMs / 1000)).toFixed(1)),
+          detectionDurationMs: Number(liveCadenceStatsRef.current.latestDetectionDurationMs.toFixed(1)),
+          detectionDurationAvgMs: Number((liveCadenceStatsRef.current.totalDetectionDurationMs / Math.max(1, liveCadenceStatsRef.current.detectionInvocations)).toFixed(1)),
+          drawToPoseLatencyMs: Math.max(0, Math.round(performance.now() - lastAcceptedLandmarkPerfNowRef.current)),
+          projectionSnapshot: projectionStatsForDiagnostics(projection)
         });
       }
 
@@ -1588,6 +1640,8 @@ export function LiveStreamingWorkspace() {
       analysisCadenceFps: analysisCadence,
       overlayPresentationCadenceFps: presentationCadence,
       stalePoseReuseCount: cadenceStatsSnapshot.stalePoseReuseCount,
+      detectionDurationAvgMs: Number((cadenceStatsSnapshot.totalDetectionDurationMs / Math.max(1, cadenceStatsSnapshot.detectionInvocations)).toFixed(1)),
+      detectionDurationLatestMs: Number(cadenceStatsSnapshot.latestDetectionDurationMs.toFixed(1)),
       traceFreshness
     });
 
