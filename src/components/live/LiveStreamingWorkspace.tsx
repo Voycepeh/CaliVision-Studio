@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
+import { createOverlayProjection, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
@@ -1075,13 +1075,20 @@ export function LiveStreamingWorkspace() {
       const mediaTraceTimestampMs = Math.max(0, Math.round(mediaTimeMs - mediaStartMsRef.current));
       const traceTimestampMs = Math.max(lastPoseFrameAtRef.current + LIVE_MIN_TRACE_TIMESTAMP_STEP_MS, Math.max(mediaTraceTimestampMs, elapsedTraceTimestampMs));
       const pixelRatio = overlayPixelRatioRef.current;
+      const liveContainerBounds = mediaContainerRef.current?.getBoundingClientRect();
+      const liveContainerSize = resolvePreviewContainerSize({
+        cachedWidth: containerSizeRef.current.width,
+        cachedHeight: containerSizeRef.current.height,
+        measuredWidth: liveContainerBounds?.width,
+        measuredHeight: liveContainerBounds?.height
+      });
       if (
         !isPreviewSurfaceReady({
           readyState: previewVideo.readyState,
           videoWidth: previewVideo.videoWidth,
           videoHeight: previewVideo.videoHeight,
-          containerWidth: Math.round(containerSizeRef.current.width),
-          containerHeight: Math.round(containerSizeRef.current.height),
+          containerWidth: Math.round(liveContainerSize.width),
+          containerHeight: Math.round(liveContainerSize.height),
           canvasWidth: canvas.width,
           canvasHeight: canvas.height
         })

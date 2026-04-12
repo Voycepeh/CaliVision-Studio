@@ -18,3 +18,16 @@ test("/upload remains the unified result surface owner", () => {
   const uploadWorkspace = readFileSync("src/components/upload/UploadVideoWorkspace.tsx", "utf8");
   assert.ok(uploadWorkspace.includes("AnalysisViewerShell"));
 });
+
+
+test("desktop draw loop falls back to measured container bounds when cached size is stale", () => {
+  const liveWorkspace = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
+  assert.ok(liveWorkspace.includes("resolvePreviewContainerSize"));
+  assert.ok(liveWorkspace.includes("mediaContainerRef.current?.getBoundingClientRect()"));
+});
+
+test("live overlay canvas visibility is gated by active live session state, not replay state", () => {
+  const liveWorkspace = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
+  assert.ok(liveWorkspace.includes('status === "live-session-running" ? "block" : "none"'));
+  assert.ok(!liveWorkspace.includes('replayState === "live-session-running"'));
+});
