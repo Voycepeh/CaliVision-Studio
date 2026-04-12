@@ -17,8 +17,6 @@ import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overla
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
-import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
-import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
@@ -49,7 +47,6 @@ import {
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
-import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 10;
 const LIVE_OVERLAY_PRESENTATION_FPS = 30;
@@ -422,102 +419,6 @@ export function LiveStreamingWorkspace() {
     }
     return null;
   }, [activeReplaySurface, annotatedReplayUrl, rawReplayUrl, replayPreviewSelection.warning, replayState]);
-  const liveViewerModel = useMemo(
-    () => {
-      if (!postAnalysisSnapshot) {
-        return null;
-      }
-      return mapLiveAnalysisToViewerModel({
-        replayState,
-        replayStageLabel: replayExportStageLabel,
-        videoUrl: replayUrl,
-        surface: completedPreviewSurface,
-        selectedEventId: selectedMarkerId,
-        durationMs: postAnalysisSnapshot.durationMs,
-        hasAnnotatedReady: Boolean(annotatedReplayUrl),
-        mediaAspectRatio:
-          postAnalysisSnapshot.width > 0 && postAnalysisSnapshot.height > 0
-            ? postAnalysisSnapshot.width / postAnalysisSnapshot.height
-            : undefined,
-        markers: timelineMarkers,
-        primarySummaryChips: [
-          { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
-          { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
-          { id: "reps", label: "Reps", value: String(summary?.repCount ?? 0) },
-          { id: "holds", label: "Holds", value: summary?.holdSummaryLabel ?? "No holds detected" },
-          { id: "phases", label: "Phase result", value: summary?.phaseSummaryLabel ?? "No phase transitions detected" }
-        ],
-        technicalStatusChips: [
-          {
-            id: "tracking",
-            label: "Tracking",
-            value: trackingStatusRef.current,
-            tone: trackingStatusRef.current === "Tracking active" ? "success" : trackingStatusRef.current === "Tracking lost" ? "warning" : "neutral"
-          },
-          ...(selection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(selection.cameraView) }] : [])
-        ],
-        downloads: [
-          ...(replayDownloads.includes("annotated") && annotatedReplayUrl
-            ? [{
-                id: "annotated",
-                label: annotatedDownloadLabel,
-                onDownload: () => triggerDownload(annotatedReplayUrl, `${postAnalysisSnapshot.traceId}-annotated.${extensionFromMimeType(annotatedReplayMimeType)}`),
-                hint: replayDownloadSafety.annotated?.warning ?? undefined
-              }]
-            : []),
-          ...(replayDownloads.includes("raw") && rawReplayUrl
-            ? [{
-                id: "raw",
-                label: rawDownloadLabel,
-                onDownload: () => triggerDownload(rawReplayUrl, `${postAnalysisSnapshot.traceId}-raw.${extensionFromMimeType(rawReplayMimeType)}`),
-                hint: replayDownloadSafety.raw?.warning ?? undefined
-              }]
-            : [])
-        ],
-        diagnosticsSections: [
-          ...(timelineMarkers.length > 0
-            ? [{ id: "events", title: "Events", content: timelineMarkers.slice(0, 24).map((marker) => marker.label) }]
-            : [])
-        ],
-        warnings: [annotatedReplayFailureMessage, annotatedReplayFailureDetails, replayPreviewSelection.warning, replayUnavailableMessage].filter(
-          (value): value is string => Boolean(value)
-        ),
-        recommendedDeliveryLabel: preferredReplayDeliverySource
-          ? `Recommended delivery: ${preferredReplayDeliverySource.id === "annotated" ? "Annotated" : "Raw"}`
-          : undefined
-      });
-    },
-    [
-      postAnalysisSnapshot,
-      replayState,
-      replayExportStageLabel,
-      replayUrl,
-      completedPreviewSurface,
-      selectedMarkerId,
-      timelineMarkers,
-      summary?.drillLabel,
-      summary?.durationLabel,
-      summary?.repCount,
-      summary?.holdSummaryLabel,
-      summary?.phaseSummaryLabel,
-      selection.cameraView,
-      replayDownloads,
-      annotatedReplayUrl,
-      annotatedReplayMimeType,
-      replayDownloadSafety.annotated?.warning,
-      rawReplayUrl,
-      rawReplayMimeType,
-      replayDownloadSafety.raw?.warning,
-      annotatedDownloadLabel,
-      rawDownloadLabel,
-      annotatedReplayFailureMessage,
-      annotatedReplayFailureDetails,
-      replayPreviewSelection.warning,
-      replayUnavailableMessage,
-      preferredReplayDeliverySource
-    ]
-  );
-
   useEffect(() => {
     if (timelineMarkers.length === 0) {
       setSelectedMarkerId(null);
@@ -2159,22 +2060,7 @@ export function LiveStreamingWorkspace() {
               </div>
             </section>
 
-            {postAnalysisSnapshot && liveViewerModel ? (
-              <AnalysisViewerShell
-                model={{ ...liveViewerModel, progress: replayState === "export-in-progress" ? 0.5 : undefined }}
-                videoRef={replayVideoRef}
-                onSurfaceChange={(surface) => {
-                  setCompletedPreviewSurface(surface);
-                  if (replayState === "export-in-progress") {
-                    setShowRawDuringProcessing(surface === "raw");
-                  }
-                }}
-                onEventSelect={(event) => {
-                  setSelectedMarkerId(event.id);
-                  seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
-                }}
-              />
-            ) : null}
+            {/* Live keeps a single result-surface owner (legacy live post-session module) to avoid double-mounted replay/timeline UI. */}
           </>
         ) : null}
         {isPostAnalysisPhase && !liveTrace ? (
