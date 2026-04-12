@@ -32,6 +32,28 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
   assert.equal(model.surfaces.find((surface) => surface.id === "annotated")?.availability, "ready");
 });
 
+test("mapUploadAnalysisToViewerModel surfaces formatted annotated render progress", () => {
+  const model = mapUploadAnalysisToViewerModel({
+    previewState: "processing_annotated",
+    videoUrl: null,
+    canShowVideo: false,
+    surface: "raw",
+    selectedEventId: null,
+    primarySummaryChips: [],
+    technicalStatusChips: [],
+    downloads: [],
+    diagnosticsSections: [],
+    session: null,
+    processingStageLabel: "Rendering frames 172/642",
+    replayStateLabel: "Exporting annotated replay… · Rendering annotated video… 172/642 frames",
+    replayTone: "warning"
+  });
+
+  assert.equal(model.state, "loading");
+  assert.equal(model.stateDetail, "Rendering annotated video… 172/642 frames");
+  assert.ok(model.technicalStatusChips.some((chip) => chip.id === "replay_state" && chip.tone === "warning"));
+});
+
 test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () => {
   const model = mapLiveAnalysisToViewerModel({
     replayState: "export-in-progress",

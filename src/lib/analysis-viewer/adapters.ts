@@ -3,6 +3,7 @@ import type { AnalysisSessionRecord } from "../analysis/index.ts";
 import type { LiveTimelineMarker, ReplayTerminalState } from "../live/results-summary.ts";
 import { getReplayStateMessage, getReplayStateTone } from "../live/results-summary.ts";
 import type { AnalysisViewerModel, AnalysisViewerDiagnosticsSection, ViewerSurface } from "./types";
+import { formatAnnotatedRenderProgressLabel } from "./progress-status.ts";
 
 function kindFromEventType(type: string): "rep" | "hold" | "phase" | "other" {
   if (type === "rep_complete") return "rep";
@@ -24,6 +25,9 @@ export function mapUploadAnalysisToViewerModel(input: {
   warnings?: string[];
   recommendedDeliveryLabel?: string;
   session: AnalysisSessionRecord | null;
+  processingStageLabel?: string | null;
+  replayStateLabel?: string;
+  replayTone?: "neutral" | "success" | "warning" | "danger";
   durationMs?: number;
   mediaAspectRatio?: number;
   overlayFullscreenAction?: AnalysisViewerModel["overlayFullscreenAction"];
@@ -56,11 +60,23 @@ export function mapUploadAnalysisToViewerModel(input: {
       : input.previewState === "showing_raw_completed" || input.previewState === "annotated_failed_showing_raw" || input.previewState === "showing_raw_during_processing"
         ? "ready"
         : "unavailable";
+  const replayChip = input.replayStateLabel
+    ? [{
+        id: "replay_state",
+        label: "Replay",
+        value: input.replayStateLabel,
+        tone: input.replayTone
+      }]
+    : [];
 
   return {
     state,
     stateTitle: state === "loading" ? "Generating annotated video" : state === "warning" ? "Annotated video unavailable" : undefined,
-    stateDetail: state === "loading" ? "Raw preview is available while render completes." : undefined,
+    stateDetail:
+      state === "loading"
+        ? (formatAnnotatedRenderProgressLabel({ stageLabel: input.processingStageLabel ?? "Raw preview is available while render completes.", completed: false })
+          ?? "Raw preview is available while render completes.")
+        : undefined,
     videoUrl: input.videoUrl,
     mediaAspectRatio: input.mediaAspectRatio,
     canShowVideo: state === "ready" && input.canShowVideo,
@@ -83,7 +99,7 @@ export function mapUploadAnalysisToViewerModel(input: {
     timelineEvents,
     selectedEventId: input.selectedEventId,
     primarySummaryChips: input.primarySummaryChips,
-    technicalStatusChips: input.technicalStatusChips ?? [],
+    technicalStatusChips: [...(input.technicalStatusChips ?? []), ...replayChip],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
     overlayFullscreenAction: input.overlayFullscreenAction,

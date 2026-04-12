@@ -17,6 +17,9 @@ import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overla
 import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
+import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
+import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
   applyHardwareZoomPreset,
@@ -1590,7 +1593,7 @@ export function LiveStreamingWorkspace() {
       canPlayInCurrentBrowser: canLikelyPlayMimeType(raw.mimeType || "video/webm")
     });
     setReplayState("export-in-progress");
-    setReplayExportStageLabel("Preparing export…");
+    setReplayExportStageLabel(formatAnnotatedRenderProgressLabel({ stageLabel: "Preparing export…", completed: false }));
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("raw");
     setAnnotatedReplayFailureMessage(null);
@@ -1612,14 +1615,19 @@ export function LiveStreamingWorkspace() {
         trace,
         analysisSession,
         onProgress: (_progress, stageLabel) => {
-          setReplayExportStageLabel(stageLabel);
+          setReplayExportStageLabel(formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }));
         }
       });
       const annotatedUrl = URL.createObjectURL(annotated.blob);
       setAnnotatedReplayUrl(annotatedUrl);
       setAnnotatedReplayBlob(annotated.blob);
       setAnnotatedReplayMimeType(annotated.mimeType);
-      setReplayExportStageLabel("Annotated export complete");
+      setReplayExportStageLabel(
+        formatAnnotatedRenderProgressLabel({
+          stageLabel: `Rendering frames ${annotated.diagnostics.renderedFrameCount}/${Math.max(1, Math.floor(annotated.diagnostics.sourceDurationSec * annotated.diagnostics.renderFpsTarget) + 1)}`,
+          completed: true
+        }) ?? "Annotated export complete"
+      );
       setReplayState("annotated-ready");
       if (process.env.NODE_ENV !== "production") {
         console.info("[live-overlay] annotated-export-diagnostics", {
