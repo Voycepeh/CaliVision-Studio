@@ -22,6 +22,7 @@ create table if not exists public.exchange_publications (
   is_active boolean not null default true
 );
 
+drop index if exists public.exchange_publications_owner_drill_idx;
 create unique index if not exists exchange_publications_owner_source_version_idx on public.exchange_publications (owner_user_id, source_version_id);
 create unique index if not exists exchange_publications_slug_idx on public.exchange_publications (slug);
 create index if not exists exchange_publications_source_version_idx on public.exchange_publications (source_version_id);
