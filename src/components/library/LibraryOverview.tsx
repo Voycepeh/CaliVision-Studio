@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { listMyExchangePublications, publishDrillToExchange, type ExchangePublication } from "@/lib/exchange";
 import {
   createDrill,
   createDraftVersion,
@@ -33,6 +34,16 @@ type ItemActionState = {
   actionErrorByItemId: Record<string, string>;
 };
 
+type PublishMetadataDraft = {
+  title: string;
+  shortDescription: string;
+  fullDescription: string;
+  category: string;
+  difficulty: string;
+  equipment: string;
+  tagsInput: string;
+};
+
 function toHumanErrorMessage(error: unknown): string {
   const fallback = "Action failed. Please try again.";
   const message = error instanceof Error ? error.message : fallback;
@@ -56,6 +67,9 @@ export function LibraryOverview() {
   const [searchText, setSearchText] = useState("");
   const [selectedDrillId, setSelectedDrillId] = useState<string | null>(null);
   const [previewDrillId, setPreviewDrillId] = useState<string | null>(null);
+  const [publishTargetDrillId, setPublishTargetDrillId] = useState<string | null>(null);
+  const [publishDraftByDrillId, setPublishDraftByDrillId] = useState<Record<string, PublishMetadataDraft>>({});
+  const [myExchangePublications, setMyExchangePublications] = useState<ExchangePublication[]>([]);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
@@ -72,12 +86,23 @@ export function LibraryOverview() {
     [session, signedInMode]
   );
 
+  const exchangeBySourceVersionId = useMemo(
+    () => Object.fromEntries(myExchangePublications.map((publication) => [publication.sourceVersionId, publication])),
+    [myExchangePublications]
+  );
+
   const refreshLibrary = useCallback(async (): Promise<void> => {
     const nextDrills = await listDrillsWithActiveVersion(repositoryContext);
     setDrills(nextDrills);
     const versions = await Promise.all(nextDrills.map((item) => listVersionsForDrill(item.drillId, repositoryContext)));
     setVersionsByDrillId(Object.fromEntries(nextDrills.map((item, index) => [item.drillId, versions[index] ?? []])));
-  }, [repositoryContext]);
+    if (signedInMode && session) {
+      const exchange = await listMyExchangePublications(session);
+      setMyExchangePublications(exchange.ok ? exchange.value : []);
+    } else {
+      setMyExchangePublications([]);
+    }
+  }, [repositoryContext, session, signedInMode]);
 
   useEffect(() => {
     void refreshLibrary();
@@ -235,14 +260,71 @@ export function LibraryOverview() {
   }
 
   async function onPublish(drill: DrillLibraryItem): Promise<void> {
+    if (!signedInMode || !session) {
+      setItemFeedback(`drill:${drill.drillId}`, "Sign in to publish this drill to Drill Exchange.", "error");
+      return;
+    }
     if (!drill.activeReadyVersion) {
       setItemFeedback(`drill:${drill.drillId}`, "Only Ready versions can be published.", "error");
       return;
     }
 
     await publishVersion(drill.activeReadyVersion, repositoryContext);
+    const draft = publishDraftByDrillId[drill.drillId] ?? buildPublishDraftFromDrill(drill);
+    const tags = draft.tagsInput
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const exchange = await publishDrillToExchange(session, {
+      sourceVersion: drill.activeReadyVersion,
+      creatorDisplayName: session.user.email?.split("@")[0] ?? "Studio creator",
+      metadata: {
+        title: draft.title,
+        shortDescription: draft.shortDescription,
+        fullDescription: draft.fullDescription,
+        category: draft.category,
+        difficulty: draft.difficulty,
+        equipment: draft.equipment,
+        tags
+      }
+    });
+    if (!exchange.ok) {
+      throw new Error(exchange.error);
+    }
     setItemFeedback(`drill:${drill.drillId}`, "Ready version published.");
+    setPublishTargetDrillId(null);
     await refreshLibrary();
+  }
+
+  function buildPublishDraftFromDrill(drill: DrillLibraryItem): PublishMetadataDraft {
+    const source = drill.activeReadyVersion?.packageJson.drills[0];
+    return {
+      title: source?.title ?? drill.title,
+      shortDescription: source?.description ?? "",
+      fullDescription: "",
+      category: "General",
+      difficulty: source?.difficulty ?? "beginner",
+      equipment: "",
+      tagsInput: source?.tags?.join(", ") ?? ""
+    };
+  }
+
+  function updatePublishDraft(drillId: string, patch: Partial<PublishMetadataDraft>): void {
+    setPublishDraftByDrillId((current) => ({
+      ...current,
+      [drillId]: {
+        ...(current[drillId] ?? {
+          title: "",
+          shortDescription: "",
+          fullDescription: "",
+          category: "General",
+          difficulty: "beginner",
+          equipment: "",
+          tagsInput: ""
+        }),
+        ...patch
+      }
+    }));
   }
 
   async function onImportFileChange(event: ChangeEvent<HTMLInputElement>): Promise<void> {
@@ -335,6 +417,8 @@ export function LibraryOverview() {
               const versions = versionsByDrillId[drill.drillId] ?? [];
               const workflowSourceVersion = drill.openDraftVersion ?? drill.currentVersion;
               const previewDrill = workflowSourceVersion.packageJson.drills[0];
+              const exchangePublication = drill.activeReadyVersion ? exchangeBySourceVersionId[drill.activeReadyVersion.versionId] : undefined;
+              const publishDraft = publishDraftByDrillId[drill.drillId] ?? buildPublishDraftFromDrill(drill);
               return (
                 <article
                   key={drill.drillId}
@@ -351,6 +435,11 @@ export function LibraryOverview() {
                       Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
                       {drill.activeReadyVersion?.isPublished ? " • Published" : ""}
                     </p>
+                    {exchangePublication ? (
+                      <p className="muted" style={{ margin: 0 }}>
+                        In Drill Exchange • <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
+                      </p>
+                    ) : null}
                     {drill.openDraftVersion ? <p className="muted" style={{ margin: 0 }}>Open draft for v{drill.openDraftVersion.versionNumber}</p> : null}
                   </div>
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
@@ -393,8 +482,15 @@ export function LibraryOverview() {
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
                       Mark Ready
                     </button>
-                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`publish:${drill.drillId}`, "Publishing…", () => onPublish(drill))}>
-                      Publish
+                    <button
+                      type="button"
+                      style={chipStyle(false)}
+                      onClick={() => {
+                        setPublishDraftByDrillId((current) => current[drill.drillId] ? current : { ...current, [drill.drillId]: buildPublishDraftFromDrill(drill) });
+                        setPublishTargetDrillId((current) => (current === drill.drillId ? null : drill.drillId));
+                      }}
+                    >
+                      {publishTargetDrillId === drill.drillId ? "Hide Publish Details" : "Publish"}
                     </button>
                     <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
                       Export drill file
@@ -403,6 +499,48 @@ export function LibraryOverview() {
                       Delete
                     </button>
                   </div>
+                  {publishTargetDrillId === drill.drillId ? (
+                    <section className="card" style={{ margin: 0, display: "grid", gap: "0.35rem" }}>
+                      <strong>Publish metadata</strong>
+                      <label style={labelStyle}>
+                        <span>Title</span>
+                        <input style={inputStyle} value={publishDraft.title} onChange={(event) => updatePublishDraft(drill.drillId, { title: event.target.value })} />
+                      </label>
+                      <label style={labelStyle}>
+                        <span>Short description</span>
+                        <input style={inputStyle} value={publishDraft.shortDescription} onChange={(event) => updatePublishDraft(drill.drillId, { shortDescription: event.target.value })} />
+                      </label>
+                      <label style={labelStyle}>
+                        <span>Full description (optional)</span>
+                        <textarea style={inputStyle} value={publishDraft.fullDescription} onChange={(event) => updatePublishDraft(drill.drillId, { fullDescription: event.target.value })} />
+                      </label>
+                      <div style={filtersRowStyle}>
+                        <label style={labelStyle}>
+                          <span>Category</span>
+                          <input style={inputStyle} value={publishDraft.category} onChange={(event) => updatePublishDraft(drill.drillId, { category: event.target.value })} />
+                        </label>
+                        <label style={labelStyle}>
+                          <span>Difficulty</span>
+                          <select style={inputStyle} value={publishDraft.difficulty} onChange={(event) => updatePublishDraft(drill.drillId, { difficulty: event.target.value })}>
+                            <option value="beginner">Beginner</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                          </select>
+                        </label>
+                        <label style={labelStyle}>
+                          <span>Equipment (optional)</span>
+                          <input style={inputStyle} value={publishDraft.equipment} onChange={(event) => updatePublishDraft(drill.drillId, { equipment: event.target.value })} />
+                        </label>
+                      </div>
+                      <label style={labelStyle}>
+                        <span>Tags (comma-separated)</span>
+                        <input style={inputStyle} value={publishDraft.tagsInput} onChange={(event) => updatePublishDraft(drill.drillId, { tagsInput: event.target.value })} />
+                      </label>
+                      <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`publish:${drill.drillId}`, "Publishing…", () => onPublish(drill))}>
+                        Publish to Drill Exchange
+                      </button>
+                    </section>
+                  ) : null}
 
                   <details>
                     <summary style={{ cursor: "pointer" }}>Version history</summary>

@@ -60,3 +60,12 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Assumption: phone browsers may expose 0.5x either as hardware PTZ zoom on the active rear track **or** as a separate rear ultrawide camera device.
 - Assumption: PTZ capability exposure alone is not sufficient to guarantee 0.5x availability; camera-device discovery is required after permission.
 - Non-goal: software zoom or crop-based fake zoom fallback for 0.5x in Live Streaming.
+
+## Assumptions / non-goals for Drill Exchange MVP
+
+- Assumption: Exchange is a public/shared drill library view, not a package file dump.
+- Assumption: publishing snapshots a specific Ready released version so later private edits do not mutate the public entry.
+- Assumption: fork/remix always creates a user-owned editable drill in standard Library/Studio flow.
+- Non-goal: graph explorer UI/relationship canvas.
+- Non-goal: semantic embeddings or chatbot retrieval.
+- Non-goal: likes, comments, ratings, or full moderation systems.
