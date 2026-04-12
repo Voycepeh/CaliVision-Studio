@@ -69,3 +69,11 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Non-goal: graph explorer UI/relationship canvas.
 - Non-goal: semantic embeddings or chatbot retrieval.
 - Non-goal: likes, comments, ratings, or full moderation systems.
+
+## Assumptions / non-goals for Upload Video mobile seek resilience
+
+- Assumption: Upload Video pose sampling on mobile browsers is more sensitive to repeated `video.currentTime` seeks and delayed/missed `seeked` events than desktop-class browsers.
+- Assumption: forward-only/monotonic sampling with reduced density is preferable to aggressive random-access seeking when decoder responsiveness is constrained.
+- Assumption: degraded analysis quality is acceptable when enough valid samples are collected to keep replay/review meaningful.
+- Non-goal: changing Android runtime/live coaching ownership; Android specialization remains in <https://github.com/Voycepeh/CaliVision>.
+- Non-goal: introducing backend dependencies for sampling robustness; this remains browser-local processing behavior.

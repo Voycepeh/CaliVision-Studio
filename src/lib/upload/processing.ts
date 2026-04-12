@@ -12,6 +12,7 @@ import {
   measureFramePacingStats,
   selectLatestEligibleScheduledFrame
 } from "@/lib/upload/export-frame-pacing";
+import { buildMonotonicSampleTimestamps, computeMinimumViableSamples, shouldFailSampling } from "@/lib/upload/processing-sampling";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -41,8 +42,12 @@ export type ProcessVideoResult = {
 
 const SEEK_EPSILON_SECONDS = 0.001;
 const SEEK_TIMEOUT_MS = 8000;
+const MOBILE_SEEK_TIMEOUT_MS = 15000;
 const INITIAL_READY_TIMEOUT_MS = 8000;
-const MIN_TIMESTAMP_STEP_MS = 1;
+const DESKTOP_SEEK_RETRY_COUNT = 1;
+const MOBILE_SEEK_RETRY_COUNT = 2;
+const DESKTOP_SAMPLE_STRIDE = 1;
+const MOBILE_SAMPLE_STRIDE = 2;
 const EXPORT_FINALIZE_TIMEOUT_MS = 15000;
 const EXPORT_FRAME_OVERRUN_TOLERANCE = 2;
 const EXPORT_DURATION_DRIFT_WARNING_PCT = 10;
@@ -56,6 +61,29 @@ type VideoFrameMetadata = {
 
 type RequestVideoFrameCallback = (callback: (_now: number, metadata: VideoFrameMetadata) => void) => number;
 
+type SamplingMode = "forward-seek";
+
+type SamplingProfile = {
+  mode: SamplingMode;
+  profile: "desktop-default" | "mobile-resilient";
+  seekTimeoutMs: number;
+  seekRetryCount: number;
+  sampleStride: number;
+  environmentHints: {
+    hasTouch: boolean;
+    coarsePointer: boolean;
+    userAgentMobile: boolean;
+  };
+};
+
+type SeekAttemptResult = {
+  success: boolean;
+  retriesAttempted: number;
+  waitedMs: number;
+  error?: Error;
+};
+
+
 function logUploadEvent(event: string, payload?: Record<string, unknown>): void {
   if (payload) {
     console.info(`${UPLOAD_DIAGNOSTICS_PREFIX} ${event}`, payload);
@@ -66,6 +94,50 @@ function logUploadEvent(event: string, payload?: Record<string, unknown>): void 
 
 function createObjectUrl(file: File): string {
   return URL.createObjectURL(file);
+}
+
+function isTouchOrMobileLikeEnvironment(): SamplingProfile["environmentHints"] {
+  if (typeof window === "undefined") {
+    return { hasTouch: false, coarsePointer: false, userAgentMobile: false };
+  }
+
+  const hasTouch = typeof navigator !== "undefined" ? navigator.maxTouchPoints > 0 : false;
+  const userAgentMobile = typeof navigator !== "undefined"
+    ? /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Opera Mini|IEMobile/i.test(navigator.userAgent)
+    : false;
+  const coarsePointer = typeof window.matchMedia === "function" ? window.matchMedia("(pointer: coarse)").matches : false;
+  return { hasTouch, coarsePointer, userAgentMobile };
+}
+
+export function resolveSamplingProfile(): SamplingProfile {
+  const hints = isTouchOrMobileLikeEnvironment();
+  const isMobileResilient = hints.userAgentMobile || hints.coarsePointer || hints.hasTouch;
+
+  if (isMobileResilient) {
+    return {
+      mode: "forward-seek",
+      profile: "mobile-resilient",
+      seekTimeoutMs: MOBILE_SEEK_TIMEOUT_MS,
+      seekRetryCount: MOBILE_SEEK_RETRY_COUNT,
+      sampleStride: MOBILE_SAMPLE_STRIDE,
+      environmentHints: hints
+    };
+  }
+
+  return {
+    mode: "forward-seek",
+    profile: "desktop-default",
+    seekTimeoutMs: SEEK_TIMEOUT_MS,
+    seekRetryCount: DESKTOP_SEEK_RETRY_COUNT,
+    sampleStride: DESKTOP_SAMPLE_STRIDE,
+    environmentHints: hints
+  };
+}
+
+function buildSamplingFailureError(message: string, details: Record<string, unknown>): Error {
+  const error = new Error(message);
+  (error as Error & { details?: Record<string, unknown> }).details = details;
+  return error;
 }
 
 function extractCodecFromMimeType(mimeType: string): string | undefined {
@@ -284,7 +356,7 @@ async function normalizeVideoForAnalysis(file: File, diagnostics: VideoDiagnosti
   }
 }
 
-async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promise<void> {
+async function seekVideo(video: HTMLVideoElement, targetSeconds: number, timeoutMs: number): Promise<void> {
   if (Math.abs(video.currentTime - targetSeconds) <= SEEK_EPSILON_SECONDS) {
     return;
   }
@@ -297,10 +369,14 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
       logUploadEvent("ANALYSIS_SEEK_TIMEOUT", {
         targetSeconds,
         waitedMs,
-        timeoutMs: SEEK_TIMEOUT_MS
+        timeoutMs,
+        currentTime: video.currentTime,
+        duration: video.duration,
+        readyState: video.readyState,
+        networkState: video.networkState
       });
       reject(new Error("Video seek timed out during pose sampling."));
-    }, SEEK_TIMEOUT_MS);
+    }, timeoutMs);
 
     const cleanup = () => {
       video.removeEventListener("seeked", onSeeked);
@@ -312,7 +388,7 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
       cleanup();
       const waitedMs = Math.round(performance.now() - seekStartedAt);
       console.debug(
-        `${UPLOAD_DIAGNOSTICS_PREFIX} Seek completed at ${targetSeconds.toFixed(3)}s in ${waitedMs}ms (timeout=${SEEK_TIMEOUT_MS}ms).`
+        `${UPLOAD_DIAGNOSTICS_PREFIX} Seek completed at ${targetSeconds.toFixed(3)}s in ${waitedMs}ms (timeout=${timeoutMs}ms).`
       );
       resolve();
     };
@@ -326,6 +402,46 @@ async function seekVideo(video: HTMLVideoElement, targetSeconds: number): Promis
     video.addEventListener("error", onError, { once: true });
     video.currentTime = targetSeconds;
   });
+}
+
+async function seekVideoWithRetries(
+  video: HTMLVideoElement,
+  targetSeconds: number,
+  profile: SamplingProfile
+): Promise<SeekAttemptResult> {
+  const maxAttempts = profile.seekRetryCount + 1;
+  let lastError: Error | undefined;
+  const startedAt = performance.now();
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      await seekVideo(video, targetSeconds, profile.seekTimeoutMs);
+      return {
+        success: true,
+        retriesAttempted: attempt,
+        waitedMs: Math.round(performance.now() - startedAt)
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Video seek failed during pose sampling.");
+      logUploadEvent("ANALYSIS_SEEK_RETRY", {
+        targetSeconds,
+        attempt: attempt + 1,
+        maxAttempts,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        currentTime: video.currentTime,
+        duration: video.duration,
+        error: lastError.message
+      });
+    }
+  }
+
+  return {
+    success: false,
+    retriesAttempted: profile.seekRetryCount,
+    waitedMs: Math.round(performance.now() - startedAt),
+    error: lastError
+  };
 }
 
 async function readBlobVideoDurationMs(blob: Blob): Promise<number | null> {
@@ -418,34 +534,78 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   });
 
   const cadenceMs = 1000 / options.cadenceFps;
+  const samplingProfile = resolveSamplingProfile();
   const poseLandmarker = await createPoseLandmarkerForJob();
   const { video, objectUrl } = await loadVideoElement(analysisFile);
 
   const durationMs = Math.round(video.duration * 1000);
   const frames = [] as PoseTimeline["frames"];
-  let lastTimestampMs = -1;
+  let seekFailureCount = 0;
+  let detectFailureCount = 0;
+  let skippedTimestampCount = 0;
+  let retriesPerformed = 0;
 
   try {
     options.onProgress?.(0.02, analysisSourceKind === "normalized" ? "Sampling normalized frames" : "Sampling frames");
 
-    const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
-    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    const requestedSampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
+    const sampleStride = Math.max(1, samplingProfile.sampleStride);
+    const sampleTimestampsMs = buildMonotonicSampleTimestamps(durationMs, cadenceMs, sampleStride);
+    const sampleCount = sampleTimestampsMs.length;
+    const minimumViableSampleCount = shouldFailSampling({ successfulSamples: 0, plannedSampleCount: sampleCount }).minimumViableSampleCount;
+    logUploadEvent("ANALYSIS_SAMPLING_PROFILE_SELECTED", {
+      mode: samplingProfile.mode,
+      profile: samplingProfile.profile,
+      seekTimeoutMs: samplingProfile.seekTimeoutMs,
+      seekRetryCount: samplingProfile.seekRetryCount,
+      sampleStride,
+      requestedSampleCount,
+      plannedSampleCount: sampleCount,
+      minimumViableSampleCount,
+      ...samplingProfile.environmentHints
+    });
+
+    for (const timestampMs of sampleTimestampsMs) {
       if (options.signal?.aborted) {
         throw new DOMException("Processing cancelled", "AbortError");
       }
 
-      const candidateTimestampMs = Math.min(durationMs, Math.round(sampleIndex * cadenceMs));
-      const timestampMs = candidateTimestampMs <= lastTimestampMs
-        ? Math.min(durationMs, lastTimestampMs + MIN_TIMESTAMP_STEP_MS)
-        : candidateTimestampMs;
-      if (timestampMs <= lastTimestampMs) {
+      const seekResult = await seekVideoWithRetries(video, timestampMs / 1000, samplingProfile);
+      retriesPerformed += seekResult.retriesAttempted;
+      if (!seekResult.success) {
+        seekFailureCount += 1;
+        skippedTimestampCount += 1;
+        logUploadEvent("ANALYSIS_SAMPLE_SKIPPED_AFTER_SEEK_FAILURE", {
+          targetTimestampMs: timestampMs,
+          durationMs,
+          readyState: video.readyState,
+          networkState: video.networkState,
+          retriesAttempted: seekResult.retriesAttempted,
+          successfulSamples: frames.length,
+          plannedSampleCount: sampleCount,
+          minimumViableSampleCount
+        });
+        const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
+        options.onProgress?.(progressRatio, "Sampling slow, retrying/continuing with available frames");
         continue;
       }
 
-      await seekVideo(video, timestampMs / 1000);
-
-      const result = poseLandmarker.detectForVideo(video, timestampMs);
-      lastTimestampMs = timestampMs;
+      let result: ReturnType<typeof poseLandmarker.detectForVideo>;
+      try {
+        result = poseLandmarker.detectForVideo(video, timestampMs);
+      } catch (error) {
+        detectFailureCount += 1;
+        skippedTimestampCount += 1;
+        logUploadEvent("ANALYSIS_DETECT_FOR_VIDEO_FAILED", {
+          targetTimestampMs: timestampMs,
+          durationMs,
+          readyState: video.readyState,
+          networkState: video.networkState,
+          successfulSamples: frames.length,
+          error: error instanceof Error ? error.message : String(error)
+        });
+        continue;
+      }
       const firstPose = result.landmarks?.[0];
       if (firstPose) {
         frames.push(
@@ -462,7 +622,36 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
-    options.onProgress?.(1, "Pose timeline complete");
+    const samplingOutcome = shouldFailSampling({ successfulSamples: frames.length, plannedSampleCount: sampleCount });
+    if (samplingOutcome.fail) {
+      throw buildSamplingFailureError("Upload failed because too few frames could be decoded/sampled.", {
+        successfulSamples: frames.length,
+        minimumViableSamples: samplingOutcome.minimumViableSampleCount,
+        plannedSampleCount: sampleCount,
+        skippedTimestampCount,
+        seekFailureCount,
+        detectFailureCount,
+        retriesPerformed,
+        samplingMode: samplingProfile.mode,
+        profile: samplingProfile.profile
+      });
+    }
+
+    if (skippedTimestampCount > 0) {
+      logUploadEvent("ANALYSIS_SAMPLING_DEGRADED_COMPLETION", {
+        successfulSamples: frames.length,
+        plannedSampleCount: sampleCount,
+        skippedTimestampCount,
+        seekFailureCount,
+        detectFailureCount,
+        retriesPerformed,
+        samplingMode: samplingProfile.mode,
+        profile: samplingProfile.profile
+      });
+      options.onProgress?.(0.98, "Some frames could not be sampled; analysis quality may be reduced");
+    }
+
+    options.onProgress?.(1, skippedTimestampCount > 0 ? "Analysis completed with reduced sample density" : "Pose timeline complete");
 
     return {
       timeline: {
@@ -958,6 +1147,16 @@ function toUserFacingUploadError(error: unknown): Error {
 
   if (normalized.includes("video preprocessing failed")) {
     return new Error("Video preprocessing failed");
+  }
+
+  if (normalized.includes("too few frames could be decoded/sampled")) {
+    return new Error(
+      "Upload failed because too few frames could be decoded/sampled. Try trimming the clip, re-exporting to H.264/MP4, or retrying on a stronger connection/device."
+    );
+  }
+
+  if (normalized.includes("video seek timed out during pose sampling")) {
+    return new Error("Video sampling was too slow for this upload. Upload Video retried and skipped delayed timestamps, but too few usable frames were collected.");
   }
 
   return error;
