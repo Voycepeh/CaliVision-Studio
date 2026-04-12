@@ -1,79 +1,196 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { createDerivedRegistryEntry, loadLocalRegistryEntries, queryPackageCatalog, type PackageRegistryEntry } from "@/lib/registry";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import {
+  listExchangePublications,
+  recordExchangeFork,
+  type ExchangePublication
+} from "@/lib/exchange";
+import { forkPublishedDrillToLibrary, type DrillRepositoryContext } from "@/lib/library";
+import { buildWorkflowDrillKey, setActiveDrillContext } from "@/lib/workflow/drill-context";
+
+const ALL_FILTER = "all";
 
 export function MarketplaceOverview() {
-  const [entries, setEntries] = useState<PackageRegistryEntry[]>([]);
-  const [search, setSearch] = useState("");
-  const [message, setMessage] = useState("");
+  const router = useRouter();
+  const { session, persistenceMode } = useAuth();
+  const [entries, setEntries] = useState<ExchangePublication[]>([]);
+  const [searchText, setSearchText] = useState("");
+  const [movementType, setMovementType] = useState(ALL_FILTER);
+  const [difficulty, setDifficulty] = useState(ALL_FILTER);
+  const [category, setCategory] = useState(ALL_FILTER);
+  const [pendingForkId, setPendingForkId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string>("");
+  const [error, setError] = useState<string>("");
 
-  useEffect(() => {
-    setEntries(loadLocalRegistryEntries());
-  }, []);
-
-  const catalog = useMemo(
-    () =>
-      queryPackageCatalog(
-        entries.filter((entry) => entry.summary.sourceType === "mock-published" || entry.summary.publishStatus === "published"),
-        { searchText: search, sourceTypes: [], tags: [], sortBy: "updated-desc" }
-      ),
-    [entries, search]
+  const repositoryContext = useMemo<DrillRepositoryContext>(
+    () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
+    [persistenceMode, session]
   );
 
-  function forkRemix(entryId: string) {
-    const next = createDerivedRegistryEntry({ entryId, relation: "fork" });
-    setEntries(loadLocalRegistryEntries());
-    setMessage(`Forked ${next.summary.title}. Open it from Library or the editor to continue editing.`);
+  useEffect(() => {
+    async function load() {
+      const result = await listExchangePublications({
+        searchText,
+        movementType,
+        difficulty,
+        category,
+        session
+      });
+
+      if (!result.ok) {
+        setEntries([]);
+        setError(result.error);
+        return;
+      }
+
+      setError("");
+      setEntries(result.value);
+    }
+
+    void load();
+  }, [searchText, movementType, difficulty, category, session]);
+
+  const movementOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.movementType))], [entries]);
+  const difficultyOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.difficultyLevel))], [entries]);
+  const categoryOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.category))], [entries]);
+
+  async function onFork(entry: ExchangePublication): Promise<void> {
+    if (!session) {
+      setError("Sign in to fork/remix a published drill into your own library.");
+      return;
+    }
+
+    setPendingForkId(entry.id);
+    setFeedback("");
+    setError("");
+
+    try {
+      const forked = await forkPublishedDrillToLibrary(
+        {
+          publishedPackage: entry.snapshotPackage,
+          publishedDrillId: entry.id
+        },
+        repositoryContext
+      );
+
+      const lineage = await recordExchangeFork(session, {
+        publishedDrillId: entry.id,
+        forkedPrivateDrillId: forked.drillId
+      });
+      if (!lineage.ok) {
+        throw new Error(lineage.error);
+      }
+
+      setActiveDrillContext({
+        drillId: forked.drillId,
+        sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
+        sourceId: forked.draftVersionId
+      });
+
+      const workflowKey = buildWorkflowDrillKey({
+        drillId: forked.drillId,
+        sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
+        sourceId: forked.draftVersionId
+      });
+      setFeedback(`Forked \"${entry.title}\" into your library draft. Opening Studio…`);
+      router.push(`/studio?drillId=${encodeURIComponent(forked.drillId)}&drillKey=${encodeURIComponent(workflowKey)}`);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Failed to fork drill.");
+    } finally {
+      setPendingForkId(null);
+    }
   }
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
-      <h2 style={{ margin: 0 }}>Drill Exchange discovery (local/mock)</h2>
+      <h2 style={{ margin: 0 }}>Drill Exchange</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Exchange is today powered by local/mock entries to shape discovery, import, and fork/remix UX. Hosted sharing,
-        auth, and community features are intentionally deferred.
+        Browse published drills from creators, open details, then fork/remix into your own library draft workflow.
       </p>
 
-      <label style={{ display: "grid", gap: "0.2rem", color: "var(--muted)", fontSize: "0.84rem" }}>
-        <span>Search shared drills</span>
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          style={{ border: "1px solid var(--border)", borderRadius: "0.5rem", background: "var(--panel-soft)", color: "var(--text)", padding: "0.45rem" }}
-        />
-      </label>
+      <div style={filtersRowStyle}>
+        <label style={{ ...labelStyle, flex: "1 1 280px", minWidth: "min(100%, 280px)" }}>
+          <span>Search published drills</span>
+          <input value={searchText} onChange={(event) => setSearchText(event.target.value)} style={inputStyle} />
+        </label>
+
+        <label style={labelStyle}>
+          <span>Movement type</span>
+          <select value={movementType} onChange={(event) => setMovementType(event.target.value)} style={inputStyle}>
+            {movementOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === ALL_FILTER ? "All" : option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={labelStyle}>
+          <span>Difficulty</span>
+          <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)} style={inputStyle}>
+            {difficultyOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === ALL_FILTER ? "All" : option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label style={labelStyle}>
+          <span>Category</span>
+          <select value={category} onChange={(event) => setCategory(event.target.value)} style={inputStyle}>
+            {categoryOptions.map((option) => (
+              <option key={option} value={option}>
+                {option === ALL_FILTER ? "All" : option}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div style={{ display: "grid", gap: "0.45rem" }}>
-        {catalog.entries.length === 0 ? (
+        {entries.length === 0 ? (
           <p className="muted" style={{ margin: 0 }}>
-            Nothing listed yet. Publish a drill from Drill Studio (mock publish) to populate Exchange discovery.
+            No published drills match these filters yet.
           </p>
         ) : (
-          catalog.entries.map((entry) => (
-            <article key={entry.entryId} className="card" style={{ margin: 0 }}>
-              <strong>{entry.summary.title}</strong>
+          entries.map((entry) => (
+            <article key={entry.id} className="card" style={{ margin: 0 }}>
+              <strong>{entry.title}</strong>
               <p className="muted" style={{ margin: "0.3rem 0" }}>
-                Revision {entry.summary.packageVersion} • {entry.summary.authorDisplayName}
+                {entry.creatorDisplayName} • {entry.movementType} • {entry.difficultyLevel} • {entry.category}
               </p>
-              <p className="muted" style={{ margin: 0 }}>{entry.details.description}</p>
+              <p className="muted" style={{ margin: 0 }}>{entry.shortDescription}</p>
+              <p className="muted" style={{ margin: "0.25rem 0 0" }}>Tags: {entry.tags.join(", ") || "None"}</p>
               <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-                <Link className="pill" href={`/studio?packageId=${encodeURIComponent(entry.summary.packageId)}`}>
-                  Open in Editor
+                <Link className="pill" href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
+                  Open details
                 </Link>
-                <Link className="pill" href="/library">
-                  Import via Library
-                </Link>
-                <button type="button" className="pill" onClick={() => forkRemix(entry.entryId)}>
-                  Fork / Remix
+                <button type="button" className="pill" disabled={pendingForkId === entry.id} onClick={() => void onFork(entry)}>
+                  {pendingForkId === entry.id ? "Forking…" : "Fork / Remix"}
                 </button>
               </div>
             </article>
           ))
         )}
       </div>
-      {message ? <p className="muted" style={{ margin: 0 }}>{message}</p> : null}
+      {feedback ? <p className="muted" style={{ margin: 0 }}>{feedback}</p> : null}
+      {error ? <p role="alert" style={{ margin: 0, color: "#f6cbcb" }}>{error}</p> : null}
     </section>
   );
 }
+
+const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.45rem", alignItems: "end", flexWrap: "wrap" };
+const labelStyle: CSSProperties = { display: "grid", gap: "0.18rem", color: "var(--muted)", fontSize: "0.8rem", minWidth: "160px" };
+const inputStyle: CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: "0.52rem",
+  padding: "0.38rem 0.5rem",
+  background: "var(--panel-soft)",
+  color: "var(--text)",
+  width: "100%"
+};

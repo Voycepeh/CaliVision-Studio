@@ -52,7 +52,7 @@ Cadence note (April 8, 2026): this browser cadence follows the Android repo’s 
 ## Current availability notes
 
 - Upload Video processing is browser-local and tab-bound.
-- Drill Exchange discovery is local/mock-backed.
+- Drill Exchange browse + detail + fork/remix now uses hosted Exchange publications.
 - Hosted auth/storage/community services are deferred.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
@@ -73,7 +73,7 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
 4. `Mark Ready` is blocked until required draft fields are complete (title, movement type, camera view, and at least one authored phase with user-defined content). Incomplete drafts can still be saved/edited.
 5. When requirements are satisfied, `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
-6. `Publish` updates publish status on the current released version and does not create duplicate version rows.
+6. `Publish` requires a Ready release, captures lightweight Exchange metadata (title, description, category, difficulty, equipment, tags), and snapshots that specific released version into Drill Exchange.
 7. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
 8. `Import drill file` writes to the active workspace only:
    - signed out → **Browser workspace** (local storage),
@@ -81,12 +81,12 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 9. Duplicate imports are explicitly reported (for example, “already exists in Browser workspace / Cloud workspace”) instead of silently no-oping.
 10. When signed in, Library does not silently merge browser-local drills into cloud-owned drill rows; local-vs-cloud ownership is clearly separated in messaging.
 
-## Hosted drafts foundation (April 2026)
+## Hosted drafts + Drill Exchange MVP foundation (April 2026)
 
 Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
 
 - Hosted drafts/My drills are private and user-owned.
-- Public Drill Exchange retrieval/publishing remains deferred.
+- Public Drill Exchange now supports publish → browse → detail → fork/remix in Supabase-backed Exchange tables.
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
 - Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.

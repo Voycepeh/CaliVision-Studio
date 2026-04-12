@@ -4,17 +4,17 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 
 ## Current state
 
-- user-facing Exchange UX exists,
-- powered by local/mock data only,
-- no real auth/hosted storage/community systems yet,
+- user-facing Exchange UX exists with hosted publish/browse/detail/fork flows,
+- publish creates a snapshot tied to a specific Ready release version,
+- fork/remix creates a user-owned editable draft in normal Library/Studio workflow with stored fork lineage,
 - Upload Video local analysis remains device-local and separate from hosted exchange,
 - Home + Library positioning keeps Exchange discoverable but secondary to drill creation/editing.
 
 ## Future direction
 
-- hosted ownership and identity,
-- publish/discover/import drill flows,
-- fork/remix/version lineage,
+- broaden hosted ownership/identity beyond MVP metadata,
+- graph/network discovery exploration,
+- AI retrieval/chat experiences over Exchange metadata and drill knowledge,
 - Studio/mobile ecosystem continuity.
 
 ## Drill Knowledge Graph foundation (deterministic scaffolding)

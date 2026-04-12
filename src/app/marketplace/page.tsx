@@ -6,7 +6,7 @@ export default function MarketplacePage() {
     <RoutePageIntro
       navActive="exchange"
       title="Drill Exchange"
-      description="Discovery and sharing surface for community drills. Currently local/mock-backed, designed to evolve into hosted Exchange workflows without changing package compatibility."
+      description="Browse published drills from Drill Exchange, open drill details, and fork/remix into your own library workflow."
     >
       <MarketplaceOverview />
     </RoutePageIntro>

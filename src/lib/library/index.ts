@@ -2,6 +2,7 @@ export {
   createDraftVersion,
   createDrill,
   deleteDrill,
+  forkPublishedDrillToLibrary,
   importDrillPackage,
   listDrillsWithActiveVersion,
   listReadyDrillsForUpload,
@@ -12,6 +13,7 @@ export {
   publishVersion,
   type DrillImportOutcome,
   type DrillLibraryItem,
+  type DrillRepositoryContext,
   type DrillVersionSnapshot
 } from "./drill-repository";
 

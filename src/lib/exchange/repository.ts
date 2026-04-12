@@ -1,0 +1,346 @@
+import type { AuthSession } from "@/lib/auth/supabase-auth";
+import type { DrillVersionSnapshot } from "@/lib/library";
+import type { DrillPackage } from "@/lib/schema/contracts";
+import { getSupabasePublicEnv } from "@/lib/supabase/public-env";
+
+export type ExchangeVisibility = "public";
+
+export type ExchangePublication = {
+  id: string;
+  sourceDrillId: string;
+  sourceVersionId: string;
+  ownerUserId: string;
+  creatorDisplayName: string;
+  title: string;
+  slug: string;
+  shortDescription: string;
+  fullDescription: string | null;
+  movementType: string;
+  cameraView: string;
+  difficultyLevel: string;
+  category: string;
+  equipment: string | null;
+  tags: string[];
+  visibility: ExchangeVisibility;
+  snapshotPackage: DrillPackage;
+  publishedAtIso: string;
+  updatedAtIso: string;
+  forkCount: number;
+  isActive: boolean;
+};
+
+type ExchangePublicationRow = {
+  id: string;
+  source_drill_id: string;
+  source_version_id: string;
+  owner_user_id: string;
+  creator_display_name: string;
+  title: string;
+  slug: string;
+  short_description: string;
+  full_description: string | null;
+  movement_type: string;
+  camera_view: string;
+  difficulty_level: string;
+  category: string;
+  equipment: string | null;
+  tags: string[] | null;
+  visibility: ExchangeVisibility;
+  snapshot_package: DrillPackage;
+  published_at: string;
+  updated_at: string;
+  fork_count: number;
+  is_active: boolean;
+};
+
+type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+
+type PublishExchangeInput = {
+  sourceVersion: DrillVersionSnapshot;
+  creatorDisplayName: string;
+  metadata: {
+    title: string;
+    shortDescription: string;
+    fullDescription?: string;
+    category: string;
+    difficulty?: string;
+    equipment?: string;
+    tags: string[];
+  };
+};
+
+function mapRow(row: ExchangePublicationRow): ExchangePublication {
+  return {
+    id: row.id,
+    sourceDrillId: row.source_drill_id,
+    sourceVersionId: row.source_version_id,
+    ownerUserId: row.owner_user_id,
+    creatorDisplayName: row.creator_display_name,
+    title: row.title,
+    slug: row.slug,
+    shortDescription: row.short_description,
+    fullDescription: row.full_description,
+    movementType: row.movement_type,
+    cameraView: row.camera_view,
+    difficultyLevel: row.difficulty_level,
+    category: row.category,
+    equipment: row.equipment,
+    tags: row.tags ?? [],
+    visibility: row.visibility,
+    snapshotPackage: row.snapshot_package,
+    publishedAtIso: row.published_at,
+    updatedAtIso: row.updated_at,
+    forkCount: row.fork_count,
+    isActive: row.is_active
+  };
+}
+
+function headers(session?: AuthSession | null): HeadersInit {
+  const env = getSupabasePublicEnv();
+  if (!env) return { "Content-Type": "application/json" };
+  return {
+    "Content-Type": "application/json",
+    apikey: env.publishableKey,
+    ...(session ? { Authorization: `Bearer ${session.accessToken}` } : {})
+  };
+}
+
+async function readBackendError(response: Response): Promise<string> {
+  const fallback = `Request failed (${response.status})`;
+  try {
+    const payload = (await response.json()) as { message?: string; details?: string | null; hint?: string | null; code?: string };
+    const parts = [payload?.message, payload?.details, payload?.hint, payload?.code ? `code=${payload.code}` : null].filter(Boolean);
+    return parts.length > 0 ? parts.join(" | ") : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function toSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 64);
+}
+
+function trimOrFallback(value: string, fallback: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function buildDiscoveryQuery(params: { movementType?: string; difficulty?: string; category?: string }): string {
+  const query = new URLSearchParams({
+    select: "*",
+    is_active: "eq.true",
+    visibility: "eq.public",
+    order: "published_at.desc"
+  });
+
+  if (params.movementType && params.movementType !== "all") {
+    query.set("movement_type", `eq.${params.movementType}`);
+  }
+  if (params.difficulty && params.difficulty !== "all") {
+    query.set("difficulty_level", `eq.${params.difficulty}`);
+  }
+  if (params.category && params.category !== "all") {
+    query.set("category", `eq.${params.category}`);
+  }
+
+  return query.toString();
+}
+
+async function resolveUniqueSlug(baseSlug: string, session: AuthSession): Promise<Result<string>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const base = baseSlug || "published-drill";
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?select=slug&slug=like.${encodeURIComponent(`${base}%`)}`, {
+    headers: headers(session)
+  });
+  if (!response.ok) {
+    return { ok: false, error: `Failed to check slug uniqueness: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as Array<{ slug: string }>;
+  const existing = new Set(rows.map((row) => row.slug));
+  if (!existing.has(base)) {
+    return { ok: true, value: base };
+  }
+
+  for (let index = 2; index < 500; index += 1) {
+    const candidate = `${base}-${index}`;
+    if (!existing.has(candidate)) {
+      return { ok: true, value: candidate };
+    }
+  }
+
+  return { ok: false, error: "Could not generate a unique Exchange slug." };
+}
+
+export async function publishDrillToExchange(session: AuthSession, input: PublishExchangeInput): Promise<Result<ExchangePublication>> {
+  if (input.sourceVersion.status !== "ready") {
+    return { ok: false, error: "Only Ready versions can be published to Drill Exchange." };
+  }
+
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const drill = input.sourceVersion.packageJson.drills[0];
+  const baseTitle = trimOrFallback(input.metadata.title, drill?.title ?? "Untitled drill");
+  const existingResponse = await fetch(
+    `${env.url}/rest/v1/exchange_publications?select=id,slug&owner_user_id=eq.${encodeURIComponent(session.user.id)}&source_drill_id=eq.${encodeURIComponent(input.sourceVersion.drillId)}&limit=1`,
+    { headers: headers(session) }
+  );
+  if (!existingResponse.ok) {
+    return { ok: false, error: `Failed to load existing publication state: ${await readBackendError(existingResponse)}` };
+  }
+  const existingRows = (await existingResponse.json()) as Array<{ id: string; slug: string }>;
+  const uniqueSlug = existingRows[0]?.slug
+    ? ({ ok: true, value: existingRows[0].slug } as const)
+    : await resolveUniqueSlug(toSlug(baseTitle), session);
+  if (!uniqueSlug.ok) return uniqueSlug;
+
+  const snapshotPackage = structuredClone(input.sourceVersion.packageJson);
+  snapshotPackage.manifest.publishing = {
+    ...(snapshotPackage.manifest.publishing ?? {}),
+    publishStatus: "published",
+    title: baseTitle,
+    summary: trimOrFallback(input.metadata.shortDescription, drill?.description ?? "Published drill"),
+    description: input.metadata.fullDescription?.trim() || undefined,
+    tags: input.metadata.tags,
+    categories: [trimOrFallback(input.metadata.category, "General")],
+    authorDisplayName: trimOrFallback(input.creatorDisplayName, "Studio creator"),
+    visibility: "public"
+  };
+
+  const payload = {
+    source_drill_id: input.sourceVersion.drillId,
+    source_version_id: input.sourceVersion.versionId,
+    creator_display_name: trimOrFallback(input.creatorDisplayName, "Studio creator"),
+    title: baseTitle,
+    slug: uniqueSlug.value,
+    short_description: trimOrFallback(input.metadata.shortDescription, drill?.description ?? "Published drill"),
+    full_description: input.metadata.fullDescription?.trim() || null,
+    movement_type: drill?.drillType ?? "rep",
+    camera_view: drill?.primaryView ?? "front",
+    difficulty_level: input.metadata.difficulty?.trim() || drill?.difficulty || "beginner",
+    category: trimOrFallback(input.metadata.category, "General"),
+    equipment: input.metadata.equipment?.trim() || null,
+    tags: input.metadata.tags,
+    visibility: "public",
+    snapshot_package: snapshotPackage,
+    is_active: true
+  };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_drill_id`, {
+    method: "POST",
+    headers: {
+      ...headers(session),
+      Prefer: "resolution=merge-duplicates,return=representation"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to publish drill to Exchange: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangePublicationRow[];
+  if (!rows[0]) {
+    return { ok: false, error: "Exchange publish returned no publication row." };
+  }
+
+  return { ok: true, value: mapRow(rows[0]) };
+}
+
+export async function listExchangePublications(params: {
+  searchText?: string;
+  movementType?: string;
+  difficulty?: string;
+  category?: string;
+  session?: AuthSession | null;
+}): Promise<Result<ExchangePublication[]>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?${buildDiscoveryQuery(params)}`, {
+    headers: headers(params.session)
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to load Drill Exchange: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangePublicationRow[];
+  const search = params.searchText?.trim().toLowerCase();
+  const filtered = rows
+    .map(mapRow)
+    .filter((row) =>
+      !search
+        ? true
+        : [row.title, row.shortDescription, row.creatorDisplayName, ...row.tags]
+            .join(" ")
+            .toLowerCase()
+            .includes(search)
+    );
+
+  return { ok: true, value: filtered };
+}
+
+export async function getExchangePublicationBySlug(slug: string, session?: AuthSession | null): Promise<Result<ExchangePublication | null>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?select=*&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&limit=1`, {
+    headers: headers(session)
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to load published drill detail: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangePublicationRow[];
+  return { ok: true, value: rows[0] ? mapRow(rows[0]) : null };
+}
+
+export async function listMyExchangePublications(session: AuthSession): Promise<Result<ExchangePublication[]>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?select=*&owner_user_id=eq.${encodeURIComponent(session.user.id)}&order=updated_at.desc`, {
+    headers: headers(session)
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to load your Exchange publications: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangePublicationRow[];
+  return { ok: true, value: rows.map(mapRow) };
+}
+
+export async function recordExchangeFork(
+  session: AuthSession,
+  input: { publishedDrillId: string; forkedPrivateDrillId: string }
+): Promise<Result<void>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_forks`, {
+    method: "POST",
+    headers: headers(session),
+    body: JSON.stringify({
+      published_drill_id: input.publishedDrillId,
+      forked_private_drill_id: input.forkedPrivateDrillId,
+      forked_by_user_id: session.user.id
+    })
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to save fork lineage: ${await readBackendError(response)}` };
+  }
+
+  return { ok: true, value: undefined };
+}

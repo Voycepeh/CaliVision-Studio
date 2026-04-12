@@ -569,6 +569,57 @@ export async function publishVersion(version: DrillVersionSnapshot, context?: Dr
   });
 }
 
+export async function forkPublishedDrillToLibrary(
+  input: { publishedPackage: DrillPackage; publishedDrillId: string },
+  context?: DrillRepositoryContext
+): Promise<{ drillId: string; draftVersionId: string; title: string }> {
+  const resolved = asContext(context);
+  const now = new Date().toISOString();
+  const drillId = createUniqueId("drill");
+  const draftVersionId = createUniqueId("draft");
+  const forked = ensureVersioningMetadata(structuredClone(input.publishedPackage));
+  const sourceManifest = input.publishedPackage.manifest;
+  const sourceDrill = input.publishedPackage.drills[0];
+
+  forked.manifest.packageId = drillId;
+  forked.manifest.packageVersion = bumpPatchVersion(sourceManifest.packageVersion);
+  forked.manifest.createdAtIso = now;
+  forked.manifest.updatedAtIso = now;
+  forked.manifest.versioning = {
+    packageSlug: drillId,
+    versionId: draftVersionId,
+    revision: parseVersionNumber(input.publishedPackage) + 1,
+    lineageId: sourceManifest.versioning?.lineageId ?? sourceManifest.packageId,
+    draftStatus: "draft",
+    derivedFrom: {
+      relation: "fork",
+      parentPackageId: sourceManifest.packageId,
+      parentVersionId: sourceManifest.versioning?.versionId ?? sourceManifest.packageVersion,
+      parentEntryId: input.publishedDrillId,
+      note: "Forked from Drill Exchange."
+    }
+  };
+  forked.manifest.publishing = {
+    ...(forked.manifest.publishing ?? {}),
+    publishStatus: "draft",
+    visibility: "private"
+  };
+  if (forked.drills[0]) {
+    forked.drills[0].drillId = drillId;
+  }
+
+  if (isCloudContext(resolved)) {
+    const saved = await upsertHostedLibraryItem(resolved.session, forked);
+    if (!saved.ok) {
+      throw new Error(saved.error);
+    }
+    return { drillId, draftVersionId, title: sourceDrill?.title ?? "Forked drill" };
+  }
+
+  await saveDraft({ draftId: draftVersionId, sourceLabel: `exchange-fork:${input.publishedDrillId}`, packageJson: forked, assetsById: {} });
+  return { drillId, draftVersionId, title: sourceDrill?.title ?? "Forked drill" };
+}
+
 export async function listReadyDrillsForUpload(
   context?: DrillRepositoryContext
 ): Promise<Array<{ drillId: string; title: string; versionId: string; packageJson: DrillPackage; isPublished: boolean }>> {
