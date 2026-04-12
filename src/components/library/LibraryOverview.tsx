@@ -323,7 +323,12 @@ export function LibraryOverview() {
         </div>
 
         {filteredDrills.length === 0 ? (
-          <article style={emptyStateStyle}><p className="muted" style={{ margin: 0 }}>No drills yet. Start with <strong>New drill</strong>.</p></article>
+          <article style={emptyStateStyle}>
+            <p className="muted" style={{ margin: 0 }}>No drills yet. Start with <strong>New drill</strong>.</p>
+            <p className="muted" style={{ margin: "0.28rem 0 0", fontSize: "0.8rem" }}>
+              Capture reminder: keep full body visible, match camera angle to the drill, and step back if wrists or ankles leave frame.
+            </p>
+          </article>
         ) : (
           <div style={listStackStyle}>
             {filteredDrills.map((drill) => {

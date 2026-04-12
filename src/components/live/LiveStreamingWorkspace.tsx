@@ -9,6 +9,7 @@ import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
+import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
 import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
@@ -1745,7 +1746,7 @@ export function LiveStreamingWorkspace() {
       <div className={`card live-streaming-intro-card ${isSessionStageActive ? "live-streaming-passive-chrome-hidden" : ""}`}>
         <strong>Live session setup</strong>
         <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-          Pick your camera + drill settings, then start the session. The live stage appears below the setup row and runs lightweight overlay analysis in real time.
+          Choose drill, frame your body, start session, and receive live drill-aware feedback with replay export at the end.
         </p>
       </div>
 
@@ -1760,10 +1761,15 @@ export function LiveStreamingWorkspace() {
               description={
                 status === "live-session-running"
                   ? "Camera session is active. Reference animation can stay collapsed while you capture."
-                  : "Reference animation is optional while you set up your camera session."
+                  : "Set drill and framing before starting the camera session."
               }
               showReferencePanel={showReferencePanel}
               onToggleReferencePanel={() => setIsReferencePanelVisible((current) => !current)}
+            />
+            <CaptureSetupGuidance
+              mode="live"
+              cameraViewLabel={selection.cameraView ? formatCameraViewLabel(selection.cameraView) : null}
+              drillTypeLabel={selection.drill ? (selection.drill.drillType === "rep" ? "Rep" : "Hold") : null}
             />
             <article className="card drill-setup-shell-card" style={{ display: "grid", gap: "0.8rem" }}>
               <p className="muted" style={{ margin: 0, fontSize: "0.86rem" }}>
@@ -1877,6 +1883,9 @@ export function LiveStreamingWorkspace() {
                 <p style={{ margin: 0, color: "#f2bbbb" }}>{status === "unsupported" ? "Live sessions are unavailable in this browser." : "Finalizing session..."}</p>
               ) : null}
               {errorMessage ? <p style={{ margin: 0, color: "#f2bbbb" }}>{errorMessage}</p> : null}
+              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                If tracking drops, check full-body framing and camera angle first.
+              </p>
             </article>
           </div>
         }

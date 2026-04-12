@@ -36,6 +36,9 @@ export function DrillSummaryMetadata({ drill, sourceKind, freestyleDescription }
         <span>Phases: {drill.phases.length}</span>
         {sourceKind ? <span>Source: {formatStoredDrillSourceLabel(sourceKind)}</span> : null}
       </div>
+      <p className="muted" style={{ margin: 0, fontSize: "0.79rem" }}>
+        Capture hint: use a {formatViewLabel(drill.primaryView).toLowerCase()} camera angle and keep wrists + ankles visible for stable {drill.drillType} detection.
+      </p>
     </section>
   );
 }

@@ -15,22 +15,30 @@ type HomeCard = {
 const cards: HomeCard[] = [
   {
     icon: "studio",
-    title: "Drill Library",
-    description: "Create your own drills or start from shared ones.",
+    title: "Create or use a drill",
+    description: "Start from your own drill or pick one from your library and Drill Exchange.",
     href: "/library"
   },
   {
     icon: "upload",
     title: "Upload Video",
-    description: "Analyze existing video files with browser pose processing and replay exports.",
+    description: "Upload a clip, run drill-aware analysis, and review overlay, phases, reps, and holds.",
     href: "/upload"
   },
   {
     icon: "live",
-    title: "Live Streaming",
-    description: "Run a browser camera session with trace retention and post-session annotated replay.",
+    title: "Start live coaching",
+    description: "Start a browser camera session for live overlay feedback and post-session replay review.",
     href: "/live"
   },
+];
+
+const proofItems = ["Rep counting", "Hold timing", "Phase detection", "Browser-based on-device processing"];
+
+const workflowSteps = [
+  { title: "Author drill", description: "Create or select a drill with phase structure and expected camera view." },
+  { title: "Upload or stream", description: "Analyze an existing video or start a live browser camera session." },
+  { title: "Review overlay + metrics", description: "Inspect replay overlays, rep counts, holds, and phase transitions." }
 ];
 
 function HomeIcon({ name }: { name: IconName }) {
@@ -80,9 +88,12 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <h1>CaliVision</h1>
+          <h1>Drill-aware calisthenics motion analysis</h1>
           <p className="home-subtitle">
-            Build drills in Studio, analyze existing files in Upload Video, and run browser Live Streaming sessions with post-session replay exports.
+            Create drills, analyze videos, and get live overlay feedback in one browser-first workflow.
+          </p>
+          <p className="home-subtitle home-subtitle-secondary">
+            CaliVision helps you move from authored drill intent to measurable reps, holds, and phase quality.
           </p>
         </section>
 
@@ -100,6 +111,21 @@ export function HomeLandingPage() {
               <h2>{card.title}</h2>
               <p>{card.description}</p>
             </Link>
+          ))}
+        </section>
+
+        <section className="home-proof" aria-label="Product outcomes">
+          {proofItems.map((item) => (
+            <span key={item} className="pill home-proof-pill">{item}</span>
+          ))}
+        </section>
+
+        <section className="home-workflow" aria-label="Core workflow">
+          {workflowSteps.map((step, index) => (
+            <article key={step.title} className="home-workflow-step">
+              <strong>{index + 1}. {step.title}</strong>
+              <p>{step.description}</p>
+            </article>
           ))}
         </section>
       </main>
