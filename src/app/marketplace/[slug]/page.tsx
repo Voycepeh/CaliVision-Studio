@@ -8,7 +8,7 @@ export default async function MarketplaceDrillDetailPage({ params }: { params: P
     <RoutePageIntro
       navActive="exchange"
       title="Drill Exchange"
-      description="Published drill detail and fork/remix entry point."
+      description="Published drill detail with preview and add-to-library flow."
     >
       <MarketplaceDrillDetail slug={resolved.slug} />
     </RoutePageIntro>

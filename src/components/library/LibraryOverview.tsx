@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -61,6 +61,7 @@ function toHumanErrorMessage(error: unknown): string {
 
 export function LibraryOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [drills, setDrills] = useState<DrillLibraryItem[]>([]);
   const [versionsByDrillId, setVersionsByDrillId] = useState<Record<string, DrillVersionSnapshot[]>>({});
@@ -78,6 +79,8 @@ export function LibraryOverview() {
     actionErrorByItemId: {}
   });
   const signedInMode = persistenceMode === "cloud";
+  const exchangeAdded = searchParams.get("exchangeAdded");
+  const exchangeAddedTitle = searchParams.get("title");
   const repositoryContext = useMemo(
     () => ({
       mode: signedInMode ? "cloud" : "local",
@@ -370,6 +373,13 @@ export function LibraryOverview() {
     <section style={libraryLayoutStyle}>
       <section className="card" style={headerCardStyle}>
         <h2 style={{ margin: 0 }}>My drills</h2>
+        {exchangeAdded ? (
+          <p className="muted" style={{ margin: 0, color: "#b5e3c3" }}>
+            {exchangeAdded === "already"
+              ? `"${exchangeAddedTitle ?? "This drill"}" is already in My Library.`
+              : `Added "${exchangeAddedTitle ?? "Drill"}" to My Library.`}
+          </p>
+        ) : null}
         <p className="muted" style={{ margin: 0 }}>
           One library for all drills. Each drill keeps stable identity with version history, Draft/Ready status, and publish state.
         </p>
