@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createOverlayProjection, fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize, resolvePreviewContainerSize } from "./overlay-geometry.ts";
+import { createOverlayProjection, createOverlayProjectionFromLayout, fitVideoCoverRect, isPreviewSurfaceReady, projectNormalizedPoint, resolveOverlayCanvasSize, resolvePreviewContainerSize } from "./overlay-geometry.ts";
 
 test("fitVideoCoverRect models CSS object-fit: cover crop offsets", () => {
   const rect = fitVideoCoverRect({
@@ -125,6 +125,21 @@ test("createOverlayProjection flips x projection when camera changes between rea
   const frontProjected = projectNormalizedPoint(samplePoint, front);
   assert.equal(Math.round(rearProjected.y), Math.round(frontProjected.y));
   assert.equal(Math.round(rearProjected.x + frontProjected.x), Math.round(rear.offsetX * 2 + rear.renderedWidth));
+});
+
+test("createOverlayProjectionFromLayout keeps mapping aligned to rendered video bounds inside the live container", () => {
+  const projection = createOverlayProjectionFromLayout({
+    sourceWidth: 1920,
+    sourceHeight: 1080,
+    containerRect: { left: 10, top: 20, width: 360, height: 640 },
+    videoRect: { left: 20, top: 60, width: 320, height: 560 },
+    fitMode: "contain",
+    mirrored: false
+  });
+  assert.equal(projection.offsetX, 10);
+  assert.equal(projection.offsetY, 230);
+  assert.equal(projection.renderedWidth, 320);
+  assert.equal(projection.renderedHeight, 180);
 });
 
 
