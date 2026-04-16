@@ -67,6 +67,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
     setWarning("");
     try {
       const existingFork = await findExistingExchangeFork(session, entry.id);
+      let staleLineageDetected = false;
       if (!existingFork.ok) {
         setWarning("Could not verify prior Drill Exchange imports. Continuing with add to library.");
       }
@@ -82,6 +83,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
           setAddedResult({ drillId: existingEditable.drillId, draftVersionId: existingEditable.versionId });
           return;
         }
+        staleLineageDetected = true;
       }
 
       const forked = await forkPublishedDrillToLibrary(
@@ -92,7 +94,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         publishedDrillId: entry.id,
         forkedPrivateDrillId: forked.drillId
       });
-      if (!lineage.ok) {
+      if (staleLineageDetected || !lineage.ok) {
         const repair = await updateExchangeForkTarget(session, {
           publishedDrillId: entry.id,
           forkedPrivateDrillId: forked.drillId
