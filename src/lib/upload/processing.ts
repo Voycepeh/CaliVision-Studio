@@ -12,6 +12,11 @@ import {
   measureFramePacingStats,
   selectLatestEligibleScheduledFrame
 } from "@/lib/upload/export-frame-pacing";
+import {
+  isSeekTimeoutDuringPoseSampling,
+  shouldNormalize,
+  type VideoDiagnostics
+} from "@/lib/upload/processing-normalization";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -20,18 +25,6 @@ export type ProcessVideoOptions = {
 };
 
 type SourceKind = "original" | "normalized";
-
-type VideoDiagnostics = {
-  width?: number;
-  height?: number;
-  durationMs?: number;
-  fps?: number;
-  codec?: string;
-  rotationMetadata?: number;
-  colorTransfer?: string;
-  isHdrSource?: boolean;
-  hasSuspiciousMetadata: boolean;
-};
 
 export type ProcessVideoResult = {
   timeline: PoseTimeline;
@@ -113,33 +106,82 @@ async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
   }
 }
 
-function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
-  const reasons: string[] = [];
-  const width = diagnostics.width ?? 0;
-  const height = diagnostics.height ?? 0;
-  const isPortrait = width > 0 && height > 0 && height > width;
-  if (isPortrait && typeof diagnostics.rotationMetadata === "number" && diagnostics.rotationMetadata % 360 !== 0) {
-    reasons.push("portrait source has non-zero rotation metadata");
-  }
+async function samplePoseTimelineFromAnalysisSource(
+  analysisFile: File,
+  analysisSourceKind: SourceKind,
+  options: ProcessVideoOptions,
+  originalFileType: string
+): Promise<ProcessVideoResult> {
+  const cadenceMs = 1000 / options.cadenceFps;
+  const poseLandmarker = await createPoseLandmarkerForJob();
+  const { video, objectUrl } = await loadVideoElement(analysisFile);
 
-  if (diagnostics.isHdrSource) {
-    reasons.push("HDR/HLG transfer detected or inferred");
-  }
+  const durationMs = Math.round(video.duration * 1000);
+  const frames = [] as PoseTimeline["frames"];
+  let lastTimestampMs = -1;
 
-  const codec = diagnostics.codec?.toLowerCase() ?? "";
-  if (codec.includes("hevc") || codec.includes("hvc1") || codec.includes("hev1") || codec.includes("h265")) {
-    reasons.push("HEVC/H.265 decoder-fragile source");
-  }
+  try {
+    options.onProgress?.(0.02, analysisSourceKind === "normalized" ? "Sampling normalized frames" : "Sampling frames");
 
-  if (diagnostics.hasSuspiciousMetadata) {
-    reasons.push("suspicious or incomplete metadata");
-  }
+    const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+      if (options.signal?.aborted) {
+        throw new DOMException("Processing cancelled", "AbortError");
+      }
 
-  if (!file.type) {
-    reasons.push("missing mime type metadata");
-  }
+      const candidateTimestampMs = Math.min(durationMs, Math.round(sampleIndex * cadenceMs));
+      const timestampMs = candidateTimestampMs <= lastTimestampMs
+        ? Math.min(durationMs, lastTimestampMs + MIN_TIMESTAMP_STEP_MS)
+        : candidateTimestampMs;
+      if (timestampMs <= lastTimestampMs) {
+        continue;
+      }
 
-  return { required: reasons.length > 0, reasons };
+      await seekVideo(video, timestampMs / 1000);
+
+      const result = poseLandmarker.detectForVideo(video, timestampMs);
+      lastTimestampMs = timestampMs;
+      const firstPose = result.landmarks?.[0];
+      if (firstPose) {
+        frames.push(
+          mapLandmarksToPoseFrame(firstPose, timestampMs, {
+            frameWidth: video.videoWidth,
+            frameHeight: video.videoHeight,
+            mirrored: false
+          })
+        );
+      }
+
+      const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
+      options.onProgress?.(progressRatio, `Processing ${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s`);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    options.onProgress?.(1, "Pose timeline complete");
+
+    return {
+      timeline: {
+        schemaVersion: "upload-video-v1",
+        detector: "mediapipe-pose-landmarker",
+        cadenceFps: options.cadenceFps,
+        video: {
+          fileName: analysisFile.name,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          durationMs,
+          sizeBytes: analysisFile.size,
+          mimeType: analysisFile.type || originalFileType
+        },
+        frames,
+        generatedAtIso: new Date().toISOString()
+      },
+      analysisFile,
+      analysisSourceKind
+    };
+  } finally {
+    poseLandmarker.close?.();
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 async function loadVideoElement(file: File): Promise<{ video: HTMLVideoElement; objectUrl: string }> {
@@ -381,6 +423,12 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   });
 
   const normalizationDecision = shouldNormalize(file, diagnostics);
+  logUploadEvent("NORMALIZATION_DECISION", {
+    fileName: file.name,
+    required: normalizationDecision.required,
+    reasons: normalizationDecision.reasons
+  });
+
   let analysisFile = file;
   let analysisSourceKind: SourceKind = "original";
 
@@ -411,83 +459,41 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     }
   }
 
-  logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
-    mode: analysisSourceKind,
-    selectedFileName: analysisFile.name,
-    selectedMimeType: analysisFile.type || "unknown"
-  });
-
-  const cadenceMs = 1000 / options.cadenceFps;
-  const poseLandmarker = await createPoseLandmarkerForJob();
-  const { video, objectUrl } = await loadVideoElement(analysisFile);
-
-  const durationMs = Math.round(video.duration * 1000);
-  const frames = [] as PoseTimeline["frames"];
-  let lastTimestampMs = -1;
-
+  let retryWithNormalizedSource = false;
   try {
-    options.onProgress?.(0.02, analysisSourceKind === "normalized" ? "Sampling normalized frames" : "Sampling frames");
-
-    const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
-    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-      if (options.signal?.aborted) {
-        throw new DOMException("Processing cancelled", "AbortError");
+    logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
+      mode: analysisSourceKind,
+      selectedFileName: analysisFile.name,
+      selectedMimeType: analysisFile.type || "unknown"
+    });
+    try {
+      return await samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
+    } catch (error) {
+      const shouldRetryWithNormalizedSource =
+        analysisSourceKind === "original" && !retryWithNormalizedSource && isSeekTimeoutDuringPoseSampling(error);
+      if (!shouldRetryWithNormalizedSource) {
+        throw error;
       }
 
-      const candidateTimestampMs = Math.min(durationMs, Math.round(sampleIndex * cadenceMs));
-      const timestampMs = candidateTimestampMs <= lastTimestampMs
-        ? Math.min(durationMs, lastTimestampMs + MIN_TIMESTAMP_STEP_MS)
-        : candidateTimestampMs;
-      if (timestampMs <= lastTimestampMs) {
-        continue;
-      }
+      retryWithNormalizedSource = true;
+      logUploadEvent("ANALYSIS_RETRY_NORMALIZED_AFTER_SEEK_TIMEOUT", {
+        fileName: file.name,
+        reason: error instanceof Error ? error.message : "unknown"
+      });
 
-      await seekVideo(video, timestampMs / 1000);
-
-      const result = poseLandmarker.detectForVideo(video, timestampMs);
-      lastTimestampMs = timestampMs;
-      const firstPose = result.landmarks?.[0];
-      if (firstPose) {
-        frames.push(
-          mapLandmarksToPoseFrame(firstPose, timestampMs, {
-            frameWidth: video.videoWidth,
-            frameHeight: video.videoHeight,
-            mirrored: false
-          })
-        );
-      }
-
-      const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
-      options.onProgress?.(progressRatio, `Processing ${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s`);
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      const normalizedFile = await normalizeVideoForAnalysis(file, diagnostics, options.signal);
+      analysisFile = normalizedFile;
+      analysisSourceKind = "normalized";
+      logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
+        mode: analysisSourceKind,
+        selectedFileName: analysisFile.name,
+        selectedMimeType: analysisFile.type || "unknown",
+        trigger: "seek-timeout-retry"
+      });
+      return await samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
     }
-
-    options.onProgress?.(1, "Pose timeline complete");
-
-    return {
-      timeline: {
-        schemaVersion: "upload-video-v1",
-        detector: "mediapipe-pose-landmarker",
-        cadenceFps: options.cadenceFps,
-        video: {
-          fileName: analysisFile.name,
-          width: video.videoWidth,
-          height: video.videoHeight,
-          durationMs,
-          sizeBytes: analysisFile.size,
-          mimeType: analysisFile.type || file.type
-        },
-        frames,
-        generatedAtIso: new Date().toISOString()
-      },
-      analysisFile,
-      analysisSourceKind
-    };
   } catch (error) {
     throw toUserFacingUploadError(error);
-  } finally {
-    poseLandmarker.close?.();
-    URL.revokeObjectURL(objectUrl);
   }
 }
 
