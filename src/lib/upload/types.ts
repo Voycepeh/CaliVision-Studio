@@ -34,7 +34,7 @@ export type UploadJob = {
   startedAtIso?: string;
   completedAtIso?: string;
   compatibility?: UploadCompatibilityReport;
-  preflightChoice?: "normalize" | "try_anyway";
+  preflightChoice?: "auto" | "normalize" | "try_anyway";
   drillSelection: UploadJobDrillSelection;
   artefacts?: UploadJobArtifacts;
 };

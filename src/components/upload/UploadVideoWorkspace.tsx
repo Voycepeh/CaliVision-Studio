@@ -403,7 +403,12 @@ export function UploadVideoWorkspace() {
     try {
       const { timeline, analysisFile, analysisSourceKind } = await processVideoFile(processingJob.file, {
         cadenceFps,
-        normalizationStrategy: processingJob.preflightChoice === "normalize" ? "force" : "off",
+        normalizationStrategy:
+          processingJob.preflightChoice === "normalize"
+            ? "force"
+            : processingJob.preflightChoice === "try_anyway"
+              ? "off"
+              : "auto",
         signal: controller.signal,
         onProgress: (progress, stageLabel) => setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel } : job)))
       });
@@ -534,9 +539,6 @@ export function UploadVideoWorkspace() {
   }, [cadenceFps, uploadJobs]);
 
   const requestPreflightChoice = useCallback((file: File, report: UploadCompatibilityReport): Promise<UploadPreflightDecision> => {
-    if (report.level === "supported") {
-      return Promise.resolve("try_anyway");
-    }
     setPreflightPrompt({ file, report });
     return new Promise<UploadPreflightDecision>((resolve) => {
       preflightResolverRef.current = resolve;
@@ -551,16 +553,20 @@ export function UploadVideoWorkspace() {
   }, []);
 
   const enqueueFiles = useCallback(async (files: FileList | File[]) => {
-    const candidates = Array.from(files);
-    if (candidates.length === 0) return;
+    const videos = Array.from(files).filter((file) => file.type.startsWith("video/"));
+    if (videos.length === 0) return;
     const createdAt = new Date().toISOString();
     const queuedJobs: UploadJob[] = [];
 
-    for (const file of candidates) {
+    for (const file of videos) {
       const compatibility = await inspectUploadCompatibility(file);
-      const choice = compatibility.level === "supported" ? "try_anyway" : await requestPreflightChoice(file, compatibility);
-      if (choice === "cancel") {
-        continue;
+      let preflightChoice: UploadJob["preflightChoice"] = "auto";
+      if (compatibility.level !== "supported") {
+        const userChoice = await requestPreflightChoice(file, compatibility);
+        if (userChoice === "cancel") {
+          continue;
+        }
+        preflightChoice = userChoice === "normalize" ? "normalize" : "try_anyway";
       }
       const metadata = await readVideoMetadata(file);
       queuedJobs.push({
@@ -574,7 +580,7 @@ export function UploadVideoWorkspace() {
         progress: 0,
         createdAtIso: createdAt,
         compatibility,
-        preflightChoice: choice === "normalize" ? "normalize" : "try_anyway",
+        preflightChoice,
         drillSelection: createUploadJobDrillSelection({ selectedDrill })
       });
     }
@@ -1028,7 +1034,12 @@ export function UploadVideoWorkspace() {
                     {formatBytes(job.fileSizeBytes)} • {formatDuration(job.durationMs)}
                   </p>
                   <p className="muted" style={{ margin: "0.16rem 0 0", fontSize: "0.77rem" }}>
-                    Compatibility: {job.compatibility?.level ?? "unknown"}{job.preflightChoice === "normalize" ? " · normalize first" : " · try anyway"}
+                    Compatibility: {job.compatibility?.level ?? "unknown"}
+                    {job.preflightChoice === "normalize"
+                      ? " · normalize first"
+                      : job.preflightChoice === "try_anyway"
+                        ? " · try anyway"
+                        : " · default processing"}
                   </p>
                   <p
                     style={{
