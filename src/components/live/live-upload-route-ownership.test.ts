@@ -38,3 +38,24 @@ test("live overlay canvas visibility is gated by active live session state, not 
   assert.ok(liveWorkspace.includes('isLivePhase ? "block" : "none"'));
   assert.ok(!liveWorkspace.includes('replayState === "live-session-running"'));
 });
+
+test("live drill-selected overlay path forwards CoG options to shared drawPoseOverlay", () => {
+  const liveWorkspace = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
+  assert.ok(liveWorkspace.includes("centerOfGravityOverlayRef"));
+  assert.ok(liveWorkspace.includes("centerOfGravity: {"));
+  assert.ok(liveWorkspace.includes("mode: selection.mode"));
+});
+
+test("upload freestyle/replay overlay path also forwards CoG options to shared drawPoseOverlay", () => {
+  const uploadWorkspace = readFileSync("src/components/upload/UploadVideoWorkspace.tsx", "utf8");
+  assert.ok(uploadWorkspace.includes("centerOfGravityOverlayRef"));
+  assert.ok(uploadWorkspace.includes("centerOfGravity: {"));
+  assert.ok(uploadWorkspace.includes("mode: activeJob.drillSelection.mode ?? \"drill\""));
+});
+
+test("shared overlay renderer includes CoG draw instrumentation and star draw branch", () => {
+  const overlayRenderer = readFileSync("src/lib/upload/overlay.ts", "utf8");
+  assert.ok(overlayRenderer.includes("[cog-overlay]"));
+  assert.ok(overlayRenderer.includes("draw-star"));
+  assert.ok(overlayRenderer.includes("forceRenderInDev"));
+});

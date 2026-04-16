@@ -5,7 +5,7 @@ import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overl
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import {
   createCenterOfGravityOverlayState,
-  resolveSmoothedCenterOfGravity,
+  resolveSmoothedCenterOfGravityWithDiagnostics,
   shouldRenderCenterOfGravity,
   type CenterOfGravityOverlayState
 } from "@/lib/pose/center-of-gravity";
@@ -42,8 +42,8 @@ export function drawPoseOverlay(
       state?: CenterOfGravityOverlayState;
       mode?: "drill" | "freestyle";
       cameraView?: DrillCameraView;
-      allowFreestyle?: boolean;
       minConfidence?: number;
+      forceRenderInDev?: boolean;
     };
   }
 ): void {
@@ -89,24 +89,52 @@ export function drawPoseOverlay(
     ctx.fill();
   }
 
-  const centerOfGravityEnabled = options?.centerOfGravity?.enabled ?? true;
-  const shouldShowCenterOfGravity = centerOfGravityEnabled
-    && shouldRenderCenterOfGravity({
-      mode: options?.centerOfGravity?.mode,
-      cameraView: options?.centerOfGravity?.cameraView,
-      allowFreestyle: options?.centerOfGravity?.allowFreestyle
-    });
+  const centerOfGravityEnabled = shouldRenderCenterOfGravity({
+    enabled: options?.centerOfGravity?.enabled,
+    mode: options?.centerOfGravity?.mode,
+    cameraView: options?.centerOfGravity?.cameraView
+  });
   const centerState = options?.centerOfGravity?.state ?? createCenterOfGravityOverlayState();
-  const centerPoint = shouldShowCenterOfGravity
-    ? resolveSmoothedCenterOfGravity(frame, centerState, {
+  const centerResolution = centerOfGravityEnabled
+    ? resolveSmoothedCenterOfGravityWithDiagnostics(frame, centerState, {
       minConfidence: options?.centerOfGravity?.minConfidence
     })
     : null;
+  const centerPoint = centerResolution?.point ?? null;
+  const rawEstimate = centerResolution?.rawEstimate.point ?? null;
+  const isDev = process.env.NODE_ENV !== "production";
+  const globalDebugEnabled = typeof window !== "undefined" && Boolean((window as Window & { __CALI_DEBUG_COG?: boolean }).__CALI_DEBUG_COG);
+  const forceRenderInDev = isDev && (options?.centerOfGravity?.forceRenderInDev
+    || (typeof window !== "undefined" && Boolean((window as Window & { __CALI_DEBUG_COG_FORCE_RENDER?: boolean }).__CALI_DEBUG_COG_FORCE_RENDER)));
+  const pointToDraw = centerPoint ?? (forceRenderInDev ? rawEstimate : null);
+  const pointValidForCanvas = pointToDraw
+    && Number.isFinite(pointToDraw.x)
+    && Number.isFinite(pointToDraw.y)
+    && pointToDraw.x >= -0.1
+    && pointToDraw.x <= 1.1
+    && pointToDraw.y >= -0.1
+    && pointToDraw.y <= 1.1;
 
-  if (centerPoint) {
-    const { x, y } = toCanvasPoint(centerPoint, width, height, options?.projection);
-    const radius = Math.max(4, (width / 1280) * 8);
-    const innerRadius = radius * 0.45;
+  if (isDev && globalDebugEnabled) {
+    console.debug("[cog-overlay]", {
+      enabled: centerOfGravityEnabled,
+      mode: options?.centerOfGravity?.mode,
+      cameraView: options?.centerOfGravity?.cameraView,
+      reason: centerResolution?.reason ?? "disabled",
+      estimateReason: centerResolution?.rawEstimate.reason ?? null,
+      includedSegments: centerResolution?.rawEstimate.includedSegmentCount ?? 0,
+      includedWeight: centerResolution?.rawEstimate.includedWeight ?? 0,
+      hasRawEstimate: Boolean(rawEstimate),
+      hasSmoothedPoint: Boolean(centerPoint),
+      forceRenderInDev,
+      pointToDraw
+    });
+  }
+
+  if (pointValidForCanvas && pointToDraw) {
+    const { x, y } = toCanvasPoint(pointToDraw, width, height, options?.projection);
+    const radius = Math.max(6, (width / 1280) * 10);
+    const innerRadius = radius * 0.5;
     ctx.save();
     ctx.beginPath();
     for (let i = 0; i < 10; i += 1) {
@@ -121,14 +149,24 @@ export function drawPoseOverlay(
       }
     }
     ctx.closePath();
-    ctx.fillStyle = "rgba(248, 250, 252, 0.95)";
-    ctx.shadowColor = "rgba(15, 23, 42, 0.65)";
-    ctx.shadowBlur = Math.max(3, radius * 0.9);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+    ctx.shadowColor = "rgba(15, 23, 42, 0.8)";
+    ctx.shadowBlur = Math.max(4, radius * 1.2);
     ctx.fill();
-    ctx.lineWidth = Math.max(1.2, radius * 0.24);
-    ctx.strokeStyle = "rgba(14, 165, 233, 0.95)";
+    ctx.lineWidth = Math.max(1.8, radius * 0.28);
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.98)";
     ctx.stroke();
+    if (isDev && globalDebugEnabled) {
+      console.debug("[cog-overlay] draw-star", { x, y, radius });
+    }
     ctx.restore();
+  } else if (isDev && globalDebugEnabled) {
+    console.debug("[cog-overlay] star-suppressed", {
+      reason: centerResolution?.reason ?? "disabled",
+      estimateReason: centerResolution?.rawEstimate.reason ?? null,
+      rawEstimate,
+      pointToDraw
+    });
   }
   ctx.restore();
 }

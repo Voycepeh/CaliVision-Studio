@@ -11,9 +11,21 @@ type SegmentDefinition = {
   resolve: (joints: PoseFrame["joints"], minConfidence: number) => Point2D | null;
 };
 
-const DEFAULT_MIN_CONFIDENCE = 0.45;
-const MIN_SEGMENT_COUNT = 4;
-const MIN_WEIGHT_COVERAGE = 0.52;
+const DEFAULT_MIN_CONFIDENCE = 0.35;
+const MIN_SEGMENT_COUNT = 2;
+const MIN_WEIGHT_COVERAGE = 0.3;
+
+export type CenterOfGravityEstimateFailureReason =
+  | "insufficient-segments"
+  | "insufficient-weight-coverage"
+  | "invalid-coordinates";
+
+export type CenterOfGravityEstimateResult = {
+  point: Point2D | null;
+  includedSegmentCount: number;
+  includedWeight: number;
+  reason: CenterOfGravityEstimateFailureReason | null;
+};
 
 function getJoint(joints: PoseFrame["joints"], jointName: CanonicalJointName, minConfidence: number): JointPoint | null {
   const joint = joints[jointName];
@@ -98,6 +110,17 @@ export function estimateCenterOfGravity2D(
     minWeightCoverage?: number;
   }
 ): Point2D | null {
+  return estimateCenterOfGravity2DWithDiagnostics(frame, options).point;
+}
+
+export function estimateCenterOfGravity2DWithDiagnostics(
+  frame: Pick<PoseFrame, "joints">,
+  options?: {
+    minConfidence?: number;
+    minSegmentCount?: number;
+    minWeightCoverage?: number;
+  }
+): CenterOfGravityEstimateResult {
   const minConfidence = options?.minConfidence ?? DEFAULT_MIN_CONFIDENCE;
   const minSegmentCount = options?.minSegmentCount ?? MIN_SEGMENT_COUNT;
   const minWeightCoverage = options?.minWeightCoverage ?? MIN_WEIGHT_COVERAGE;
@@ -118,13 +141,43 @@ export function estimateCenterOfGravity2D(
     weightedY += center.y * segment.weight;
   }
 
-  if (includedSegmentCount < minSegmentCount || includedWeight < minWeightCoverage || includedWeight <= 0) {
-    return null;
+  if (includedSegmentCount < minSegmentCount) {
+    return {
+      point: null,
+      includedSegmentCount,
+      includedWeight,
+      reason: "insufficient-segments"
+    };
+  }
+
+  if (includedWeight < minWeightCoverage || includedWeight <= 0) {
+    return {
+      point: null,
+      includedSegmentCount,
+      includedWeight,
+      reason: "insufficient-weight-coverage"
+    };
+  }
+
+  const point = {
+    x: weightedX / includedWeight,
+    y: weightedY / includedWeight
+  };
+
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    return {
+      point: null,
+      includedSegmentCount,
+      includedWeight,
+      reason: "invalid-coordinates"
+    };
   }
 
   return {
-    x: weightedX / includedWeight,
-    y: weightedY / includedWeight
+    point,
+    includedSegmentCount,
+    includedWeight,
+    reason: null
   };
 }
 
@@ -182,17 +235,11 @@ export function resetCenterOfGravityOverlayState(state: CenterOfGravityOverlaySt
 }
 
 export function shouldRenderCenterOfGravity(options: {
+  enabled?: boolean;
   mode?: "drill" | "freestyle";
   cameraView?: DrillCameraView;
-  allowFreestyle?: boolean;
 }): boolean {
-  if (options.mode === "drill") {
-    return options.cameraView === "front" || options.cameraView === "side";
-  }
-  if (options.mode === "freestyle") {
-    return Boolean(options.allowFreestyle && options.cameraView);
-  }
-  return false;
+  return options.enabled !== false;
 }
 
 export function resolveSmoothedCenterOfGravity(
@@ -204,24 +251,58 @@ export function resolveSmoothedCenterOfGravity(
     hiddenExitFrames?: number;
   }
 ): Point2D | null {
+  return resolveSmoothedCenterOfGravityWithDiagnostics(frame, state, options).point;
+}
+
+export type CenterOfGravityVisibilityReason =
+  | "visible"
+  | "waiting-for-stability"
+  | "holding-last-stable"
+  | "estimate-failed";
+
+export function resolveSmoothedCenterOfGravityWithDiagnostics(
+  frame: Pick<PoseFrame, "joints">,
+  state: CenterOfGravityOverlayState,
+  options?: {
+    minConfidence?: number;
+    visibleEnterFrames?: number;
+    hiddenExitFrames?: number;
+  }
+): {
+  point: Point2D | null;
+  rawEstimate: CenterOfGravityEstimateResult;
+  reason: CenterOfGravityVisibilityReason;
+} {
   const enterFrames = options?.visibleEnterFrames ?? 2;
   const exitFrames = options?.hiddenExitFrames ?? 4;
-  const estimate = estimateCenterOfGravity2D(frame, { minConfidence: options?.minConfidence });
+  const estimate = estimateCenterOfGravity2DWithDiagnostics(frame, { minConfidence: options?.minConfidence });
 
-  if (!estimate) {
+  if (!estimate.point) {
     state.stableDetections = 0;
     state.unstableDetections += 1;
     if (state.visible && state.unstableDetections <= exitFrames && state.lastStablePoint) {
-      return state.lastStablePoint;
+      return {
+        point: state.lastStablePoint,
+        rawEstimate: estimate,
+        reason: "holding-last-stable"
+      };
     }
     resetCenterOfGravityOverlayState(state);
-    return null;
+    return {
+      point: null,
+      rawEstimate: estimate,
+      reason: "estimate-failed"
+    };
   }
 
   state.unstableDetections = 0;
   state.stableDetections += 1;
   if (!state.visible && state.stableDetections < enterFrames) {
-    return null;
+    return {
+      point: null,
+      rawEstimate: estimate,
+      reason: "waiting-for-stability"
+    };
   }
 
   if (!state.visible) {
@@ -229,7 +310,11 @@ export function resolveSmoothedCenterOfGravity(
     state.smoother.reset();
   }
 
-  const smoothed = state.smoother.next(estimate);
+  const smoothed = state.smoother.next(estimate.point);
   state.lastStablePoint = smoothed;
-  return smoothed;
+  return {
+    point: smoothed,
+    rawEstimate: estimate,
+    reason: "visible"
+  };
 }

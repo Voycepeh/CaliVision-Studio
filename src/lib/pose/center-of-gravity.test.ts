@@ -51,6 +51,15 @@ test("estimateCenterOfGravity2D degrades gracefully when confidence/coverage is 
   assert.equal(center, null);
 });
 
+test("estimateCenterOfGravity2D still returns a point when one side coverage is missing but torso/limbs are usable", () => {
+  const frame = createPoseFrame();
+  frame.joints.rightElbow!.confidence = 0.1;
+  frame.joints.rightWrist!.confidence = 0.1;
+  frame.joints.rightKnee!.confidence = 0.1;
+  const center = estimateCenterOfGravity2D(frame);
+  assert.ok(center);
+});
+
 test("TemporalPointSmoother reset clears historical smoothing", () => {
   const smoother = new TemporalPointSmoother(0.25);
   const start = smoother.next({ x: 0.2, y: 0.2 });
@@ -92,11 +101,11 @@ test("resolveSmoothedCenterOfGravity requires stable detections and holds briefl
   assert.equal(hidden, null);
 });
 
-test("display rules show CoG for drill front/side and keep freestyle hidden by default", () => {
-  assert.equal(shouldRenderCenterOfGravity({ mode: "drill", cameraView: "side" }), true);
-  assert.equal(shouldRenderCenterOfGravity({ mode: "drill", cameraView: "front" }), true);
-  assert.equal(shouldRenderCenterOfGravity({ mode: "freestyle", cameraView: "front" }), false);
-  assert.equal(shouldRenderCenterOfGravity({ mode: "freestyle", cameraView: "front", allowFreestyle: true }), true);
+test("display rules are decoupled from drill mode and controlled by explicit enable flag", () => {
+  assert.equal(shouldRenderCenterOfGravity({ enabled: true, mode: "drill", cameraView: "side" }), true);
+  assert.equal(shouldRenderCenterOfGravity({ enabled: true, mode: "drill", cameraView: "front" }), true);
+  assert.equal(shouldRenderCenterOfGravity({ enabled: true, mode: "freestyle", cameraView: "front" }), true);
+  assert.equal(shouldRenderCenterOfGravity({ enabled: false, mode: "freestyle", cameraView: "front" }), false);
 });
 
 test("overlay state reset clears visibility and smoothing state", () => {
