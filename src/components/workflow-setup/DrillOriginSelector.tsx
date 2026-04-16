@@ -5,37 +5,65 @@ import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from
 import { searchDrillsByOrigin } from "@/lib/workflow/drill-selector-search";
 import type { AvailableDrillDisplayOption } from "@/lib/workflow/available-drills";
 
-type DrillOriginSelectorProps = {
+type BaseFieldProps = {
+  labelClassName?: string;
+  inputClassName?: string;
+  helperClassName?: string;
+  disabled?: boolean;
+};
+
+type DrillOriginSelectFieldProps = BaseFieldProps & {
   selectedSource: DrillSourceKind;
   onSelectedSourceChange: (source: DrillSourceKind) => void;
+};
+
+type DrillComboboxFieldProps = BaseFieldProps & {
+  selectedSource: DrillSourceKind;
   selectedDrillKey: string;
   onSelectedDrillKeyChange: (key: string) => void;
   drillOptionsBySource: Map<DrillSourceKind, AvailableDrillDisplayOption[]>;
   fallbackKey: string;
   freestyleLabel: string;
-  disabled?: boolean;
-  sourceDisabled?: boolean;
-  drillDisabled?: boolean;
-  labelClassName?: string;
-  inputClassName?: string;
-  helperClassName?: string;
 };
 
-export function DrillOriginSelector({
+export function DrillOriginSelectField({
   selectedSource,
   onSelectedSourceChange,
+  labelClassName,
+  inputClassName,
+  disabled
+}: DrillOriginSelectFieldProps) {
+  return (
+    <label className={labelClassName}>
+      <span>Drill Origin</span>
+      <select
+        className={inputClassName}
+        value={selectedSource}
+        onChange={(event) => onSelectedSourceChange(event.target.value as DrillSourceKind)}
+        disabled={disabled}
+      >
+        {DRILL_SOURCE_ORDER.map((source) => (
+          <option key={source} value={source}>
+            {formatDrillSourceLabel(source)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function DrillComboboxField({
+  selectedSource,
   selectedDrillKey,
   onSelectedDrillKeyChange,
   drillOptionsBySource,
   fallbackKey,
   freestyleLabel,
-  disabled,
-  sourceDisabled,
-  drillDisabled,
   labelClassName,
   inputClassName,
-  helperClassName
-}: DrillOriginSelectorProps) {
+  helperClassName,
+  disabled
+}: DrillComboboxFieldProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const listboxId = useId();
   const [isOpen, setIsOpen] = useState(false);
@@ -49,9 +77,9 @@ export function DrillOriginSelector({
   );
 
   const filteredOptions = useMemo(() => searchDrillsByOrigin(visibleOptions, query), [query, visibleOptions]);
-
   const freestyleSearchText = `${freestyleLabel} no drill freestyle overlay`.toLowerCase();
   const showFreestyleOption = query.trim().length === 0 || freestyleSearchText.includes(query.trim().toLowerCase());
+
   const entries = useMemo(() => {
     const items: Array<
       | { type: "freestyle"; key: string; label: string }
@@ -76,13 +104,13 @@ export function DrillOriginSelector({
   }, [entries.length, isOpen]);
 
   useEffect(() => {
-    function onPointerDown(event: MouseEvent) {
+    function onPointerDown(event: PointerEvent) {
       if (!wrapperRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
   function commitSelection(key: string) {
@@ -93,137 +121,120 @@ export function DrillOriginSelector({
   const selectedDrillLabel = selectedDrillKey === fallbackKey ? freestyleLabel : (selectedOption?.displayLabel ?? freestyleLabel);
 
   return (
-    <>
-      <label className={labelClassName}>
-        <span>Drill Origin</span>
-        <select
+    <label className={labelClassName}>
+      <span>Drill</span>
+      <div ref={wrapperRef} style={{ position: "relative" }}>
+        <input
+          type="text"
           className={inputClassName}
-          value={selectedSource}
-          onChange={(event) => onSelectedSourceChange(event.target.value as DrillSourceKind)}
-          disabled={disabled || sourceDisabled}
-        >
-          {DRILL_SOURCE_ORDER.map((source) => (
-            <option key={source} value={source}>
-              {formatDrillSourceLabel(source)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className={labelClassName}>
-        <span>Drill</span>
-        <div ref={wrapperRef} style={{ position: "relative" }}>
-          <input
-            type="text"
-            className={inputClassName}
-            role="combobox"
-            aria-expanded={isOpen}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
-            value={isOpen ? query : selectedDrillLabel}
-            onFocus={() => setIsOpen(true)}
-            onClick={() => setIsOpen(true)}
-            onChange={(event) => {
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          value={isOpen ? query : selectedDrillLabel}
+          onFocus={() => setIsOpen(true)}
+          onClick={() => setIsOpen(true)}
+          onChange={(event) => {
+            if (!isOpen) {
+              setIsOpen(true);
+            }
+            setQuery(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
               if (!isOpen) {
                 setIsOpen(true);
+                return;
               }
-              setQuery(event.target.value);
+              setActiveIndex((index) => Math.min(index + 1, Math.max(entries.length - 1, 0)));
+              return;
+            }
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!isOpen) {
+                setIsOpen(true);
+                return;
+              }
+              setActiveIndex((index) => Math.max(index - 1, 0));
+              return;
+            }
+            if (event.key === "Enter" && isOpen) {
+              event.preventDefault();
+              const active = entries[activeIndex];
+              if (active) {
+                commitSelection(active.key);
+              }
+              return;
+            }
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setIsOpen(false);
+              return;
+            }
+            if (event.key === "Tab") {
+              setIsOpen(false);
+            }
+          }}
+          disabled={disabled}
+          placeholder="Search drills"
+        />
+        {isOpen ? (
+          <div
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: "absolute",
+              top: "calc(100% + 0.35rem)",
+              left: 0,
+              right: 0,
+              zIndex: 25,
+              border: "1px solid var(--border)",
+              borderRadius: "0.6rem",
+              background: "var(--surface)",
+              maxHeight: "min(260px, 48vh)",
+              overflowY: "auto",
+              padding: "0.3rem"
             }}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                if (!isOpen) {
-                  setIsOpen(true);
-                  return;
-                }
-                setActiveIndex((index) => Math.min(index + 1, Math.max(entries.length - 1, 0)));
-                return;
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                if (!isOpen) {
-                  setIsOpen(true);
-                  return;
-                }
-                setActiveIndex((index) => Math.max(index - 1, 0));
-                return;
-              }
-              if (event.key === "Enter" && isOpen) {
-                event.preventDefault();
-                const active = entries[activeIndex];
-                if (active) {
-                  commitSelection(active.key);
-                }
-                return;
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                setIsOpen(false);
-                return;
-              }
-              if (event.key === "Tab") {
-                setIsOpen(false);
-              }
-            }}
-            disabled={disabled || drillDisabled}
-            placeholder="Search drills"
-          />
-          {isOpen ? (
-            <div
-              id={listboxId}
-              role="listbox"
-              style={{
-                position: "absolute",
-                top: "calc(100% + 0.35rem)",
-                left: 0,
-                right: 0,
-                zIndex: 25,
-                border: "1px solid var(--border)",
-                borderRadius: "0.6rem",
-                background: "var(--surface)",
-                maxHeight: "min(260px, 48vh)",
-                overflowY: "auto",
-                padding: "0.3rem"
-              }}
-            >
-              {entries.length === 0 ? (
-                <p className={helperClassName} style={{ margin: 0, padding: "0.35rem 0.45rem" }}>
-                  No {formatDrillSourceLabel(selectedSource).toLowerCase()} drills match your search.
-                </p>
-              ) : (
-                entries.map((entry, index) => {
-                  const selected = selectedDrillKey === entry.key;
-                  const active = index === activeIndex;
-                  return (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => commitSelection(entry.key)}
-                      style={{
-                        width: "100%",
-                        textAlign: "left",
-                        border: "none",
-                        borderRadius: "0.45rem",
-                        background: active ? "var(--accent-soft)" : "transparent",
-                        color: "inherit",
-                        padding: "0.45rem 0.5rem",
-                        display: "grid",
-                        gap: "0.2rem",
-                        cursor: "pointer"
-                      }}
-                    >
-                      <span style={{ fontSize: "0.86rem" }}>{entry.label}</span>
-                      {entry.type === "drill" && entry.metadataMatch ? <span className={helperClassName}>Metadata match</span> : null}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          ) : null}
-        </div>
-      </label>
-    </>
+          >
+            {entries.length === 0 ? (
+              <p className={helperClassName} style={{ margin: 0, padding: "0.35rem 0.45rem" }}>
+                No {formatDrillSourceLabel(selectedSource).toLowerCase()} drills match your search.
+              </p>
+            ) : (
+              entries.map((entry, index) => {
+                const selected = selectedDrillKey === entry.key;
+                const active = index === activeIndex;
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => commitSelection(entry.key)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      border: "none",
+                      borderRadius: "0.45rem",
+                      background: active ? "var(--accent-soft)" : "transparent",
+                      color: "inherit",
+                      padding: "0.45rem 0.5rem",
+                      display: "grid",
+                      gap: "0.2rem",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <span style={{ fontSize: "0.86rem" }}>{entry.label}</span>
+                    {entry.type === "drill" && entry.metadataMatch ? <span className={helperClassName}>Metadata match</span> : null}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : null}
+      </div>
+    </label>
   );
 }

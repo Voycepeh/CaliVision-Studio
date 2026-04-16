@@ -54,7 +54,7 @@ import { projectionInputsChanged, projectionStatsForDiagnostics, shouldRevalidat
 import type { AnalysisSessionRecord } from "@/lib/analysis";
 import type { PoseTimeline } from "@/lib/upload/types";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
-import { DrillOriginSelector } from "@/components/workflow-setup/DrillOriginSelector";
+import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflow-setup/DrillOriginSelector";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 18;
 const LIVE_OVERLAY_PRESENTATION_FPS = 45;
@@ -1912,8 +1912,9 @@ export function LiveStreamingWorkspace() {
               <p className="muted" style={{ margin: 0, fontSize: "0.86rem" }}>
                 Live overlay runs at {LIVE_ANALYSIS_CADENCE_FPS} FPS analysis / {LIVE_OVERLAY_PRESENTATION_FPS} FPS presentation with automatic raw + annotated replay export.
               </p>
-              <div className="live-streaming-control-row">
-                <label className="live-streaming-control-field">
+              <div style={{ display: "grid", gap: "0.6rem" }}>
+                <div className="live-streaming-control-row">
+                  <label className="live-streaming-control-field">
                   <span>Camera</span>
                   <select
                     className="live-streaming-control-input"
@@ -1934,9 +1935,16 @@ export function LiveStreamingWorkspace() {
                     <option value="front">Front camera</option>
                   </select>
                 </label>
-                <DrillOriginSelector
+                  <DrillOriginSelectField
+                    selectedSource={selectedSource}
+                    onSelectedSourceChange={setSelectedSource}
+                    disabled={status === "live-session-running" || status === "requesting-permission"}
+                    labelClassName="live-streaming-control-field"
+                    inputClassName="live-streaming-control-input"
+                  />
+                </div>
+                <DrillComboboxField
                   selectedSource={selectedSource}
-                  onSelectedSourceChange={setSelectedSource}
                   selectedDrillKey={selectedKey}
                   onSelectedDrillKeyChange={setSelectedKey}
                   drillOptionsBySource={drillOptionGroups}
@@ -1947,7 +1955,7 @@ export function LiveStreamingWorkspace() {
                   inputClassName="live-streaming-control-input"
                   helperClassName="muted"
                 />
-                <div className="live-streaming-control-field live-streaming-control-field--actions">
+                <div className="live-streaming-control-field">
                   <span>Session</span>
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                     {status === "live-session-running" ? (

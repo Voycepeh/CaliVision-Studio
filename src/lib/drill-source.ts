@@ -24,6 +24,7 @@ export function buildDuplicateSafeDrillLabel(input: {
   baseLabel: string;
   sourceKind: StoredDrillSourceKind;
   sourceId?: string;
+  drillId?: string;
   duplicateTitleCount: number;
 }): string {
   if (input.duplicateTitleCount <= 1) {
@@ -31,5 +32,15 @@ export function buildDuplicateSafeDrillLabel(input: {
   }
 
   const sourceLabel = formatStoredDrillSourceLabel(input.sourceKind);
-  return `${input.baseLabel} — ${sourceLabel}`;
+  const stableSeed = `${input.sourceId ?? ""}:${input.drillId ?? ""}`;
+  const shortDisambiguator = shortStableDisambiguator(stableSeed);
+  return `${input.baseLabel} — ${sourceLabel} ${shortDisambiguator}`;
+}
+
+function shortStableDisambiguator(seed: string): string {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36).slice(0, 4).padStart(4, "0");
 }

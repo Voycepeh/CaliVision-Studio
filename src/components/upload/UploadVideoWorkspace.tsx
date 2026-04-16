@@ -29,7 +29,7 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
-import { DrillOriginSelector } from "@/components/workflow-setup/DrillOriginSelector";
+import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflow-setup/DrillOriginSelector";
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
@@ -901,10 +901,16 @@ export function UploadVideoWorkspace() {
             />
             <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
-              <div className="live-streaming-control-row">
-                <DrillOriginSelector
+              <div style={{ display: "grid", gap: "0.6rem" }}>
+                <DrillOriginSelectField
                   selectedSource={selectedSource}
                   onSelectedSourceChange={setSelectedSource}
+                  disabled={drillOptionsLoading}
+                  labelClassName="live-streaming-control-field muted"
+                  inputClassName="live-streaming-control-input"
+                />
+                <DrillComboboxField
+                  selectedSource={selectedSource}
                   selectedDrillKey={selectedDrillKey}
                   onSelectedDrillKeyChange={setSelectedDrillKey}
                   drillOptionsBySource={drillOptionGroups}

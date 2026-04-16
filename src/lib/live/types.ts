@@ -20,7 +20,7 @@ export type LiveDrillSelection = {
   drillVersion?: string;
   cameraView?: DrillCameraView;
   drillBindingLabel: string;
-  drillBindingSource: "freestyle" | "local" | "hosted";
+  drillBindingSource: "freestyle" | "local" | "hosted" | "exchange";
   sourceId?: string;
 };
 
