@@ -12,7 +12,7 @@ export function toDrillSourceKind(sourceKind: StoredDrillSourceKind): DrillSourc
 
 export function formatDrillSourceLabel(sourceKind: DrillSourceKind): string {
   if (sourceKind === "cloud") return "Cloud";
-  if (sourceKind === "exchange") return "Drill Exchange";
+  if (sourceKind === "exchange") return "Public";
   return "Local";
 }
 
@@ -31,6 +31,5 @@ export function buildDuplicateSafeDrillLabel(input: {
   }
 
   const sourceLabel = formatStoredDrillSourceLabel(input.sourceKind);
-  const shortSourceId = input.sourceId ? ` • ${input.sourceId.slice(-6)}` : "";
-  return `${input.baseLabel} — ${sourceLabel}${shortSourceId}`;
+  return `${input.baseLabel} — ${sourceLabel}`;
 }

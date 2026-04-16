@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjectionFromLayout, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
-import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
@@ -55,6 +54,7 @@ import { projectionInputsChanged, projectionStatsForDiagnostics, shouldRevalidat
 import type { AnalysisSessionRecord } from "@/lib/analysis";
 import type { PoseTimeline } from "@/lib/upload/types";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
+import { DrillOriginSelector } from "@/components/workflow-setup/DrillOriginSelector";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 18;
 const LIVE_OVERLAY_PRESENTATION_FPS = 45;
@@ -297,7 +297,6 @@ export function LiveStreamingWorkspace() {
     () => (selectedKey === FREESTYLE_KEY ? null : drillOptions.find((option) => option.key === selectedKey) ?? null),
     [drillOptions, selectedKey]
   );
-  const visibleDrillOptions = useMemo(() => drillOptionGroups.get(selectedSource) ?? [], [drillOptionGroups, selectedSource]);
 
   const selection: LiveDrillSelection = useMemo(() => {
     if (!selectedDrill) {
@@ -1935,45 +1934,19 @@ export function LiveStreamingWorkspace() {
                     <option value="front">Front camera</option>
                   </select>
                 </label>
-                <label className="live-streaming-control-field">
-                  <span>Analysis mode</span>
-                  <select
-                    className="live-streaming-control-input"
-                    value={selectedSource}
-                    onChange={(event) => setSelectedSource(event.target.value as DrillSourceKind)}
-                    disabled={status === "live-session-running" || status === "requesting-permission"}
-                  >
-                    {DRILL_SOURCE_ORDER.map((source) => (
-                      <option key={source} value={source}>
-                        {formatDrillSourceLabel(source)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="live-streaming-control-field">
-                  <span>Drill</span>
-                  <select
-                    className="live-streaming-control-input"
-                    value={selectedKey}
-                    onChange={(event) => setSelectedKey(event.target.value)}
-                    disabled={status === "live-session-running" || status === "requesting-permission"}
-                  >
-                    <option value={FREESTYLE_KEY}>No drill · Freestyle</option>
-                    {visibleDrillOptions.length === 0 ? (
-                      <option value={FREESTYLE_KEY} disabled>
-                        No {formatDrillSourceLabel(selectedSource).toLowerCase()} drills available
-                      </option>
-                    ) : (
-                      <optgroup label={`${formatDrillSourceLabel(selectedSource)} drills`}>
-                        {visibleDrillOptions.map((option) => (
-                          <option key={option.key} value={option.key}>
-                            {option.displayLabel}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </label>
+                <DrillOriginSelector
+                  selectedSource={selectedSource}
+                  onSelectedSourceChange={setSelectedSource}
+                  selectedDrillKey={selectedKey}
+                  onSelectedDrillKeyChange={setSelectedKey}
+                  drillOptionsBySource={drillOptionGroups}
+                  fallbackKey={FREESTYLE_KEY}
+                  freestyleLabel="No drill · Freestyle"
+                  disabled={status === "live-session-running" || status === "requesting-permission"}
+                  labelClassName="live-streaming-control-field"
+                  inputClassName="live-streaming-control-input"
+                  helperClassName="muted"
+                />
                 <div className="live-streaming-control-field live-streaming-control-field--actions">
                   <span>Session</span>
                   <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
