@@ -61,6 +61,20 @@ test("keeps browser-friendly desktop uploads on original source", () => {
 
 test("classifies seek-timeout errors for single retry path", () => {
   assert.equal(isSeekTimeoutDuringPoseSampling(new Error("Video seek timed out during pose sampling.")), true);
+  assert.equal(isSeekTimeoutDuringPoseSampling(new Error("Video seek timed out during pose sampling")), true);
+  assert.equal(
+    isSeekTimeoutDuringPoseSampling(new Error("Video seek timed out during pose sampling. target=1.23s timeout=8000ms")),
+    true
+  );
+  assert.equal(isSeekTimeoutDuringPoseSampling("Video seek timed out during pose sampling"), true);
+  assert.equal(
+    isSeekTimeoutDuringPoseSampling({ message: "video seek timed out during pose sampling (wrapped)" }),
+    true
+  );
+  assert.equal(
+    isSeekTimeoutDuringPoseSampling({ cause: { message: "Video seek timed out during pose sampling." } }),
+    true
+  );
   assert.equal(isSeekTimeoutDuringPoseSampling(new Error("Video seek failed during pose sampling.")), false);
-  assert.equal(isSeekTimeoutDuringPoseSampling("Video seek timed out during pose sampling."), false);
+  assert.equal(isSeekTimeoutDuringPoseSampling({ message: "other upload error" }), false);
 });

@@ -56,8 +56,30 @@ export function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { re
 }
 
 export function isSeekTimeoutDuringPoseSampling(error: unknown): boolean {
-  if (!(error instanceof Error)) {
+  const message = extractErrorLikeMessage(error);
+  if (!message) {
     return false;
   }
-  return /Video seek timed out during pose sampling\./i.test(error.message);
+  return /video seek timed out during pose sampling/i.test(message);
+}
+
+function extractErrorLikeMessage(error: unknown): string | null {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const candidate = error as { message?: unknown; cause?: unknown };
+  if (typeof candidate.message === "string") {
+    return candidate.message;
+  }
+
+  if (candidate.cause) {
+    return extractErrorLikeMessage(candidate.cause);
+  }
+
+  return null;
 }
