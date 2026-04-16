@@ -6,7 +6,6 @@ import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 import { selectPreferredCaptureMimeType } from "@/lib/media/media-capabilities";
-import { classifyUploadCompatibility } from "@/lib/upload/compatibility";
 import {
   buildDeterministicFrameSchedule,
   buildEmissionPlanFromSourceTimes,
@@ -108,23 +107,6 @@ async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
   }
 }
 
-function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
-  const compatibility = classifyUploadCompatibility({
-    fileName: file.name,
-    mimeType: file.type,
-    width: diagnostics.width,
-    height: diagnostics.height,
-    durationMs: diagnostics.durationMs,
-    fps: diagnostics.fps,
-    codec: diagnostics.codec,
-    colorTransfer: diagnostics.colorTransfer,
-    isHdr: diagnostics.isHdrSource,
-    rotationMetadata: diagnostics.rotationMetadata
-  });
-  const reasons = [...compatibility.reasons];
-  if (diagnostics.hasSuspiciousMetadata && !reasons.includes("incomplete or low-confidence metadata")) {
-    reasons.push("incomplete or low-confidence metadata");
-  }
 async function samplePoseTimelineFromAnalysisSource(
   analysisFile: File,
   analysisSourceKind: SourceKind,
