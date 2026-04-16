@@ -2,6 +2,8 @@ import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/uploa
 import { buildReplayOverlaySamples, getOverlaySampleAtTime } from "@/lib/analysis/replay-state";
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+import { createCenterOfGravityOverlayState } from "@/lib/pose/center-of-gravity";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
@@ -514,6 +516,8 @@ export async function exportAnnotatedVideo(
     includeAnalysisOverlay?: boolean;
     overlayModeLabel?: string;
     includeDrillMetrics?: boolean;
+    overlayMode?: "drill" | "freestyle";
+    overlayCameraView?: DrillCameraView;
     phaseLabels?: Record<string, string>;
     phaseCount?: number;
     onProgress?: (progress: number, stageLabel: string) => void;
@@ -621,6 +625,7 @@ export async function exportAnnotatedVideo(
           ...options.analysisSession.events.map((event) => event.timestampMs)
         ])
       : [];
+  const centerOfGravityOverlayState = createCenterOfGravityOverlayState();
 
   try {
     options?.onProgress?.(0.02, "Preparing export timeline");
@@ -642,7 +647,14 @@ export async function exportAnnotatedVideo(
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       const frame = getNearestPoseFrame(sourceFrames, timestampMs);
-      drawPoseOverlay(ctx, canvas.width, canvas.height, frame, { projection: exportProjection });
+      drawPoseOverlay(ctx, canvas.width, canvas.height, frame, {
+        projection: exportProjection,
+        centerOfGravity: {
+          state: centerOfGravityOverlayState,
+          mode: options?.overlayMode ?? "drill",
+          cameraView: options?.overlayCameraView
+        }
+      });
       if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
         const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
         drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {

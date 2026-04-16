@@ -3,6 +3,13 @@ import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
+import {
+  createCenterOfGravityOverlayState,
+  resolveSmoothedCenterOfGravityWithDiagnostics,
+  shouldRenderCenterOfGravity,
+  type CenterOfGravityOverlayState
+} from "@/lib/pose/center-of-gravity";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
@@ -28,7 +35,17 @@ export function drawPoseOverlay(
   width: number,
   height: number,
   frame?: PoseFrame,
-  options?: { projection?: OverlayProjection }
+  options?: {
+    projection?: OverlayProjection;
+    centerOfGravity?: {
+      enabled?: boolean;
+      state?: CenterOfGravityOverlayState;
+      mode?: "drill" | "freestyle";
+      cameraView?: DrillCameraView;
+      minConfidence?: number;
+      forceRenderInDev?: boolean;
+    };
+  }
 ): void {
   if (!frame) {
     return;
@@ -70,6 +87,86 @@ export function drawPoseOverlay(
     const radius = role === "nose" ? baseRadius * UPLOAD_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  const centerOfGravityEnabled = shouldRenderCenterOfGravity({
+    enabled: options?.centerOfGravity?.enabled,
+    mode: options?.centerOfGravity?.mode,
+    cameraView: options?.centerOfGravity?.cameraView
+  });
+  const centerState = options?.centerOfGravity?.state ?? createCenterOfGravityOverlayState();
+  const centerResolution = centerOfGravityEnabled
+    ? resolveSmoothedCenterOfGravityWithDiagnostics(frame, centerState, {
+      minConfidence: options?.centerOfGravity?.minConfidence
+    })
+    : null;
+  const centerPoint = centerResolution?.point ?? null;
+  const rawEstimate = centerResolution?.rawEstimate.point ?? null;
+  const isDev = process.env.NODE_ENV !== "production";
+  const globalDebugEnabled = typeof window !== "undefined" && Boolean((window as Window & { __CALI_DEBUG_COG?: boolean }).__CALI_DEBUG_COG);
+  const forceRenderInDev = isDev && (options?.centerOfGravity?.forceRenderInDev
+    || (typeof window !== "undefined" && Boolean((window as Window & { __CALI_DEBUG_COG_FORCE_RENDER?: boolean }).__CALI_DEBUG_COG_FORCE_RENDER)));
+  const pointToDraw = centerPoint ?? (forceRenderInDev ? rawEstimate : null);
+  const pointValidForCanvas = pointToDraw
+    && Number.isFinite(pointToDraw.x)
+    && Number.isFinite(pointToDraw.y)
+    && pointToDraw.x >= -0.1
+    && pointToDraw.x <= 1.1
+    && pointToDraw.y >= -0.1
+    && pointToDraw.y <= 1.1;
+
+  if (isDev && globalDebugEnabled) {
+    console.debug("[cog-overlay]", {
+      enabled: centerOfGravityEnabled,
+      mode: options?.centerOfGravity?.mode,
+      cameraView: options?.centerOfGravity?.cameraView,
+      reason: centerResolution?.reason ?? "disabled",
+      estimateReason: centerResolution?.rawEstimate.reason ?? null,
+      includedSegments: centerResolution?.rawEstimate.includedSegmentCount ?? 0,
+      includedWeight: centerResolution?.rawEstimate.includedWeight ?? 0,
+      hasRawEstimate: Boolean(rawEstimate),
+      hasSmoothedPoint: Boolean(centerPoint),
+      forceRenderInDev,
+      pointToDraw
+    });
+  }
+
+  if (pointValidForCanvas && pointToDraw) {
+    const { x, y } = toCanvasPoint(pointToDraw, width, height, options?.projection);
+    const radius = Math.max(6, (width / 1280) * 10);
+    const innerRadius = radius * 0.5;
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const angle = -Math.PI / 2 + i * (Math.PI / 5);
+      const pointRadius = i % 2 === 0 ? radius : innerRadius;
+      const px = x + Math.cos(angle) * pointRadius;
+      const py = y + Math.sin(angle) * pointRadius;
+      if (i === 0) {
+        ctx.moveTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+    ctx.shadowColor = "rgba(15, 23, 42, 0.8)";
+    ctx.shadowBlur = Math.max(4, radius * 1.2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.8, radius * 0.28);
+    ctx.strokeStyle = "rgba(56, 189, 248, 0.98)";
+    ctx.stroke();
+    if (isDev && globalDebugEnabled) {
+      console.debug("[cog-overlay] draw-star", { x, y, radius });
+    }
+    ctx.restore();
+  } else if (isDev && globalDebugEnabled) {
+    console.debug("[cog-overlay] star-suppressed", {
+      reason: centerResolution?.reason ?? "disabled",
+      estimateReason: centerResolution?.rawEstimate.reason ?? null,
+      rawEstimate,
+      pointToDraw
+    });
   }
   ctx.restore();
 }

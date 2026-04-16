@@ -14,8 +14,23 @@ import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
-import { canToggleCompletedPreview, resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
-import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
+import {
+  createCenterOfGravityOverlayState,
+  resetCenterOfGravityOverlayState
+} from "@/lib/pose/center-of-gravity";
+import {
+  canToggleCompletedPreview,
+  resolveAvailableDownloads,
+  resolveUnifiedResultPreviewState,
+  type PreviewSurface
+} from "@/lib/results/preview-state";
+import {
+  canLikelyPlayMimeType,
+  extensionFromMimeType,
+  resolveSafeDelivery,
+  selectPreferredDeliverySource,
+  selectPreviewSource
+} from "@/lib/media/media-capabilities";
 import { resolveLiveDownloadLabel } from "@/lib/media/download-labels";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
 import {
@@ -219,6 +234,7 @@ export function LiveStreamingWorkspace() {
   const startedAtRef = useRef<number>(0);
   const mediaStartMsRef = useRef<number>(0);
   const smoothedFrameRef = useRef<ReturnType<typeof mapLandmarksToPoseFrame> | null>(null);
+  const centerOfGravityOverlayRef = useRef(createCenterOfGravityOverlayState());
   const jointVisibleRef = useRef<Record<string, boolean>>({});
   const jointGraceSamplesRef = useRef<Record<string, number>>({});
   const overlayNeedsResizeSyncRef = useRef(true);
@@ -588,6 +604,7 @@ export function LiveStreamingWorkspace() {
     recorderRef.current = null;
     traceRef.current = null;
     smoothedFrameRef.current = null;
+    resetCenterOfGravityOverlayState(centerOfGravityOverlayRef.current);
     lastPoseFrameAtRef.current = 0;
     lastAcceptedLandmarkTimestampRef.current = 0;
     lastAcceptedLandmarkPerfNowRef.current = 0;
@@ -1243,7 +1260,14 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.stalePoseReuseCount += 1;
         }
         lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
-        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, {
+          projection,
+          centerOfGravity: {
+            state: centerOfGravityOverlayRef.current,
+            mode: selection.mode,
+            cameraView: selection.cameraView
+          }
+        });
       } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
         if (performance.now() - lastTrackingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
           updateTrackingStatus("Tracking lost");
@@ -1562,6 +1586,7 @@ export function LiveStreamingWorkspace() {
     sessionActiveRef.current = false;
     stopLiveRenderLoop();
     smoothedFrameRef.current = null;
+    resetCenterOfGravityOverlayState(centerOfGravityOverlayRef.current);
     jointVisibleRef.current = {};
     jointGraceSamplesRef.current = {};
     lastPoseFrameAtRef.current = 0;
