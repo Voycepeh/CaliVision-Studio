@@ -24,22 +24,54 @@ In short: Studio is the source-of-truth workspace for creating and improving dri
 
 ### Product ecosystem and workflow
 ```mermaid
-flowchart LR
-    L[Library] --> S[Drill Studio]
-    S --> D[Local Draft IndexedDB]
-    S --> H[Hosted Draft Supabase]
-    S --> P[Portable Drill File/Package]
-    D --> A[Upload Video]
-    H --> A
-    P --> A
-    D --> V[Livestream Analysis]
-    H --> V
-    P --> V
-    S --> X[Drill Exchange Publish]
-    X --> I[Import from Exchange]
-    I --> L
-    A --> O[Outputs: Reps / Holds / Phase Classification]
-    V --> O
+flowchart TD
+    A[Open CaliVision Studio] --> B{What do you want to do?}
+
+    B --> C[Create or manage drills]
+    B --> D[Analyze an uploaded video]
+    B --> E[Use live streaming]
+    B --> F[Browse public drills]
+
+    %% Drill authoring flow
+    C --> C1[Open My Drills or Drafts]
+    C1 --> C2[Create new drill or edit existing draft]
+    C2 --> C3[Define drill metadata<br/>name, type, camera view]
+    C3 --> C4[Add phases]
+    C4 --> C5[Author phase poses<br/>upload image, detect pose, adjust joints]
+    C5 --> C6[Preview animation]
+    C6 --> C7{Ready to release?}
+    C7 -->|No| C2
+    C7 -->|Yes| C8[Mark Ready and save released version]
+
+    %% Upload analysis flow
+    D --> D1[Choose a video file]
+    D1 --> D2[Select drill or Freestyle]
+    D2 --> D3[Process video in browser]
+    D3 --> D4[View overlay, phase detection,<br/>rep count or hold duration]
+    D4 --> D5[Review timeline and results]
+    D5 --> D6[Download annotated output or compare later]
+
+    %% Live streaming flow
+    E --> E1[Allow camera access]
+    E1 --> E2[Select drill or Freestyle]
+    E2 --> E3[Start live session]
+    E3 --> E4[See real-time skeletal overlay]
+    E4 --> E5[Track phase, reps, or hold duration]
+    E5 --> E6[Stop session]
+    E6 --> E7[Review recorded result and export if needed]
+
+    %% Public drill flow
+    F --> F1[Search public drill library]
+    F1 --> F2[Preview drill details and animation]
+    F2 --> F3{Use this drill?}
+    F3 -->|Yes| F4[Use directly in Upload or Live Streaming]
+    F3 -->|No| F1
+
+    %% Cross-links
+    C8 --> D2
+    C8 --> E2
+    F4 --> D2
+    F4 --> E2
 ```
 ## Main capabilities
 ### Analyze movement (upload + livestream)
