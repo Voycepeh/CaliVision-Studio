@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -61,7 +61,6 @@ function toHumanErrorMessage(error: unknown): string {
 
 export function LibraryOverview() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [drills, setDrills] = useState<DrillLibraryItem[]>([]);
   const [versionsByDrillId, setVersionsByDrillId] = useState<Record<string, DrillVersionSnapshot[]>>({});
@@ -72,6 +71,7 @@ export function LibraryOverview() {
   const [publishDraftByDrillId, setPublishDraftByDrillId] = useState<Record<string, PublishMetadataDraft>>({});
   const [myExchangePublications, setMyExchangePublications] = useState<ExchangePublication[]>([]);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
+  const [exchangeFeedback, setExchangeFeedback] = useState<{ status: "added" | "already"; title: string } | null>(null);
   const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
     pendingActionByItemId: {},
@@ -79,8 +79,6 @@ export function LibraryOverview() {
     actionErrorByItemId: {}
   });
   const signedInMode = persistenceMode === "cloud";
-  const exchangeAdded = searchParams.get("exchangeAdded");
-  const exchangeAddedTitle = searchParams.get("title");
   const repositoryContext = useMemo(
     () => ({
       mode: signedInMode ? "cloud" : "local",
@@ -110,6 +108,23 @@ export function LibraryOverview() {
   useEffect(() => {
     void refreshLibrary();
   }, [refreshLibrary]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const exchangeAdded = params.get("exchangeAdded");
+    const exchangeAddedTitle = params.get("title");
+    if (!exchangeAdded) {
+      setExchangeFeedback(null);
+      return;
+    }
+    setExchangeFeedback({
+      status: exchangeAdded === "already" ? "already" : "added",
+      title: exchangeAddedTitle ?? "Drill"
+    });
+  }, []);
 
   function setItemFeedback(itemId: string, nextMessage: string, tone: FeedbackTone = "success"): void {
     setItemActionState((current) => ({
@@ -373,11 +388,11 @@ export function LibraryOverview() {
     <section style={libraryLayoutStyle}>
       <section className="card" style={headerCardStyle}>
         <h2 style={{ margin: 0 }}>My drills</h2>
-        {exchangeAdded ? (
+        {exchangeFeedback ? (
           <p className="muted" style={{ margin: 0, color: "#b5e3c3" }}>
-            {exchangeAdded === "already"
-              ? `"${exchangeAddedTitle ?? "This drill"}" is already in My Library.`
-              : `Added "${exchangeAddedTitle ?? "Drill"}" to My Library.`}
+            {exchangeFeedback.status === "already"
+              ? `"${exchangeFeedback.title}" is already in My Library.`
+              : `Added "${exchangeFeedback.title}" to My Library.`}
           </p>
         ) : null}
         <p className="muted" style={{ margin: 0 }}>
