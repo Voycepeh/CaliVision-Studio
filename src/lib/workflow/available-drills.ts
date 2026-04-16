@@ -1,5 +1,4 @@
-import { listHostedLibrary } from "../hosted/library-repository.ts";
-import { loadDraft, loadDraftList } from "../persistence/local-draft-store.ts";
+import { listDrillsWithActiveVersion, type DrillRepositoryContext } from "../library/index.ts";
 import { buildDrillOptionLabel } from "../drills/labels.ts";
 export {
   buildDrillOptionGroups,
@@ -15,46 +14,27 @@ import type { AvailableDrillOption } from "./available-drill-selection";
 export async function loadAvailableDrillOptions(input: {
   session: unknown | null;
   isConfigured: boolean;
-  localLimit?: number;
 }): Promise<AvailableDrillOption[]> {
+  const context: DrillRepositoryContext = input.session && input.isConfigured ? { mode: "cloud", session: input.session as DrillRepositoryContext["session"] } : { mode: "local" };
+  const drills = await listDrillsWithActiveVersion(context);
   const options: AvailableDrillOption[] = [];
-
-  try {
-    const localSummaries = await loadDraftList();
-    for (const summary of localSummaries.slice(0, input.localLimit ?? 20)) {
-      const loaded = await loadDraft(summary.draftId);
-      const drill = loaded?.record.packageJson.drills[0];
-      if (!drill) continue;
-      options.push({
-        key: `local:${summary.draftId}:${drill.drillId}`,
-        label: buildDrillOptionLabel(drill),
-        sourceKind: "local",
-        sourceId: summary.draftId,
-        packageVersion: loaded.record.packageJson.manifest.packageVersion,
-        drill
-      });
+  for (const drill of drills) {
+    const selectedVersion = drill.activeReadyVersion ?? drill.openDraftVersion ?? drill.currentVersion;
+    const selectedDrill = selectedVersion.packageJson.drills[0];
+    if (!selectedDrill) {
+      continue;
     }
-  } catch {
-    // local list is optional in non-browser contexts
-  }
 
-  if (input.session && input.isConfigured) {
-    const hostedResult = await listHostedLibrary(input.session as Parameters<typeof listHostedLibrary>[0]);
-    if (hostedResult.ok) {
-      for (const item of hostedResult.value) {
-        const drill = item.content.drills[0];
-        if (!drill) continue;
-        options.push({
-          key: `hosted:${item.id}:${drill.drillId}`,
-          label: buildDrillOptionLabel(drill),
-          sourceKind: "hosted",
-          sourceId: item.id,
-          packageVersion: item.packageVersion,
-          drill
-        });
-      }
-    }
+    const sourceKind = context.mode === "cloud" ? "hosted" : "local";
+    const sourceId = selectedVersion.sourceId;
+    options.push({
+      key: `${sourceKind}:${sourceId}:${drill.drillId}`,
+      label: buildDrillOptionLabel(selectedDrill),
+      sourceKind,
+      sourceId,
+      packageVersion: selectedVersion.packageJson.manifest.packageVersion,
+      drill: selectedDrill
+    });
   }
-
   return options;
 }

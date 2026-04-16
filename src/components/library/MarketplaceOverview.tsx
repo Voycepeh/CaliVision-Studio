@@ -12,7 +12,7 @@ import {
   type ExchangePublication
 } from "@/lib/exchange";
 import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
-import { buildWorkflowDrillKey, setActiveDrillContext } from "@/lib/workflow/drill-context";
+import { setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const ALL_FILTER = "all";
 
@@ -24,7 +24,7 @@ export function MarketplaceOverview() {
   const [movementType, setMovementType] = useState(ALL_FILTER);
   const [difficulty, setDifficulty] = useState(ALL_FILTER);
   const [category, setCategory] = useState(ALL_FILTER);
-  const [pendingForkId, setPendingForkId] = useState<string | null>(null);
+  const [pendingAddId, setPendingAddId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string>("");
   const [warning, setWarning] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -61,33 +61,30 @@ export function MarketplaceOverview() {
   const difficultyOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.difficultyLevel))], [entries]);
   const categoryOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.category))], [entries]);
 
-  async function onFork(entry: ExchangePublication): Promise<void> {
+  async function onAddToLibrary(entry: ExchangePublication): Promise<void> {
     if (!session) {
-      setError("Sign in to fork/remix a published drill into your own library.");
+      setError("Sign in to add this drill to your library.");
       return;
     }
 
-    setPendingForkId(entry.id);
+    setPendingAddId(entry.id);
     setFeedback("");
     setWarning("");
     setError("");
 
     try {
       const existingFork = await findExistingExchangeFork(session, entry.id);
+      let staleLineageDetected = false;
       if (!existingFork.ok) {
-        throw new Error(existingFork.error);
+        setWarning("Could not verify prior Drill Exchange imports. Continuing with add to library.");
       }
-      if (existingFork.value) {
+      if (existingFork.ok && existingFork.value) {
         const existingEditable = await loadEditableVersionForDrill(existingFork.value.forkedPrivateDrillId, repositoryContext);
         if (existingEditable) {
-          setActiveDrillContext({
-            drillId: existingEditable.drillId,
-            sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
-            sourceId: existingEditable.sourceId
-          });
-          router.push(`/studio?drillId=${encodeURIComponent(existingEditable.drillId)}`);
+          router.push(`/library?exchangeAdded=already&title=${encodeURIComponent(entry.title)}`);
           return;
         }
+        staleLineageDetected = true;
       }
 
       const forked = await forkPublishedDrillToLibrary(
@@ -102,33 +99,24 @@ export function MarketplaceOverview() {
         publishedDrillId: entry.id,
         forkedPrivateDrillId: forked.drillId
       });
-      if (!lineage.ok) {
+
+      if (staleLineageDetected || !lineage.ok) {
         const repair = await updateExchangeForkTarget(session, {
           publishedDrillId: entry.id,
           forkedPrivateDrillId: forked.drillId
         });
         if (!repair.ok) {
-          setWarning(`Fork lineage sync is delayed: ${lineage.error}`);
+          setWarning("Drill added, but fork lineage sync is delayed.");
         }
       }
 
-      setActiveDrillContext({
-        drillId: forked.drillId,
-        sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
-        sourceId: forked.draftVersionId
-      });
-
-      const workflowKey = buildWorkflowDrillKey({
-        drillId: forked.drillId,
-        sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
-        sourceId: forked.draftVersionId
-      });
-      setFeedback(`Forked \"${entry.title}\" into your library draft. Opening Studio…`);
-      router.push(`/studio?drillId=${encodeURIComponent(forked.drillId)}&drillKey=${encodeURIComponent(workflowKey)}`);
+      setActiveDrillContext({ drillId: forked.drillId, sourceKind: persistenceMode === "cloud" ? "hosted" : "local", sourceId: forked.draftVersionId });
+      setFeedback(`Added "${entry.title}" to My Library.`);
+      router.push(`/library?exchangeAdded=1&title=${encodeURIComponent(entry.title)}&drillId=${encodeURIComponent(forked.drillId)}`);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to fork drill.");
+      setError(nextError instanceof Error ? nextError.message : "Failed to add drill to My Library.");
     } finally {
-      setPendingForkId(null);
+      setPendingAddId(null);
     }
   }
 
@@ -136,7 +124,7 @@ export function MarketplaceOverview() {
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
       <h2 style={{ margin: 0 }}>Drill Exchange</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Browse published drills from creators, open details, then fork/remix into your own library draft workflow.
+        Browse published drills from creators, preview details, then add what you want into My Library.
       </p>
 
       <div style={filtersRowStyle}>
@@ -195,10 +183,10 @@ export function MarketplaceOverview() {
               <p className="muted" style={{ margin: "0.25rem 0 0" }}>Tags: {entry.tags.join(", ") || "None"}</p>
               <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
                 <Link className="pill" href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
-                  Open details
+                  Preview details
                 </Link>
-                <button type="button" className="pill" disabled={pendingForkId === entry.id} onClick={() => void onFork(entry)}>
-                  {pendingForkId === entry.id ? "Forking…" : "Fork / Remix"}
+                <button type="button" className="pill" disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
+                  {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
                 </button>
               </div>
             </article>

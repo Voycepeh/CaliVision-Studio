@@ -4,9 +4,9 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 
 ## Current state
 
-- user-facing Exchange UX exists with hosted publish/browse/detail/fork flows,
+- user-facing Exchange UX exists with hosted publish/browse/detail/preview flows,
 - publish creates a snapshot tied to a specific Ready release version,
-- fork/remix creates a user-owned editable draft in normal Library/Studio workflow with stored fork lineage,
+- explicit **Add to My Library** creates a user-owned editable draft in normal Library/Studio workflow with stored fork lineage when available,
 - Upload Video local analysis remains device-local and separate from hosted exchange,
 - Home + Library positioning keeps Exchange discoverable but secondary to drill creation/editing.
 

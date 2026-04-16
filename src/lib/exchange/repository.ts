@@ -129,6 +129,24 @@ async function readBackendError(response: Response): Promise<string> {
   }
 }
 
+async function readBackendErrorPayload(response: Response): Promise<{ message: string; code?: string }> {
+  const fallback = { message: `Request failed (${response.status})` };
+  try {
+    const payload = (await response.json()) as { message?: string; details?: string | null; hint?: string | null; code?: string };
+    const parts = [payload?.message, payload?.details, payload?.hint, payload?.code ? `code=${payload.code}` : null].filter(Boolean);
+    return {
+      message: parts.length > 0 ? parts.join(" | ") : fallback.message,
+      code: payload?.code
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function isMissingExchangeForksTable(message: string, code?: string): boolean {
+  return code === "PGRST205" || /exchange_forks/i.test(message) && /schema cache|does not exist|relation/i.test(message);
+}
+
 function toSlug(value: string): string {
   return value
     .toLowerCase()
@@ -277,7 +295,11 @@ export async function findExistingExchangeFork(session: AuthSession, publishedDr
     { headers: headers(session) }
   );
   if (!response.ok) {
-    return { ok: false, error: `Failed to check existing fork lineage: ${await readBackendError(response)}` };
+    const backend = await readBackendErrorPayload(response);
+    if (isMissingExchangeForksTable(backend.message, backend.code)) {
+      return { ok: true, value: null };
+    }
+    return { ok: false, error: `Failed to check existing fork lineage: ${backend.message}` };
   }
 
   const rows = (await response.json()) as ExchangeForkRow[];
@@ -383,7 +405,11 @@ export async function recordExchangeFork(
   });
 
   if (!response.ok) {
-    return { ok: false, error: `Failed to save fork lineage: ${await readBackendError(response)}` };
+    const backend = await readBackendErrorPayload(response);
+    if (isMissingExchangeForksTable(backend.message, backend.code)) {
+      return { ok: false, error: "Fork lineage table is not available yet. Apply latest Supabase migrations and retry." };
+    }
+    return { ok: false, error: `Failed to save fork lineage: ${backend.message}` };
   }
 
   return { ok: true, value: undefined };
@@ -408,7 +434,11 @@ export async function updateExchangeForkTarget(
   );
 
   if (!response.ok) {
-    return { ok: false, error: `Failed to update fork lineage target: ${await readBackendError(response)}` };
+    const backend = await readBackendErrorPayload(response);
+    if (isMissingExchangeForksTable(backend.message, backend.code)) {
+      return { ok: false, error: "Fork lineage table is not available yet. Apply latest Supabase migrations and retry." };
+    }
+    return { ok: false, error: `Failed to update fork lineage target: ${backend.message}` };
   }
 
   return { ok: true, value: undefined };

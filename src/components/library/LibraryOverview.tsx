@@ -71,6 +71,7 @@ export function LibraryOverview() {
   const [publishDraftByDrillId, setPublishDraftByDrillId] = useState<Record<string, PublishMetadataDraft>>({});
   const [myExchangePublications, setMyExchangePublications] = useState<ExchangePublication[]>([]);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
+  const [exchangeFeedback, setExchangeFeedback] = useState<{ status: "added" | "already"; title: string } | null>(null);
   const { persistenceMode, session } = useAuth();
   const [{ pendingActionByItemId, actionMessageByItemId, actionErrorByItemId }, setItemActionState] = useState<ItemActionState>({
     pendingActionByItemId: {},
@@ -107,6 +108,23 @@ export function LibraryOverview() {
   useEffect(() => {
     void refreshLibrary();
   }, [refreshLibrary]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    const exchangeAdded = params.get("exchangeAdded");
+    const exchangeAddedTitle = params.get("title");
+    if (!exchangeAdded) {
+      setExchangeFeedback(null);
+      return;
+    }
+    setExchangeFeedback({
+      status: exchangeAdded === "already" ? "already" : "added",
+      title: exchangeAddedTitle ?? "Drill"
+    });
+  }, []);
 
   function setItemFeedback(itemId: string, nextMessage: string, tone: FeedbackTone = "success"): void {
     setItemActionState((current) => ({
@@ -370,6 +388,13 @@ export function LibraryOverview() {
     <section style={libraryLayoutStyle}>
       <section className="card" style={headerCardStyle}>
         <h2 style={{ margin: 0 }}>My drills</h2>
+        {exchangeFeedback ? (
+          <p className="muted" style={{ margin: 0, color: "#b5e3c3" }}>
+            {exchangeFeedback.status === "already"
+              ? `"${exchangeFeedback.title}" is already in My Library.`
+              : `Added "${exchangeFeedback.title}" to My Library.`}
+          </p>
+        ) : null}
         <p className="muted" style={{ margin: 0 }}>
           One library for all drills. Each drill keeps stable identity with version history, Draft/Ready status, and publish state.
         </p>

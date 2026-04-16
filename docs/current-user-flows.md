@@ -23,7 +23,7 @@
 ## Current Upload Video flow
 
 1. Upload Video opens in **No drill · Freestyle overlay** mode by default.
-2. User may optionally select a real drill from local drafts or hosted drills (when signed in) for rep/phase/hold analysis.
+2. User may optionally select a drill from **My Library** (local browser workspace when signed out, hosted user library when signed in). Selectors group by logical drill and prefer the released version when a draft also exists.
 3. Upload one local video (file picker or drag/drop) to start processing immediately in-browser.
 4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
 5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
@@ -40,7 +40,7 @@
 ## Current Live Streaming flow
 
 1. Open **Live Streaming** (`/live`) from primary navigation.
-2. Choose **No drill · Freestyle** or select a drill from local/hosted drafts before session start.
+2. Choose **No drill · Freestyle** or select a drill from **My Library** before session start. The same drill source semantics used by Library are reused in Live.
 3. Request camera permission, choose front/rear camera, and confirm preview readiness.
 4. Start a live browser session with intentionally capped overlay cadence (**10 FPS**) for mobile stability.
 5. If the active camera track exposes real hardware zoom, Studio keeps a compact always-visible **Zoom** control on top of the live preview; unsupported tracks show no zoom control (no software/crop/CSS fallback mode).
@@ -53,7 +53,7 @@ Cadence note (April 8, 2026): this browser cadence follows the Android repo’s 
 ## Current availability notes
 
 - Upload Video processing is browser-local and tab-bound.
-- Drill Exchange browse + detail + fork/remix now uses hosted Exchange publications.
+- Drill Exchange is browse/preview first; published drills stay separate from My Library until the user explicitly adds one.
 - Hosted auth/storage/community services are deferred.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
@@ -87,7 +87,7 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
 
 - Hosted drafts/My drills are private and user-owned.
-- Public Drill Exchange now supports publish → browse → detail → fork/remix in Supabase-backed Exchange tables.
+- Public Drill Exchange now supports publish → browse → detail/preview → explicit **Add to My Library** in Supabase-backed Exchange tables.
 - Package-first authoring remains the core workflow.
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
 - Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.

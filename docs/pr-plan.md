@@ -65,7 +65,10 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 
 - Assumption: Exchange is a public/shared drill library view, not a package file dump.
 - Assumption: publishing snapshots a specific Ready released version so later private edits do not mutate the public entry.
-- Assumption: fork/remix always creates a user-owned editable drill in standard Library/Studio flow.
+- Assumption: Exchange entries are preview-only until a user explicitly chooses **Add to My Library**.
+- Assumption: Add-to-library creates a user-owned editable drill in standard Library/Studio flow.
+- Assumption: fork lineage is best-effort and should degrade gracefully if lineage lookups fail.
+- Non-goal: making Exchange rows directly selectable in Upload Video/Live before user import.
 - Non-goal: graph explorer UI/relationship canvas.
 - Non-goal: semantic embeddings or chatbot retrieval.
 - Non-goal: likes, comments, ratings, or full moderation systems.

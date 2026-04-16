@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
@@ -12,7 +13,7 @@ import {
   type ExchangePublication
 } from "@/lib/exchange";
 import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
-import { setActiveDrillContext } from "@/lib/workflow/drill-context";
+import { buildWorkflowDrillKey, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 type Props = {
   slug: string;
@@ -25,7 +26,9 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
-  const [pendingFork, setPendingFork] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [pendingAdd, setPendingAdd] = useState(false);
+  const [addedResult, setAddedResult] = useState<{ drillId: string; draftVersionId: string } | null>(null);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
     () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
@@ -49,24 +52,26 @@ export function MarketplaceDrillDetail({ slug }: Props) {
     void load();
   }, [slug, session]);
 
-  async function onFork(): Promise<void> {
+  async function onAddToLibrary(): Promise<void> {
     if (!entry) {
       return;
     }
     if (!session) {
-      setError("Sign in to fork/remix a published drill.");
+      setError("Sign in to add this drill to your library.");
       return;
     }
 
-    setPendingFork(true);
+    setPendingAdd(true);
+    setFeedback("");
     setError("");
     setWarning("");
     try {
       const existingFork = await findExistingExchangeFork(session, entry.id);
+      let staleLineageDetected = false;
       if (!existingFork.ok) {
-        throw new Error(existingFork.error);
+        setWarning("Could not verify prior Drill Exchange imports. Continuing with add to library.");
       }
-      if (existingFork.value) {
+      if (existingFork.ok && existingFork.value) {
         const existingEditable = await loadEditableVersionForDrill(existingFork.value.forkedPrivateDrillId, repositoryContext);
         if (existingEditable) {
           setActiveDrillContext({
@@ -74,9 +79,11 @@ export function MarketplaceDrillDetail({ slug }: Props) {
             sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
             sourceId: existingEditable.sourceId
           });
-          router.push(`/studio?drillId=${encodeURIComponent(existingEditable.drillId)}`);
+          setFeedback(`"${entry.title}" is already in your library.`);
+          setAddedResult({ drillId: existingEditable.drillId, draftVersionId: existingEditable.versionId });
           return;
         }
+        staleLineageDetected = true;
       }
 
       const forked = await forkPublishedDrillToLibrary(
@@ -87,13 +94,13 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         publishedDrillId: entry.id,
         forkedPrivateDrillId: forked.drillId
       });
-      if (!lineage.ok) {
+      if (staleLineageDetected || !lineage.ok) {
         const repair = await updateExchangeForkTarget(session, {
           publishedDrillId: entry.id,
           forkedPrivateDrillId: forked.drillId
         });
         if (!repair.ok) {
-          setWarning(`Fork lineage sync is delayed: ${lineage.error}`);
+          setWarning("Drill added, but fork lineage sync is delayed.");
         }
       }
 
@@ -102,11 +109,12 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
         sourceId: forked.draftVersionId
       });
-      router.push(`/studio?drillId=${encodeURIComponent(forked.drillId)}`);
+      setFeedback(`Added "${entry.title}" to My Library.`);
+      setAddedResult({ drillId: forked.drillId, draftVersionId: forked.draftVersionId });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Fork failed.");
+      setError(nextError instanceof Error ? nextError.message : "Add to My Library failed.");
     } finally {
-      setPendingFork(false);
+      setPendingAdd(false);
     }
   }
 
@@ -147,10 +155,38 @@ export function MarketplaceDrillDetail({ slug }: Props) {
           ))}
         </ol>
       </details>
+      {drill ? <DrillSelectionPreviewPanel drill={drill} compact quiet /> : null}
 
-      <button type="button" className="pill" onClick={() => void onFork()} disabled={pendingFork}>
-        {pendingFork ? "Forking…" : "Fork / Remix into My Drills"}
+      <button type="button" className="pill" onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
+        {pendingAdd ? "Adding…" : "Add to My Library"}
       </button>
+      {addedResult ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+          <button
+            type="button"
+            className="pill"
+            onClick={() => router.push(`/library?exchangeAdded=1&title=${encodeURIComponent(entry.title)}&drillId=${encodeURIComponent(addedResult.drillId)}`)}
+          >
+            Go to My Library
+          </button>
+          <button
+            type="button"
+            className="pill"
+            onClick={() => {
+              const sourceKind = persistenceMode === "cloud" ? "hosted" : "local";
+              const workflowKey = buildWorkflowDrillKey({
+                drillId: addedResult.drillId,
+                sourceKind,
+                sourceId: addedResult.draftVersionId
+              });
+              router.push(`/studio?drillId=${encodeURIComponent(addedResult.drillId)}&drillKey=${encodeURIComponent(workflowKey)}`);
+            }}
+          >
+            Open in Studio
+          </button>
+        </div>
+      ) : null}
+      {feedback ? <p className="muted" style={{ margin: 0 }}>{feedback}</p> : null}
       {warning ? <p className="muted" style={{ margin: 0, color: "#f3d59b" }}>{warning}</p> : null}
       {error ? <p role="alert" style={{ margin: 0, color: "#f6cbcb" }}>{error}</p> : null}
     </section>
