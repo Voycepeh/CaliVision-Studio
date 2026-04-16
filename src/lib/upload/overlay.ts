@@ -3,6 +3,13 @@ import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
+import {
+  createCenterOfGravityOverlayState,
+  resolveSmoothedCenterOfGravity,
+  shouldRenderCenterOfGravity,
+  type CenterOfGravityOverlayState
+} from "@/lib/pose/center-of-gravity";
+import type { DrillCameraView } from "@/lib/analysis/camera-view";
 import type { PoseFrame } from "@/lib/upload/types";
 
 const CONNECTIONS = getPreviewConnections("front");
@@ -28,7 +35,17 @@ export function drawPoseOverlay(
   width: number,
   height: number,
   frame?: PoseFrame,
-  options?: { projection?: OverlayProjection }
+  options?: {
+    projection?: OverlayProjection;
+    centerOfGravity?: {
+      enabled?: boolean;
+      state?: CenterOfGravityOverlayState;
+      mode?: "drill" | "freestyle";
+      cameraView?: DrillCameraView;
+      allowFreestyle?: boolean;
+      minConfidence?: number;
+    };
+  }
 ): void {
   if (!frame) {
     return;
@@ -70,6 +87,48 @@ export function drawPoseOverlay(
     const radius = role === "nose" ? baseRadius * UPLOAD_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  const centerOfGravityEnabled = options?.centerOfGravity?.enabled ?? true;
+  const shouldShowCenterOfGravity = centerOfGravityEnabled
+    && shouldRenderCenterOfGravity({
+      mode: options?.centerOfGravity?.mode,
+      cameraView: options?.centerOfGravity?.cameraView,
+      allowFreestyle: options?.centerOfGravity?.allowFreestyle
+    });
+  const centerState = options?.centerOfGravity?.state ?? createCenterOfGravityOverlayState();
+  const centerPoint = shouldShowCenterOfGravity
+    ? resolveSmoothedCenterOfGravity(frame, centerState, {
+      minConfidence: options?.centerOfGravity?.minConfidence
+    })
+    : null;
+
+  if (centerPoint) {
+    const { x, y } = toCanvasPoint(centerPoint, width, height, options?.projection);
+    const radius = Math.max(4, (width / 1280) * 8);
+    const innerRadius = radius * 0.45;
+    ctx.save();
+    ctx.beginPath();
+    for (let i = 0; i < 10; i += 1) {
+      const angle = -Math.PI / 2 + i * (Math.PI / 5);
+      const pointRadius = i % 2 === 0 ? radius : innerRadius;
+      const px = x + Math.cos(angle) * pointRadius;
+      const py = y + Math.sin(angle) * pointRadius;
+      if (i === 0) {
+        ctx.moveTo(px, py);
+      } else {
+        ctx.lineTo(px, py);
+      }
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(248, 250, 252, 0.95)";
+    ctx.shadowColor = "rgba(15, 23, 42, 0.65)";
+    ctx.shadowBlur = Math.max(3, radius * 0.9);
+    ctx.fill();
+    ctx.lineWidth = Math.max(1.2, radius * 0.24);
+    ctx.strokeStyle = "rgba(14, 165, 233, 0.95)";
+    ctx.stroke();
+    ctx.restore();
   }
   ctx.restore();
 }

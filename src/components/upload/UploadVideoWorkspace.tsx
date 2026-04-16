@@ -32,6 +32,7 @@ import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGu
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
+import { createCenterOfGravityOverlayState, resetCenterOfGravityOverlayState } from "@/lib/pose/center-of-gravity";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -199,6 +200,7 @@ export function UploadVideoWorkspace() {
   const [traceStepMs, setTraceStepMs] = useState<number>(DEFAULT_TRACE_STEP_MS);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAbortRef = useRef<AbortController | null>(null);
+  const centerOfGravityOverlayRef = useRef(createCenterOfGravityOverlayState());
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
@@ -299,6 +301,10 @@ export function UploadVideoWorkspace() {
   }, [activeJob]);
 
   useEffect(() => {
+    resetCenterOfGravityOverlayState(centerOfGravityOverlayRef.current);
+  }, [activeJob?.id, rawPreviewObjectUrl]);
+
+  useEffect(() => {
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
     const container = fullscreenContainerRef.current;
@@ -346,7 +352,14 @@ export function UploadVideoWorkspace() {
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
       // Draw in full viewport space; projection maps normalized landmarks into the rendered video rect.
-      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, { projection });
+      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, {
+        projection,
+        centerOfGravity: {
+          state: centerOfGravityOverlayRef.current,
+          mode: activeJob.drillSelection.mode ?? "drill",
+          cameraView: activeJob.drillSelection.cameraView
+        }
+      });
       ctx.save();
       ctx.translate(videoRect.offsetX, videoRect.offsetY);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
@@ -451,6 +464,8 @@ export function UploadVideoWorkspace() {
           ? processingJob.drillSelection.drillBinding.drillName
           : "No drill · Freestyle overlay",
         includeDrillMetrics: (processingJob.drillSelection.mode ?? "drill") === "drill",
+        overlayMode: processingJob.drillSelection.mode ?? "drill",
+        overlayCameraView: processingJob.drillSelection.cameraView,
         phaseLabels: buildPhaseLabelMap(processingJob.drillSelection.drill),
         phaseCount: processingJob.drillSelection.drill?.analysis
           ? buildPhaseRuntimeModel(processingJob.drillSelection.drill, processingJob.drillSelection.drill.analysis).phaseCount

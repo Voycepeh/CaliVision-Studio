@@ -36,6 +36,8 @@ export async function exportAnnotatedReplayFromLiveTrace(input: {
     includeAnalysisOverlay: true,
     overlayModeLabel: input.trace.drillSelection.drillBindingLabel,
     includeDrillMetrics: input.trace.drillSelection.mode === "drill",
+    overlayMode: input.trace.drillSelection.mode,
+    overlayCameraView: input.trace.drillSelection.cameraView,
     phaseLabels,
     onProgress: input.onProgress
   });
