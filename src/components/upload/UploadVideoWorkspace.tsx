@@ -17,7 +17,8 @@ import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCame
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { DRILL_SOURCE_ORDER, formatDrillSourceLabel, type DrillSourceKind } from "@/lib/drill-source";
-import { resolveAvailableDownloads, resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
+import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
@@ -672,9 +673,12 @@ export function UploadVideoWorkspace() {
     userRequestedRawDuringProcessing: showRawDuringProcessing,
     preferredCompletedSurface: completedPreviewSurface
   });
-  const downloadTargets = resolveAvailableDownloads({
-    hasRaw: hasRawPreview,
-    hasAnnotated: hasAnnotatedPreview
+  const downloadTargets = resolveResultDownloadTargets({
+    resultType: "upload",
+    hasRawVideo: hasRawPreview,
+    hasAnnotatedVideo: hasAnnotatedPreview,
+    hasProcessingSummary: Boolean(activeJob?.artefacts?.processingSummary),
+    hasPoseTimeline: Boolean(activeJob?.artefacts?.poseTimeline)
   });
   const previewSelection = selectPreviewSource({
     preferredId: uploadPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
@@ -786,7 +790,7 @@ export function UploadVideoWorkspace() {
           ...(downloadTargets.includes("raw") && activeJob
             ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.file, activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
             : []),
-          ...(activeJob?.artefacts
+          ...(downloadTargets.includes("processing_summary") && activeJob?.artefacts
             ? [
                 {
                   id: "processing_summary",
@@ -797,7 +801,7 @@ export function UploadVideoWorkspace() {
                       `${createArtifactBaseName(activeJob.fileName)}.processing-summary.json`
                     )
                 },
-                {
+                ...(downloadTargets.includes("pose_timeline") ? [{
                   id: "pose_timeline",
                   label: "Download Pose Timeline (.json)",
                   onDownload: () =>
@@ -805,7 +809,7 @@ export function UploadVideoWorkspace() {
                       new Blob([JSON.stringify(activeJob.artefacts?.poseTimeline, null, 2)], { type: "application/json" }),
                       `${createArtifactBaseName(activeJob.fileName)}.pose-timeline.json`
                     )
-                }
+                }] : [])
               ]
             : [])
         ],

@@ -5,7 +5,8 @@ import { readFileSync } from "node:fs";
 test("/live keeps a single post-session result surface owner", () => {
   const liveWorkspace = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
   assert.ok(liveWorkspace.includes("live-streaming-results-card"));
-  assert.ok(!liveWorkspace.includes("AnalysisViewerShell"));
+  assert.ok(liveWorkspace.includes("AnalysisViewerShell"));
+  assert.ok(!liveWorkspace.includes("Live keeps a single result-surface owner (legacy live post-session module)"));
 });
 
 test("/live mounts real-time overlay canvas while session is active", () => {
