@@ -35,7 +35,6 @@ import {
   formatHardwareZoomLabel,
   getCameraSupportStatus,
   getHardwareZoomSupport,
-  getReplayStateMessage,
   getSupportedZoomPresets,
   mapLiveTraceToTimelineMarkers,
   replaceStreamSafely,
