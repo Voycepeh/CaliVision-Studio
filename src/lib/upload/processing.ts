@@ -6,6 +6,7 @@ import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 import { selectPreferredCaptureMimeType } from "@/lib/media/media-capabilities";
+import { classifyUploadCompatibility } from "@/lib/upload/compatibility";
 import {
   buildDeterministicFrameSchedule,
   buildEmissionPlanFromSourceTimes,
@@ -22,6 +23,7 @@ export type ProcessVideoOptions = {
   cadenceFps: number;
   signal?: AbortSignal;
   onProgress?: (progress: number, stageLabel: string) => void;
+  normalizationStrategy?: "auto" | "force" | "off";
 };
 
 type SourceKind = "original" | "normalized";
@@ -106,6 +108,23 @@ async function inspectVideoDiagnostics(file: File): Promise<VideoDiagnostics> {
   }
 }
 
+function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
+  const compatibility = classifyUploadCompatibility({
+    fileName: file.name,
+    mimeType: file.type,
+    width: diagnostics.width,
+    height: diagnostics.height,
+    durationMs: diagnostics.durationMs,
+    fps: diagnostics.fps,
+    codec: diagnostics.codec,
+    colorTransfer: diagnostics.colorTransfer,
+    isHdr: diagnostics.isHdrSource,
+    rotationMetadata: diagnostics.rotationMetadata
+  });
+  const reasons = [...compatibility.reasons];
+  if (diagnostics.hasSuspiciousMetadata && !reasons.includes("incomplete or low-confidence metadata")) {
+    reasons.push("incomplete or low-confidence metadata");
+  }
 async function samplePoseTimelineFromAnalysisSource(
   analysisFile: File,
   analysisSourceKind: SourceKind,
@@ -432,7 +451,10 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   let analysisFile = file;
   let analysisSourceKind: SourceKind = "original";
 
-  if (normalizationDecision.required) {
+  const normalizationStrategy = options.normalizationStrategy ?? "auto";
+  const shouldRunNormalization = normalizationStrategy === "force" || (normalizationStrategy === "auto" && normalizationDecision.required);
+
+  if (shouldRunNormalization) {
     logUploadEvent("NORMALIZATION_REQUIRED", {
       fileName: file.name,
       reasons: normalizationDecision.reasons
@@ -457,6 +479,11 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       (preprocessingError as Error & { cause?: unknown }).cause = error;
       throw preprocessingError;
     }
+  } else if (normalizationDecision.required && normalizationStrategy === "off") {
+    logUploadEvent("NORMALIZATION_BYPASSED_BY_USER", {
+      fileName: file.name,
+      reasons: normalizationDecision.reasons
+    });
   }
 
   let retryWithNormalizedSource = false;
