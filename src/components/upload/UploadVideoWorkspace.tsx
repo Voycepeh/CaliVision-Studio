@@ -8,7 +8,8 @@ import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
-import { createUploadPlaybackProjection, toOverlayProjectionFromUploadPlayback } from "@/lib/upload/upload-playback-projection";
+import { fitVideoContainRect } from "@/lib/upload/video-layout";
+import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
@@ -199,8 +200,6 @@ export function UploadVideoWorkspace() {
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const centerOfGravityTrackerRef = useRef(createCenterOfGravityTracker());
   const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
-  const [rawPreviewMimeType, setRawPreviewMimeType] = useState<string | undefined>(undefined);
-  const [rawPreviewFileName, setRawPreviewFileName] = useState<string | undefined>(undefined);
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
@@ -270,19 +269,14 @@ export function UploadVideoWorkspace() {
         if (previous) URL.revokeObjectURL(previous);
         return null;
       });
-      setRawPreviewMimeType(undefined);
-      setRawPreviewFileName(undefined);
       return;
     }
 
-    const replaySourceFile = activeJob.artefacts?.analysisVideoFile ?? activeJob.file;
-    const rawUrl = URL.createObjectURL(replaySourceFile);
+    const rawUrl = URL.createObjectURL(activeJob.file);
     setRawPreviewObjectUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return rawUrl;
     });
-    setRawPreviewMimeType(replaySourceFile.type || undefined);
-    setRawPreviewFileName(replaySourceFile.name || activeJob.fileName);
     if (activeJob.artefacts?.annotatedVideoBlob) {
       const annotatedUrl = URL.createObjectURL(activeJob.artefacts.annotatedVideoBlob);
       setAnnotatedPreviewObjectUrl((previous) => {
@@ -333,34 +327,22 @@ export function UploadVideoWorkspace() {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, containerWidth, containerHeight);
 
-      const playbackProjection = createUploadPlaybackProjection({
-        intrinsicWidth: video.videoWidth || 0,
-        intrinsicHeight: video.videoHeight || 0,
+      // Map normalized landmarks into the real rendered video rectangle (object-fit: contain),
+      // including pillar/letterbox offsets, so portrait overlays align with displayed video.
+      const videoRect = fitVideoContainRect({
+        containerWidth,
+        containerHeight,
+        videoWidth: video.videoWidth || 0,
+        videoHeight: video.videoHeight || 0
+      });
+      const projection = createOverlayProjection({
         viewportWidth: containerWidth,
         viewportHeight: containerHeight,
-        fitMode: "contain"
+        sourceWidth: video.videoWidth || 0,
+        sourceHeight: video.videoHeight || 0,
+        fitMode: "contain",
+        mirrored: false
       });
-      const projection = toOverlayProjectionFromUploadPlayback(playbackProjection);
-
-      const projectionDebug =
-        process.env.NODE_ENV !== "production" && typeof window !== "undefined"
-          ? (window as typeof window & { __CV_DEBUG_UPLOAD_PROJECTION__?: { enabled?: boolean } }).__CV_DEBUG_UPLOAD_PROJECTION__
-          : undefined;
-      if (projectionDebug?.enabled) {
-        console.debug("[upload-projection] PREVIEW_PROJECTION", {
-          sourceKind: activeJob.artefacts?.analysisSourceKind ?? "original",
-          originalWidth: activeJob.sourceWidth ?? undefined,
-          originalHeight: activeJob.sourceHeight ?? undefined,
-          normalizedWidth: activeJob.artefacts?.analysisVideoFile ? video.videoWidth || 0 : undefined,
-          normalizedHeight: activeJob.artefacts?.analysisVideoFile ? video.videoHeight || 0 : undefined,
-          viewportWidth: playbackProjection.viewportWidth,
-          viewportHeight: playbackProjection.viewportHeight,
-          fitMode: playbackProjection.fitMode,
-          scale: Number(playbackProjection.scale.toFixed(6)),
-          offsetX: Number(playbackProjection.offsetX.toFixed(2)),
-          offsetY: Number(playbackProjection.offsetY.toFixed(2))
-        });
-      }
 
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
@@ -370,9 +352,9 @@ export function UploadVideoWorkspace() {
         centerOfGravityTracker: centerOfGravityTrackerRef.current
       });
       ctx.save();
-      ctx.translate(playbackProjection.offsetX, playbackProjection.offsetY);
+      ctx.translate(videoRect.offsetX, videoRect.offsetY);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
-        drawAnalysisOverlay(ctx, playbackProjection.renderedWidth, playbackProjection.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
+        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
           modeLabel: activeJob.drillSelection.drillBinding.drillName,
           showDrillMetrics: true,
           phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill),
@@ -381,7 +363,7 @@ export function UploadVideoWorkspace() {
             : activeJob.drillSelection.drill?.phases.length
         });
       } else {
-        drawAnalysisOverlay(ctx, playbackProjection.renderedWidth, playbackProjection.renderedHeight, null, {
+        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
           modeLabel: "No drill · Freestyle overlay",
           showDrillMetrics: false
         });
@@ -484,6 +466,8 @@ export function UploadVideoWorkspace() {
       try {
         annotated = await exportAnnotatedVideo(exportSourceFile, timeline, {
           ...overlayOptions,
+          analysisSourceKind,
+          exportSourceFileName: exportSourceFile.name,
           onProgress: (progress, stageLabel) => {
             const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
             setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
@@ -498,6 +482,8 @@ export function UploadVideoWorkspace() {
           try {
             annotated = await exportAnnotatedVideo(fallbackExportSourceFile, timeline, {
               ...overlayOptions,
+              analysisSourceKind,
+              exportSourceFileName: fallbackExportSourceFile.name,
               onProgress: (progress, stageLabel) => {
                 const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
                 setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
@@ -525,8 +511,6 @@ export function UploadVideoWorkspace() {
               }) ?? "Completed",
               completedAtIso: new Date().toISOString(),
               artefacts: {
-                analysisSourceKind,
-                ...(analysisSourceKind === "normalized" ? { analysisVideoFile: analysisFile } : {}),
                 poseTimeline: timeline,
                 processingSummary: buildAnalysisSummary(timeline, annotated?.diagnostics),
                 ...(annotated
@@ -600,8 +584,6 @@ export function UploadVideoWorkspace() {
         fileName: file.name,
         fileSizeBytes: file.size,
         durationMs: metadata.durationMs,
-        sourceWidth: metadata.width,
-        sourceHeight: metadata.height,
         status: "queued",
         stageLabel: "Ready to analyze",
         progress: 0,
@@ -694,18 +676,18 @@ export function UploadVideoWorkspace() {
     preferredId: uploadPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
     sources: [
       ...(annotatedPreviewObjectUrl ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl, mimeType: activeJob?.artefacts?.annotatedVideoMimeType }] : []),
-      ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: rawPreviewMimeType }] : [])
+      ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: activeJob?.file?.type }] : [])
     ]
   });
   const preferredDeliverySource = selectPreferredDeliverySource([
     ...(activeJob?.artefacts?.annotatedVideoMimeType ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl ?? "", mimeType: activeJob.artefacts.annotatedVideoMimeType }] : []),
-    ...(rawPreviewMimeType ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: rawPreviewMimeType }] : [])
+    ...(activeJob?.file?.type ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: activeJob.file.type }] : [])
   ]);
   const downloadSafety = {
     annotated: activeJob?.artefacts?.annotatedVideoMimeType
       ? resolveSafeDelivery({ mimeType: activeJob.artefacts.annotatedVideoMimeType })
       : null,
-    raw: rawPreviewMimeType ? resolveSafeDelivery({ mimeType: rawPreviewMimeType }) : null
+    raw: activeJob?.file?.type ? resolveSafeDelivery({ mimeType: activeJob.file.type }) : null
   };
   const annotatedDownloadLabel = resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable });
   const rawDownloadLabel = resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable });
@@ -836,7 +818,7 @@ export function UploadVideoWorkspace() {
               }]
             : []),
           ...(downloadTargets.includes("raw") && activeJob
-            ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.artefacts?.analysisVideoFile ?? activeJob.file, rawPreviewFileName ?? activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
+            ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.file, activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
             : []),
           ...(downloadTargets.includes("processing_summary") && activeJob?.artefacts
             ? [

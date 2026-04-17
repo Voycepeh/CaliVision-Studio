@@ -25,8 +25,6 @@ export type UploadJob = {
   fileName: string;
   fileSizeBytes: number;
   durationMs?: number;
-  sourceWidth?: number;
-  sourceHeight?: number;
   status: UploadJobStatus;
   stageLabel: string;
   progress: number;
@@ -66,8 +64,6 @@ export type PoseTimeline = {
 };
 
 export type UploadJobArtifacts = {
-  analysisSourceKind?: "original" | "normalized";
-  analysisVideoFile?: File;
   poseTimeline: PoseTimeline;
   processingSummary: {
     schemaVersion: "upload-analysis-v1";
