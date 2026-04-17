@@ -12,7 +12,7 @@ export function toDrillSourceKind(sourceKind: StoredDrillSourceKind): DrillSourc
 
 export function formatDrillSourceLabel(sourceKind: DrillSourceKind): string {
   if (sourceKind === "cloud") return "Cloud";
-  if (sourceKind === "exchange") return "Drill Exchange";
+  if (sourceKind === "exchange") return "Public";
   return "Local";
 }
 
@@ -24,6 +24,7 @@ export function buildDuplicateSafeDrillLabel(input: {
   baseLabel: string;
   sourceKind: StoredDrillSourceKind;
   sourceId?: string;
+  drillId?: string;
   duplicateTitleCount: number;
 }): string {
   if (input.duplicateTitleCount <= 1) {
@@ -31,6 +32,15 @@ export function buildDuplicateSafeDrillLabel(input: {
   }
 
   const sourceLabel = formatStoredDrillSourceLabel(input.sourceKind);
-  const shortSourceId = input.sourceId ? ` • ${input.sourceId.slice(-6)}` : "";
-  return `${input.baseLabel} — ${sourceLabel}${shortSourceId}`;
+  const stableSeed = `${input.sourceId ?? ""}:${input.drillId ?? ""}`;
+  const shortDisambiguator = shortStableDisambiguator(stableSeed);
+  return `${input.baseLabel} — ${sourceLabel} ${shortDisambiguator}`;
+}
+
+function shortStableDisambiguator(seed: string): string {
+  let hash = 0;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = (hash * 31 + seed.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36).slice(0, 4).padStart(4, "0");
 }

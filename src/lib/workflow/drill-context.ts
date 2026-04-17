@@ -3,7 +3,7 @@ export const ACTIVE_DRILL_CONTEXT_EVENT_NAME = "workflow:active-drill-context";
 
 export type ActiveDrillContext = {
   drillId: string;
-  sourceKind: "local" | "hosted";
+  sourceKind: "local" | "hosted" | "exchange";
   sourceId: string;
 };
 
@@ -22,7 +22,7 @@ export function parseActiveDrillContext(raw: string | null | undefined): ActiveD
 
   try {
     const parsed = JSON.parse(raw) as Partial<ActiveDrillContext>;
-    if (!parsed || (parsed.sourceKind !== "local" && parsed.sourceKind !== "hosted")) {
+    if (!parsed || (parsed.sourceKind !== "local" && parsed.sourceKind !== "hosted" && parsed.sourceKind !== "exchange")) {
       return null;
     }
     if (typeof parsed.drillId !== "string" || typeof parsed.sourceId !== "string") {

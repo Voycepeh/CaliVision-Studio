@@ -10,7 +10,7 @@ import type { PortableDrill } from "../schema/contracts.ts";
 export type AvailableDrillOption = {
   key: string;
   label: string;
-  sourceKind: "local" | "hosted";
+  sourceKind: "local" | "hosted" | "exchange";
   sourceId?: string;
   packageVersion?: string;
   drill: PortableDrill;
@@ -21,7 +21,7 @@ export type AvailableDrillDisplayOption = AvailableDrillOption & { displayLabel:
 export function buildDrillOptionGroups(options: AvailableDrillOption[]): Map<DrillSourceKind, AvailableDrillDisplayOption[]> {
   const titleCounts = new Map<string, number>();
   for (const option of options) {
-    const key = option.drill.title.trim().toLowerCase();
+    const key = `${toDrillSourceKind(option.sourceKind)}::${option.drill.title.trim().toLowerCase()}`;
     titleCounts.set(key, (titleCounts.get(key) ?? 0) + 1);
   }
 
@@ -31,14 +31,15 @@ export function buildDrillOptionGroups(options: AvailableDrillOption[]): Map<Dri
   }
 
   for (const option of options) {
-    const duplicateTitleCount = titleCounts.get(option.drill.title.trim().toLowerCase()) ?? 1;
     const source = toDrillSourceKind(option.sourceKind);
+    const duplicateTitleCount = titleCounts.get(`${source}::${option.drill.title.trim().toLowerCase()}`) ?? 1;
     grouped.get(source)?.push({
       ...option,
       displayLabel: buildDuplicateSafeDrillLabel({
         baseLabel: option.label,
         sourceKind: option.sourceKind,
         sourceId: option.sourceId,
+        drillId: option.drill.drillId,
         duplicateTitleCount
       })
     });

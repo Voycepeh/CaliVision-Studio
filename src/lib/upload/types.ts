@@ -11,7 +11,7 @@ export type UploadJobDrillSelection = {
     drillId?: string;
     drillName: string;
     drillVersion?: string;
-    sourceKind: "freestyle" | "seeded" | "local" | "hosted" | "unknown";
+    sourceKind: "freestyle" | "seeded" | "local" | "hosted" | "exchange" | "unknown";
     sourceId?: string;
     sourceLabel?: string;
   };

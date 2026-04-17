@@ -2,7 +2,7 @@ import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableA
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
 export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
-export type DrillBindingSourceKind = "seeded" | "local" | "hosted" | "unknown";
+export type DrillBindingSourceKind = "seeded" | "local" | "hosted" | "exchange" | "unknown";
 
 export type AnalysisSessionDrillBinding = {
   drillId: string;

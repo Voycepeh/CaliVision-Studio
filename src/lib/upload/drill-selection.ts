@@ -12,7 +12,7 @@ export function resolveSelectedDrillKey(options: Array<{ key: string }>, current
 export function createUploadJobDrillSelection(input: {
   selectedDrill?: {
     key: string;
-    sourceKind: "local" | "hosted";
+    sourceKind: "local" | "hosted" | "exchange";
     sourceId?: string;
     packageVersion?: string;
     drill: PortableDrill;
