@@ -19,11 +19,11 @@ export function mapUploadAnalysisToViewerModel(input: {
   surface: ViewerSurface;
   hasRaw: boolean;
   hasAnnotated: boolean;
-  selectedEventId: string | null;
   primarySummaryChips: AnalysisViewerModel["primarySummaryChips"];
   technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
+  panel: AnalysisViewerModel["panel"];
   warnings?: string[];
   recommendedDeliveryLabel?: string;
   session: AnalysisSessionRecord | null;
@@ -98,11 +98,11 @@ export function mapUploadAnalysisToViewerModel(input: {
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents,
-    selectedEventId: input.selectedEventId,
     primarySummaryChips: input.primarySummaryChips,
     technicalStatusChips: [...(input.technicalStatusChips ?? []), ...replayChip],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
+    panel: input.panel,
     overlayFullscreenAction: input.overlayFullscreenAction,
     recommendedDeliveryLabel: input.recommendedDeliveryLabel,
     warnings: input.warnings ?? []
@@ -114,11 +114,11 @@ export function mapLiveAnalysisToViewerModel(input: {
   replayStageLabel: string | null;
   videoUrl: string | null;
   surface: ViewerSurface;
-  selectedEventId: string | null;
   primarySummaryChips: AnalysisViewerModel["primarySummaryChips"];
   technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
+  panel: AnalysisViewerModel["panel"];
   markers: LiveTimelineMarker[];
   durationMs: number;
   mediaAspectRatio?: number;
@@ -155,7 +155,6 @@ export function mapLiveAnalysisToViewerModel(input: {
     ],
     timelineDurationMs: input.durationMs,
     timelineEvents: input.markers.map((marker) => ({ ...marker, seekable: true })),
-    selectedEventId: input.selectedEventId,
     primarySummaryChips: input.primarySummaryChips,
     technicalStatusChips: [
       ...(input.technicalStatusChips ?? []),
@@ -168,6 +167,7 @@ export function mapLiveAnalysisToViewerModel(input: {
     ],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
+    panel: input.panel,
     recommendedDeliveryLabel: input.recommendedDeliveryLabel,
     warnings: input.warnings ?? []
   };

@@ -22,6 +22,7 @@ import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
 import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { getReplayStateMessage, getReplayStateTone, type ReplayTerminalState } from "@/lib/live/results-summary";
@@ -50,13 +51,6 @@ function formatDuration(durationMs?: number): string {
     return "Duration unavailable";
   }
   return durationMs !== undefined && durationMs < 10000 ? formatDurationShort(durationMs) : formatDurationClock(durationMs);
-}
-
-function formatConfidence(value?: number): string {
-  if (typeof value !== "number") {
-    return "n/a";
-  }
-  return `${Math.round(value * 100)}%`;
 }
 
 function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
@@ -209,7 +203,7 @@ export function UploadVideoWorkspace() {
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
-  const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
+  const [replayTimestampMs, setReplayTimestampMs] = useState(0);
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
@@ -401,7 +395,6 @@ export function UploadVideoWorkspace() {
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("raw");
-    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     setSelectedJobId(jobId);
     setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: null }));
@@ -620,7 +613,6 @@ export function UploadVideoWorkspace() {
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("raw");
-    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
@@ -699,13 +691,26 @@ export function UploadVideoWorkspace() {
   const previewUrl = previewSelection.source?.url ?? null;
 
   useEffect(() => {
-    const events = activeSession?.events ?? [];
-    if (events.length === 0) {
-      setSelectedViewerEventId(null);
+    setReplayTimestampMs(0);
+  }, [activeJob?.id, previewUrl, completedPreviewSurface]);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video) {
       return;
     }
-    setSelectedViewerEventId((current) => (current && events.some((event) => event.eventId === current) ? current : events[0].eventId));
-  }, [activeSession]);
+    const updateTimestamp = () => {
+      setReplayTimestampMs(Math.max(0, Math.round(video.currentTime * 1000)));
+    };
+    video.addEventListener("timeupdate", updateTimestamp);
+    video.addEventListener("seeked", updateTimestamp);
+    video.addEventListener("loadedmetadata", updateTimestamp);
+    return () => {
+      video.removeEventListener("timeupdate", updateTimestamp);
+      video.removeEventListener("seeked", updateTimestamp);
+      video.removeEventListener("loadedmetadata", updateTimestamp);
+    };
+  }, [previewUrl]);
 
   const uploadViewerModel = useMemo(
     () => {
@@ -721,7 +726,6 @@ export function UploadVideoWorkspace() {
         surface: completedPreviewSurface,
         hasRaw: hasRawPreview,
         hasAnnotated: hasAnnotatedPreview,
-        selectedEventId: selectedViewerEventId,
         session: activeSession,
         processingStageLabel: activeJob?.stageLabel ?? null,
         replayStateLabel: replayStatusLabel,
@@ -731,6 +735,32 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
             ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
             : undefined,
+        panel: buildNormalizedAnalysisUiModel({
+          drillLabel: activeJob?.drillSelection.drillBinding.drillName || "Upload Video",
+          movementType:
+            (activeJob?.drillSelection.mode ?? "drill") === "drill"
+              ? activeJob?.drillSelection.drill?.drillType === "hold"
+                ? "hold"
+                : "rep"
+              : "freestyle",
+          repCount: activeSession?.summary.repCount ?? 0,
+          holdDurationMs: activeSession?.summary.holdDurationMs ?? 0,
+          durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
+          confidence: activeSession?.summary.confidenceAvg,
+          events: activeSession?.events ?? [],
+          phaseLabelsById: activePhaseLabels,
+          phaseIdsInOrder: activeJob?.drillSelection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          phaseLabelMode: "timestamp",
+          currentTimestampMs: replayTimestampMs,
+          feedbackLines:
+            activeSession && activeSession.status === "completed"
+              ? [
+                  `Tracking confidence is ${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%.`,
+                  "Coach notes not available yet"
+                ]
+              : undefined,
+          phaseTimelineInteractive: true
+        }),
         primarySummaryChips:
           activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
             ? [
@@ -763,7 +793,7 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts && activeSession
             ? [
                 { id: "replay", label: "Replay", value: uploadPreviewState.includes("showing") ? "Available" : "Unavailable" },
-                { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
+                { id: "confidence", label: "Confidence", value: `${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%` },
                 ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
                 { id: "status", label: "Run status", value: activeSession.status }
               ]
@@ -839,7 +869,7 @@ export function UploadVideoWorkspace() {
       uploadPreviewState,
       previewUrl,
       completedPreviewSurface,
-      selectedViewerEventId,
+      replayTimestampMs,
       activeSession,
       activeJob,
       activePhaseLabels,
@@ -1130,9 +1160,9 @@ export function UploadVideoWorkspace() {
                       setShowRawDuringProcessing(surface === "raw");
                     }
                   }}
-                  onEventSelect={(event) => {
-                    setSelectedViewerEventId(event.id);
-                    seekVideoToTimestamp(previewVideoRef.current, event.timestampMs);
+                  onPhaseTimelineSelect={(segment) => {
+                    setReplayTimestampMs(segment.seekTimestampMs);
+                    seekVideoToTimestamp(previewVideoRef.current, segment.seekTimestampMs);
                   }}
                 />
               </div>

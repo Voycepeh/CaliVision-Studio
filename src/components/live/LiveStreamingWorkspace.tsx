@@ -19,6 +19,7 @@ import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, sele
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import {
@@ -219,7 +220,6 @@ export function LiveStreamingWorkspace() {
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
   const [annotatedReplayFailureMessage, setAnnotatedReplayFailureMessage] = useState<string | null>(null);
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
-  const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
   const [isStageFullscreen, setIsStageFullscreen] = useState(false);
@@ -378,10 +378,6 @@ export function LiveStreamingWorkspace() {
   const replayUrl = replayPreviewSelection.source?.url ?? null;
   const replayMimeType = replayPreviewSelection.source?.mimeType ?? null;
   const trackingStatusLabel = trackingStatusRef.current;
-  const selectedMarker = useMemo(
-    () => timelineMarkers.find((marker) => marker.id === selectedViewerEventId) ?? null,
-    [timelineMarkers, selectedViewerEventId]
-  );
   const workspacePhase: LiveWorkspacePhase = useMemo(() => {
     if (status === "live-session-running" || status === "requesting-permission") {
       return "live";
@@ -462,11 +458,24 @@ export function LiveStreamingWorkspace() {
         replayStageLabel: replayExportStageLabel,
         videoUrl: replayUrl,
         surface: completedPreviewSurface,
-        selectedEventId: selectedViewerEventId,
         markers: timelineMarkers,
         durationMs: liveTrace?.durationMs ?? 0,
         mediaAspectRatio: liveTrace?.width && liveTrace?.height ? liveTrace.width / liveTrace.height : undefined,
         hasAnnotatedReady: Boolean(annotatedReplayUrl),
+        panel: buildNormalizedAnalysisUiModel({
+          drillLabel: summary?.drillLabel ?? "Live Streaming",
+          movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
+          repCount: summary?.repCount ?? 0,
+          holdDurationMs: liveAnalysisSession?.summary.holdDurationMs ?? 0,
+          durationMs: liveTrace?.durationMs ?? 0,
+          confidence: liveAnalysisSession?.summary.confidenceAvg,
+          events: liveAnalysisSession?.events ?? [],
+          phaseLabelsById: phaseLabelMap,
+          phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          phaseLabelMode: "latest",
+          feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
+          phaseTimelineInteractive: false
+        }),
         primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
@@ -537,12 +546,15 @@ export function LiveStreamingWorkspace() {
       replayExportStageLabel,
       replayUrl,
       completedPreviewSurface,
-      selectedViewerEventId,
       timelineMarkers,
       liveTrace,
       annotatedReplayUrl,
       summary,
+      phaseLabelMap,
       activeCameraSource,
+      selection.mode,
+      selection.drill?.drillType,
+      selection.drill?.phases,
       selection.cameraView,
       trackingStatusLabel,
       downloadTargets,
@@ -561,14 +573,6 @@ export function LiveStreamingWorkspace() {
       preferredReplayDeliverySource
     ]
   );
-  useEffect(() => {
-    if (timelineMarkers.length === 0) {
-      setSelectedViewerEventId(null);
-      return;
-    }
-    setSelectedViewerEventId((current) => (current && timelineMarkers.some((marker) => marker.id === current) ? current : timelineMarkers[0].id));
-  }, [timelineMarkers]);
-
   useEffect(() => {
     if (!postAnalysisSnapshot) {
       return;
@@ -1011,7 +1015,6 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayFailureDetails(null);
     setPostAnalysisSnapshot(null);
     setLiveAnalysisSession(null);
-    setSelectedViewerEventId(null);
     updateFramingWarning(null);
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
@@ -1689,7 +1692,6 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
     setLiveAnalysisSession(null);
-    setSelectedViewerEventId(null);
     setErrorMessage(null);
   }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
 
@@ -1708,7 +1710,6 @@ export function LiveStreamingWorkspace() {
     stalePoseLoggedRef.current = false;
     clearLiveOverlayCanvas();
     previewVideoRef.current.srcObject = null;
-    setSelectedViewerEventId(null);
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
     setStatus("stopping-finalizing");
@@ -2102,12 +2103,12 @@ export function LiveStreamingWorkspace() {
                   setShowRawDuringProcessing(true);
                 }
               }}
-              onEventSelect={(event) => {
-                setSelectedViewerEventId(event.id);
-                seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
+              onPhaseTimelineSelect={(segment) => {
+                if (segment.interactive) {
+                  seekVideoToTimestamp(replayVideoRef.current, segment.seekTimestampMs);
+                }
               }}
             />
-            {selectedMarker ? <div className="pill">Selected event: {selectedMarker.label}</div> : null}
             {annotatedReplayFailureDetails ? (
               <details style={{ marginTop: "0.3rem" }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>Annotated export technical details</summary>
