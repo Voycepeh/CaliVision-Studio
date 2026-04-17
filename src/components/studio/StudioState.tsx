@@ -51,9 +51,12 @@ import {
 import { loadEditableVersionForDrill, loadVersionById, markVersionReady, validateVersionReadiness } from "@/lib/library";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
+import { normalizeBenchmarkPhases, normalizeDrillBenchmark, syncBenchmarkFromDrillPhases } from "@/lib/drills/benchmark";
 import type {
   CanonicalJointName,
   DrillPackagePublishingMetadata,
+  DrillBenchmark,
+  DrillBenchmarkPhase,
   PortableAssetRef,
   PortableDrill,
   PortablePhase,
@@ -141,6 +144,16 @@ type StudioStateValue = {
   setDrillType: (drillType: PortableDrill["drillType"]) => void;
   setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
   setDrillDefaultView: (view: PortableViewType) => void;
+  setBenchmarkEnabled: (enabled: boolean) => void;
+  setBenchmarkSourceType: (sourceType: DrillBenchmark["sourceType"]) => void;
+  setBenchmarkLabel: (label: string) => void;
+  setBenchmarkDescription: (description: string) => void;
+  setBenchmarkMovementType: (movementType: PortableDrill["drillType"]) => void;
+  setBenchmarkCameraView: (view: PortableViewType) => void;
+  setBenchmarkStatus: (status: "draft" | "ready") => void;
+  bootstrapBenchmarkFromAuthoredPhases: (overwriteExisting: boolean) => boolean;
+  updateBenchmarkPhase: (phaseKey: string, partial: Partial<Pick<DrillBenchmarkPhase, "key" | "label" | "targetDurationMs" | "notes">>) => void;
+  moveBenchmarkPhase: (phaseKey: string, direction: "up" | "down") => void;
   setManifestSchemaVersion: (schemaVersion: SchemaVersion) => void;
   setManifestPackageVersion: (packageVersion: string) => void;
   addPhase: () => void;
@@ -212,6 +225,24 @@ function readDraftSetupFlags(drill: PortableDrill | null): DraftSetupFlags {
 function writeDraftSetupFlags(drill: PortableDrill, partial: DraftSetupFlags): void {
   const current = readDraftSetupFlags(drill);
   (drill as PortableDrill & { draftSetup?: DraftSetupFlags }).draftSetup = { ...current, ...partial };
+}
+
+function ensureBenchmark(drill: PortableDrill): DrillBenchmark {
+  const normalized = normalizeDrillBenchmark(drill.benchmark);
+  if (normalized) {
+    drill.benchmark = normalized;
+    return normalized;
+  }
+
+  const created: DrillBenchmark = {
+    sourceType: "reference_pose_sequence",
+    movementType: drill.drillType,
+    cameraView: drill.primaryView,
+    status: "draft",
+    phaseSequence: []
+  };
+  drill.benchmark = created;
+  return created;
 }
 
 function createInitialPackages(): EditablePackageEntry[] {
@@ -1227,6 +1258,143 @@ export function StudioStateProvider({
     );
   }
 
+  function setBenchmarkEnabled(enabled: boolean): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        if (!enabled) {
+          drill.benchmark = null;
+          return;
+        }
+        ensureBenchmark(drill);
+      })
+    );
+  }
+
+  function setBenchmarkSourceType(sourceType: DrillBenchmark["sourceType"]): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.sourceType = sourceType;
+      })
+    );
+  }
+
+  function setBenchmarkLabel(label: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.label = label;
+      })
+    );
+  }
+
+  function setBenchmarkDescription(description: string): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.description = description;
+      })
+    );
+  }
+
+  function setBenchmarkMovementType(movementType: PortableDrill["drillType"]): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.movementType = movementType;
+      })
+    );
+  }
+
+  function setBenchmarkCameraView(view: PortableViewType): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.cameraView = view;
+      })
+    );
+  }
+
+  function setBenchmarkStatus(status: "draft" | "ready"): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        benchmark.status = status;
+      })
+    );
+  }
+
+  function bootstrapBenchmarkFromAuthoredPhases(overwriteExisting: boolean): boolean {
+    let synced = false;
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        synced = syncBenchmarkFromDrillPhases(drill, { overwriteExisting });
+      })
+    );
+    return synced;
+  }
+
+  function updateBenchmarkPhase(
+    phaseKey: string,
+    partial: Partial<Pick<DrillBenchmarkPhase, "key" | "label" | "targetDurationMs" | "notes">>
+  ): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        const phases = normalizeBenchmarkPhases(benchmark.phaseSequence ?? []);
+        const index = phases.findIndex((phase) => phase.key === phaseKey);
+        if (index < 0) return;
+        const current = phases[index];
+        phases[index] = {
+          ...current,
+          ...partial,
+          targetDurationMs:
+            typeof partial.targetDurationMs === "number"
+              ? partial.targetDurationMs > 0
+                ? partial.targetDurationMs
+                : undefined
+              : current.targetDurationMs
+        };
+        benchmark.phaseSequence = normalizeBenchmarkPhases(phases);
+      })
+    );
+  }
+
+  function moveBenchmarkPhase(phaseKey: string, direction: "up" | "down"): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const benchmark = ensureBenchmark(drill);
+        const phases = normalizeBenchmarkPhases(benchmark.phaseSequence ?? []);
+        const index = phases.findIndex((phase) => phase.key === phaseKey);
+        const swapIndex = direction === "up" ? index - 1 : index + 1;
+        if (index < 0 || swapIndex < 0 || swapIndex >= phases.length) return;
+        const next = [...phases];
+        [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
+        benchmark.phaseSequence = normalizeBenchmarkPhases(next);
+      })
+    );
+  }
+
   function setManifestSchemaVersion(schemaVersion: SchemaVersion): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -1914,6 +2082,16 @@ export function StudioStateProvider({
     setDrillType,
     setDrillDifficulty,
     setDrillDefaultView,
+    setBenchmarkEnabled,
+    setBenchmarkSourceType,
+    setBenchmarkLabel,
+    setBenchmarkDescription,
+    setBenchmarkMovementType,
+    setBenchmarkCameraView,
+    setBenchmarkStatus,
+    bootstrapBenchmarkFromAuthoredPhases,
+    updateBenchmarkPhase,
+    moveBenchmarkPhase,
     setManifestSchemaVersion,
     setManifestPackageVersion,
     addPhase,

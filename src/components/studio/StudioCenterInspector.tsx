@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
+import { StudioBenchmarkEditor } from "@/components/studio/StudioBenchmarkEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
@@ -240,7 +241,10 @@ export function StudioCenterInspector() {
       </header>
 
       <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
-        <StudioMetadataEditor />
+        <div style={{ display: "grid", gap: "0.55rem" }}>
+          <StudioMetadataEditor />
+          <StudioBenchmarkEditor />
+        </div>
       </WorkflowSection>
 
       <WorkflowSection title="2. Phase sequence" stepIndex={WORKFLOW_SECTION_IDS.phaseSequence} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.phaseSequence)} onToggle={handleSectionToggle}>

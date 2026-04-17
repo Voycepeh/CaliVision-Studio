@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getDrillBenchmark, getNormalizedBenchmarkPhases, hasBenchmark } from "../../drills/benchmark.ts";
+import {
+  createBenchmarkFromDrillPhases,
+  getDrillBenchmark,
+  getNormalizedBenchmarkPhases,
+  hasBenchmark,
+  hasBenchmarkTiming,
+  summarizeBenchmark,
+  syncBenchmarkFromDrillPhases
+} from "../../drills/benchmark.ts";
 import {
   normalizePortableDrill,
   normalizePortableDrillPackage,
@@ -88,6 +96,58 @@ test("benchmark phase sequence helper returns normalized ordered phases", () => 
   assert.equal(phases[0]?.order, 1);
   assert.equal(phases[1]?.key, "phase_b");
   assert.equal(phases[1]?.order, 2);
+});
+
+test("create benchmark from authored drill phases bootstraps key metadata + timing", () => {
+  const drill = makeBaseDrill({
+    phases: [
+      { phaseId: "phase_start", order: 1, name: "Start", summary: "Brace core", durationMs: 450, poseSequence: [], assetRefs: [] },
+      { phaseId: "phase_finish", order: 2, name: "Finish", durationMs: 620, poseSequence: [], assetRefs: [] }
+    ]
+  });
+
+  const benchmark = createBenchmarkFromDrillPhases(drill);
+  assert.equal(benchmark.sourceType, "reference_pose_sequence");
+  assert.equal(benchmark.phaseSequence?.length, 2);
+  assert.equal(benchmark.phaseSequence?.[0]?.key, "phase_start");
+  assert.equal(benchmark.phaseSequence?.[0]?.label, "Start");
+  assert.equal(benchmark.phaseSequence?.[0]?.targetDurationMs, 450);
+  assert.equal(benchmark.phaseSequence?.[0]?.notes, "Brace core");
+  assert.equal(benchmark.timing?.expectedRepDurationMs, 1070);
+});
+
+test("benchmark summary reports source, status, phase count, and timing availability", () => {
+  const drill = makeBaseDrill({
+    benchmark: {
+      sourceType: "seeded",
+      status: "ready",
+      phaseSequence: [{ key: "phase_a", order: 1, targetDurationMs: 600 }]
+    }
+  });
+  const summary = summarizeBenchmark(drill.benchmark);
+  assert.equal(summary.present, true);
+  assert.equal(summary.sourceType, "seeded");
+  assert.equal(summary.phaseCount, 1);
+  assert.equal(summary.status, "ready");
+  assert.equal(summary.hasTiming, true);
+  assert.equal(hasBenchmarkTiming(drill.benchmark), true);
+});
+
+test("benchmark sync from authored phases only overwrites when explicitly requested", () => {
+  const drill = makeBaseDrill({
+    benchmark: {
+      sourceType: "seeded",
+      phaseSequence: [{ key: "custom_phase", order: 1, label: "Custom phase" }]
+    }
+  });
+  const preserved = syncBenchmarkFromDrillPhases(drill, { overwriteExisting: false });
+  assert.equal(preserved, false);
+  assert.equal(drill.benchmark?.phaseSequence?.[0]?.key, "custom_phase");
+
+  const overwritten = syncBenchmarkFromDrillPhases(drill, { overwriteExisting: true });
+  assert.equal(overwritten, true);
+  assert.equal(drill.benchmark?.phaseSequence?.[0]?.key, "phase_a");
+  assert.equal(drill.benchmark?.phaseSequence?.[1]?.key, "phase_b");
 });
 
 test("round-trip serialization preserves benchmark payload", () => {
