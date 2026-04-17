@@ -64,6 +64,35 @@
         "entryConfirmationFrames": 2,
         "minimumHoldDurationMs": 500
       },
+      "benchmark": {
+        "sourceType": "reference_pose_sequence",
+        "label": "Push-up baseline benchmark",
+        "description": "Starter benchmark mirrored from authored phase sequence.",
+        "movementType": "rep",
+        "cameraView": "side",
+        "phaseSequence": [
+          {
+            "key": "phase_001",
+            "label": "Top plank",
+            "order": 1,
+            "targetDurationMs": 1200
+          },
+          {
+            "key": "phase_002",
+            "label": "Bottom",
+            "order": 2,
+            "targetDurationMs": 900
+          }
+        ],
+        "timing": {
+          "expectedRepDurationMs": 2100,
+          "phaseDurationsMs": {
+            "phase_001": 1200,
+            "phase_002": 900
+          }
+        },
+        "status": "ready"
+      },
       "phases": [
         {
           "phaseId": "phase_001",
