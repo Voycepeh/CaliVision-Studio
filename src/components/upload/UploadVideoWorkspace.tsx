@@ -22,7 +22,7 @@ import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
-import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
+import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { getReplayStateMessage, getReplayStateTone, type ReplayTerminalState } from "@/lib/live/results-summary";
@@ -735,7 +735,7 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
             ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
             : undefined,
-        panel: buildNormalizedAnalysisUiModel({
+        panel: buildAnalysisPanelModel(buildAnalysisDomainModel({
           drillLabel: activeJob?.drillSelection.drillBinding.drillName || "Upload Video",
           movementType:
             (activeJob?.drillSelection.mode ?? "drill") === "drill"
@@ -750,7 +750,7 @@ export function UploadVideoWorkspace() {
           events: activeSession?.events ?? [],
           phaseLabelsById: activePhaseLabels,
           phaseIdsInOrder: activeJob?.drillSelection.drill?.phases.map((phase) => phase.phaseId) ?? [],
-          phaseLabelMode: "timestamp",
+          mode: "timestamp",
           currentTimestampMs: replayTimestampMs,
           feedbackLines:
             activeSession && activeSession.status === "completed"
@@ -760,7 +760,7 @@ export function UploadVideoWorkspace() {
                 ]
               : undefined,
           phaseTimelineInteractive: true
-        }),
+        })),
         primarySummaryChips:
           activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
             ? [

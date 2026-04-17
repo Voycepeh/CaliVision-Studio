@@ -19,7 +19,7 @@ import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, sele
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
-import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
+import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import {
@@ -462,7 +462,7 @@ export function LiveStreamingWorkspace() {
         durationMs: liveTrace?.durationMs ?? 0,
         mediaAspectRatio: liveTrace?.width && liveTrace?.height ? liveTrace.width / liveTrace.height : undefined,
         hasAnnotatedReady: Boolean(annotatedReplayUrl),
-        panel: buildNormalizedAnalysisUiModel({
+        panel: buildAnalysisPanelModel(buildAnalysisDomainModel({
           drillLabel: summary?.drillLabel ?? "Live Streaming",
           movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
           repCount: summary?.repCount ?? 0,
@@ -472,10 +472,10 @@ export function LiveStreamingWorkspace() {
           events: liveAnalysisSession?.events ?? [],
           phaseLabelsById: phaseLabelMap,
           phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
-          phaseLabelMode: "latest",
+          mode: "latest",
           feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
           phaseTimelineInteractive: false
-        }),
+        })),
         primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
