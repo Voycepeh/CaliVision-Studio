@@ -50,3 +50,28 @@ test("createUploadJobDrillSelection defaults to freestyle mode when no drill is 
   assert.equal(snapshot.drill, undefined);
   assert.equal(snapshot.drillBinding.sourceKind, "freestyle");
 });
+
+test("createUploadJobDrillSelection keeps public drill reference details", () => {
+  const selectedDrill: Parameters<typeof createUploadJobDrillSelection>[0]["selectedDrill"] = {
+    key: "exchange:pub-123:drill-77",
+    sourceKind: "exchange",
+    sourceId: "pub-123",
+    packageVersion: "1.2.0",
+    drill: {
+      drillId: "drill-77",
+      slug: "drill-77",
+      title: "Public Drill 77",
+      drillType: "rep",
+      difficulty: "intermediate",
+      tags: [],
+      primaryView: "front",
+      phases: []
+    }
+  };
+
+  const snapshot = createUploadJobDrillSelection({ selectedDrill });
+  assert.equal(snapshot.mode, "drill");
+  assert.equal(snapshot.drillBinding.sourceKind, "exchange");
+  assert.equal(snapshot.drillBinding.sourceId, "pub-123");
+  assert.equal(snapshot.drillBinding.sourceLabel, "exchange:pub-123:drill-77");
+});
