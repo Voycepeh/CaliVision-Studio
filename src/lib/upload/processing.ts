@@ -2,6 +2,7 @@ import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/uploa
 import { buildReplayOverlaySamples, getOverlaySampleAtTime } from "@/lib/analysis/replay-state";
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import type { PoseTimeline } from "@/lib/upload/types";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
@@ -600,6 +601,7 @@ export async function exportAnnotatedVideo(
     fitMode: "contain",
     mirrored: false
   });
+  const centerOfGravityTracker = createCenterOfGravityTracker();
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
@@ -642,7 +644,10 @@ export async function exportAnnotatedVideo(
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       const frame = getNearestPoseFrame(sourceFrames, timestampMs);
-      drawPoseOverlay(ctx, canvas.width, canvas.height, frame, { projection: exportProjection });
+      drawPoseOverlay(ctx, canvas.width, canvas.height, frame, {
+        projection: exportProjection,
+        centerOfGravityTracker
+      });
       if (options?.includeAnalysisOverlay !== false && options?.analysisSession) {
         const overlayState = getOverlaySampleAtTime(overlaySamples, timestampMs);
         drawAnalysisOverlay(ctx, canvas.width, canvas.height, overlayState, {

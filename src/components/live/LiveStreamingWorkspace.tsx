@@ -13,6 +13,7 @@ import { buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
+import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import type { PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
@@ -263,6 +264,7 @@ export function LiveStreamingWorkspace() {
   const overlayPixelRatioRef = useRef(1);
   const overlayProjectionRef = useRef<OverlayProjection | null>(null);
   const overlayProjectionInputsRef = useRef<OverlayProjectionInputs | null>(null);
+  const centerOfGravityTrackerRef = useRef(createCenterOfGravityTracker());
   const lastOverlayDiagnosticsAtRef = useRef(0);
   const lastPreviewReadyCheckAtRef = useRef(0);
   const lastPoseFrameAtRef = useRef<number>(0);
@@ -997,6 +999,7 @@ export function LiveStreamingWorkspace() {
     }
 
     setErrorMessage(null);
+    centerOfGravityTrackerRef.current.reset();
     setStatus("requesting-permission");
     setIsReferencePanelVisible(false);
     setReplayState("idle");
@@ -1373,7 +1376,10 @@ export function LiveStreamingWorkspace() {
           liveCadenceStatsRef.current.stalePoseReuseCount += 1;
         }
         lastRenderedLandmarkTimestampRef.current = analyzedFrameState.poseFrame.timestampMs;
-        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, { projection });
+        drawPoseOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.poseFrame, {
+          projection,
+          centerOfGravityTracker: centerOfGravityTrackerRef.current
+        });
       } else if (staleLandmarkAgeMs >= LIVE_POSE_STALE_WARNING_MS) {
         if (performance.now() - lastTrackingHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
           updateTrackingStatus("Tracking lost");

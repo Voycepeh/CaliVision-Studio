@@ -4,6 +4,7 @@ import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import type { PoseFrame } from "@/lib/upload/types";
+import { createCenterOfGravityTracker, type CenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 
 const CONNECTIONS = getPreviewConnections("front");
 const VISIBLE_JOINTS = new Set(getPreviewJointNames("front"));
@@ -15,6 +16,81 @@ const UPLOAD_OVERLAY_STYLE = {
   jointRadiusLargeMultiplier: PREVIEW_OVERLAY_STYLE.jointRadiusLargeMultiplier,
   skeletonStrokeWidth: PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth
 } as const;
+
+const CENTER_OF_GRAVITY_STYLE = {
+  radius: 12,
+  innerRadius: 5.2,
+  spikes: 5,
+  fillColor: "rgba(251, 191, 36, 0.9)",
+  strokeColor: "rgba(15, 23, 42, 0.95)",
+  ringColor: "rgba(255, 255, 255, 0.92)",
+  strokeWidth: 2.6,
+  ringWidth: 1.5
+} as const;
+
+const FALLBACK_COG_TRACKER = createCenterOfGravityTracker();
+
+type CenterOfGravityDebugOptions = {
+  enabled?: boolean;
+  forceVisible?: boolean;
+};
+
+function resolveCenterOfGravityDebugOptions(debugOptions?: CenterOfGravityDebugOptions): Required<CenterOfGravityDebugOptions> {
+  const isDev = process.env.NODE_ENV !== "production";
+  const globalDebug = isDev && typeof window !== "undefined" ? (window as typeof window & { __CV_DEBUG_COG__?: CenterOfGravityDebugOptions }).__CV_DEBUG_COG__ : null;
+  return {
+    enabled: isDev && Boolean(debugOptions?.enabled ?? globalDebug?.enabled ?? false),
+    forceVisible: isDev && Boolean(debugOptions?.forceVisible ?? globalDebug?.forceVisible ?? false)
+  };
+}
+
+function drawCenterOfGravityStar(
+  ctx: CanvasRenderingContext2D,
+  point: { x: number; y: number },
+  width: number,
+  height: number,
+  projection?: OverlayProjection
+): { x: number; y: number } {
+  const canvasPoint = toCanvasPoint(point, width, height, projection);
+  const outerRadius = Math.max(8, (width / 1280) * CENTER_OF_GRAVITY_STYLE.radius);
+  const innerRadius = Math.max(3.8, (width / 1280) * CENTER_OF_GRAVITY_STYLE.innerRadius);
+
+  ctx.save();
+  ctx.beginPath();
+  for (let spike = 0; spike < CENTER_OF_GRAVITY_STYLE.spikes * 2; spike += 1) {
+    const angle = (Math.PI / CENTER_OF_GRAVITY_STYLE.spikes) * spike - Math.PI / 2;
+    const radius = spike % 2 === 0 ? outerRadius : innerRadius;
+    const x = canvasPoint.x + Math.cos(angle) * radius;
+    const y = canvasPoint.y + Math.sin(angle) * radius;
+    if (spike === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.closePath();
+  ctx.fillStyle = CENTER_OF_GRAVITY_STYLE.fillColor;
+  ctx.strokeStyle = CENTER_OF_GRAVITY_STYLE.strokeColor;
+  ctx.lineWidth = Math.max(1.8, (width / 1280) * CENTER_OF_GRAVITY_STYLE.strokeWidth);
+  ctx.shadowColor = "rgba(2, 6, 23, 0.35)";
+  ctx.shadowBlur = Math.max(5, (width / 1280) * 12);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(canvasPoint.x, canvasPoint.y, Math.max(2.4, (width / 1280) * 4), 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(2, 6, 23, 0.92)";
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(canvasPoint.x, canvasPoint.y, outerRadius + Math.max(1.2, width / 1280), 0, Math.PI * 2);
+  ctx.strokeStyle = CENTER_OF_GRAVITY_STYLE.ringColor;
+  ctx.lineWidth = Math.max(1, (width / 1280) * CENTER_OF_GRAVITY_STYLE.ringWidth);
+  ctx.stroke();
+  ctx.restore();
+
+  return canvasPoint;
+}
 
 function toCanvasPoint(joint: { x: number; y: number }, width: number, height: number, projection?: OverlayProjection) {
   if (projection) {
@@ -28,11 +104,14 @@ export function drawPoseOverlay(
   width: number,
   height: number,
   frame?: PoseFrame,
-  options?: { projection?: OverlayProjection }
+  options?: { projection?: OverlayProjection; centerOfGravityTracker?: CenterOfGravityTracker; debugCenterOfGravity?: CenterOfGravityDebugOptions }
 ): void {
   if (!frame) {
     return;
   }
+  const cogDebug = resolveCenterOfGravityDebugOptions(options?.debugCenterOfGravity);
+  const centerOfGravityTracker = options?.centerOfGravityTracker ?? FALLBACK_COG_TRACKER;
+  const centerOfGravity = centerOfGravityTracker.resolve(frame, { forceVisible: cogDebug.forceVisible });
 
   ctx.save();
   ctx.lineCap = "round";
@@ -70,6 +149,30 @@ export function drawPoseOverlay(
     const radius = role === "nose" ? baseRadius * UPLOAD_OVERLAY_STYLE.jointRadiusLargeMultiplier : baseRadius;
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  if (centerOfGravity.visible && centerOfGravity.point) {
+    const starCanvasPoint = drawCenterOfGravityStar(ctx, centerOfGravity.point, width, height, options?.projection);
+    if (cogDebug.enabled) {
+      console.debug("[cog-overlay] draw", {
+        visible: centerOfGravity.visible,
+        reason: centerOfGravity.reason,
+        coverageRatio: Number(centerOfGravity.coverageRatio.toFixed(3)),
+        usedSegmentCount: centerOfGravity.usedSegmentCount,
+        normalizedPoint: centerOfGravity.point,
+        canvasPoint: {
+          x: Number(starCanvasPoint.x.toFixed(1)),
+          y: Number(starCanvasPoint.y.toFixed(1))
+        }
+      });
+    }
+  } else if (cogDebug.enabled) {
+    console.debug("[cog-overlay] suppressed", {
+      reason: centerOfGravity.reason,
+      coverageRatio: Number(centerOfGravity.coverageRatio.toFixed(3)),
+      usedSegmentCount: centerOfGravity.usedSegmentCount,
+      hasFrame: Boolean(frame)
+    });
   }
   ctx.restore();
 }
