@@ -38,6 +38,8 @@ export type AnalysisViewerPhaseTimelineSegment = {
   endMs: number;
   seekTimestampMs: number;
   interactive: boolean;
+  phaseId?: string;
+  orderIndex?: number;
 };
 
 export type AnalysisViewerPanelModel = {
