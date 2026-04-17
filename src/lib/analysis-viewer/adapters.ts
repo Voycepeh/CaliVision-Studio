@@ -24,6 +24,7 @@ export function mapUploadAnalysisToViewerModel(input: {
   technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
+  panel: AnalysisViewerModel["panel"];
   warnings?: string[];
   recommendedDeliveryLabel?: string;
   session: AnalysisSessionRecord | null;
@@ -103,6 +104,7 @@ export function mapUploadAnalysisToViewerModel(input: {
     technicalStatusChips: [...(input.technicalStatusChips ?? []), ...replayChip],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
+    panel: input.panel,
     overlayFullscreenAction: input.overlayFullscreenAction,
     recommendedDeliveryLabel: input.recommendedDeliveryLabel,
     warnings: input.warnings ?? []
@@ -119,6 +121,7 @@ export function mapLiveAnalysisToViewerModel(input: {
   technicalStatusChips?: AnalysisViewerModel["technicalStatusChips"];
   downloads: AnalysisViewerModel["downloads"];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
+  panel: AnalysisViewerModel["panel"];
   markers: LiveTimelineMarker[];
   durationMs: number;
   mediaAspectRatio?: number;
@@ -168,6 +171,7 @@ export function mapLiveAnalysisToViewerModel(input: {
     ],
     downloads: input.downloads,
     diagnosticsSections: input.diagnosticsSections,
+    panel: input.panel,
     recommendedDeliveryLabel: input.recommendedDeliveryLabel,
     warnings: input.warnings ?? []
   };

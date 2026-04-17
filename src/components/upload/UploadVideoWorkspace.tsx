@@ -22,6 +22,7 @@ import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
 import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { getReplayStateMessage, getReplayStateTone, type ReplayTerminalState } from "@/lib/live/results-summary";
@@ -50,13 +51,6 @@ function formatDuration(durationMs?: number): string {
     return "Duration unavailable";
   }
   return durationMs !== undefined && durationMs < 10000 ? formatDurationShort(durationMs) : formatDurationClock(durationMs);
-}
-
-function formatConfidence(value?: number): string {
-  if (typeof value !== "number") {
-    return "n/a";
-  }
-  return `${Math.round(value * 100)}%`;
 }
 
 function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
@@ -731,6 +725,30 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts?.poseTimeline.video.width && activeJob.artefacts.poseTimeline.video.height
             ? activeJob.artefacts.poseTimeline.video.width / activeJob.artefacts.poseTimeline.video.height
             : undefined,
+        panel: buildNormalizedAnalysisUiModel({
+          drillLabel: activeJob?.drillSelection.drillBinding.drillName || "Upload Video",
+          movementType:
+            (activeJob?.drillSelection.mode ?? "drill") === "drill"
+              ? activeJob?.drillSelection.drill?.drillType === "hold"
+                ? "hold"
+                : "rep"
+              : "freestyle",
+          repCount: activeSession?.summary.repCount ?? 0,
+          holdDurationMs: activeSession?.summary.holdDurationMs ?? 0,
+          durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
+          confidence: activeSession?.summary.confidenceAvg,
+          events: activeSession?.events ?? [],
+          phaseLabelsById: activePhaseLabels,
+          phaseIdsInOrder: activeJob?.drillSelection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          feedbackLines:
+            activeSession && activeSession.status === "completed"
+              ? [
+                  `Tracking confidence is ${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%.`,
+                  "Coach notes not available yet"
+                ]
+              : undefined,
+          phaseTimelineInteractive: true
+        }),
         primarySummaryChips:
           activeJob?.artefacts && activeSession && (activeJob.drillSelection.mode ?? "drill") === "drill"
             ? [
@@ -763,7 +781,7 @@ export function UploadVideoWorkspace() {
           activeJob?.artefacts && activeSession
             ? [
                 { id: "replay", label: "Replay", value: uploadPreviewState.includes("showing") ? "Available" : "Unavailable" },
-                { id: "confidence", label: "Confidence", value: formatConfidence(activeSession.summary.confidenceAvg) },
+                { id: "confidence", label: "Confidence", value: `${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%` },
                 ...(activeJob.drillSelection.cameraView ? [{ id: "camera", label: "Camera view", value: formatCameraViewLabel(activeJob.drillSelection.cameraView) }] : []),
                 { id: "status", label: "Run status", value: activeSession.status }
               ]
@@ -1130,9 +1148,8 @@ export function UploadVideoWorkspace() {
                       setShowRawDuringProcessing(surface === "raw");
                     }
                   }}
-                  onEventSelect={(event) => {
-                    setSelectedViewerEventId(event.id);
-                    seekVideoToTimestamp(previewVideoRef.current, event.timestampMs);
+                  onPhaseTimelineSelect={(segment) => {
+                    seekVideoToTimestamp(previewVideoRef.current, segment.seekTimestampMs);
                   }}
                 />
               </div>

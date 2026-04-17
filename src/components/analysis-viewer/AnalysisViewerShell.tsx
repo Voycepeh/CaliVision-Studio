@@ -1,15 +1,15 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useEffect, useState } from "react";
-import type { AnalysisViewerModel, AnalysisViewerEvent, ViewerSurface } from "@/lib/analysis-viewer/types";
+import { useEffect, useMemo, useState } from "react";
+import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
 
 type Props = {
   model: AnalysisViewerModel;
   videoRef: RefObject<HTMLVideoElement | null>;
   onSurfaceChange: (surface: ViewerSurface) => void;
-  onEventSelect: (event: AnalysisViewerEvent) => void;
+  onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
   overlayCanvas?: React.ReactNode;
 };
 
@@ -20,13 +20,93 @@ function toneColor(tone?: "neutral" | "success" | "warning" | "danger"): string 
   return undefined;
 }
 
-export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onEventSelect, overlayCanvas }: Props) {
+export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, overlayCanvas }: Props) {
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(model.panel.phaseTimelineSegments[0]?.id ?? null);
+
+  useEffect(() => {
+    setSelectedSegmentId((current) => {
+      if (current && model.panel.phaseTimelineSegments.some((segment) => segment.id === current)) {
+        return current;
+      }
+      return model.panel.phaseTimelineSegments[0]?.id ?? null;
+    });
+  }, [model.panel.phaseTimelineSegments]);
+
   return (
-    <section style={{ display: "grid", gap: "0.6rem" }}>
-      {model.primarySummaryChips.length > 0 ? (
-        <AnalysisSummaryBar chips={model.primarySummaryChips} />
-      ) : null}
-      {model.technicalStatusChips.length > 0 ? <AnalysisTechnicalStatusBar chips={model.technicalStatusChips} /> : null}
+    <section className="analysis-viewer-layout">
+      <AnalysisVideoPane
+        model={model}
+        videoRef={videoRef}
+        onSurfaceChange={onSurfaceChange}
+        overlayCanvas={overlayCanvas}
+      />
+
+      <aside className="analysis-panel">
+        <header className="analysis-panel__header">
+          <p className="analysis-panel__eyebrow">Analysis</p>
+          <h4>{model.panel.drillLabel}</h4>
+        </header>
+
+        <AnalysisMetricGrid model={model} />
+
+        <AnalysisPhaseTimeline
+          segments={model.panel.phaseTimelineSegments}
+          selectedSegmentId={selectedSegmentId}
+          onSelect={(segment) => {
+            setSelectedSegmentId(segment.id);
+            onPhaseTimelineSelect(segment);
+          }}
+        />
+
+        <AnalysisDownloads model={model} />
+        {model.technicalStatusChips.length > 0 ? <AnalysisTechnicalStatusBar chips={model.technicalStatusChips} /> : null}
+        <AnalysisDiagnosticsAccordion sections={model.diagnosticsSections} />
+      </aside>
+    </section>
+  );
+}
+
+function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
+  return (
+    <div className="analysis-panel__cards">
+      <article className="analysis-card analysis-card--primary">
+        <p className="analysis-card__label">{model.panel.primaryMetricLabel}</p>
+        <p className="analysis-card__value">{model.panel.primaryMetricValue}</p>
+        {model.panel.primaryMetricDetail ? <p className="analysis-card__meta">{model.panel.primaryMetricDetail}</p> : null}
+      </article>
+
+      <article className="analysis-card">
+        <p className="analysis-card__label">Current phase</p>
+        <p className="analysis-card__body">{model.panel.currentPhaseLabel}</p>
+      </article>
+
+      <article className="analysis-card">
+        <p className="analysis-card__label">Confidence</p>
+        <p className="analysis-card__body">{model.panel.confidenceLabel}</p>
+      </article>
+
+      <article className="analysis-card">
+        <p className="analysis-card__label">Drill mode</p>
+        <p className="analysis-card__body">{model.panel.movementTypeLabel}</p>
+      </article>
+
+      <article className="analysis-card">
+        <p className="analysis-card__label">Feedback preview</p>
+        <p className="analysis-card__body">{model.panel.feedbackLines[0] ?? "Coach notes not available yet"}</p>
+        <p className="analysis-card__meta">{model.panel.feedbackLines[1] ?? "Run another analysis for more guidance."}</p>
+      </article>
+
+      <article className="analysis-card">
+        <p className="analysis-card__label">Summary metrics</p>
+        <div className="analysis-summary-metrics">
+          {model.panel.summaryMetrics.map((metric) => (
+            <div key={metric.id} className="analysis-summary-metric">
+              <span>{metric.label}</span>
+              <strong style={{ opacity: metric.placeholder ? 0.75 : 1 }}>{metric.value}</strong>
+            </div>
+          ))}
+        </div>
+      </article>
 
       {(model.state !== "ready" || model.warnings.length > 0) ? (
         <div className={model.state === "error" ? "result-preview-warning" : "result-preview-processing"}>
@@ -36,18 +116,7 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onEventS
           {model.warnings.map((warning) => <p key={warning} className="muted" style={{ margin: 0 }}>{warning}</p>)}
         </div>
       ) : null}
-
-      <AnalysisVideoPane
-        model={model}
-        videoRef={videoRef}
-        onSurfaceChange={onSurfaceChange}
-        overlayCanvas={overlayCanvas}
-      />
-
-      <AnalysisTimeline model={model} onEventSelect={onEventSelect} />
-      <AnalysisDownloads model={model} />
-      <AnalysisDiagnosticsAccordion sections={model.diagnosticsSections} />
-    </section>
+    </div>
   );
 }
 
@@ -72,7 +141,7 @@ function AnalysisVideoPane({
   const stageMaxWidth = `min(100%, min(1100px, calc(72vh * ${stableAspectRatio})))`;
 
   return (
-    <div style={{ display: "grid", gap: "0.5rem" }}>
+    <div style={{ display: "grid", gap: "0.5rem", minWidth: 0 }}>
       {model.canShowVideo && model.videoUrl ? (
         <div
           style={{
@@ -132,36 +201,53 @@ function AnalysisVideoPane({
   );
 }
 
-function AnalysisTimeline({ model, onEventSelect }: { model: AnalysisViewerModel; onEventSelect: (event: AnalysisViewerEvent) => void }) {
-  if (!model.timelineEvents.length) {
-    return <p className="muted" style={{ margin: 0 }}>No timeline events available for this result.</p>;
+function AnalysisPhaseTimeline({
+  segments,
+  selectedSegmentId,
+  onSelect
+}: {
+  segments: AnalysisViewerPhaseTimelineSegment[];
+  selectedSegmentId: string | null;
+  onSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
+}) {
+  if (segments.length === 0) {
+    return <p className="muted" style={{ margin: 0 }}>No phase timeline available for this analysis.</p>;
   }
-  const duration = Math.max(1, model.timelineDurationMs ?? model.timelineEvents.at(-1)?.timestampMs ?? 1);
+
+  const maxDuration = Math.max(1, ...segments.map((segment) => segment.endMs));
+  const gradient = useMemo(() => {
+    let cursor = 0;
+    const stops: string[] = [];
+    segments.forEach((segment, index) => {
+      const colors = ["rgba(114,168,255,0.35)", "rgba(140,231,191,0.35)", "rgba(247,213,139,0.35)", "rgba(188,143,255,0.35)"];
+      const start = Math.max(cursor, (segment.startMs / maxDuration) * 100);
+      const end = Math.max(start + 1, (segment.endMs / maxDuration) * 100);
+      const color = colors[index % colors.length];
+      stops.push(`${color} ${start}%`, `${color} ${Math.min(100, end)}%`);
+      cursor = end;
+    });
+    return `linear-gradient(90deg, ${stops.join(", ")})`;
+  }, [maxDuration, segments]);
+
   return (
     <section style={{ display: "grid", gap: "0.45rem" }}>
-      <strong>Timeline</strong>
-      <div style={{ position: "relative", height: "1.2rem", border: "1px solid var(--border)", borderRadius: "999px", background: "rgba(255,255,255,0.08)" }}>
-        {model.timelineEvents.map((event) => {
-          const leftPercent = (event.timestampMs / duration) * 100;
-          const color = event.kind === "rep" ? "#9b9dff" : event.kind === "hold" ? "#8ce7bf" : event.kind === "phase" ? "#f7d58b" : "#fff";
-          return (
-            <button
-              key={event.id}
-              type="button"
-              title={event.label}
-              disabled={event.seekable === false}
-              onClick={() => onEventSelect(event)}
-              style={{ position: "absolute", left: `${Math.min(99, Math.max(1, leftPercent))}%`, top: "50%", transform: "translate(-50%, -50%)", width: "0.7rem", height: "0.7rem", borderRadius: "999px", border: 0, background: color, opacity: event.seekable === false ? 0.4 : 1 }}
-            />
-          );
-        })}
+      <strong>Phase Timeline</strong>
+      <div className="analysis-phase-timeline" style={{ backgroundImage: gradient }}>
+        {segments.map((segment) => (
+          <button
+            key={segment.id}
+            type="button"
+            onClick={() => onSelect(segment)}
+            className="analysis-phase-segment"
+            aria-pressed={selectedSegmentId === segment.id}
+            title={segment.interactive ? `Jump to ${segment.label}` : segment.label}
+          >
+            <span className={`analysis-phase-chip ${selectedSegmentId === segment.id ? "is-active" : ""}`}>{segment.label}</span>
+          </button>
+        ))}
       </div>
     </section>
   );
-}
-
-function AnalysisSummaryBar({ chips }: { chips: AnalysisViewerModel["primarySummaryChips"] }) {
-  return <div style={{ display: "grid", gap: "0.45rem", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>{chips.map((chip) => <div key={chip.id} className="pill" style={{ color: toneColor(chip.tone), minHeight: "2rem", display: "flex", alignItems: "center" }}>{chip.label}: {chip.value}</div>)}</div>;
 }
 
 function AnalysisTechnicalStatusBar({ chips }: { chips: AnalysisViewerModel["technicalStatusChips"] }) {

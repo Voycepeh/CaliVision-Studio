@@ -2,6 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mapUploadAnalysisToViewerModel, mapLiveAnalysisToViewerModel } from "./adapters.ts";
 
+const panel = {
+  drillLabel: "Demo drill",
+  movementTypeLabel: "REP drill",
+  primaryMetricLabel: "Rep count",
+  primaryMetricValue: "4",
+  currentPhaseLabel: "1. Setup",
+  confidenceLabel: "82%",
+  feedbackLines: ["Coach notes not available yet", "Run another analysis for more guidance."],
+  summaryMetrics: [],
+  phaseTimelineSegments: []
+};
+
 test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
   const model = mapUploadAnalysisToViewerModel({
     previewState: "showing_annotated_completed",
@@ -14,6 +26,7 @@ test("mapUploadAnalysisToViewerModel maps session events to timeline", () => {
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     mediaAspectRatio: 9 / 16,
     session: {
       sessionId: "s1",
@@ -47,6 +60,7 @@ test("mapUploadAnalysisToViewerModel surfaces formatted annotated render progres
     technicalStatusChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     session: null,
     processingStageLabel: "Rendering frames 172/642",
     replayStateLabel: "Exporting annotated replay… · Rendering annotated video… 172/642 frames",
@@ -70,6 +84,7 @@ test("mapUploadAnalysisToViewerModel keeps both surfaces ready after completed u
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     session: null
   });
 
@@ -89,6 +104,7 @@ test("mapUploadAnalysisToViewerModel marks annotated unavailable when only raw u
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     session: null
   });
 
@@ -108,6 +124,7 @@ test("mapUploadAnalysisToViewerModel preserves processing UX when annotated rend
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     session: null
   });
 
@@ -125,6 +142,7 @@ test("mapUploadAnalysisToViewerModel preserves processing UX when annotated rend
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     session: null
   });
 
@@ -142,6 +160,7 @@ test("mapLiveAnalysisToViewerModel includes replay chip and loading state", () =
     primarySummaryChips: [],
     downloads: [],
     diagnosticsSections: [],
+    panel,
     markers: [],
     durationMs: 1000,
     hasAnnotatedReady: false,

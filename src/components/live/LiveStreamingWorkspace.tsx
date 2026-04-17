@@ -19,6 +19,7 @@ import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, sele
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildNormalizedAnalysisUiModel } from "@/lib/analysis-viewer/normalized-analysis";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import {
@@ -467,6 +468,19 @@ export function LiveStreamingWorkspace() {
         durationMs: liveTrace?.durationMs ?? 0,
         mediaAspectRatio: liveTrace?.width && liveTrace?.height ? liveTrace.width / liveTrace.height : undefined,
         hasAnnotatedReady: Boolean(annotatedReplayUrl),
+        panel: buildNormalizedAnalysisUiModel({
+          drillLabel: summary?.drillLabel ?? "Live Streaming",
+          movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
+          repCount: summary?.repCount ?? 0,
+          holdDurationMs: liveAnalysisSession?.summary.holdDurationMs ?? 0,
+          durationMs: liveTrace?.durationMs ?? 0,
+          confidence: liveAnalysisSession?.summary.confidenceAvg,
+          events: liveAnalysisSession?.events ?? [],
+          phaseLabelsById: phaseLabelMap,
+          phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
+          phaseTimelineInteractive: false
+        }),
         primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
@@ -2102,9 +2116,10 @@ export function LiveStreamingWorkspace() {
                   setShowRawDuringProcessing(true);
                 }
               }}
-              onEventSelect={(event) => {
-                setSelectedViewerEventId(event.id);
-                seekVideoToTimestamp(replayVideoRef.current, event.timestampMs);
+              onPhaseTimelineSelect={(segment) => {
+                if (segment.interactive) {
+                  seekVideoToTimestamp(replayVideoRef.current, segment.seekTimestampMs);
+                }
               }}
             />
             {selectedMarker ? <div className="pill">Selected event: {selectedMarker.label}</div> : null}

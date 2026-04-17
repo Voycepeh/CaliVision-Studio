@@ -31,6 +31,28 @@ export type AnalysisViewerDiagnosticsSection = {
   content: string[];
 };
 
+export type AnalysisViewerPhaseTimelineSegment = {
+  id: string;
+  label: string;
+  startMs: number;
+  endMs: number;
+  seekTimestampMs: number;
+  interactive: boolean;
+};
+
+export type AnalysisViewerPanelModel = {
+  drillLabel: string;
+  movementTypeLabel: string;
+  primaryMetricLabel: string;
+  primaryMetricValue: string;
+  primaryMetricDetail?: string;
+  currentPhaseLabel: string;
+  confidenceLabel: string;
+  feedbackLines: string[];
+  summaryMetrics: Array<{ id: string; label: string; value: string; placeholder?: boolean }>;
+  phaseTimelineSegments: AnalysisViewerPhaseTimelineSegment[];
+};
+
 export type AnalysisViewerModel = {
   state: ViewerState;
   stateTitle?: string;
@@ -48,6 +70,7 @@ export type AnalysisViewerModel = {
   technicalStatusChips: AnalysisViewerSummaryChip[];
   downloads: AnalysisViewerDownload[];
   diagnosticsSections: AnalysisViewerDiagnosticsSection[];
+  panel: AnalysisViewerPanelModel;
   overlayFullscreenAction?: { label: string; onToggle: () => void };
   recommendedDeliveryLabel?: string;
   warnings: string[];
