@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
 
@@ -215,19 +215,17 @@ function AnalysisPhaseTimeline({
   }
 
   const maxDuration = Math.max(1, ...segments.map((segment) => segment.endMs));
-  const gradient = useMemo(() => {
-    let cursor = 0;
-    const stops: string[] = [];
-    segments.forEach((segment, index) => {
-      const colors = ["rgba(114,168,255,0.35)", "rgba(140,231,191,0.35)", "rgba(247,213,139,0.35)", "rgba(188,143,255,0.35)"];
-      const start = Math.max(cursor, (segment.startMs / maxDuration) * 100);
-      const end = Math.max(start + 1, (segment.endMs / maxDuration) * 100);
-      const color = colors[index % colors.length];
-      stops.push(`${color} ${start}%`, `${color} ${Math.min(100, end)}%`);
-      cursor = end;
-    });
-    return `linear-gradient(90deg, ${stops.join(", ")})`;
-  }, [maxDuration, segments]);
+  let cursor = 0;
+  const stops: string[] = [];
+  segments.forEach((segment, index) => {
+    const colors = ["rgba(114,168,255,0.35)", "rgba(140,231,191,0.35)", "rgba(247,213,139,0.35)", "rgba(188,143,255,0.35)"];
+    const start = Math.max(cursor, (segment.startMs / maxDuration) * 100);
+    const end = Math.max(start + 1, (segment.endMs / maxDuration) * 100);
+    const color = colors[index % colors.length];
+    stops.push(`${color} ${start}%`, `${color} ${Math.min(100, end)}%`);
+    cursor = end;
+  });
+  const gradient = `linear-gradient(90deg, ${stops.join(", ")})`;
 
   return (
     <section style={{ display: "grid", gap: "0.45rem" }}>
