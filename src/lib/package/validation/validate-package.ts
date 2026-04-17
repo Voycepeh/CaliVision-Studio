@@ -1,6 +1,8 @@
-import { CANONICAL_JOINT_NAMES } from "@/lib/pose/canonical";
-import { normalizeDrillPhaseIdentity } from "@/lib/package/phase-identity";
+import { CANONICAL_JOINT_NAMES } from "../../pose/canonical.ts";
+import { normalizeDrillBenchmark } from "../../drills/benchmark.ts";
+import { normalizeDrillPhaseIdentity } from "../phase-identity.ts";
 import type {
+  DrillBenchmark,
   DrillPackage,
   PortableAssetRef,
   PortableDrill,
@@ -16,6 +18,14 @@ const ASSET_TYPE_SET = new Set<string>(["image", "video", "audio", "overlay"]);
 const ASSET_ROLE_SET = new Set<string>(["phase-source-image", "drill-thumbnail", "drill-preview"]);
 const ANALYSIS_MEASUREMENT_SET = new Set<string>(["rep", "hold", "hybrid"]);
 const PHASE_SEMANTIC_ROLE_SET = new Set<string>(["start", "bottom", "top", "lockout", "transition", "hold"]);
+const BENCHMARK_SOURCE_TYPE_SET = new Set<string>([
+  "none",
+  "builtin",
+  "seeded",
+  "reference_pose_sequence",
+  "reference_session",
+  "reference_video"
+]);
 
 const DEFAULT_ANALYSIS_BY_MEASUREMENT: Record<"rep" | "hold" | "hybrid", PortableDrillAnalysis> = {
   rep: {
@@ -169,7 +179,31 @@ export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
     slug: normalizedSlug,
     defaultView: undefined,
     analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
+    benchmark: normalizePortableDrillBenchmark(normalizedIdentity.benchmark, normalizedIdentity),
     phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase, normalizedIdentity.primaryView))
+  };
+}
+
+function normalizePortableDrillBenchmark(
+  benchmark: PortableDrill["benchmark"],
+  drill: Pick<PortableDrill, "drillType" | "primaryView" | "phases">
+): DrillBenchmark | null {
+  const normalized = normalizeDrillBenchmark(benchmark);
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    ...normalized,
+    movementType: normalized.movementType ?? drill.drillType,
+    cameraView: normalized.cameraView ?? drill.primaryView,
+    phaseSequence: normalized.phaseSequence ?? [],
+    timing: normalized.timing
+      ? {
+          ...normalized.timing,
+          phaseDurationsMs: normalized.timing.phaseDurationsMs ?? {}
+        }
+      : undefined
   };
 }
 
@@ -424,6 +458,9 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     if (drill.analysis !== undefined) {
       validateDrillAnalysis(drill.analysis, drill.phases, drill.drillType, `${drillPath}.analysis`, issues);
     }
+    if (drill.benchmark !== undefined && drill.benchmark !== null) {
+      validateDrillBenchmark(drill.benchmark, drill.phases, `${drillPath}.benchmark`, issues);
+    }
 
     const seenOrder = new Set<number>();
 
@@ -434,6 +471,74 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validatePhaseOrderingAndNames(drill.phases, drillPath, issues);
     validateDrillTimingConsistency(drill.phases, drillPath, issues);
   });
+}
+
+function validateDrillBenchmark(input: unknown, phases: unknown[], path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "benchmark must be an object when present.", "type"));
+    return;
+  }
+
+  if (typeof input.sourceType !== "string" || !BENCHMARK_SOURCE_TYPE_SET.has(input.sourceType)) {
+    issues.push(
+      makeIssue(
+        "error",
+        `${path}.sourceType`,
+        "sourceType must be none, builtin, seeded, reference_pose_sequence, reference_session, or reference_video.",
+        "type"
+      )
+    );
+  }
+
+  if (input.movementType !== undefined && !["rep", "hold"].includes(String(input.movementType))) {
+    issues.push(makeIssue("error", `${path}.movementType`, "movementType must be rep or hold when present.", "type"));
+  }
+
+  if (input.cameraView !== undefined && !PORTABLE_VIEW_SET.has(String(input.cameraView))) {
+    issues.push(makeIssue("error", `${path}.cameraView`, "cameraView must be front, side, or rear when present.", "type"));
+  }
+
+  if (input.phaseSequence !== undefined) {
+    if (!Array.isArray(input.phaseSequence)) {
+      issues.push(makeIssue("error", `${path}.phaseSequence`, "phaseSequence must be an array when present.", "type"));
+    } else {
+      const phaseIds = new Set(
+        phases
+          .filter(isRecord)
+          .map((phase) => (typeof phase.phaseId === "string" ? phase.phaseId : ""))
+          .filter(Boolean)
+      );
+      const seenKeys = new Set<string>();
+
+      input.phaseSequence.forEach((phase, index) => {
+        const phasePath = `${path}.phaseSequence[${index}]`;
+        if (!isRecord(phase)) {
+          issues.push(makeIssue("error", phasePath, "benchmark phase must be an object.", "type"));
+          return;
+        }
+
+        validateNonEmptyString(phase.key, `${phasePath}.key`, issues);
+        if (typeof phase.key === "string") {
+          const normalizedKey = phase.key.trim().toLocaleLowerCase();
+          if (seenKeys.has(normalizedKey)) {
+            issues.push(makeIssue("warning", `${phasePath}.key`, "benchmark phase keys should be unique.", "phase-required"));
+          }
+          seenKeys.add(normalizedKey);
+        }
+        validateOptionalNonEmptyString(phase.label, `${phasePath}.label`, issues);
+        if (typeof phase.order !== "number" || phase.order <= 0) {
+          issues.push(makeIssue("error", `${phasePath}.order`, "benchmark phase order must be a positive number.", "type"));
+        }
+        if (phase.targetDurationMs !== undefined && (typeof phase.targetDurationMs !== "number" || phase.targetDurationMs <= 0)) {
+          issues.push(makeIssue("error", `${phasePath}.targetDurationMs`, "targetDurationMs must be a positive number when present.", "timing"));
+        }
+
+        if (typeof phase.key === "string" && phaseIds.size > 0 && !phaseIds.has(phase.key) && phase.key.startsWith("phase_")) {
+          issues.push(makeIssue("warning", `${phasePath}.key`, `benchmark phase key '${phase.key}' does not match authored phaseId.`, "phase-required"));
+        }
+      });
+    }
+  }
 }
 
 function validateDrillAnalysis(

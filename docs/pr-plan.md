@@ -72,3 +72,11 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Non-goal: graph explorer UI/relationship canvas.
 - Non-goal: semantic embeddings or chatbot retrieval.
 - Non-goal: likes, comments, ratings, or full moderation systems.
+
+## Assumptions / non-goals for benchmark-aware coaching foundation
+
+- Assumption: benchmark metadata is attached to each drill as optional additive schema (`PortableDrill.benchmark`) and may be absent on most legacy drills.
+- Assumption: benchmark phase sequences remain separate from authored drill phases while providing deterministic mapping hooks.
+- Assumption: local drafts, hosted drills, seeded drills, and exchange/public payloads must round-trip benchmark metadata safely when present.
+- Non-goal: building full side-by-side benchmark comparison UI in this PR.
+- Non-goal: changing Android runtime/live coaching ownership boundaries; runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.

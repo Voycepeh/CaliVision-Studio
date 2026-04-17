@@ -1,4 +1,5 @@
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
+import { hasBenchmark } from "@/lib/drills/benchmark";
 import type { PortableDrill } from "@/lib/schema/contracts";
 
 type DrillSummaryMetadataProps = {
@@ -34,6 +35,7 @@ export function DrillSummaryMetadata({ drill, sourceKind, freestyleDescription }
         <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
         <span>View: {formatViewLabel(drill.primaryView)}</span>
         <span>Phases: {drill.phases.length}</span>
+        <span>{hasBenchmark(drill) ? "Benchmark: Ready" : "Benchmark: None"}</span>
         {sourceKind ? <span>Source: {formatStoredDrillSourceLabel(sourceKind)}</span> : null}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: "0.79rem" }}>

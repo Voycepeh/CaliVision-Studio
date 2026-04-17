@@ -95,6 +95,59 @@ export type PortableDrillAnalysis = {
   minimumHoldDurationMs: number;
 };
 
+export type DrillBenchmarkSourceType =
+  | "none"
+  | "builtin"
+  | "seeded"
+  | "reference_pose_sequence"
+  | "reference_session"
+  | "reference_video";
+
+export type DrillBenchmarkMovementType = "rep" | "hold";
+
+export type DrillBenchmarkPhase = {
+  key: string;
+  label?: string;
+  order: number;
+  pose?: PortablePose;
+  targetDurationMs?: number;
+  notes?: string;
+};
+
+export type DrillBenchmarkTiming = {
+  expectedRepDurationMs?: number;
+  targetHoldDurationMs?: number;
+  phaseDurationsMs?: Record<string, number>;
+};
+
+export type DrillBenchmarkScoringProfile = {
+  profileId?: string;
+  label?: string;
+  thresholdByMetric?: Record<string, number>;
+  weightByMetric?: Record<string, number>;
+};
+
+export type DrillBenchmarkMedia = {
+  referenceSessionId?: string;
+  referenceVideoAssetId?: string;
+  referenceVideoUri?: string;
+  notes?: string;
+};
+
+export type DrillBenchmark = {
+  id?: string;
+  label?: string;
+  description?: string;
+  sourceType: DrillBenchmarkSourceType;
+  movementType?: DrillBenchmarkMovementType;
+  cameraView?: PortableViewType;
+  phaseSequence?: DrillBenchmarkPhase[];
+  timing?: DrillBenchmarkTiming;
+  scoringProfile?: DrillBenchmarkScoringProfile;
+  media?: DrillBenchmarkMedia;
+  status?: "draft" | "ready";
+};
+
 export type PortablePhase = {
   phaseId: string;
   order: number;
@@ -125,6 +178,7 @@ export type PortableDrill = {
   previewAssetId?: string;
   phases: PortablePhase[];
   analysis?: PortableDrillAnalysis;
+  benchmark?: DrillBenchmark | null;
 };
 
 export type DrillPackagePublishingMetadata = {

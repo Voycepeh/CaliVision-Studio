@@ -61,6 +61,25 @@ const SIMPLE_REP_VALIDATION_PACKAGE: DrillPackage = {
         entryConfirmationFrames: 1,
         minimumHoldDurationMs: 300
       },
+      benchmark: {
+        sourceType: "seeded",
+        label: "Seed baseline",
+        description: "Starter benchmark mirrored from authored phase sequence.",
+        movementType: "rep",
+        cameraView: "front",
+        phaseSequence: [
+          { key: "phase_a", label: "Phase A", order: 1, targetDurationMs: 500 },
+          { key: "phase_b", label: "Phase B", order: 2, targetDurationMs: 500 }
+        ],
+        timing: {
+          expectedRepDurationMs: 1000,
+          phaseDurationsMs: {
+            phase_a: 500,
+            phase_b: 500
+          }
+        },
+        status: "ready"
+      },
       phases: [
         { phaseId: "phase_a", order: 1, name: "Phase A", durationMs: 500, poseSequence: [], assetRefs: [] },
         { phaseId: "phase_b", order: 2, name: "Phase B", durationMs: 500, poseSequence: [], assetRefs: [] }

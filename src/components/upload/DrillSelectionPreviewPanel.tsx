@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
+import { hasBenchmark } from "@/lib/drills/benchmark";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
 
@@ -143,6 +144,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
             <span>View: {formatViewLabel(drill.primaryView)}</span>
             <span>Phases: {drill.phases.length}</span>
+            <span>{hasBenchmark(drill) ? "Benchmark ready" : "No benchmark"}</span>
           </div>
         </div>
         {showSourceBadge ? (
