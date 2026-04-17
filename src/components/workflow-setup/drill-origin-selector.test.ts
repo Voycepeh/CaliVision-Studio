@@ -9,3 +9,13 @@ test("outside pointer interaction closes the combobox", () => {
   assert.ok(source.includes("!wrapperRef.current?.contains(event.target as Node)"));
   assert.ok(!source.includes("document.addEventListener(\"mousedown\""));
 });
+
+test("open combobox applies explicit layering styles for visible options panel", () => {
+  assert.ok(source.includes("data-combobox-open={isOpen ? \"true\" : \"false\"}"));
+  assert.ok(source.includes("zIndex: isOpen ? 120 : 1"));
+  assert.ok(source.includes("zIndex: 130"));
+});
+
+test("public drill options render readable text labels in the options panel", () => {
+  assert.ok(source.includes("{entry.label}"));
+});

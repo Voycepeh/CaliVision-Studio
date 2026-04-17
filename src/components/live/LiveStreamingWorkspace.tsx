@@ -1912,7 +1912,7 @@ export function LiveStreamingWorkspace() {
               <p className="muted" style={{ margin: 0, fontSize: "0.86rem" }}>
                 Live overlay runs at {LIVE_ANALYSIS_CADENCE_FPS} FPS analysis / {LIVE_OVERLAY_PRESENTATION_FPS} FPS presentation with automatic raw + annotated replay export.
               </p>
-              <div style={{ display: "grid", gap: "0.6rem" }}>
+              <div className="drill-selector-stack">
                 <div className="live-streaming-control-row">
                   <label className="live-streaming-control-field">
                   <span>Camera</span>

@@ -901,7 +901,7 @@ export function UploadVideoWorkspace() {
             />
             <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
-              <div style={{ display: "grid", gap: "0.6rem" }}>
+              <div className="drill-selector-stack">
                 <DrillOriginSelectField
                   selectedSource={selectedSource}
                   onSelectedSourceChange={setSelectedSource}

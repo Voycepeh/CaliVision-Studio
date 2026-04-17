@@ -123,7 +123,11 @@ export function DrillComboboxField({
   return (
     <label className={labelClassName}>
       <span>Drill</span>
-      <div ref={wrapperRef} style={{ position: "relative" }}>
+      <div
+        ref={wrapperRef}
+        data-combobox-open={isOpen ? "true" : "false"}
+        style={{ position: "relative", zIndex: isOpen ? 120 : 1, isolation: "isolate" }}
+      >
         <input
           type="text"
           className={inputClassName}
@@ -188,13 +192,14 @@ export function DrillComboboxField({
               top: "calc(100% + 0.35rem)",
               left: 0,
               right: 0,
-              zIndex: 25,
+              zIndex: 130,
               border: "1px solid var(--border)",
               borderRadius: "0.6rem",
               background: "var(--surface)",
               maxHeight: "min(260px, 48vh)",
               overflowY: "auto",
-              padding: "0.3rem"
+              padding: "0.3rem",
+              boxShadow: "0 12px 24px rgba(3, 7, 16, 0.48)"
             }}
           >
             {entries.length === 0 ? (

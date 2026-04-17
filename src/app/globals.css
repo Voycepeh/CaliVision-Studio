@@ -1095,6 +1095,15 @@ main {
   border: 1px solid rgba(128, 157, 192, 0.26);
   background: rgba(114, 168, 255, 0.06);
   margin: 0;
+  overflow: visible;
+}
+
+.drill-selector-stack {
+  display: grid;
+  gap: 0.6rem;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .setup-guidance-card {
@@ -1161,6 +1170,7 @@ main {
 .upload-workflow-action-card {
   border: 1px solid rgba(128, 157, 192, 0.36);
   background: rgba(114, 168, 255, 0.06);
+  overflow: visible;
 }
 
 .upload-workflow-dropzone {
