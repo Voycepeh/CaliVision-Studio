@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
+import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
 import { createOverlayProjection } from "@/lib/live/overlay-geometry";
@@ -203,6 +204,7 @@ export function UploadVideoWorkspace() {
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
+  const centerOfGravityTrackerRef = useRef(createCenterOfGravityTracker());
   const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
@@ -300,6 +302,10 @@ export function UploadVideoWorkspace() {
   }, [activeJob]);
 
   useEffect(() => {
+    centerOfGravityTrackerRef.current.reset();
+  }, [activeJob?.id]);
+
+  useEffect(() => {
     const video = previewVideoRef.current;
     const canvas = previewCanvasRef.current;
     const container = fullscreenContainerRef.current;
@@ -347,7 +353,10 @@ export function UploadVideoWorkspace() {
       const currentMs = video.currentTime * 1000;
       const frame = getNearestPoseFrame(activeJob.artefacts?.poseTimeline.frames ?? [], currentMs);
       // Draw in full viewport space; projection maps normalized landmarks into the rendered video rect.
-      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, { projection });
+      drawPoseOverlay(ctx, containerWidth, containerHeight, frame, {
+        projection,
+        centerOfGravityTracker: centerOfGravityTrackerRef.current
+      });
       ctx.save();
       ctx.translate(videoRect.offsetX, videoRect.offsetY);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
