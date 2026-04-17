@@ -1,5 +1,5 @@
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
-import { hasBenchmark } from "@/lib/drills/benchmark";
+import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import type { PortableDrill } from "@/lib/schema/contracts";
 
 type DrillSummaryMetadataProps = {
@@ -27,6 +27,7 @@ export function DrillSummaryMetadata({ drill, sourceKind, freestyleDescription }
       </section>
     );
   }
+  const benchmarkSummary = summarizeBenchmark(drill.benchmark);
 
   return (
     <section className="card" style={{ margin: 0, display: "grid", gap: "0.5rem", background: "rgba(114,168,255,0.04)" }}>
@@ -35,7 +36,11 @@ export function DrillSummaryMetadata({ drill, sourceKind, freestyleDescription }
         <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
         <span>View: {formatViewLabel(drill.primaryView)}</span>
         <span>Phases: {drill.phases.length}</span>
-        <span>{hasBenchmark(drill) ? "Benchmark: Ready" : "Benchmark: None"}</span>
+        <span>{benchmarkSummary.present ? "Benchmark available" : "Benchmark absent"}</span>
+        {benchmarkSummary.present ? <span>Benchmark source: {benchmarkSummary.sourceType}</span> : null}
+        {benchmarkSummary.present ? <span>Benchmark phases: {benchmarkSummary.phaseCount}</span> : null}
+        {benchmarkSummary.present ? <span>{benchmarkSummary.hasTiming ? "Benchmark timing available" : "Benchmark timing missing"}</span> : null}
+        {benchmarkSummary.present ? <span>Benchmark status: {benchmarkSummary.status ?? "draft"}</span> : null}
         {sourceKind ? <span>Source: {formatStoredDrillSourceLabel(sourceKind)}</span> : null}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: "0.79rem" }}>

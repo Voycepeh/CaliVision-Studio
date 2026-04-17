@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
-import { hasBenchmark } from "@/lib/drills/benchmark";
+import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
 
@@ -125,6 +125,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
     }
     return "Hold posture";
   }, [drill.drillType, previewPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex]);
+  const benchmarkSummary = useMemo(() => summarizeBenchmark(drill.benchmark), [drill.benchmark]);
 
   return (
     <section
@@ -144,7 +145,9 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
             <span>View: {formatViewLabel(drill.primaryView)}</span>
             <span>Phases: {drill.phases.length}</span>
-            <span>{hasBenchmark(drill) ? "Benchmark ready" : "No benchmark"}</span>
+            <span>{benchmarkSummary.present ? "Benchmark available" : "No benchmark"}</span>
+            {benchmarkSummary.present ? <span>Benchmark phases: {benchmarkSummary.phaseCount}</span> : null}
+            {benchmarkSummary.present ? <span>{benchmarkSummary.hasTiming ? "Benchmark timing available" : "Benchmark timing missing"}</span> : null}
           </div>
         </div>
         {showSourceBadge ? (

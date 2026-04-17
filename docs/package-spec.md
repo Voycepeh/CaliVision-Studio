@@ -90,7 +90,7 @@ Normalization posture:
 - partial benchmark payloads normalize into stable defaults for safe rendering hooks,
 - benchmark phase ordering and keys are normalized for deterministic downstream mapping.
 
-This PR only establishes schema/plumbing; side-by-side benchmark comparison UX and scoring execution are intentionally deferred.
+Studio now includes benchmark authoring/editing wiring for this schema (including bootstrap/sync from authored drill phases and lightweight phase metadata editing). Full side-by-side benchmark comparison UX and scoring execution remain intentionally deferred.
 
 ## Phase identity and naming discipline
 
