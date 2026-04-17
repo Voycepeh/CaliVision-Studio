@@ -96,6 +96,8 @@ export function buildNormalizedAnalysisUiModel(input: {
   phaseIdsInOrder?: string[];
   feedbackLines?: string[];
   summaryMetrics?: AnalysisSummaryMetricSlot[];
+  phaseLabelMode?: "latest" | "timestamp";
+  currentTimestampMs?: number;
   phaseTimelineInteractive: boolean;
 }): NormalizedAnalysisUiModel {
   const events = input.events ?? [];
@@ -108,6 +110,23 @@ export function buildNormalizedAnalysisUiModel(input: {
       ? formatDurationClock(input.holdDurationMs ?? 0)
       : String(input.repCount ?? 0);
 
+  const currentTimestampMs = toFiniteNonNegativeMs(input.currentTimestampMs);
+  const phaseLabelMode = input.phaseLabelMode ?? "latest";
+
+  const phaseAtTimestamp = (() => {
+    if (phaseLabelMode !== "timestamp" || currentTimestampMs === null) {
+      return null;
+    }
+    const entered = events
+      .filter((event) => event.type === "phase_enter" && event.phaseId && event.timestampMs <= currentTimestampMs)
+      .sort((a, b) => a.timestampMs - b.timestampMs);
+    const active = entered.at(-1);
+    if (!active?.phaseId) {
+      return "No phase detected yet";
+    }
+    return phaseLabelsById[active.phaseId] ?? "Phase unavailable";
+  })();
+
   return {
     drillLabel: input.drillLabel,
     movementType: input.movementType,
@@ -115,7 +134,7 @@ export function buildNormalizedAnalysisUiModel(input: {
     primaryMetricLabel: input.movementType === "hold" ? "Hold duration" : "Rep count",
     primaryMetricValue,
     primaryMetricDetail: input.movementType === "hold" ? "Total hold time in this analysis" : "Completed reps in this analysis",
-    currentPhaseLabel: findCurrentPhaseLabel(phaseLabelsById, events),
+    currentPhaseLabel: phaseAtTimestamp ?? findCurrentPhaseLabel(phaseLabelsById, events),
     confidenceLabel: formatPercent(input.confidence),
     feedbackLines:
       input.feedbackLines && input.feedbackLines.length > 0

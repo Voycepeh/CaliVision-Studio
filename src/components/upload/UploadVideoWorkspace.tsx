@@ -203,7 +203,7 @@ export function UploadVideoWorkspace() {
   const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
-  const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
+  const [replayTimestampMs, setReplayTimestampMs] = useState(0);
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
@@ -395,7 +395,6 @@ export function UploadVideoWorkspace() {
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("raw");
-    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     setSelectedJobId(jobId);
     setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: null }));
@@ -614,7 +613,6 @@ export function UploadVideoWorkspace() {
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
     setCompletedPreviewSurface("raw");
-    setSelectedViewerEventId(null);
     setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
@@ -693,13 +691,26 @@ export function UploadVideoWorkspace() {
   const previewUrl = previewSelection.source?.url ?? null;
 
   useEffect(() => {
-    const events = activeSession?.events ?? [];
-    if (events.length === 0) {
-      setSelectedViewerEventId(null);
+    setReplayTimestampMs(0);
+  }, [activeJob?.id, previewUrl, completedPreviewSurface]);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video) {
       return;
     }
-    setSelectedViewerEventId((current) => (current && events.some((event) => event.eventId === current) ? current : events[0].eventId));
-  }, [activeSession]);
+    const updateTimestamp = () => {
+      setReplayTimestampMs(Math.max(0, Math.round(video.currentTime * 1000)));
+    };
+    video.addEventListener("timeupdate", updateTimestamp);
+    video.addEventListener("seeked", updateTimestamp);
+    video.addEventListener("loadedmetadata", updateTimestamp);
+    return () => {
+      video.removeEventListener("timeupdate", updateTimestamp);
+      video.removeEventListener("seeked", updateTimestamp);
+      video.removeEventListener("loadedmetadata", updateTimestamp);
+    };
+  }, [previewUrl]);
 
   const uploadViewerModel = useMemo(
     () => {
@@ -715,7 +726,6 @@ export function UploadVideoWorkspace() {
         surface: completedPreviewSurface,
         hasRaw: hasRawPreview,
         hasAnnotated: hasAnnotatedPreview,
-        selectedEventId: selectedViewerEventId,
         session: activeSession,
         processingStageLabel: activeJob?.stageLabel ?? null,
         replayStateLabel: replayStatusLabel,
@@ -740,6 +750,8 @@ export function UploadVideoWorkspace() {
           events: activeSession?.events ?? [],
           phaseLabelsById: activePhaseLabels,
           phaseIdsInOrder: activeJob?.drillSelection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          phaseLabelMode: "timestamp",
+          currentTimestampMs: replayTimestampMs,
           feedbackLines:
             activeSession && activeSession.status === "completed"
               ? [
@@ -857,7 +869,7 @@ export function UploadVideoWorkspace() {
       uploadPreviewState,
       previewUrl,
       completedPreviewSurface,
-      selectedViewerEventId,
+      replayTimestampMs,
       activeSession,
       activeJob,
       activePhaseLabels,
@@ -1149,6 +1161,7 @@ export function UploadVideoWorkspace() {
                     }
                   }}
                   onPhaseTimelineSelect={(segment) => {
+                    setReplayTimestampMs(segment.seekTimestampMs);
                     seekVideoToTimestamp(previewVideoRef.current, segment.seekTimestampMs);
                   }}
                 />

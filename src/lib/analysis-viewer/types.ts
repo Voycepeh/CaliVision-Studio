@@ -65,7 +65,6 @@ export type AnalysisViewerModel = {
   surfaces: Array<{ id: ViewerSurface; label: string; availability: "unavailable" | "processing" | "ready"; description?: string }>;
   timelineDurationMs?: number;
   timelineEvents: AnalysisViewerEvent[];
-  selectedEventId: string | null;
   primarySummaryChips: AnalysisViewerSummaryChip[];
   technicalStatusChips: AnalysisViewerSummaryChip[];
   downloads: AnalysisViewerDownload[];

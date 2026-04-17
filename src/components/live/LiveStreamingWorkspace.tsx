@@ -220,7 +220,6 @@ export function LiveStreamingWorkspace() {
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
   const [annotatedReplayFailureMessage, setAnnotatedReplayFailureMessage] = useState<string | null>(null);
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
-  const [selectedViewerEventId, setSelectedViewerEventId] = useState<string | null>(null);
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
   const [previewAspectRatio, setPreviewAspectRatio] = useState<number>(16 / 9);
   const [isStageFullscreen, setIsStageFullscreen] = useState(false);
@@ -379,10 +378,6 @@ export function LiveStreamingWorkspace() {
   const replayUrl = replayPreviewSelection.source?.url ?? null;
   const replayMimeType = replayPreviewSelection.source?.mimeType ?? null;
   const trackingStatusLabel = trackingStatusRef.current;
-  const selectedMarker = useMemo(
-    () => timelineMarkers.find((marker) => marker.id === selectedViewerEventId) ?? null,
-    [timelineMarkers, selectedViewerEventId]
-  );
   const workspacePhase: LiveWorkspacePhase = useMemo(() => {
     if (status === "live-session-running" || status === "requesting-permission") {
       return "live";
@@ -463,7 +458,6 @@ export function LiveStreamingWorkspace() {
         replayStageLabel: replayExportStageLabel,
         videoUrl: replayUrl,
         surface: completedPreviewSurface,
-        selectedEventId: selectedViewerEventId,
         markers: timelineMarkers,
         durationMs: liveTrace?.durationMs ?? 0,
         mediaAspectRatio: liveTrace?.width && liveTrace?.height ? liveTrace.width / liveTrace.height : undefined,
@@ -478,6 +472,7 @@ export function LiveStreamingWorkspace() {
           events: liveAnalysisSession?.events ?? [],
           phaseLabelsById: phaseLabelMap,
           phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
+          phaseLabelMode: "latest",
           feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
           phaseTimelineInteractive: false
         }),
@@ -551,7 +546,6 @@ export function LiveStreamingWorkspace() {
       replayExportStageLabel,
       replayUrl,
       completedPreviewSurface,
-      selectedViewerEventId,
       timelineMarkers,
       liveTrace,
       annotatedReplayUrl,
@@ -575,14 +569,6 @@ export function LiveStreamingWorkspace() {
       preferredReplayDeliverySource
     ]
   );
-  useEffect(() => {
-    if (timelineMarkers.length === 0) {
-      setSelectedViewerEventId(null);
-      return;
-    }
-    setSelectedViewerEventId((current) => (current && timelineMarkers.some((marker) => marker.id === current) ? current : timelineMarkers[0].id));
-  }, [timelineMarkers]);
-
   useEffect(() => {
     if (!postAnalysisSnapshot) {
       return;
@@ -1025,7 +1011,6 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayFailureDetails(null);
     setPostAnalysisSnapshot(null);
     setLiveAnalysisSession(null);
-    setSelectedViewerEventId(null);
     updateFramingWarning(null);
     if (annotatedReplayUrl) {
       URL.revokeObjectURL(annotatedReplayUrl);
@@ -1703,7 +1688,6 @@ export function LiveStreamingWorkspace() {
     setAnnotatedReplayMimeType(null);
     setAnnotatedReplayFailureDetails(null);
     setLiveAnalysisSession(null);
-    setSelectedViewerEventId(null);
     setErrorMessage(null);
   }, [annotatedReplayUrl, cleanupSession, rawReplayUrl]);
 
@@ -1722,7 +1706,6 @@ export function LiveStreamingWorkspace() {
     stalePoseLoggedRef.current = false;
     clearLiveOverlayCanvas();
     previewVideoRef.current.srcObject = null;
-    setSelectedViewerEventId(null);
     updateTrackingStatus("Tracking ready");
     updateFramingWarning(null);
     setStatus("stopping-finalizing");
@@ -2122,7 +2105,6 @@ export function LiveStreamingWorkspace() {
                 }
               }}
             />
-            {selectedMarker ? <div className="pill">Selected event: {selectedMarker.label}</div> : null}
             {annotatedReplayFailureDetails ? (
               <details style={{ marginTop: "0.3rem" }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>Annotated export technical details</summary>
