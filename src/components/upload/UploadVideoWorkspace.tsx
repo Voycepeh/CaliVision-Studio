@@ -478,9 +478,11 @@ export function UploadVideoWorkspace() {
           : processingJob.drillSelection.drill?.phases.length
       };
 
+      const exportSourceFile = analysisSourceKind === "normalized" ? analysisFile : processingJob.file;
+      const fallbackExportSourceFile = analysisSourceKind === "normalized" ? processingJob.file : null;
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
-        annotated = await exportAnnotatedVideo(processingJob.file, timeline, {
+        annotated = await exportAnnotatedVideo(exportSourceFile, timeline, {
           ...overlayOptions,
           onProgress: (progress, stageLabel) => {
             const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
@@ -488,21 +490,21 @@ export function UploadVideoWorkspace() {
           }
         });
       } catch (error) {
-        if (analysisSourceKind === "normalized") {
-          console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+        if (fallbackExportSourceFile) {
+          console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_ORIGINAL_SOURCE", {
             fileName: processingJob.fileName,
             reason: error instanceof Error ? error.message : "unknown"
           });
           try {
-            annotated = await exportAnnotatedVideo(analysisFile, timeline, {
+            annotated = await exportAnnotatedVideo(fallbackExportSourceFile, timeline, {
               ...overlayOptions,
               onProgress: (progress, stageLabel) => {
                 const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
                 setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
               }
             });
-          } catch (normalizedError) {
-            setAnnotatedFailureDetails(normalizedError instanceof Error ? normalizedError.message : "Annotated export failed");
+          } catch (fallbackError) {
+            setAnnotatedFailureDetails(fallbackError instanceof Error ? fallbackError.message : "Annotated export failed");
           }
         } else {
           setAnnotatedFailureDetails(error instanceof Error ? error.message : "Annotated export failed");
