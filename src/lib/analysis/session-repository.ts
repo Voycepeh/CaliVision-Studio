@@ -1,4 +1,5 @@
 import type { AnalysisEvent, AnalysisSummaryMetrics, FramePhaseSample, PortableAnalysisMeasurementType } from "../schema/contracts.ts";
+import type { BenchmarkComparisonResult } from "./benchmark-comparison.ts";
 
 export type AnalysisSourceKind = "upload" | "live" | "debug" | "imported";
 export type AnalysisSessionStatus = "pending" | "completed" | "failed" | "cancelled" | "partial";
@@ -37,6 +38,7 @@ export type AnalysisSessionRecord = {
     confidenceAvg?: number;
     lowConfidenceFrames?: number;
   };
+  benchmarkComparison?: BenchmarkComparisonResult;
   debug?: {
     errorMessage?: string;
     detector?: string;

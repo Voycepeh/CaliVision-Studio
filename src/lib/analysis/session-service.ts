@@ -1,6 +1,7 @@
 import { runDrillAnalysisPipeline } from "./analysis-runner.ts";
 import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "./phase-runtime.ts";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics, type DrillCameraView } from "./camera-view.ts";
+import { compareAttemptToBenchmark } from "./benchmark-comparison.ts";
 import type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 import type { PoseTimeline } from "../upload/types.ts";
@@ -184,6 +185,15 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
       confidenceAvg: output.session.summary.confidenceAvg,
       lowConfidenceFrames: output.session.summary.lowConfidenceFrames
     },
+    benchmarkComparison: compareAttemptToBenchmark({
+      drill: input.drill,
+      session: {
+        events: output.session.events,
+        summary: output.session.summary,
+        frameSamples: output.session.frameSamples,
+        status: inferUploadSessionStatus(output.session)
+      }
+    }),
     debug: {
       detector: input.timeline.detector,
       cadenceFps: input.timeline.cadenceFps,

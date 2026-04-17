@@ -759,6 +759,32 @@ export function UploadVideoWorkspace() {
                   "Coach notes not available yet"
                 ]
               : undefined,
+          summaryMetrics: activeSession?.benchmarkComparison
+            ? [
+                { id: "benchmark_status", label: "Benchmark", value: activeSession.benchmarkComparison.status },
+                {
+                  id: "phase_match",
+                  label: "Phase sequence",
+                  value: activeSession.benchmarkComparison.phaseMatch.matched
+                    ? "Matched"
+                    : `Mismatch (${activeSession.benchmarkComparison.phaseMatch.matchedCount}/${activeSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length})`
+                },
+                {
+                  id: "timing_match",
+                  label: "Timing",
+                  value: activeSession.benchmarkComparison.timing.present
+                    ? (activeSession.benchmarkComparison.timing.matched ? "Matched" : "Mismatch")
+                    : "Unavailable"
+                },
+                {
+                  id: "duration",
+                  label: "Expected vs actual",
+                  value: activeSession.benchmarkComparison.movementType === "rep"
+                    ? `${formatDuration(activeSession.benchmarkComparison.timing.expectedRepDurationMs)} / ${formatDuration(activeSession.benchmarkComparison.timing.actualRepDurationMs)}`
+                    : `${formatDuration(activeSession.benchmarkComparison.timing.expectedHoldDurationMs)} / ${formatDuration(activeSession.benchmarkComparison.timing.actualHoldDurationMs)}`
+                }
+              ]
+            : undefined,
           phaseTimelineInteractive: true
         })),
         primarySummaryChips:

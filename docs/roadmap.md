@@ -6,6 +6,7 @@
 - Library as primary workspace entry with obvious New drill CTA,
 - polished Drill Studio draft authoring flow,
 - Upload Video local-first queue + MediaPipe processing + artifact download,
+- deterministic benchmark comparison engine (rule-based phase/timing checks) attached to analysis outputs when drill benchmark metadata exists,
 - Drill Exchange naming/discovery clarity,
 - package/file portability retained internally.
 

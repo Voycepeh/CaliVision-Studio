@@ -1,5 +1,6 @@
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import { formatCameraViewLabel } from "../analysis/camera-view.ts";
+import { compareAttemptToBenchmark } from "../analysis/benchmark-comparison.ts";
 import type { PoseTimeline } from "../upload/types.ts";
 import type { LiveSessionTrace } from "./types.ts";
 
@@ -23,6 +24,17 @@ export function buildTimelineFromLiveTrace(trace: LiveSessionTrace): PoseTimelin
 
 export function buildAnalysisSessionFromLiveTrace(trace: LiveSessionTrace): AnalysisSessionRecord {
   const drill = trace.drillSelection.drill;
+  const benchmarkComparison = drill
+    ? compareAttemptToBenchmark({
+        drill,
+        session: {
+          events: trace.events,
+          summary: trace.summary,
+          frameSamples: trace.captures.map((capture) => capture.frameSample),
+          status: "completed"
+        }
+      })
+    : undefined;
   return {
     sessionId: trace.traceId,
     drillId: drill?.drillId ?? "freestyle",
@@ -44,6 +56,7 @@ export function buildAnalysisSessionFromLiveTrace(trace: LiveSessionTrace): Anal
       confidenceAvg: trace.summary.confidenceAvg,
       lowConfidenceFrames: trace.summary.lowConfidenceFrames
     },
+    benchmarkComparison,
     debug: {
       detector: "mediapipe-pose-landmarker",
       cadenceFps: trace.cadenceFps,

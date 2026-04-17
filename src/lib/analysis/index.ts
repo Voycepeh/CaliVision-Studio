@@ -18,6 +18,14 @@ export {
   persistCompletedUploadAnalysisSession,
   persistFailedUploadAnalysisSession
 } from "./session-service.ts";
+export {
+  compareAttemptPhasesToBenchmark,
+  compareAttemptTimingToBenchmark,
+  compareAttemptToBenchmark,
+  compareHoldAttemptToBenchmark,
+  compareRepAttemptToBenchmark
+} from "./benchmark-comparison.ts";
+export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./benchmark-comparison.ts";
 
 export {
   ANALYSIS_ARTIFACT_TYPE,
