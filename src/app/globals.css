@@ -1240,10 +1240,10 @@ main {
 }
 
 .drill-combobox-listbox {
-  border: 1px solid rgba(168, 202, 255, 0.5);
+  border: 1px solid #3b4f6c;
   border-radius: 0.75rem;
-  background: var(--surface);
-  box-shadow: 0 16px 36px rgba(4, 10, 20, 0.56);
+  background: #0d1522;
+  box-shadow: 0 16px 36px #02060d;
   overflow-y: auto;
   padding: 0.35rem;
 }
@@ -1266,10 +1266,10 @@ main {
 .drill-combobox-option {
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
+  border: 1px solid #27364f;
   border-radius: 0.55rem;
-  background: transparent;
-  color: inherit;
+  background: #111c2d;
+  color: var(--text);
   padding: 0.58rem 0.6rem;
   display: grid;
   gap: 0.24rem;
@@ -1278,13 +1278,18 @@ main {
 
 .drill-combobox-option:hover,
 .drill-combobox-option.is-active {
-  background: rgba(114, 168, 255, 0.2);
-  border-color: rgba(155, 198, 255, 0.42);
+  background: #1a2b42;
+  border-color: #4a6488;
 }
 
 .drill-combobox-option.is-selected {
-  background: rgba(114, 168, 255, 0.28);
-  border-color: rgba(173, 213, 255, 0.7);
+  background: #234061;
+  border-color: #6f95c5;
+}
+
+.drill-combobox-option:focus-visible {
+  outline: 2px solid #9bc2f1;
+  outline-offset: 1px;
 }
 
 .drill-combobox-option-label {
@@ -1322,11 +1327,11 @@ main {
   position: relative;
   display: grid;
   gap: 0.6rem;
-  background: var(--surface);
-  border-top: 1px solid rgba(173, 213, 255, 0.56);
+  background: #0d1522;
+  border-top: 1px solid #4a6488;
   border-radius: 1rem 1rem 0 0;
   padding: 0.85rem;
-  box-shadow: 0 -10px 26px rgba(3, 7, 16, 0.55);
+  box-shadow: 0 -10px 26px #02060d;
   max-height: min(82dvh, 620px);
   min-height: min(58dvh, 460px);
 }
@@ -1336,6 +1341,20 @@ main {
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
+}
+
+.drill-combobox-search-shell {
+  border: 1px solid #354a67;
+  border-radius: 0.65rem;
+  background: #101a2a;
+  padding: 0.3rem;
+}
+
+.drill-combobox-search-shell input,
+.drill-combobox-search-shell .live-streaming-control-input {
+  background: #0f1929;
+  border: 1px solid #425a7c;
+  color: var(--text);
 }
 
 .live-streaming-results-card {

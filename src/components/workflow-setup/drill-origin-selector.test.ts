@@ -22,6 +22,7 @@ test("mobile combobox uses dedicated modal sheet presentation", () => {
   assert.ok(source.includes("data-mobile-combobox={isMobileViewport ? \"true\" : \"false\"}"));
   assert.ok(source.includes("className=\"drill-combobox-mobile-overlay\""));
   assert.ok(source.includes("className=\"drill-combobox-mobile-sheet\""));
+  assert.ok(source.includes("className=\"drill-combobox-search-shell\""));
   assert.ok(source.includes("role=\"dialog\""));
 });
 
@@ -39,7 +40,9 @@ test("desktop and mobile keep search behavior in shared selector logic", () => {
 
 test("open selector surface uses strong contrast and separation styling", () => {
   assert.ok(css.includes(".drill-combobox-listbox"));
-  assert.ok(css.includes("box-shadow: 0 16px 36px rgba(4, 10, 20, 0.56);"));
-  assert.ok(css.includes("border: 1px solid rgba(168, 202, 255, 0.5);"));
+  assert.ok(css.includes("background: #0d1522;"));
+  assert.ok(css.includes("box-shadow: 0 16px 36px #02060d;"));
+  assert.ok(css.includes("background: #111c2d;"));
+  assert.ok(css.includes(".drill-combobox-search-shell"));
   assert.ok(css.includes(".drill-combobox-option.is-selected"));
 });

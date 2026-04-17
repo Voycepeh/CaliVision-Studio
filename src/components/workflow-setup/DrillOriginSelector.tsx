@@ -264,37 +264,39 @@ export function DrillComboboxField({
                   Done
                 </button>
               </header>
-              <input
-                ref={mobileSearchInputRef}
-                type="text"
-                className={inputClassName}
-                role="combobox"
-                aria-expanded={isOpen}
-                aria-controls={listboxId}
-                aria-autocomplete="list"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    setActiveIndex((index) => Math.min(index + 1, Math.max(entries.length - 1, 0)));
-                    return;
-                  }
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    setActiveIndex((index) => Math.max(index - 1, 0));
-                    return;
-                  }
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    const active = entries[activeIndex];
-                    if (active) {
-                      commitSelection(active.key);
+              <div className="drill-combobox-search-shell">
+                <input
+                  ref={mobileSearchInputRef}
+                  type="text"
+                  className={inputClassName}
+                  role="combobox"
+                  aria-expanded={isOpen}
+                  aria-controls={listboxId}
+                  aria-autocomplete="list"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setActiveIndex((index) => Math.min(index + 1, Math.max(entries.length - 1, 0)));
+                      return;
                     }
-                  }
-                }}
-                placeholder="Search drills"
-              />
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setActiveIndex((index) => Math.max(index - 1, 0));
+                      return;
+                    }
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      const active = entries[activeIndex];
+                      if (active) {
+                        commitSelection(active.key);
+                      }
+                    }
+                  }}
+                  placeholder="Search drills"
+                />
+              </div>
               {listbox}
             </section>
           </div>
