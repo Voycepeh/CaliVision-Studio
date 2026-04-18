@@ -2,6 +2,11 @@ import type { AnalysisEvent } from "../schema/contracts.ts";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
 import { getReplayDurationMs } from "./replay-state.ts";
 
+type TimelineSegmentLike = {
+  startMs: number;
+  endMs: number;
+};
+
 export type ReplayAnalysisState = {
   timestampMs: number;
   repCount: number;
@@ -11,6 +16,7 @@ export type ReplayAnalysisState = {
   currentPhaseLabel: string;
   completedRepsLabel: string;
   currentRepProgressLabel: string;
+  activeTimelineIndex: number;
 };
 
 function clampTimestamp(value: number, durationMs: number): number {
@@ -36,6 +42,40 @@ function getSortedFrames(session?: AnalysisSessionRecord | null): AnalysisSessio
   return [...session.frameSamples]
     .filter((frame) => Number.isFinite(frame.timestampMs) && frame.timestampMs >= 0)
     .sort((a, b) => a.timestampMs - b.timestampMs);
+}
+
+function normalizeSegments(segments?: TimelineSegmentLike[] | null): TimelineSegmentLike[] {
+  if (!segments) {
+    return [];
+  }
+  return segments
+    .filter((segment) => Number.isFinite(segment.startMs) && Number.isFinite(segment.endMs))
+    .map((segment) => ({
+      startMs: Math.max(0, Math.round(segment.startMs)),
+      endMs: Math.max(0, Math.round(segment.endMs))
+    }))
+    .sort((a, b) => a.startMs - b.startMs);
+}
+
+export function getActiveTimelineIndexAtTimestamp(
+  timestampMs: number,
+  segments: TimelineSegmentLike[] | null | undefined,
+  durationMs?: number
+): number {
+  const normalized = normalizeSegments(segments);
+  if (normalized.length === 0) {
+    return -1;
+  }
+  const fallbackDuration = Math.max(...normalized.map((segment) => segment.endMs), 0);
+  const clamped = clampTimestamp(timestampMs, Math.max(1, durationMs ?? fallbackDuration));
+  for (let index = normalized.length - 1; index >= 0; index -= 1) {
+    const segment = normalized[index];
+    const segmentEndExclusive = index === normalized.length - 1 ? segment.endMs : Math.max(segment.startMs + 1, segment.endMs);
+    if (clamped >= segment.startMs && (clamped < segmentEndExclusive || (index === normalized.length - 1 && clamped <= segment.endMs))) {
+      return index;
+    }
+  }
+  return 0;
 }
 
 export function getRepCountAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): number {
@@ -106,6 +146,7 @@ export function buildReplayAnalysisState(input: {
   session: AnalysisSessionRecord | null | undefined;
   phaseLabelsById?: Record<string, string>;
   timestampMs: number;
+  phaseTimelineSegments?: TimelineSegmentLike[];
 }): ReplayAnalysisState {
   const durationMs = getReplayDurationMs(input.session);
   const clamped = clampTimestamp(input.timestampMs, durationMs);
@@ -122,7 +163,8 @@ export function buildReplayAnalysisState(input: {
     currentPhaseId,
     currentPhaseLabel: currentPhaseId ? (input.phaseLabelsById?.[currentPhaseId] ?? currentPhaseId) : "No phase detected yet",
     completedRepsLabel: `Completed reps so far: ${repCount}`,
-    currentRepProgressLabel
+    currentRepProgressLabel,
+    activeTimelineIndex: getActiveTimelineIndexAtTimestamp(clamped, input.phaseTimelineSegments, durationMs)
   };
 }
 

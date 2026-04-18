@@ -18,6 +18,23 @@ test("/live mounts real-time overlay canvas while session is active", () => {
 test("/upload remains the unified result surface owner", () => {
   const uploadWorkspace = readFileSync("src/components/upload/UploadVideoWorkspace.tsx", "utf8");
   assert.ok(uploadWorkspace.includes("AnalysisViewerShell"));
+  assert.ok(uploadWorkspace.includes("buildReplayAnalysisState"));
+  assert.ok(uploadWorkspace.includes('mode: "timestamp"'));
+  assert.ok(uploadWorkspace.includes("phaseTimelineInteractive: true"));
+});
+
+test("upload and live post-analysis both derive playback-aware replay state", () => {
+  const uploadWorkspace = readFileSync("src/components/upload/UploadVideoWorkspace.tsx", "utf8");
+  const liveWorkspace = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
+
+  assert.ok(uploadWorkspace.includes("buildReplayAnalysisState"));
+  assert.ok(uploadWorkspace.includes("setReplayTimestampMs"));
+  assert.ok(uploadWorkspace.includes('video.addEventListener("seeking", updateTimestamp)'));
+  assert.ok(liveWorkspace.includes("buildReplayAnalysisState"));
+  assert.ok(liveWorkspace.includes('mode: "timestamp"'));
+  assert.ok(liveWorkspace.includes("phaseTimelineInteractive: true"));
+  assert.ok(liveWorkspace.includes("setReplayTimestampMs"));
+  assert.ok(liveWorkspace.includes('video.addEventListener("seeking", updateTimestamp)'));
 });
 
 
