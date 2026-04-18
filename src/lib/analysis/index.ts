@@ -29,6 +29,7 @@ export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./ben
 
 export {
   buildBenchmarkCoachingFeedback,
+  formatPhaseSequenceSummary,
   getComparisonSeverity,
   getTopComparisonFindings,
   summarizeBenchmarkComparison
@@ -52,6 +53,13 @@ export {
   deriveReplayStateAtTime,
   getReplayDurationMs
 } from "./replay-state.ts";
+export {
+  buildReplayAnalysisState,
+  getHoldDurationAtTimestamp,
+  getPhaseAtTimestamp,
+  getRepCountAtTimestamp,
+  getRepIndexAtTimestamp
+} from "./replay-analysis-state.ts";
 
 export {
   buildPhaseRuntimeModel,

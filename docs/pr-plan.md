@@ -82,6 +82,7 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Current state (April 17, 2026): comparison signals are intentionally rule-based only (phase order/count, phase timing when available, rep/hold aggregate timing when available), with no AI-generated explanation.
 - Current state (April 18, 2026): PR 6 adds a deterministic, template-driven coaching feedback interpretation layer on top of benchmark comparison outputs (summary label, top findings, and actionable next steps) for compact Upload Video + Live presentation.
 - Current state (April 18, 2026): benchmark feedback categories now include sequence, timing, duration, consistency, benchmark-missing, and attempt-missing-data with fixed severity buckets (`success`/`warning`/`info`), still without any LLM/AI service calls.
+- Current state (April 18, 2026): replay analysis metrics in Upload Video are now playhead-relative during replay (reps/hold/phase/current rep), and benchmark sequence wording/chips were aligned to prevent contradictory matched-vs-mismatch UI states.
 - Non-goal: building full side-by-side benchmark comparison UI in this PR.
 - Non-goal: AI/LLM coaching explanations in this phase; richer explainability remains deferred.
 - Non-goal: changing Android runtime/live coaching ownership boundaries; runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.

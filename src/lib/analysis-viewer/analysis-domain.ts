@@ -92,13 +92,52 @@ function buildPhaseStartsById(phaseIdsInOrder: string[], events: AnalysisEvent[]
   return Object.fromEntries(entries as Array<[string, number]>);
 }
 
+function buildPhaseTransitionsFromEvents(events: AnalysisEvent[]): Array<{ phaseId: string; startMs: number }> {
+  const ordered = [...events]
+    .filter((event) => event.type === "phase_enter" && event.phaseId && Number.isFinite(event.timestampMs))
+    .sort((a, b) => a.timestampMs - b.timestampMs);
+
+  const transitions: Array<{ phaseId: string; startMs: number }> = [];
+  for (const phaseEvent of ordered) {
+    if (!phaseEvent.phaseId) continue;
+    const startMs = Math.max(0, Math.round(phaseEvent.timestampMs));
+    const previous = transitions.at(-1);
+    if (previous && previous.phaseId === phaseEvent.phaseId) {
+      continue;
+    }
+    transitions.push({ phaseId: phaseEvent.phaseId, startMs });
+  }
+  return transitions;
+}
+
 export function buildAnalysisTimelineSegments(input: {
   phaseIdsInOrder: string[];
   phaseLabelsById: Record<string, string>;
   phaseStartsById: Record<string, number> | null;
+  phaseTransitions?: Array<{ phaseId: string; startMs: number }>;
   durationMs?: number;
   interactive: boolean;
 }): AnalysisTimelineSegment[] {
+  const durationMs = Math.max(1, toFiniteNonNegativeMs(input.durationMs) ?? 1);
+  if ((input.phaseTransitions?.length ?? 0) > 0) {
+    return input.phaseTransitions!.map((transition, index, array) => {
+      const startMs = Math.max(0, Math.min(durationMs, transition.startMs));
+      const nextStart = array[index + 1]?.startMs ?? durationMs;
+      const endMs = Math.max(startMs + 1, Math.min(durationMs, nextStart));
+      const label = input.phaseLabelsById[transition.phaseId] ?? transition.phaseId;
+      return {
+        id: `phase_detected_${index}_${transition.phaseId}_${startMs}`,
+        label,
+        startMs,
+        endMs,
+        seekTimestampMs: startMs,
+        interactive: input.interactive,
+        phaseId: transition.phaseId,
+        orderIndex: index
+      };
+    });
+  }
+
   const labelsFromIds = input.phaseIdsInOrder
     .map((phaseId) => ({ phaseId, label: input.phaseLabelsById[phaseId] }))
     .filter((phase): phase is { phaseId: string; label: string } => Boolean(phase.label));
@@ -107,7 +146,6 @@ export function buildAnalysisTimelineSegments(input: {
     ? labelsFromIds
     : [{ phaseId: "fallback", label: "Phase timeline unavailable" }];
 
-  const durationMs = Math.max(1, toFiniteNonNegativeMs(input.durationMs) ?? 1);
   const starts = phases.map((phase, index) => {
     if (input.phaseStartsById?.[phase.phaseId] !== undefined) {
       return Math.max(0, Math.min(durationMs, Math.round(input.phaseStartsById[phase.phaseId])));
@@ -175,6 +213,7 @@ export function buildAnalysisDomainModel(input: {
   })();
 
   const phaseStartsById = buildPhaseStartsById(phaseIdsInOrder, events);
+  const phaseTransitions = buildPhaseTransitionsFromEvents(events);
 
   return {
     drillContext: {
@@ -196,6 +235,7 @@ export function buildAnalysisDomainModel(input: {
         phaseIdsInOrder,
         phaseLabelsById,
         phaseStartsById,
+        phaseTransitions,
         durationMs,
         interactive: input.phaseTimelineInteractive
       })
@@ -224,12 +264,16 @@ export function buildAnalysisPanelModel(domainModel: AnalysisDomainModel): Analy
         ? formatDurationClock(sessionSnapshot.holdDurationMs)
         : String(sessionSnapshot.repCount),
     primaryMetricDetail:
-      drillContext.movementType === "hold" ? "Total hold time in this analysis" : "Completed reps in this analysis",
+      drillContext.movementType === "hold"
+        ? (sessionSnapshot.mode === "timestamp" ? "Current hold at playhead" : "Total hold time in this analysis")
+        : (sessionSnapshot.mode === "timestamp" ? "Completed reps so far" : "Completed reps in this analysis"),
     currentPhaseLabel: sessionSnapshot.currentPhaseLabel,
     confidenceLabel: formatPercent(sessionSnapshot.confidence),
     feedbackLines: domainModel.feedbackPreviewLines,
     summaryMetrics: domainModel.summaryMetricSlots,
     benchmarkFeedback: domainModel.benchmarkFeedback,
-    phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments
+    phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments,
+    currentTimestampMs: sessionSnapshot.currentTimestampMs,
+    timelineDurationMs: sessionSnapshot.durationMs
   };
 }
