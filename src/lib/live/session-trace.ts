@@ -121,11 +121,15 @@ export function createLiveTraceAccumulator(input: {
     const durationMs = Math.max(0, endMs - state.activeHoldStartMs);
     state.completedHoldDurationMs += durationMs;
     if (targetHold) {
+      const details: NonNullable<AnalysisEvent["details"]> = { durationMs, qualified: true };
+      if (options?.inferredSessionEnd) {
+        details.inferredSessionEnd = true;
+      }
       addEvent({
         timestampMs: endMs,
         type: "hold_end",
         phaseId: targetHold,
-        details: { durationMs, qualified: true, inferredSessionEnd: options?.inferredSessionEnd }
+        details
       });
     }
     state.activeHoldStartMs = null;
