@@ -1,5 +1,6 @@
 import { buildDrillOptionLabel } from "../drills/labels.ts";
 import { summarizeBenchmark } from "../drills/benchmark.ts";
+import type { DrillPackage, PortableDrill } from "../schema/contracts.ts";
 export {
   buildDrillOptionGroups,
   ensureVisibleDrillSelection,
@@ -19,7 +20,7 @@ type DrillRepositoryContext = {
 type AvailableDrillDependencies = {
   listDrills: (context: DrillRepositoryContext) => Promise<Array<{
     drillId: string;
-    activeReadyVersion: { sourceId: string; packageJson: any } | null;
+    activeReadyVersion: { sourceId: string; packageJson: DrillPackage } | null;
   }>>;
   listExchange: (input: { session: unknown }) => Promise<{ ok: true; value: ExchangePublication[] } | { ok: false; error: string }>;
 };
@@ -28,7 +29,7 @@ type ExchangePublication = {
   id: string;
   snapshotPackage: {
     manifest: { packageVersion: string };
-    drills: Array<any>;
+    drills: PortableDrill[];
   };
 };
 

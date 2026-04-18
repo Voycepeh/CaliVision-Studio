@@ -972,6 +972,7 @@ export function UploadVideoWorkspace() {
       downloadSafety.annotated?.warning,
       rawDownloadLabel,
       downloadSafety.raw?.warning,
+      rawPreviewFileName,
       traceRows,
       previewSelection.warning,
       preferredDeliverySource,
