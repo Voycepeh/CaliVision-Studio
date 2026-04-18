@@ -64,6 +64,8 @@ export type PoseTimeline = {
 };
 
 export type UploadJobArtifacts = {
+  analysisSourceKind?: "original" | "normalized";
+  analysisVideoFile?: File;
   poseTimeline: PoseTimeline;
   processingSummary: {
     schemaVersion: "upload-analysis-v1";
