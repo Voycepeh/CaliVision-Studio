@@ -197,7 +197,7 @@ test("available drill options only include released versions for upload/live flo
   assert.equal(options[0]?.drill.drillId, "ready-drill");
 });
 
-test("legacy released drills without benchmark are marked as legacy-missing", async () => {
+test("released drills without benchmark are not automatically marked as legacy", async () => {
   const options = await loadAvailableDrillOptions(
     { session: null, isConfigured: false },
     {
@@ -226,5 +226,46 @@ test("legacy released drills without benchmark are marked as legacy-missing", as
     }
   );
 
-  assert.equal(options[0]?.benchmarkState, "legacy-missing");
+  assert.equal(options[0]?.benchmarkState, "unavailable");
+});
+
+test("available drill loading returns local and cloud source options with non-legacy missing benchmark state", async () => {
+  const baseItem = {
+    drillId: "drill-x",
+    title: "Drill X",
+    currentVersionId: "ready-v1",
+    openDraftVersionId: null,
+    activeReadyVersionId: "ready-v1",
+    latestDraftVersionId: null,
+    currentVersion: {
+      sourceId: "ready-v1",
+      packageJson: { manifest: { packageVersion: "0.1.1" }, drills: [{ ...baseDrill, drillId: "drill-x", title: "Drill X" }] }
+    },
+    activeReadyVersion: {
+      sourceId: "ready-v1",
+      packageJson: { manifest: { packageVersion: "0.1.1" }, drills: [{ ...baseDrill, drillId: "drill-x", title: "Drill X" }] }
+    },
+    openDraftVersion: null,
+    updatedAtIso: "2026-04-18T00:00:00.000Z"
+  };
+
+  const localOptions = await loadAvailableDrillOptions(
+    { session: null, isConfigured: false },
+    {
+      listDrills: async () => [baseItem] as never,
+      listExchange: async () => ({ ok: false, error: "skip" })
+    }
+  );
+  assert.equal(localOptions[0]?.sourceKind, "local");
+  assert.equal(localOptions[0]?.benchmarkState, "unavailable");
+
+  const cloudOptions = await loadAvailableDrillOptions(
+    { session: { user: { id: "user-1" } }, isConfigured: true },
+    {
+      listDrills: async () => [baseItem] as never,
+      listExchange: async () => ({ ok: false, error: "skip" })
+    }
+  );
+  assert.equal(cloudOptions[0]?.sourceKind, "hosted");
+  assert.equal(cloudOptions[0]?.benchmarkState, "unavailable");
 });

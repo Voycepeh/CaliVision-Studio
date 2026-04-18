@@ -11,7 +11,7 @@ import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schem
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
   sourceKind?: StoredDrillSourceKind;
-  benchmarkState?: "available" | "legacy-missing";
+  benchmarkState?: "available" | "unavailable" | "legacy-missing";
   showSourceBadge?: boolean;
   compact?: boolean;
   quiet?: boolean;

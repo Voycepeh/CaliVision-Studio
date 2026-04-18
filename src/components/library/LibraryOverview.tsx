@@ -497,7 +497,7 @@ export function LibraryOverview() {
                       <DrillSelectionPreviewPanel
                         drill={previewDrill}
                         sourceKind={signedInMode ? "hosted" : "local"}
-                        benchmarkState={summarizeBenchmark(previewDrill.benchmark).present ? "available" : "legacy-missing"}
+                        benchmarkState={summarizeBenchmark(previewDrill.benchmark).present ? "available" : "unavailable"}
                         showSourceBadge
                         compact
                         quiet

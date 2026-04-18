@@ -6,7 +6,7 @@ import { DrillSummaryMetadata } from "@/components/workflow-setup/DrillSummaryMe
 type ReferenceAnimationPanelProps = {
   drill: PortableDrill | null;
   sourceKind?: StoredDrillSourceKind;
-  benchmarkState?: "available" | "legacy-missing";
+  benchmarkState?: "available" | "unavailable" | "legacy-missing";
   freestyleDescription: string;
 };
 

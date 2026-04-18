@@ -57,7 +57,7 @@ export function mapExchangePublicationsToDrillOptions(publications: ExchangePubl
       sourceKind: "exchange",
       sourceId: publication.id,
       packageVersion: publication.snapshotPackage.manifest.packageVersion,
-      benchmarkState: summarizeBenchmark(drill.benchmark).present ? "available" : "legacy-missing",
+      benchmarkState: summarizeBenchmark(drill.benchmark).present ? "available" : "unavailable",
       drill
     });
   }
@@ -89,7 +89,7 @@ export async function loadAvailableDrillOptions(input: {
       sourceKind,
       sourceId,
       packageVersion: selectedVersion.packageJson.manifest.packageVersion,
-      benchmarkState: summarizeBenchmark(selectedDrill.benchmark).present ? "available" : "legacy-missing",
+      benchmarkState: summarizeBenchmark(selectedDrill.benchmark).present ? "available" : "unavailable",
       drill: selectedDrill
     });
   }
