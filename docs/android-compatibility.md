@@ -14,12 +14,13 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 - Preserve manifest-driven schema compatibility fields.
 - Keep Studio export payloads Android-consumable.
 - Treat new analysis blocks as additive metadata that can be ignored by runtime clients that do not yet consume them.
-- Treat benchmark/reference metadata as additive and ignorable by runtime clients until comparison features are adopted.
+- Treat benchmark/reference metadata and phase-level comparison rules as additive and ignorable by runtime clients until comparison features are adopted in Android runtime flows (<https://github.com/Voycepeh/CaliVision>).
 
 ## Analysis schema v1 compatibility notes
 
 1. **Artifact contract remains backward-compatible**
    - `PortableDrill.analysis` and `PortablePhase.analysis` are optional.
+   - `PortablePhase.analysis.comparison` is optional and defaults safely when absent.
    - Older drill files without analysis metadata continue to validate/load.
 2. **No runtime execution coupling introduced**
    - Rep/hold/hybrid analysis fields are intent metadata for Upload Video and future live-analysis flows, including bounded skip transitions for fast observations.
@@ -39,6 +40,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 - `PortableDrill.title` remains the primary user-authored drill identity; legacy `slug` is tolerated on import but no longer required in Studio-authored payloads.
 - `PortableDrill.analysis.measurementType` supports `rep | hold | hybrid` when present.
 - `PortableDrill.benchmark` is optional/additive; legacy files without benchmark metadata continue to load.
+- Drill-authored phase order remains the primary reference sequence in Studio; benchmark metadata remains compatibility/additive.
 - Sample payloads now include rep, hold, and hybrid analysis examples while remaining portable.
 
 ## Benchmark schema foundation compatibility notes

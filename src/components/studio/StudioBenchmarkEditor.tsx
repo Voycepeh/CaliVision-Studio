@@ -55,15 +55,15 @@ export function StudioBenchmarkEditor() {
   return (
     <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Benchmark</h3>
+        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Reference criteria</h3>
         <label style={{ ...labelStyle, display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
           <input type="checkbox" checked={benchmarkEnabled} onChange={(event) => setBenchmarkEnabled(event.target.checked)} />
-          Benchmark enabled
+          Comparison settings enabled
         </label>
       </div>
 
       <div className="muted" style={{ fontSize: "0.78rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-        <span>{summary.present ? "Benchmark present" : "Benchmark absent"}</span>
+        <span>{summary.present ? "Reference criteria present" : "Reference criteria absent"}</span>
         <span>Source: {summary.sourceType}</span>
         <span>Phases: {summary.phaseCount}</span>
         <span>{summary.hasTiming ? "Timing available" : "No timing"}</span>

@@ -66,6 +66,7 @@ export function StudioCenterInspector() {
     selectJoint,
     renamePhase,
     setPhaseSummary,
+    setPhaseComparisonRule,
     selectedPhaseEditorView,
     addPhase,
     deletePhase,
@@ -161,6 +162,53 @@ export function StudioCenterInspector() {
             style={{ ...inputStyle, minHeight: "54px", resize: "vertical" }}
             placeholder="Optional phase notes"
           />
+
+          <div className="card" style={{ display: "grid", gap: "0.4rem", padding: "0.55rem" }}>
+            <strong style={{ fontSize: "0.82rem" }}>Phase rules</strong>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+              <input
+                type="checkbox"
+                checked={phase.analysis?.comparison?.isHoldPhase ?? false}
+                onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
+                  isHoldPhase: event.target.checked,
+                  durationMatters: event.target.checked || phase.analysis?.comparison?.durationMatters
+                })}
+              />
+              Hold requirement
+            </label>
+            <div style={{ display: "grid", gap: "0.35rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+              <label style={{ display: "grid", gap: "0.2rem", fontSize: "0.78rem" }}>
+                Min hold (ms)
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={phase.analysis?.comparison?.minHoldDurationMs ?? ""}
+                  onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
+                    minHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
+                    durationMatters: event.target.value !== ""
+                  })}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
+              </label>
+              <label style={{ display: "grid", gap: "0.2rem", fontSize: "0.78rem" }}>
+                Target hold (ms)
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={phase.analysis?.comparison?.targetHoldDurationMs ?? ""}
+                  onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
+                    targetHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
+                    durationMatters: event.target.value !== ""
+                  })}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+          </div>
 
           {isExpanded ? (
             <section className="card" style={{ display: "grid", gap: "0.55rem" }}>

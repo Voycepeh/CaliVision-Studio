@@ -229,6 +229,21 @@ export function normalizePortablePhase(phase: PortablePhase, drillView?: Portabl
     analysis: phase.analysis
       ? {
           ...phase.analysis,
+          comparison: phase.analysis.comparison
+            ? {
+                ...phase.analysis.comparison,
+                required: phase.analysis.comparison.required ?? true,
+                durationMatters: phase.analysis.comparison.durationMatters
+                  ?? Boolean(
+                    phase.analysis.comparison.isHoldPhase
+                    || (typeof phase.analysis.comparison.minHoldDurationMs === "number" && phase.analysis.comparison.minHoldDurationMs > 0)
+                    || (typeof phase.analysis.comparison.targetHoldDurationMs === "number" && phase.analysis.comparison.targetHoldDurationMs > 0)
+                  ),
+                isHoldPhase: phase.analysis.comparison.isHoldPhase
+                  ?? Boolean(typeof phase.analysis.comparison.minHoldDurationMs === "number" && phase.analysis.comparison.minHoldDurationMs > 0),
+                criteriaHooks: phase.analysis.comparison.criteriaHooks ?? []
+              }
+            : undefined,
           matchHints: phase.analysis.matchHints
             ? {
                 ...phase.analysis.matchHints,
@@ -762,6 +777,53 @@ function validatePhaseAnalysis(input: unknown, path: string, issues: PackageVali
 
   if (input.matchHints !== undefined) {
     validatePhaseMatchHints(input.matchHints, `${path}.matchHints`, issues);
+  }
+
+  if (input.comparison !== undefined) {
+    validatePhaseComparisonRule(input.comparison, `${path}.comparison`, issues);
+  }
+}
+
+function validatePhaseComparisonRule(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "comparison must be an object when present.", "analysis"));
+    return;
+  }
+
+  if (input.required !== undefined && typeof input.required !== "boolean") {
+    issues.push(makeIssue("error", `${path}.required`, "required must be a boolean when present.", "analysis"));
+  }
+  if (input.durationMatters !== undefined && typeof input.durationMatters !== "boolean") {
+    issues.push(makeIssue("error", `${path}.durationMatters`, "durationMatters must be a boolean when present.", "analysis"));
+  }
+  if (input.isHoldPhase !== undefined && typeof input.isHoldPhase !== "boolean") {
+    issues.push(makeIssue("error", `${path}.isHoldPhase`, "isHoldPhase must be a boolean when present.", "analysis"));
+  }
+
+  if (input.minHoldDurationMs !== undefined && (typeof input.minHoldDurationMs !== "number" || input.minHoldDurationMs < 0)) {
+    issues.push(makeIssue("error", `${path}.minHoldDurationMs`, "minHoldDurationMs must be >= 0 when present.", "analysis"));
+  }
+  if (input.targetHoldDurationMs !== undefined && (typeof input.targetHoldDurationMs !== "number" || input.targetHoldDurationMs < 0)) {
+    issues.push(makeIssue("error", `${path}.targetHoldDurationMs`, "targetHoldDurationMs must be >= 0 when present.", "analysis"));
+  }
+  if (
+    typeof input.minHoldDurationMs === "number"
+    && typeof input.targetHoldDurationMs === "number"
+    && input.targetHoldDurationMs < input.minHoldDurationMs
+  ) {
+    issues.push(makeIssue("error", `${path}.targetHoldDurationMs`, "targetHoldDurationMs must be >= minHoldDurationMs.", "analysis"));
+  }
+
+  if (input.criteriaHooks !== undefined) {
+    if (!Array.isArray(input.criteriaHooks)) {
+      issues.push(makeIssue("error", `${path}.criteriaHooks`, "criteriaHooks must be an array of strings when present.", "analysis"));
+    } else {
+      input.criteriaHooks.forEach((hook, index) => {
+        if (typeof hook !== "string" || hook.trim().length === 0) {
+          issues.push(makeIssue("error", `${path}.criteriaHooks[${index}]`, "criteriaHooks entries must be non-empty strings.", "analysis"));
+        }
+      });
+    }
   }
 }
 

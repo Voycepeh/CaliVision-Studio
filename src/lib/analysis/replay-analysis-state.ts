@@ -10,6 +10,7 @@ export type ReplayAnalysisState = {
   currentPhaseId: string | null;
   currentPhaseLabel: string;
   completedRepsLabel: string;
+  currentRepProgressLabel: string;
 };
 
 function clampTimestamp(value: number, durationMs: number): number {
@@ -99,6 +100,7 @@ export function buildReplayAnalysisState(input: {
   const currentPhaseId = getPhaseAtTimestamp(input.session, clamped);
   const repCount = getRepCountAtTimestamp(input.session, clamped);
   const holdDurationMs = getHoldDurationAtTimestamp(input.session, clamped);
+  const currentRepProgressLabel = getCurrentRepProgressAtTimestamp(input.session, clamped);
 
   return {
     timestampMs: clamped,
@@ -107,6 +109,16 @@ export function buildReplayAnalysisState(input: {
     repIndex: getRepIndexAtTimestamp(input.session, clamped),
     currentPhaseId,
     currentPhaseLabel: currentPhaseId ? (input.phaseLabelsById?.[currentPhaseId] ?? currentPhaseId) : "No phase detected yet",
-    completedRepsLabel: `Completed reps so far: ${repCount}`
+    completedRepsLabel: `Completed reps so far: ${repCount}`,
+    currentRepProgressLabel
   };
+}
+
+export function getCurrentRepProgressAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): string {
+  const phaseId = getPhaseAtTimestamp(session, timestampMs);
+  const repCount = getRepCountAtTimestamp(session, timestampMs);
+  if (!phaseId) {
+    return `Rep ${repCount + 1}: waiting for first detected phase`;
+  }
+  return `Rep ${repCount + 1}: currently in ${phaseId}`;
 }

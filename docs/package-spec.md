@@ -66,12 +66,19 @@ Design intent:
   - `optionalJoints`
   - `toleranceProfile`
   - `viewHint`
+- optional `comparison` phase-rule object for coach-first deterministic checks:
+  - `required?: boolean`
+  - `durationMatters?: boolean`
+  - `isHoldPhase?: boolean`
+  - `minHoldDurationMs?: number`
+  - `targetHoldDurationMs?: number`
+  - `criteriaHooks?: string[]`
 
 This is intentionally a typed placeholder and does not implement scoring logic.
 
 ## Drill benchmark schema foundation (additive)
 
-`PortableDrill.benchmark` is now an optional additive block for reference/benchmark metadata used by future comparison and coaching flows.
+`PortableDrill.benchmark` is now an optional additive block for reference/comparison settings and backward compatibility with existing benchmark payloads.
 
 Current baseline supports:
 - `sourceType`: `none | builtin | seeded | reference_pose_sequence | reference_session | reference_video`
@@ -90,7 +97,7 @@ Normalization posture:
 - partial benchmark payloads normalize into stable defaults for safe rendering hooks,
 - benchmark phase ordering and keys are normalized for deterministic downstream mapping.
 
-Studio now includes benchmark authoring/editing wiring for this schema (including bootstrap/sync from authored drill phases and lightweight phase metadata editing). Full side-by-side benchmark comparison UX and scoring execution remain intentionally deferred.
+Studio now treats authored drill phase order + per-phase rules as the primary reference standard, while benchmark metadata remains supported for compatibility and optional timing-oriented settings. Full side-by-side comparison UX remains intentionally deferred.
 
 ## Phase identity and naming discipline
 
