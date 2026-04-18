@@ -14,7 +14,15 @@ import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { inspectUploadCompatibility, type UploadCompatibilityReport, type UploadPreflightDecision } from "@/lib/upload/compatibility";
-import { buildBenchmarkCoachingFeedback, buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
+import {
+  buildBenchmarkCoachingFeedback,
+  buildCompletedUploadAnalysisSession,
+  buildPhaseRuntimeModel,
+  buildReplayAnalysisState,
+  formatCameraViewLabel,
+  formatPhaseSequenceSummary,
+  type AnalysisSessionRecord
+} from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
@@ -722,6 +730,14 @@ export function UploadVideoWorkspace() {
   const showReferencePanel = isReferencePanelVisible;
   const queueHasMultiple = uploadJobs.length > 1;
   const previewUrl = previewSelection.source?.url ?? null;
+  const replayAnalysisState = useMemo(
+    () => buildReplayAnalysisState({
+      session: activeSession,
+      phaseLabelsById: activePhaseLabels,
+      timestampMs: replayTimestampMs
+    }),
+    [activePhaseLabels, activeSession, replayTimestampMs]
+  );
   const benchmarkFeedback = useMemo(
     () => activeSession?.benchmarkComparison ? buildBenchmarkCoachingFeedback({ comparison: activeSession.benchmarkComparison }) : null,
     [activeSession?.benchmarkComparison]
@@ -780,8 +796,8 @@ export function UploadVideoWorkspace() {
                 ? "hold"
                 : "rep"
               : "freestyle",
-          repCount: activeSession?.summary.repCount ?? 0,
-          holdDurationMs: activeSession?.summary.holdDurationMs ?? 0,
+          repCount: replayAnalysisState.repCount,
+          holdDurationMs: replayAnalysisState.holdDurationMs,
           durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
           confidence: activeSession?.summary.confidenceAvg,
           events: activeSession?.events ?? [],
@@ -800,19 +816,19 @@ export function UploadVideoWorkspace() {
               : undefined,
           summaryMetrics: activeSession?.benchmarkComparison
             ? [
-                { id: "benchmark_status", label: "Benchmark", value: activeSession.benchmarkComparison.status },
+                { id: "benchmark_status", label: "Benchmark", value: benchmarkFeedback?.summary.label ?? activeSession.benchmarkComparison.status },
                 {
                   id: "phase_match",
                   label: "Phase sequence",
                   value: activeSession.benchmarkComparison.phaseMatch.matched
-                    ? "Matched"
-                    : `Mismatch (${activeSession.benchmarkComparison.phaseMatch.matchedCount}/${activeSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length})`
+                    ? "Phase sequence matched."
+                    : formatPhaseSequenceSummary(activeSession.benchmarkComparison)
                 },
                 {
                   id: "timing_match",
                   label: "Timing",
                   value: activeSession.benchmarkComparison.timing.present
-                    ? (activeSession.benchmarkComparison.timing.matched ? "Matched" : "Mismatch")
+                    ? (activeSession.benchmarkComparison.timing.matched ? "Timing matched." : "Timing mismatch.")
                     : "Unavailable"
                 },
                 {
@@ -846,19 +862,16 @@ export function UploadVideoWorkspace() {
                 { id: "drill", label: "Drill", value: activeJob.drillSelection.drillBinding.drillName || "Selected drill" },
                 {
                   id: "phase",
-                  label: "Phase result",
-                  value: (() => {
-                    const phaseId = activeSession.events.at(-1)?.phaseId;
-                    if (!phaseId) return "No phase transitions detected";
-                    return activePhaseLabels[phaseId] ?? phaseId;
-                  })()
+                  label: "Current phase",
+                  value: replayAnalysisState.currentPhaseLabel
                 },
-                { id: "reps", label: "Reps", value: String(activeSession.summary.repCount ?? 0) },
+                { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
                 {
                   id: "hold",
-                  label: "Hold",
-                  value: (activeSession.summary.holdDurationMs ?? 0) > 0 ? formatDuration(activeSession.summary.holdDurationMs) : "No holds detected"
+                  label: "Current hold",
+                  value: replayAnalysisState.holdDurationMs > 0 ? formatDuration(replayAnalysisState.holdDurationMs) : "Not active"
                 },
+                { id: "current_rep", label: "Current rep", value: String(replayAnalysisState.repIndex) },
                 { id: "duration", label: "Duration", value: formatDuration(activeSession.summary.analyzedDurationMs) }
               ]
             : activeJob?.artefacts
@@ -949,6 +962,7 @@ export function UploadVideoWorkspace() {
       previewUrl,
       completedPreviewSurface,
       replayTimestampMs,
+      replayAnalysisState,
       activeSession,
       benchmarkFeedback,
       activeJob,

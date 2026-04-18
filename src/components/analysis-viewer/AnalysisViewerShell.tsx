@@ -52,6 +52,8 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseT
 
         <AnalysisPhaseTimeline
           segments={model.panel.phaseTimelineSegments}
+          currentTimestampMs={model.panel.currentTimestampMs}
+          timelineDurationMs={model.panel.timelineDurationMs}
           selectedSegmentId={selectedSegmentId}
           onSelect={(segment) => {
             setSelectedSegmentId(segment.id);
@@ -228,10 +230,14 @@ function AnalysisVideoPane({
 
 function AnalysisPhaseTimeline({
   segments,
+  currentTimestampMs,
+  timelineDurationMs,
   selectedSegmentId,
   onSelect
 }: {
   segments: AnalysisViewerPhaseTimelineSegment[];
+  currentTimestampMs?: number;
+  timelineDurationMs?: number;
   selectedSegmentId: string | null;
   onSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
@@ -239,23 +245,15 @@ function AnalysisPhaseTimeline({
     return <p className="muted" style={{ margin: 0 }}>No phase timeline available for this analysis.</p>;
   }
 
-  const maxDuration = Math.max(1, ...segments.map((segment) => segment.endMs));
-  let cursor = 0;
-  const stops: string[] = [];
-  segments.forEach((segment, index) => {
-    const colors = ["rgba(114,168,255,0.35)", "rgba(140,231,191,0.35)", "rgba(247,213,139,0.35)", "rgba(188,143,255,0.35)"];
-    const start = Math.max(cursor, (segment.startMs / maxDuration) * 100);
-    const end = Math.max(start + 1, (segment.endMs / maxDuration) * 100);
-    const color = colors[index % colors.length];
-    stops.push(`${color} ${start}%`, `${color} ${Math.min(100, end)}%`);
-    cursor = end;
-  });
-  const gradient = `linear-gradient(90deg, ${stops.join(", ")})`;
+  const maxDuration = Math.max(1, timelineDurationMs ?? 0, ...segments.map((segment) => segment.endMs));
+  const playheadPercent = typeof currentTimestampMs === "number"
+    ? Math.min(100, Math.max(0, (currentTimestampMs / maxDuration) * 100))
+    : null;
 
   return (
     <section style={{ display: "grid", gap: "0.45rem" }}>
       <strong>Phase Timeline</strong>
-      <div className="analysis-phase-timeline" style={{ backgroundImage: gradient }}>
+      <div className="analysis-phase-timeline" style={{ position: "relative", display: "flex", gap: "0.2rem", backgroundImage: "none" }}>
         {segments.map((segment) => (
           <button
             key={segment.id}
@@ -264,10 +262,28 @@ function AnalysisPhaseTimeline({
             className="analysis-phase-segment"
             aria-pressed={selectedSegmentId === segment.id}
             title={segment.interactive ? `Jump to ${segment.label}` : segment.label}
+            style={{
+              flex: Math.max(1, segment.endMs - segment.startMs),
+              background: selectedSegmentId === segment.id ? "rgba(114,168,255,0.42)" : "rgba(114,168,255,0.2)"
+            }}
           >
             <span className={`analysis-phase-chip ${selectedSegmentId === segment.id ? "is-active" : ""}`}>{segment.label}</span>
           </button>
         ))}
+        {playheadPercent !== null ? (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: `${playheadPercent}%`,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: "#8ce7bf",
+              boxShadow: "0 0 0 1px rgba(0,0,0,0.25)"
+            }}
+          />
+        ) : null}
       </div>
     </section>
   );

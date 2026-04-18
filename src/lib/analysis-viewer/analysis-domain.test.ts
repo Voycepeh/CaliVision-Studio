@@ -57,7 +57,7 @@ test("buildAnalysisDomainModel falls back phase labels when phase data is incomp
 
   assert.equal(model.sessionSnapshot.currentPhaseLabel, "Phase unavailable");
   assert.equal(model.sessionSnapshot.phaseTimelineSegments.length, 1);
-  assert.equal(model.sessionSnapshot.phaseTimelineSegments[0]?.label, "Phase timeline unavailable");
+  assert.equal(model.sessionSnapshot.phaseTimelineSegments[0]?.label, "unknown");
 });
 
 test("buildAnalysisDomainModel builds reusable timeline segments with identifiers", () => {
@@ -105,4 +105,28 @@ test("buildAnalysisPanelModel shapes domain model for analysis panel presentatio
   assert.equal(panel.feedbackLines.length, 2);
   assert.equal(panel.feedbackLines[0], "Stay tall");
   assert.equal(panel.phaseTimelineSegments[0]?.phaseId, "p1");
+});
+
+test("timestamp mode panel labels replay-relative primary metric detail", () => {
+  const panel = buildAnalysisPanelModel(
+    buildAnalysisDomainModel({
+      drillLabel: "Replay drill",
+      movementType: "rep",
+      repCount: 2,
+      mode: "timestamp",
+      currentTimestampMs: 2200,
+      durationMs: 4000,
+      phaseLabelsById: { p1: "1. Setup", p2: "2. Drive" },
+      phaseIdsInOrder: ["p1", "p2"],
+      events: [
+        { eventId: "e1", type: "phase_enter", timestampMs: 0, phaseId: "p1" },
+        { eventId: "e2", type: "phase_enter", timestampMs: 2000, phaseId: "p2" }
+      ],
+      phaseTimelineInteractive: true
+    })
+  );
+
+  assert.equal(panel.primaryMetricDetail, "Completed reps so far");
+  assert.equal(panel.currentTimestampMs, 2200);
+  assert.equal(panel.timelineDurationMs, 4000);
 });

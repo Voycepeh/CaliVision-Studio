@@ -36,12 +36,15 @@
 7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
 8. In drill mode, when benchmark metadata exists and analysis data is sufficient, Studio now attaches a deterministic benchmark comparison summary (matched/partial/mismatch/no benchmark) covering phase order and timing tolerance checks.
 9. Upload analysis now includes a compact **Benchmark feedback** layer (rule-based templates only) that surfaces a concise overall summary, up to three prioritized findings, and actionable next-step hints.
-10. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
-11. Download outputs in this simplified order (shown once in UI):
+10. Replay analysis cards now follow the current playhead timestamp (for example rep count, current hold, current phase, and current rep update when scrubbing backward/forward instead of always showing final session totals).
+11. Phase timeline rendering now follows detected analyzed phase progression over time, with a visible playhead position so timeline state and replay state stay aligned.
+12. Benchmark phase-sequence wording now stays internally consistent across summary/findings/metric chips (no contradictory “matched” and “mismatch” labels for the same state).
+13. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
+14. Download outputs in this simplified order (shown once in UI):
    - Annotated Video (`.webm`)
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
-12. Leave or refresh `/upload` to intentionally start fresh.
+15. Leave or refresh `/upload` to intentionally start fresh.
 
 
 ## Current Live Streaming flow

@@ -9,8 +9,7 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
-import { buildBenchmarkCoachingFeedback, buildPhaseRuntimeModel } from "@/lib/analysis";
-import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
+import { buildBenchmarkCoachingFeedback, buildPhaseRuntimeModel, formatCameraViewLabel, formatPhaseSequenceSummary, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
@@ -484,19 +483,19 @@ export function LiveStreamingWorkspace() {
             : trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
           summaryMetrics: liveAnalysisSession?.benchmarkComparison
             ? [
-                { id: "benchmark_status", label: "Benchmark", value: liveAnalysisSession.benchmarkComparison.status },
+                { id: "benchmark_status", label: "Benchmark", value: benchmarkFeedback?.summary.label ?? liveAnalysisSession.benchmarkComparison.status },
                 {
                   id: "phase_match",
                   label: "Phase sequence",
                   value: liveAnalysisSession.benchmarkComparison.phaseMatch.matched
-                    ? "Matched"
-                    : `Mismatch (${liveAnalysisSession.benchmarkComparison.phaseMatch.matchedCount}/${liveAnalysisSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length})`
+                    ? "Phase sequence matched."
+                    : formatPhaseSequenceSummary(liveAnalysisSession.benchmarkComparison)
                 },
                 {
                   id: "timing_match",
                   label: "Timing",
                   value: liveAnalysisSession.benchmarkComparison.timing.present
-                    ? (liveAnalysisSession.benchmarkComparison.timing.matched ? "Matched" : "Mismatch")
+                    ? (liveAnalysisSession.benchmarkComparison.timing.matched ? "Timing matched." : "Timing mismatch.")
                     : "Unavailable"
                 }
               ]

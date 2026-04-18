@@ -14,7 +14,8 @@ This flow exists to make **Upload Video** validation practical before any scorin
 
 ## Why the inspection view exists
 
-Final counts alone (`reps`, `hold duration`, `events`) are not enough to debug analysis quality.
+Final totals alone (`reps`, `hold duration`, `events`) are not enough to debug analysis quality.
+The main replay cards now show **playhead-relative state** (completed reps so far, current hold, current phase/current rep), while full-session totals remain available in summary/download artifacts.
 The inspection panel exposes intermediate pipeline state so manual testers can answer:
 
 - Which phase the classifier chose per sample.
@@ -29,6 +30,7 @@ For a saved session, use:
 - **Analysis inspection** table for per-sample phase, score, alternates, and smoother output.
 - **Temporal trace** list for accepted/rejected transitions with reasons.
 - **Replay seek links** from sample rows and transition rows to inspect exact timestamps.
+- **Phase timeline segments** that represent detected analyzed phase progression over replay time, with a visible playhead indicator.
 
 ## Diagnosable failure classes
 

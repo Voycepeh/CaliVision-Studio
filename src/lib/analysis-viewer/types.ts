@@ -65,6 +65,8 @@ export type AnalysisViewerPanelModel = {
     nextSteps: string[];
   };
   phaseTimelineSegments: AnalysisViewerPhaseTimelineSegment[];
+  currentTimestampMs?: number;
+  timelineDurationMs?: number;
 };
 
 export type AnalysisViewerModel = {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBenchmarkCoachingFeedback, getComparisonSeverity, getTopComparisonFindings, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
+import { buildBenchmarkCoachingFeedback, formatPhaseSequenceSummary, getComparisonSeverity, getTopComparisonFindings, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
 import type { BenchmarkComparisonResult } from "./benchmark-comparison.ts";
 
 function buildComparison(partial?: Partial<BenchmarkComparisonResult>): BenchmarkComparisonResult {
@@ -142,4 +142,76 @@ test("safe handling for partial comparison payloads", () => {
 
   assert.equal(partialFeedback.topFindings.length > 0, true);
   assert.equal(summary.label, "Partial benchmark match");
+});
+
+test("sequence wording does not claim full in-order match when extras/mismatch exist", () => {
+  const comparison = buildComparison({
+    status: "phase_mismatch",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b", "c", "x"],
+      matched: false,
+      matchedCount: 3,
+      missingPhases: [],
+      extraPhases: ["x"]
+    }
+  });
+  const summary = formatPhaseSequenceSummary(comparison);
+  const feedback = buildBenchmarkCoachingFeedback({ comparison });
+
+  assert.equal(summary, "Matched 3 of 3 benchmark phases in order.");
+  assert.match(feedback.findings[0]?.description ?? "", /additional sequence differences/i);
+});
+
+test("partial summary can explicitly report sequence matched with timing missed", () => {
+  const summary = summarizeBenchmarkComparison(
+    buildComparison({
+      status: "partial",
+      phaseMatch: {
+        expectedPhaseKeys: ["a", "b", "c"],
+        actualPhaseKeys: ["a", "b", "c"],
+        matched: true,
+        matchedCount: 3,
+        missingPhases: [],
+        extraPhases: []
+      },
+      timing: { present: true, matched: false, expectedRepDurationMs: 1000, actualRepDurationMs: 1600, phaseTimingCompared: [] }
+    })
+  );
+
+  assert.equal(summary.description, "Partial benchmark match: sequence matched, timing missed.");
+});
+
+test("full phase match summary never reports mismatch wording", () => {
+  const comparison = buildComparison({
+    status: "matched",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b", "c"],
+      matched: true,
+      matchedCount: 3,
+      missingPhases: [],
+      extraPhases: []
+    }
+  });
+  assert.equal(formatPhaseSequenceSummary(comparison), "Phase sequence matched.");
+});
+
+test("timing mismatch summary remains consistent when sequence still matches", () => {
+  const comparison = buildComparison({
+    status: "timing_mismatch",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b", "c"],
+      matched: true,
+      matchedCount: 3,
+      missingPhases: [],
+      extraPhases: []
+    },
+    timing: { present: true, matched: false, expectedRepDurationMs: 1200, actualRepDurationMs: 1800, phaseTimingCompared: [] }
+  });
+
+  const feedback = buildBenchmarkCoachingFeedback({ comparison });
+  assert.equal(formatPhaseSequenceSummary(comparison), "Phase sequence matched.");
+  assert.match(feedback.summary.label, /Timing needs work/i);
 });
