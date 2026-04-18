@@ -20,10 +20,13 @@ export type NormalizedOutputValidationResult =
   | {
       ok: true;
       diagnostics: {
-        sourceDurationMs: number;
+        sourceDurationMs?: number;
         normalizedDurationMs: number;
-        durationDriftMs: number;
-        driftPct: number;
+        width: number;
+        height: number;
+        durationDriftMs?: number;
+        driftPct?: number;
+        driftCheckSkipped: boolean;
       };
     }
   | {
@@ -53,7 +56,7 @@ export function validateNormalizedOutput(
   const hasValidDimensions = typeof width === "number" && width > 0 && typeof height === "number" && height > 0;
   const hasValidSourceDuration = typeof sourceDurationMs === "number" && Number.isFinite(sourceDurationMs) && sourceDurationMs > 0;
 
-  if (!hasValidDuration || !hasValidDimensions || !hasValidSourceDuration) {
+  if (!hasValidDuration || !hasValidDimensions) {
     return {
       ok: false,
       reason: "invalid-metadata",
@@ -66,22 +69,37 @@ export function validateNormalizedOutput(
     };
   }
 
-  const durationDriftMs = Math.abs(normalizedDurationMs - sourceDurationMs);
-  const allowedDriftMs = Math.max(1000, Math.round(sourceDurationMs * 0.05));
-  const driftPct = sourceDurationMs > 0 ? (durationDriftMs / sourceDurationMs) * 100 : 0;
+  if (hasValidSourceDuration) {
+    const durationDriftMs = Math.abs(normalizedDurationMs - sourceDurationMs);
+    const allowedDriftMs = Math.max(1000, Math.round(sourceDurationMs * 0.05));
+    const driftPct = (durationDriftMs / sourceDurationMs) * 100;
 
-  if (durationDriftMs > allowedDriftMs) {
+    if (durationDriftMs > allowedDriftMs) {
+      return {
+        ok: false,
+        reason: "duration-drift",
+        details: {
+          sourceDurationMs,
+          normalizedDurationMs,
+          durationDriftMs,
+          driftPct,
+          width,
+          height,
+          allowedDriftMs
+        }
+      };
+    }
+
     return {
-      ok: false,
-      reason: "duration-drift",
-      details: {
+      ok: true,
+      diagnostics: {
         sourceDurationMs,
         normalizedDurationMs,
-        durationDriftMs,
-        driftPct,
         width,
         height,
-        allowedDriftMs
+        durationDriftMs,
+        driftPct,
+        driftCheckSkipped: false
       }
     };
   }
@@ -89,10 +107,10 @@ export function validateNormalizedOutput(
   return {
     ok: true,
     diagnostics: {
-      sourceDurationMs,
       normalizedDurationMs,
-      durationDriftMs,
-      driftPct
+      width,
+      height,
+      driftCheckSkipped: true
     }
   };
 }

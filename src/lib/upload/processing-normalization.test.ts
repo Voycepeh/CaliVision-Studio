@@ -97,6 +97,25 @@ test("accepts normalized output when duration remains close to source", () => {
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.diagnostics.durationDriftMs, 700);
+    assert.equal(result.diagnostics.driftCheckSkipped, false);
+  }
+});
+
+test("accepts normalized output when source duration is missing but normalized metadata is valid", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: undefined },
+    {
+      durationMs: 32_700,
+      width: 1920,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.diagnostics.driftCheckSkipped, true);
+    assert.equal(result.diagnostics.durationDriftMs, undefined);
+    assert.equal(result.diagnostics.driftPct, undefined);
   }
 });
 
@@ -116,9 +135,9 @@ test("rejects normalized output with major duration inflation", () => {
   }
 });
 
-test("rejects normalized output missing duration metadata", () => {
+test("rejects normalized output missing duration metadata even when source duration is unavailable", () => {
   const result = validateNormalizedOutput(
-    { durationMs: 32_000 },
+    { durationMs: undefined },
     {
       width: 1920,
       height: 1080
@@ -131,9 +150,9 @@ test("rejects normalized output missing duration metadata", () => {
   }
 });
 
-test("rejects normalized output with invalid dimensions", () => {
+test("rejects normalized output with invalid dimensions even when source duration is unavailable", () => {
   const result = validateNormalizedOutput(
-    { durationMs: 32_000 },
+    { durationMs: undefined },
     {
       durationMs: 32_500,
       width: 0,

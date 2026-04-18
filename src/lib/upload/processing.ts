@@ -419,7 +419,15 @@ async function normalizeVideoForAnalysisWithValidation(
 ): Promise<{
   file: File;
   metadata: { durationMs?: number; width?: number; height?: number };
-  validation: { sourceDurationMs: number; normalizedDurationMs: number; durationDriftMs: number; driftPct: number };
+  validation: {
+    sourceDurationMs?: number;
+    normalizedDurationMs: number;
+    width: number;
+    height: number;
+    durationDriftMs?: number;
+    driftPct?: number;
+    driftCheckSkipped: boolean;
+  };
 }> {
   const normalizedFile = await normalizeVideoForAnalysis(file, diagnostics, signal);
   const normalizedMetadata = await readVideoMetadata(normalizedFile);
@@ -432,6 +440,7 @@ async function normalizeVideoForAnalysisWithValidation(
     normalizedDurationMs: normalizedMetadata.durationMs,
     normalizedWidth: normalizedMetadata.width,
     normalizedHeight: normalizedMetadata.height,
+    driftCheckSkipped: validation.ok ? validation.diagnostics.driftCheckSkipped : undefined,
     accepted: validation.ok
   });
 
@@ -511,7 +520,8 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
         sourceDurationMs: normalizedOutput.validation.sourceDurationMs,
         normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
         durationDriftMs: normalizedOutput.validation.durationDriftMs,
-        durationDriftPct: normalizedOutput.validation.driftPct
+        durationDriftPct: normalizedOutput.validation.driftPct,
+        driftCheckSkipped: normalizedOutput.validation.driftCheckSkipped
       });
     } catch (error) {
       logUploadEvent("NORMALIZATION_FAILED", {
@@ -563,6 +573,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
         normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
         durationDriftMs: normalizedOutput.validation.durationDriftMs,
         durationDriftPct: normalizedOutput.validation.driftPct,
+        driftCheckSkipped: normalizedOutput.validation.driftCheckSkipped,
         trigger: "seek-timeout-retry"
       });
       logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
