@@ -273,3 +273,46 @@ test("completed upload with zero analyzed duration is persisted as partial", asy
   assert.equal(session.summary.analyzedDurationMs, 0);
   assert.equal(session.status, "partial");
 });
+
+test("side-view low-confidence failures include explicit mirrored-orientation reason", () => {
+  const drill = buildDrill();
+  drill.phases = [
+    {
+      ...drill.phases[0]!,
+      analysis: { matchHints: { requiredJoints: ["leftShoulder", "leftHip", "leftWrist"] } }
+    },
+    {
+      ...drill.phases[1]!,
+      analysis: { matchHints: { requiredJoints: ["leftShoulder", "leftHip", "leftWrist"] } }
+    }
+  ];
+  const timeline = createTimeline();
+  timeline.frames = [
+    {
+      timestampMs: 0,
+      joints: {
+        rightShoulder: { x: 0.65, y: 0.35, confidence: 0.99 },
+        rightHip: { x: 0.7, y: 0.65, confidence: 0.99 },
+        rightWrist: { x: 0.64, y: 0.2, confidence: 0.99 }
+      }
+    },
+    {
+      timestampMs: 500,
+      joints: {
+        rightShoulder: { x: 0.65, y: 0.35, confidence: 0.99 },
+        rightHip: { x: 0.7, y: 0.65, confidence: 0.99 },
+        rightWrist: { x: 0.64, y: 0.8, confidence: 0.99 }
+      }
+    }
+  ];
+
+  const built = buildCompletedUploadAnalysisSession({
+    drill,
+    timeline,
+    sourceId: "upload-orientation-debug",
+    resolvedCameraView: "side"
+  });
+
+  assert.equal(built.debug?.noEventCause, "side_orientation_mismatch");
+  assert.equal((built.summary.repCount ?? 0) === 0, true);
+});

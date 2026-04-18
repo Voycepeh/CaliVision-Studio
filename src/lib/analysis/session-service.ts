@@ -117,8 +117,29 @@ function deriveNoEventCause(output: ReturnType<typeof runDrillAnalysisPipeline>)
   const phaseEnterTransitions = output.transitions.filter((transition) => transition.type === "phase_enter").length;
   const invalidTransitions = output.transitions.filter((transition) => transition.type === "invalid_transition").length;
   const smoothedFrames = output.smoothedFrames.filter((frame) => frame.smoothedPhaseId).length;
+  const sideOrientationMismatchFrames = output.scoredFrames.filter((frame) => {
+    if (frame.debug?.cameraView !== "side") {
+      return false;
+    }
+    const mirroredWinner = Object.values(frame.debug.sideOrientationModeByPhaseId ?? {}).includes("mirrored");
+    if (mirroredWinner) {
+      return true;
+    }
+    return Object.values(frame.debug.phaseComparisons).some((comparison) => {
+      if (typeof comparison.nativeAdjustedScore !== "number" || typeof comparison.mirroredAdjustedScore !== "number") {
+        return false;
+      }
+      return comparison.mirroredAdjustedScore > comparison.nativeAdjustedScore + 0.2;
+    });
+  }).length;
 
   if (highConfidenceFrames === 0) {
+    if (sideOrientationMismatchFrames > 0) {
+      return {
+        cause: "side_orientation_mismatch",
+        details: ["Side-view frames matched significantly better after mirrored lateral normalization; review capture orientation and authored side hints."]
+      };
+    }
     return {
       cause: "low_confidence_frames",
       details: ["All sampled frames were below the classification confidence threshold."]
@@ -160,6 +181,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
     sourceType: "upload-video",
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
   });
+  const noEvent = deriveNoEventCause(output);
 
   return {
     sessionId: output.session.sessionId,
@@ -205,7 +227,8 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
       smoothedFrames: output.smoothedFrames,
       phaseScoringFrames: output.session.frameSamples,
       runtimeDiagnostics: createRuntimeDiagnostics(input.drill, output),
-      ...deriveNoEventCause(output)
+      noEventCause: noEvent.cause,
+      noEventDetails: noEvent.details
     },
     drillBinding: input.drillBinding ?? {
       drillId: input.drill.drillId,
