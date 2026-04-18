@@ -61,12 +61,25 @@ function formatExpectedViewLabel(view: PortableDrill["primaryView"]): string {
 
 function formatCompatibilityReason(reason: string): string {
   if (reason === "incomplete or low-confidence metadata") {
-    return "Could not confidently confirm compatibility from metadata.";
+    return "Preparing video";
   }
   if (reason === "QuickTime/MOV container can include fragile metadata") {
-    return "QuickTime/MOV metadata can be fragile in browser analysis.";
+    return "Analyzing video";
+  }
+  if (reason === "portrait source has non-zero rotation metadata" || reason === "suspicious or incomplete metadata") {
+    return "Normalizing video and retrying…";
   }
   return reason;
+}
+
+function shouldAutoResolvePreflight(report: UploadCompatibilityReport): boolean {
+  const metadataOnlyReasons = new Set([
+    "incomplete or low-confidence metadata",
+    "QuickTime/MOV container can include fragile metadata",
+    "portrait source has non-zero rotation metadata",
+    "suspicious or incomplete metadata"
+  ]);
+  return report.level === "risky" && report.reasons.length > 0 && report.reasons.every((reason) => metadataOnlyReasons.has(reason));
 }
 
 function resolveUploadReplayState(job: UploadJob | null | undefined, previewState: string): ReplayTerminalState {
@@ -583,11 +596,13 @@ export function UploadVideoWorkspace() {
       const compatibility = await inspectUploadCompatibility(file);
       let preflightChoice: UploadJob["preflightChoice"] = "auto";
       if (compatibility.level !== "supported") {
-        const userChoice = await requestPreflightChoice(file, compatibility);
-        if (userChoice === "cancel") {
-          continue;
+        if (!shouldAutoResolvePreflight(compatibility)) {
+          const userChoice = await requestPreflightChoice(file, compatibility);
+          if (userChoice === "cancel") {
+            continue;
+          }
+          preflightChoice = userChoice === "normalize" ? "normalize" : "try_anyway";
         }
-        preflightChoice = userChoice === "normalize" ? "normalize" : "try_anyway";
       }
       const metadata = await readVideoMetadata(file);
       queuedJobs.push({
