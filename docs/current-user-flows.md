@@ -5,8 +5,9 @@
 1. User lands on **Home** (`/`) as the brand-first product entry.
 2. User picks one of the primary paths: **Open Library**, **Upload Video**, or **Live Streaming**.
 3. From **Library** (`/library`), each drill row is a direct action hub: **Analyze Video**, **Live Coach**, **Edit in Studio**, plus inline **Preview** (no route detour required just to inspect a drill).
-4. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
-5. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
+4. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal Library drill cards keep owner-facing actions only (for example **Remove from Public**).
+5. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
+6. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
 
 ## Current Drill Studio flow
 

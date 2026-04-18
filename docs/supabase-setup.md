@@ -15,8 +15,8 @@ Required for hosted mode:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (required for moderator/admin Drill Exchange moderation endpoints)
-- `EXCHANGE_MODERATOR_USER_IDS` (optional comma-separated user IDs when JWT role claims are not configured yet)
+- `SUPABASE_SERVICE_ROLE_KEY` (required for admin user list, role management, and moderation endpoints)
+- `EXCHANGE_MODERATOR_USER_IDS` (optional migration fallback only; DB-backed `user_profiles.role` is now primary)
 
 Optional backward compatibility:
 
@@ -31,7 +31,13 @@ If these are missing, Studio keeps working in local-only mode and hosted control
 3. Configure redirects in two places:
    - **Google Cloud → Authorized redirect URIs**: use the Supabase callback URL shown on the Supabase Google provider page (do not use your app URL here).
    - **Supabase Auth → Redirect URLs** (and your app `redirectTo`): allow your app callback routes, such as `http://localhost:3000/auth/callback` and your production `/auth/callback` URL.
-4. Run SQL migration: `supabase/migrations/20260407_hosted_drafts_foundation.sql`.
+4. Run SQL migrations:
+   - `supabase/migrations/20260407_hosted_drafts_foundation.sql`
+   - `supabase/migrations/20260412_exchange_mvp.sql`
+   - `supabase/migrations/20260418_exchange_publication_moderation.sql`
+   - `supabase/migrations/20260418_admin_user_profiles.sql`
+5. For initial bootstrap, set one existing user profile to `admin` in `public.user_profiles` after that user signs in once (or after `/api/user/activity` creates their profile row).
+6. `user_profiles.role` is server-managed; authenticated users can update profile activity fields but cannot self-promote role values.
 
 ## 3) Official Next.js auth flow used in Studio
 
