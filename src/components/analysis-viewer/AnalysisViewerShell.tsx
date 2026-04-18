@@ -298,8 +298,8 @@ function AnalysisTechnicalStatusBar({ chips }: { chips: AnalysisViewerModel["tec
 
 function AnalysisDownloads({ model }: { model: AnalysisViewerModel }) {
   return (
-    <section style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-      {model.recommendedDeliveryLabel ? <span className="muted" style={{ fontSize: "0.8rem", width: "100%" }}>{model.recommendedDeliveryLabel}</span> : null}
+    <section className="analysis-downloads">
+      {model.recommendedDeliveryLabel ? <span className="analysis-downloads__label muted">{model.recommendedDeliveryLabel}</span> : null}
       {model.downloads.map((download) => (
         <button key={download.id} type="button" className="pill" onClick={download.onDownload} disabled={download.disabled} title={download.hint} style={{ opacity: download.disabled ? 0.45 : 1 }}>
           {download.label}
@@ -312,12 +312,12 @@ function AnalysisDownloads({ model }: { model: AnalysisViewerModel }) {
 function AnalysisDiagnosticsAccordion({ sections }: { sections: AnalysisViewerModel["diagnosticsSections"] }) {
   if (!sections.length) return null;
   return (
-    <details style={{ opacity: 0.9 }}>
-      <summary style={{ cursor: "pointer" }}>Diagnostics</summary>
+    <details className="analysis-diagnostics">
+      <summary className="analysis-diagnostics__summary">Diagnostics</summary>
       {sections.map((section) => (
-        <details key={section.id} style={{ marginTop: "0.35rem" }}>
-          <summary style={{ cursor: "pointer" }}>{section.title}</summary>
-          <ul className="muted" style={{ marginTop: "0.35rem" }}>
+        <details key={section.id} className="analysis-diagnostics__section">
+          <summary className="analysis-diagnostics__summary">{section.title}</summary>
+          <ul className="analysis-diagnostics__list muted">
             {section.content.map((line, index) => <li key={`${section.id}_${index}`}>{line}</li>)}
           </ul>
         </details>

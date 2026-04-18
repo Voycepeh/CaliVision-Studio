@@ -1510,14 +1510,18 @@ main {
 
 .analysis-viewer-shell {
   width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .analysis-viewer-layout {
   display: grid;
   gap: 0.9rem;
   align-items: start;
-  width: min(100%, 1400px);
+  width: 100%;
+  max-width: 1320px;
   margin: 0 auto;
+  min-width: 0;
 }
 
 .analysis-panel {
@@ -1642,12 +1646,17 @@ main {
   overflow-x: auto;
   overflow-y: hidden;
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .analysis-phase-timeline__track {
   display: flex;
   gap: 0.3rem;
   min-width: max-content;
+  width: max-content;
+  max-width: none;
   position: relative;
   align-items: stretch;
   isolation: isolate;
@@ -1700,6 +1709,8 @@ main {
 .analysis-advanced-details {
   display: grid;
   gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .analysis-advanced-details__group,
@@ -1709,6 +1720,8 @@ main {
   border-radius: 0.7rem;
   padding: 0.45rem 0.55rem;
   background: rgba(5, 9, 18, 0.3);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .analysis-advanced-details details > summary {
@@ -1725,6 +1738,43 @@ main {
   display: grid;
   gap: 0.24rem;
   font-size: 0.82rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analysis-downloads {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.analysis-downloads__label {
+  width: 100%;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.analysis-diagnostics {
+  opacity: 0.9;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.analysis-diagnostics__section {
+  margin-top: 0.35rem;
+  min-width: 0;
+}
+
+.analysis-diagnostics__summary {
+  cursor: pointer;
+}
+
+.analysis-diagnostics__list {
+  margin-top: 0.35rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 980px) {
