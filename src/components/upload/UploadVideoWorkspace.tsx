@@ -14,7 +14,7 @@ import type { UploadJob } from "@/lib/upload/types";
 import { clearFileInputValue, DEFAULT_TRACE_STEP_MS, nextUploadWorkflowResetKey } from "@/lib/upload/workflow-reset";
 import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { inspectUploadCompatibility, type UploadCompatibilityReport, type UploadPreflightDecision } from "@/lib/upload/compatibility";
-import { buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
+import { buildBenchmarkCoachingFeedback, buildCompletedUploadAnalysisSession, buildPhaseRuntimeModel, formatCameraViewLabel, type AnalysisSessionRecord } from "@/lib/analysis";
 import { formatDurationShort } from "@/lib/format/duration";
 import { formatDurationClock, toFiniteNonNegativeMs } from "@/lib/format/safe-duration";
 import { resolveUnifiedResultPreviewState, type PreviewSurface } from "@/lib/results/preview-state";
@@ -707,6 +707,10 @@ export function UploadVideoWorkspace() {
   const showReferencePanel = isReferencePanelVisible;
   const queueHasMultiple = uploadJobs.length > 1;
   const previewUrl = previewSelection.source?.url ?? null;
+  const benchmarkFeedback = useMemo(
+    () => activeSession?.benchmarkComparison ? buildBenchmarkCoachingFeedback({ comparison: activeSession.benchmarkComparison }) : null,
+    [activeSession?.benchmarkComparison]
+  );
 
   useEffect(() => {
     setReplayTimestampMs(0);
@@ -772,10 +776,12 @@ export function UploadVideoWorkspace() {
           currentTimestampMs: replayTimestampMs,
           feedbackLines:
             activeSession && activeSession.status === "completed"
-              ? [
-                  `Tracking confidence is ${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%.`,
-                  "Coach notes not available yet"
-                ]
+              ? benchmarkFeedback
+                ? [benchmarkFeedback.summary.label, benchmarkFeedback.topFindings[0]?.description ?? benchmarkFeedback.summary.description]
+                : [
+                    `Tracking confidence is ${Math.round((activeSession.summary.confidenceAvg ?? 0) * 100)}%.`,
+                    "Coach notes not available yet"
+                  ]
               : undefined,
           summaryMetrics: activeSession?.benchmarkComparison
             ? [
@@ -802,6 +808,20 @@ export function UploadVideoWorkspace() {
                     : `${formatDuration(activeSession.benchmarkComparison.timing.expectedHoldDurationMs)} / ${formatDuration(activeSession.benchmarkComparison.timing.actualHoldDurationMs)}`
                 }
               ]
+            : undefined,
+          benchmarkFeedback: benchmarkFeedback
+            ? {
+                summaryLabel: benchmarkFeedback.summary.label,
+                summaryDescription: benchmarkFeedback.summary.description,
+                severity: benchmarkFeedback.summary.severity,
+                findings: benchmarkFeedback.topFindings.map((finding, index) => ({
+                  id: `${finding.category}_${index}`,
+                  title: finding.title,
+                  description: finding.description,
+                  severity: finding.severity
+                })),
+                nextSteps: benchmarkFeedback.nextSteps
+              }
             : undefined,
           phaseTimelineInteractive: true
         })),
@@ -915,6 +935,7 @@ export function UploadVideoWorkspace() {
       completedPreviewSurface,
       replayTimestampMs,
       activeSession,
+      benchmarkFeedback,
       activeJob,
       activePhaseLabels,
       downloadTargets,

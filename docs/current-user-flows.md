@@ -35,12 +35,13 @@
 6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
 7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
 8. In drill mode, when benchmark metadata exists and analysis data is sufficient, Studio now attaches a deterministic benchmark comparison summary (matched/partial/mismatch/no benchmark) covering phase order and timing tolerance checks.
-9. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
-10. Download outputs in this simplified order (shown once in UI):
+9. Upload analysis now includes a compact **Benchmark feedback** layer (rule-based templates only) that surfaces a concise overall summary, up to three prioritized findings, and actionable next-step hints.
+10. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
+11. Download outputs in this simplified order (shown once in UI):
    - Annotated Video (`.webm`)
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
-11. Leave or refresh `/upload` to intentionally start fresh.
+12. Leave or refresh `/upload` to intentionally start fresh.
 
 
 ## Current Live Streaming flow
@@ -53,7 +54,7 @@
 6. While running, Studio records raw video and retains timestamped trace data (phase classification, rep/hold events, overlay geometry source data), keeping live overlay alignment bound to the active camera stream geometry.
 7. Stop session to finalize recorder + trace; Studio composes annotated replay from retained trace + raw recording so replay/export framing matches the same live camera zoom framing used in-session.
 8. Review replay and summary outputs without routing through Upload Video’s offline-file pipeline by default.
-9. When a drill includes benchmark metadata, live session summaries can include the same deterministic benchmark comparison payload used by upload analysis (without AI/LLM explainability yet).
+9. When a drill includes benchmark metadata, live session summaries can include the same deterministic benchmark comparison payload used by upload analysis, plus compact rule-based benchmark feedback once a stable session summary exists (still no AI/LLM explainability).
 
 Cadence note (April 8, 2026): this browser cadence follows the Android repo’s documented “lightweight in-session overlay” philosophy in `docs/features/live-coaching.md` and `docs/architecture/overlay-rendering.md`, emphasizing responsive coaching feedback over max-FPS rendering.
 

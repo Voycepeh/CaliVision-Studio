@@ -28,6 +28,14 @@ export {
 export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./benchmark-comparison.ts";
 
 export {
+  buildBenchmarkCoachingFeedback,
+  getComparisonSeverity,
+  getTopComparisonFindings,
+  summarizeBenchmarkComparison
+} from "./benchmark-feedback.ts";
+export type { BenchmarkCoachingFeedback, BenchmarkComparisonSummary, BenchmarkFeedbackCategory, BenchmarkFeedbackItem, BenchmarkFeedbackSeverity } from "./benchmark-feedback.ts";
+
+export {
   ANALYSIS_ARTIFACT_TYPE,
   ANALYSIS_ARTIFACT_VERSION,
   createAnalysisArtifactFilename,
