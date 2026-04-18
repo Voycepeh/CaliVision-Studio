@@ -124,6 +124,7 @@ export function StudioCenterInspector() {
 
   const phaseCards = displayedPhases.map((phase, index) => {
     const isExpanded = expandedPhaseId === phase.phaseId;
+    const holdRuleEnabled = phase.analysis?.comparison?.isHoldPhase ?? false;
     const phasePose = phase.poseSequence[0] ?? null;
     const poseModel = mapPortablePoseToCanvasPoseModel(
       phasePose
@@ -167,49 +168,60 @@ export function StudioCenterInspector() {
             <p className="muted" style={{ margin: 0, fontSize: "0.78rem", lineHeight: 1.35 }}>
               This phase participates in sequence checks by default. Enable hold rules only when this phase needs timing validation.
             </p>
-            <label style={phaseRuleToggleLabelStyle}>
-              <input
-                type="checkbox"
-                checked={phase.analysis?.comparison?.isHoldPhase ?? false}
-                onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
-                  isHoldPhase: event.target.checked,
-                  durationMatters: event.target.checked || phase.analysis?.comparison?.durationMatters
-                })}
-              />
-              <span>Hold requirement</span>
-            </label>
-            <div style={{ display: "grid", gap: "0.35rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-              <label style={phaseRuleFieldLabelStyle}>
-                Min hold (ms)
+            <div style={phaseRuleToggleRowStyle}>
+              <label style={phaseRuleToggleLabelStyle}>
                 <input
-                  type="number"
-                  min={0}
-                  step={100}
-                  value={phase.analysis?.comparison?.minHoldDurationMs ?? ""}
+                  type="checkbox"
+                  checked={holdRuleEnabled}
                   onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
-                    minHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
-                    durationMatters: event.target.value !== ""
+                    isHoldPhase: event.target.checked,
+                    durationMatters: event.target.checked || phase.analysis?.comparison?.durationMatters
                   })}
-                  style={inputStyle}
-                  placeholder="Optional"
                 />
+                <span>Hold requirement</span>
               </label>
-              <label style={phaseRuleFieldLabelStyle}>
-                Target hold (ms)
-                <input
-                  type="number"
-                  min={0}
-                  step={100}
-                  value={phase.analysis?.comparison?.targetHoldDurationMs ?? ""}
-                  onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
-                    targetHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
-                    durationMatters: event.target.value !== ""
-                  })}
-                  style={inputStyle}
-                  placeholder="Optional"
-                />
-              </label>
+              <span className="muted" style={phaseRuleToggleHintStyle}>
+                {holdRuleEnabled ? "Enabled" : "Optional"}
+              </span>
             </div>
+            {holdRuleEnabled ? (
+              <div style={{ display: "grid", gap: "0.35rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                <label style={phaseRuleFieldLabelStyle}>
+                  Min hold (ms)
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={phase.analysis?.comparison?.minHoldDurationMs ?? ""}
+                    onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
+                      minHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
+                      durationMatters: event.target.value !== ""
+                    })}
+                    style={inputStyle}
+                    placeholder="Required only for hold phases"
+                  />
+                </label>
+                <label style={phaseRuleFieldLabelStyle}>
+                  Target hold (ms)
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    value={phase.analysis?.comparison?.targetHoldDurationMs ?? ""}
+                    onChange={(event) => setPhaseComparisonRule(phase.phaseId, {
+                      targetHoldDurationMs: event.target.value === "" ? undefined : Number(event.target.value),
+                      durationMatters: event.target.value !== ""
+                    })}
+                    style={inputStyle}
+                    placeholder="Optional coaching target"
+                  />
+                </label>
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 0, fontSize: "0.76rem", lineHeight: 1.3 }}>
+                No hold timing required for this phase.
+              </p>
+            )}
           </div>
 
           {isExpanded ? (
@@ -352,6 +364,19 @@ const phaseRuleToggleLabelStyle: CSSProperties = {
   alignItems: "center",
   gap: "0.45rem",
   fontSize: "0.78rem",
+  lineHeight: 1.25
+};
+
+const phaseRuleToggleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.5rem",
+  flexWrap: "wrap"
+};
+
+const phaseRuleToggleHintStyle: CSSProperties = {
+  fontSize: "0.76rem",
   lineHeight: 1.25
 };
 

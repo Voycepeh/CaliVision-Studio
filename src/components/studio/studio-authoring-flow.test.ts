@@ -9,6 +9,8 @@ const source = readFileSync(filePath, "utf8");
 test("drill setup no longer mounts benchmark/reference editor in normal authoring flow", () => {
   assert.equal(source.includes("<StudioBenchmarkEditor />"), false);
   assert.equal(source.includes("StudioBenchmarkEditor"), false);
+  assert.equal(source.includes("Reference criteria"), false);
+  assert.equal(source.includes("Comparison settings enabled"), false);
 });
 
 test("phase sequence section explains drill-first reference and optional hold rules", () => {
