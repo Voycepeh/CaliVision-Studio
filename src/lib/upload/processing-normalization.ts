@@ -10,6 +10,93 @@ export type VideoDiagnostics = {
   hasSuspiciousMetadata: boolean;
 };
 
+export type NormalizedOutputMetadata = {
+  durationMs?: number;
+  width?: number;
+  height?: number;
+};
+
+export type NormalizedOutputValidationResult =
+  | {
+      ok: true;
+      diagnostics: {
+        sourceDurationMs: number;
+        normalizedDurationMs: number;
+        durationDriftMs: number;
+        driftPct: number;
+      };
+    }
+  | {
+      ok: false;
+      reason: "invalid-metadata" | "duration-drift";
+      details: {
+        sourceDurationMs?: number;
+        normalizedDurationMs?: number;
+        durationDriftMs?: number;
+        driftPct?: number;
+        width?: number;
+        height?: number;
+        allowedDriftMs?: number;
+      };
+    };
+
+export function validateNormalizedOutput(
+  sourceDiagnostics: Pick<VideoDiagnostics, "durationMs">,
+  normalizedMetadata: NormalizedOutputMetadata
+): NormalizedOutputValidationResult {
+  const sourceDurationMs = sourceDiagnostics.durationMs;
+  const normalizedDurationMs = normalizedMetadata.durationMs;
+  const width = normalizedMetadata.width;
+  const height = normalizedMetadata.height;
+  const hasValidDuration =
+    typeof normalizedDurationMs === "number" && Number.isFinite(normalizedDurationMs) && normalizedDurationMs > 0;
+  const hasValidDimensions = typeof width === "number" && width > 0 && typeof height === "number" && height > 0;
+  const hasValidSourceDuration = typeof sourceDurationMs === "number" && Number.isFinite(sourceDurationMs) && sourceDurationMs > 0;
+
+  if (!hasValidDuration || !hasValidDimensions || !hasValidSourceDuration) {
+    return {
+      ok: false,
+      reason: "invalid-metadata",
+      details: {
+        sourceDurationMs,
+        normalizedDurationMs,
+        width,
+        height
+      }
+    };
+  }
+
+  const durationDriftMs = Math.abs(normalizedDurationMs - sourceDurationMs);
+  const allowedDriftMs = Math.max(1000, Math.round(sourceDurationMs * 0.05));
+  const driftPct = sourceDurationMs > 0 ? (durationDriftMs / sourceDurationMs) * 100 : 0;
+
+  if (durationDriftMs > allowedDriftMs) {
+    return {
+      ok: false,
+      reason: "duration-drift",
+      details: {
+        sourceDurationMs,
+        normalizedDurationMs,
+        durationDriftMs,
+        driftPct,
+        width,
+        height,
+        allowedDriftMs
+      }
+    };
+  }
+
+  return {
+    ok: true,
+    diagnostics: {
+      sourceDurationMs,
+      normalizedDurationMs,
+      durationDriftMs,
+      driftPct
+    }
+  };
+}
+
 export function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const mimeType = file.type.toLowerCase();

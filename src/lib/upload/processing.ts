@@ -16,6 +16,7 @@ import {
 import {
   isSeekTimeoutDuringPoseSampling,
   shouldNormalize,
+  validateNormalizedOutput,
   type VideoDiagnostics
 } from "@/lib/upload/processing-normalization";
 
@@ -411,6 +412,60 @@ export async function readVideoMetadata(file: File): Promise<{ durationMs?: numb
   }
 }
 
+async function normalizeVideoForAnalysisWithValidation(
+  file: File,
+  diagnostics: VideoDiagnostics,
+  signal?: AbortSignal
+): Promise<{
+  file: File;
+  metadata: { durationMs?: number; width?: number; height?: number };
+  validation: { sourceDurationMs: number; normalizedDurationMs: number; durationDriftMs: number; driftPct: number };
+}> {
+  const normalizedFile = await normalizeVideoForAnalysis(file, diagnostics, signal);
+  const normalizedMetadata = await readVideoMetadata(normalizedFile);
+  const validation = validateNormalizedOutput({ durationMs: diagnostics.durationMs }, normalizedMetadata);
+
+  logUploadEvent("NORMALIZATION_OUTPUT_VALIDATION", {
+    sourceFileName: file.name,
+    normalizedFileName: normalizedFile.name,
+    sourceDurationMs: diagnostics.durationMs,
+    normalizedDurationMs: normalizedMetadata.durationMs,
+    normalizedWidth: normalizedMetadata.width,
+    normalizedHeight: normalizedMetadata.height,
+    accepted: validation.ok
+  });
+
+  if (!validation.ok) {
+    if (validation.reason === "duration-drift") {
+      logUploadEvent("NORMALIZATION_OUTPUT_REJECTED_DURATION_DRIFT", {
+        sourceFileName: file.name,
+        normalizedFileName: normalizedFile.name,
+        sourceDurationMs: validation.details.sourceDurationMs,
+        normalizedDurationMs: validation.details.normalizedDurationMs,
+        durationDriftMs: validation.details.durationDriftMs,
+        durationDriftPct: validation.details.driftPct,
+        allowedDriftMs: validation.details.allowedDriftMs
+      });
+    } else {
+      logUploadEvent("NORMALIZATION_OUTPUT_REJECTED_INVALID_METADATA", {
+        sourceFileName: file.name,
+        normalizedFileName: normalizedFile.name,
+        sourceDurationMs: validation.details.sourceDurationMs,
+        normalizedDurationMs: validation.details.normalizedDurationMs,
+        normalizedWidth: validation.details.width,
+        normalizedHeight: validation.details.height
+      });
+    }
+    throw new Error("Video preprocessing failed: normalized output validation failed.");
+  }
+
+  return {
+    file: normalizedFile,
+    metadata: normalizedMetadata,
+    validation: validation.diagnostics
+  };
+}
+
 export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<ProcessVideoResult> {
   const diagnostics = await inspectVideoDiagnostics(file);
   logUploadEvent("VIDEO_METADATA_INSPECTED", {
@@ -445,13 +500,18 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     logUploadEvent("NORMALIZATION_STARTED", { fileName: file.name });
 
     try {
-      analysisFile = await normalizeVideoForAnalysis(file, diagnostics, options.signal);
+      const normalizedOutput = await normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
+      analysisFile = normalizedOutput.file;
       analysisSourceKind = "normalized";
       logUploadEvent("NORMALIZATION_SUCCEEDED", {
         sourceFileName: file.name,
         normalizedFileName: analysisFile.name,
         normalizedMimeType: analysisFile.type,
-        normalizedSizeBytes: analysisFile.size
+        normalizedSizeBytes: analysisFile.size,
+        sourceDurationMs: normalizedOutput.validation.sourceDurationMs,
+        normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
+        durationDriftMs: normalizedOutput.validation.durationDriftMs,
+        durationDriftPct: normalizedOutput.validation.driftPct
       });
     } catch (error) {
       logUploadEvent("NORMALIZATION_FAILED", {
@@ -491,9 +551,20 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
         reason: error instanceof Error ? error.message : "unknown"
       });
 
-      const normalizedFile = await normalizeVideoForAnalysis(file, diagnostics, options.signal);
-      analysisFile = normalizedFile;
+      const normalizedOutput = await normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
+      analysisFile = normalizedOutput.file;
       analysisSourceKind = "normalized";
+      logUploadEvent("NORMALIZATION_SUCCEEDED", {
+        sourceFileName: file.name,
+        normalizedFileName: analysisFile.name,
+        normalizedMimeType: analysisFile.type,
+        normalizedSizeBytes: analysisFile.size,
+        sourceDurationMs: normalizedOutput.validation.sourceDurationMs,
+        normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
+        durationDriftMs: normalizedOutput.validation.durationDriftMs,
+        durationDriftPct: normalizedOutput.validation.driftPct,
+        trigger: "seek-timeout-retry"
+      });
       logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
         mode: analysisSourceKind,
         selectedFileName: analysisFile.name,
