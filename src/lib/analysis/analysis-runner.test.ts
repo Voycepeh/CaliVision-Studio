@@ -143,6 +143,23 @@ function buildThreePhaseDrill(overrides: Partial<PortableDrill> = {}): PortableD
   });
 }
 
+function buildHoldDrill(overrides: Partial<PortableDrill> = {}): PortableDrill {
+  return buildDrill({
+    drillType: "hold",
+    analysis: {
+      ...buildDrill().analysis!,
+      measurementType: "hold",
+      orderedPhaseSequence: ["bottom"],
+      targetHoldPhaseId: "bottom",
+      minimumConfirmationFrames: 1,
+      entryConfirmationFrames: 1,
+      exitGraceFrames: 0,
+      minimumHoldDurationMs: 100
+    },
+    ...overrides
+  });
+}
+
 test("simple rep completion top->bottom->top", () => {
   const drill = buildDrill();
   const frames = [
@@ -293,15 +310,12 @@ test("strict winner gating still preserves invalid transition accounting for con
 });
 
 test("hold start/end with grace dropout behavior", () => {
-  const drill = buildDrill({
-    drillType: "hold",
+  const drill = buildHoldDrill({
     analysis: {
-      ...buildDrill().analysis!,
-      measurementType: "hold",
-      orderedPhaseSequence: ["bottom"],
-      targetHoldPhaseId: "bottom",
+      ...buildHoldDrill().analysis!,
       minimumHoldDurationMs: 250,
       minimumConfirmationFrames: 2,
+      entryConfirmationFrames: 2,
       exitGraceFrames: 2
     }
   });
@@ -321,6 +335,87 @@ test("hold start/end with grace dropout behavior", () => {
   assert.equal(result.session.events.filter((event) => event.type === "hold_start").length, 1);
   assert.equal(result.session.events.filter((event) => event.type === "hold_end").length, 1);
   assert.ok((result.session.summary.holdDurationMs ?? 0) >= 250);
+});
+
+test("single-phase hold active from session start derives hold duration", () => {
+  const drill = buildHoldDrill({
+    phases: [buildDrill().phases[1]!]
+  });
+  const frames = [poseFrame(0, 0.8), poseFrame(100, 0.8), poseFrame(200, 0.8), poseFrame(300, 0.8)];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  const holdStarts = result.session.events.filter((event) => event.type === "hold_start");
+  const holdEnds = result.session.events.filter((event) => event.type === "hold_end");
+
+  assert.equal(holdStarts.length, 1);
+  assert.equal(holdStarts[0]?.timestampMs, 0);
+  assert.equal(holdStarts[0]?.details?.derivedSessionStart, true);
+  assert.equal(holdEnds.length, 1);
+  assert.equal(holdEnds[0]?.details?.inferredSessionEnd, true);
+  assert.ok((result.session.summary.holdDurationMs ?? 0) > 0);
+});
+
+test("hold active at session start can end before clip ends", () => {
+  const drill = buildHoldDrill();
+  const frames = [poseFrame(0, 0.8), poseFrame(100, 0.8), poseFrame(200, 0.8), poseFrame(300, 0.2), poseFrame(400, 0.2)];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  const holdStarts = result.session.events.filter((event) => event.type === "hold_start");
+  const holdEnds = result.session.events.filter((event) => event.type === "hold_end");
+
+  assert.equal(holdStarts.length, 1);
+  assert.equal(holdStarts[0]?.details?.derivedSessionStart, true);
+  assert.equal(holdEnds.length, 1);
+  assert.equal(holdEnds[0]?.details?.inferredSessionEnd, undefined);
+  assert.ok((result.session.summary.holdDurationMs ?? 0) >= 200);
+});
+
+test("hold starting mid-session still uses explicit phase-enter path", () => {
+  const drill = buildHoldDrill();
+  const frames = [poseFrame(0, 0.2), poseFrame(100, 0.2), poseFrame(200, 0.8), poseFrame(300, 0.8), poseFrame(400, 0.2)];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  const holdStarts = result.session.events.filter((event) => event.type === "hold_start");
+
+  assert.equal(holdStarts.length, 1);
+  assert.equal(holdStarts[0]?.timestampMs, 200);
+  assert.equal(holdStarts[0]?.details?.derivedSessionStart, undefined);
+});
+
+test("hold active for entire clip closes at inferred session end", () => {
+  const drill = buildHoldDrill();
+  const frames = [poseFrame(0, 0.8), poseFrame(100, 0.8), poseFrame(200, 0.8), poseFrame(300, 0.8), poseFrame(400, 0.8)];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  const holdEnds = result.session.events.filter((event) => event.type === "hold_end");
+
+  assert.equal(holdEnds.length, 1);
+  assert.equal(holdEnds[0]?.timestampMs, 400);
+  assert.equal(holdEnds[0]?.details?.inferredSessionEnd, true);
+  assert.equal(result.session.summary.holdDurationMs, 400);
+});
+
+test("mixed inferred-start and explicit transitions do not double-count hold windows", () => {
+  const drill = buildHoldDrill();
+  const frames = [
+    poseFrame(0, 0.8),
+    poseFrame(100, 0.8),
+    poseFrame(200, 0.2),
+    poseFrame(300, 0.2),
+    poseFrame(400, 0.8),
+    poseFrame(500, 0.8),
+    poseFrame(600, 0.8)
+  ];
+
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
+  const holdStarts = result.session.events.filter((event) => event.type === "hold_start");
+  const holdEnds = result.session.events.filter((event) => event.type === "hold_end");
+
+  assert.equal(holdStarts.length, 2);
+  assert.equal(holdStarts[0]?.details?.derivedSessionStart, true);
+  assert.equal(holdStarts[1]?.timestampMs, 400);
+  assert.equal(holdEnds.length, 2);
+  assert.equal(result.session.summary.holdDurationMs, 400);
 });
 
 test("cooldown prevents double-count reps", () => {
@@ -374,13 +469,9 @@ test("temporary confidence drop still allows rep completion after stable recover
 });
 
 test("hold entryConfirmationFrames overrides generic confirmation for hold entry", () => {
-  const drill = buildDrill({
-    drillType: "hold",
+  const drill = buildHoldDrill({
     analysis: {
-      ...buildDrill().analysis!,
-      measurementType: "hold",
-      orderedPhaseSequence: ["bottom"],
-      targetHoldPhaseId: "bottom",
+      ...buildHoldDrill().analysis!,
       minimumConfirmationFrames: 1,
       entryConfirmationFrames: 3,
       exitGraceFrames: 1,

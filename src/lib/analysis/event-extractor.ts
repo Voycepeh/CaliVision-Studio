@@ -141,6 +141,18 @@ function extractHoldEvents(
 
   let activeHoldStartMs: number | null = null;
   let totalQualifiedHoldDurationMs = 0;
+  const firstAssignedFrame = smoothedFrames.find((frame) => frame.smoothedPhaseId !== null);
+  const startsInTargetHold = firstAssignedFrame?.smoothedPhaseId === targetPhaseId;
+
+  if (startsInTargetHold && firstAssignedFrame) {
+    activeHoldStartMs = firstAssignedFrame.timestampMs;
+    addEvent({
+      timestampMs: firstAssignedFrame.timestampMs,
+      type: "hold_start",
+      phaseId: targetPhaseId,
+      details: { derivedSessionStart: true }
+    });
+  }
 
   for (const transition of transitions) {
     if (transition.type === "phase_enter" && transition.phaseId === targetPhaseId) {
