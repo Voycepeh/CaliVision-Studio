@@ -24,6 +24,10 @@ export type ReplayOverlayState = ReplayDerivedState & {
   showRepCount: boolean;
   showHoldTimer: boolean;
   statusLabel?: string;
+  repOutcome?: {
+    kind: "rep_counted" | "rep_in_progress" | "incomplete_rep" | "skipped_phase" | "broken_sequence";
+    label: string;
+  };
 };
 
 export type ReplayOverlaySample = {
@@ -113,6 +117,54 @@ function getRepCountAtTime(events: AnalysisSessionRecord["events"], timestampMs:
   return Math.max(reps.length, indexedRep);
 }
 
+function toRepOutcomeLabel(
+  events: AnalysisSessionRecord["events"],
+  timestampMs: number
+): ReplayOverlayState["repOutcome"] | undefined {
+  const lastRepEvent = events
+    .filter((event) => event.type === "rep_complete" && event.timestampMs <= timestampMs)
+    .at(-1);
+  const lastPartial = events
+    .filter((event) => event.type === "partial_attempt" && event.timestampMs <= timestampMs)
+    .at(-1);
+  const lastPhaseEnter = events
+    .filter((event) => event.type === "phase_enter" && event.timestampMs <= timestampMs)
+    .at(-1);
+
+  const lastTerminalTimestamp = Math.max(lastRepEvent?.timestampMs ?? -1, lastPartial?.timestampMs ?? -1);
+  if (lastRepEvent && (lastRepEvent.timestampMs >= (lastPartial?.timestampMs ?? -1))) {
+    return {
+      kind: "rep_counted",
+      label: "Rep counted"
+    };
+  }
+
+  if (lastPartial && lastPartial.timestampMs >= (lastRepEvent?.timestampMs ?? -1)) {
+    const reason = typeof lastPartial.details?.reason === "string" ? lastPartial.details.reason : undefined;
+    if (reason === "skipped_required_phase") {
+      const missing = typeof lastPartial.details?.expectedPhaseLabel === "string"
+        ? lastPartial.details.expectedPhaseLabel
+        : typeof lastPartial.details?.expectedPhaseId === "string"
+          ? lastPartial.details.expectedPhaseId
+          : null;
+      return {
+        kind: "skipped_phase",
+        label: missing ? `Skipped phase: ${missing}` : "Skipped phase"
+      };
+    }
+    if (reason === "broken_sequence" || reason === "sequence_reset") {
+      return { kind: "broken_sequence", label: "Broken sequence" };
+    }
+    return { kind: "incomplete_rep", label: "Incomplete rep" };
+  }
+
+  if (lastPhaseEnter && lastPhaseEnter.timestampMs >= lastTerminalTimestamp) {
+    return { kind: "rep_in_progress", label: "Rep in progress" };
+  }
+
+  return undefined;
+}
+
 function getHoldWindow(events: AnalysisSessionRecord["events"], timestampMs: number): { holdActive: boolean; holdElapsedMs: number } {
   const starts = events.filter((event) => event.type === "hold_start" && event.timestampMs <= timestampMs);
   if (starts.length === 0) {
@@ -187,6 +239,9 @@ export function deriveReplayOverlayStateAtTime(
     session.summary.holdDurationMs !== undefined ||
     sortedEvents.some((event) => event.type === "hold_start" || event.type === "hold_end");
   const measurementType = session.drillMeasurementType ?? (hasHoldSignal ? "hold" : "rep");
+  const repOutcome = (measurementType === "rep" || measurementType === "hybrid")
+    ? toRepOutcomeLabel(sortedEvents, base.timestampMs)
+    : undefined;
 
   return {
     ...base,
@@ -194,7 +249,12 @@ export function deriveReplayOverlayStateAtTime(
     measurementType,
     showRepCount: measurementType === "rep" || measurementType === "hybrid",
     showHoldTimer: measurementType === "hold" || measurementType === "hybrid",
-    statusLabel: session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined
+    statusLabel: (measurementType === "rep" || measurementType === "hybrid")
+      ? repOutcome?.label ?? (session.debug?.noEventCause === "low_confidence_frames" ? "Low confidence" : undefined)
+      : session.debug?.noEventCause === "low_confidence_frames"
+        ? "Low confidence"
+        : undefined,
+    repOutcome
   };
 }
 

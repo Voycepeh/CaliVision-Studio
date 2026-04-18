@@ -112,6 +112,12 @@ function extractRepEvents(
         type: "partial_attempt",
         details: {
           ...step.details,
+          expectedPhaseLabel: typeof step.details.expectedPhaseId === "string"
+            ? runtimeModel.phaseLabelById[step.details.expectedPhaseId] ?? step.details.expectedPhaseId
+            : undefined,
+          resumedAtPhaseLabel: typeof step.details.resumedAtPhaseId === "string"
+            ? runtimeModel.phaseLabelById[step.details.resumedAtPhaseId] ?? step.details.resumedAtPhaseId
+            : undefined,
           rejectReason: step.details.reason,
           minRepDurationMs: minimumRepDurationMs,
           legacyMetadataIgnored

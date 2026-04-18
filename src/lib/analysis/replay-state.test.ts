@@ -134,10 +134,12 @@ test("overlay state shows rep count and active hold timer signals", () => {
   assert.equal(inHold.phaseLabel, "down");
   assert.equal(inHold.showRepCount, true);
   assert.equal(inHold.showHoldTimer, true);
+  assert.equal(inHold.statusLabel, "Rep in progress");
 
   const afterHold = deriveReplayOverlayStateAtTime(session, 2500);
   assert.equal(afterHold.showRepCount, true);
   assert.equal(afterHold.showHoldTimer, true);
+  assert.equal(afterHold.statusLabel, "Rep counted");
 });
 
 test("overlay state falls back to phase-enter events when frame samples are missing", () => {
@@ -195,4 +197,20 @@ test("overlay samples are time-indexed and queryable for replay/export rendering
   const at2s = getOverlaySampleAtTime(samples, 2000);
   assert.equal(at2s?.repCount, 1);
   assert.equal(at2s?.showRepCount, true);
+});
+
+test("overlay rep status surfaces skipped phase outcomes using authored labels", () => {
+  const session = createSession();
+  session.events.push({
+    eventId: "skip_1",
+    timestampMs: 2950,
+    type: "partial_attempt",
+    details: {
+      reason: "skipped_required_phase",
+      expectedPhaseLabel: "2. Hands Up"
+    }
+  });
+  const overlay = deriveReplayOverlayStateAtTime(session, 2999);
+  assert.equal(overlay.statusLabel, "Skipped phase: 2. Hands Up");
+  assert.equal(overlay.repOutcome?.kind, "skipped_phase");
 });
