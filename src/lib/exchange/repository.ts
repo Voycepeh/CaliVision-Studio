@@ -175,6 +175,17 @@ function trimOrFallback(value: string, fallback: string): string {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function dedupeByCanonicalDrill(rows: ExchangePublication[]): ExchangePublication[] {
+  const byOwnerAndDrill = new Map<string, ExchangePublication>();
+  for (const publication of rows) {
+    const key = `${publication.ownerUserId}:${publication.sourceDrillId}`;
+    if (!byOwnerAndDrill.has(key)) {
+      byOwnerAndDrill.set(key, publication);
+    }
+  }
+  return [...byOwnerAndDrill.values()];
+}
+
 function buildDiscoveryQuery(params: { movementType?: string; difficulty?: string; category?: string }): string {
   const query = new URLSearchParams({
     select: "*",
@@ -235,7 +246,7 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
   const drill = input.sourceVersion.packageJson.drills[0];
   const baseTitle = trimOrFallback(input.metadata.title, drill?.title ?? "Untitled drill");
   const existingResponse = await fetch(
-    `${env.url}/rest/v1/exchange_publications?select=id,slug&owner_user_id=eq.${encodeURIComponent(session.user.id)}&source_version_id=eq.${encodeURIComponent(input.sourceVersion.versionId)}&limit=1`,
+    `${env.url}/rest/v1/exchange_publications?select=id,slug&owner_user_id=eq.${encodeURIComponent(session.user.id)}&source_drill_id=eq.${encodeURIComponent(input.sourceVersion.drillId)}&order=updated_at.desc&limit=1`,
     { headers: headers(session) }
   );
   if (!existingResponse.ok) {
@@ -283,7 +294,7 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
     moderated_at: null
   };
 
-  const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_version_id`, {
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_drill_id`, {
     method: "POST",
     headers: {
       ...headers(session),
@@ -356,7 +367,7 @@ export async function listExchangePublications(params: {
 
   const rows = (await response.json()) as ExchangePublicationRow[];
   const search = params.searchText?.trim().toLowerCase();
-  const filtered = rows
+  const filtered = dedupeByCanonicalDrill(rows
     .map(mapRow)
     .filter((row) =>
       !search
@@ -365,7 +376,7 @@ export async function listExchangePublications(params: {
             .join(" ")
             .toLowerCase()
             .includes(search)
-    );
+    ));
 
   return { ok: true, value: filtered };
 }
@@ -402,7 +413,7 @@ export async function listMyExchangePublications(session: AuthSession): Promise<
   }
 
   const rows = (await response.json()) as ExchangePublicationRow[];
-  return { ok: true, value: rows.map(mapRow) };
+  return { ok: true, value: dedupeByCanonicalDrill(rows.map(mapRow)) };
 }
 
 export async function removeOwnPublicationFromPublic(

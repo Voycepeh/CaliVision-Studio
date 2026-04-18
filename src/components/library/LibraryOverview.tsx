@@ -96,8 +96,8 @@ export function LibraryOverview() {
     [session, signedInMode]
   );
 
-  const exchangeBySourceVersionId = useMemo(
-    () => Object.fromEntries(myExchangePublications.map((publication) => [publication.sourceVersionId, publication])),
+  const exchangeBySourceDrillId = useMemo(
+    () => Object.fromEntries(myExchangePublications.map((publication) => [publication.sourceDrillId, publication])),
     [myExchangePublications]
   );
 
@@ -502,7 +502,7 @@ export function LibraryOverview() {
               const versions = versionsByDrillId[drill.drillId] ?? [];
               const workflowSourceVersion = drill.openDraftVersion ?? drill.currentVersion;
               const previewDrill = workflowSourceVersion.packageJson.drills[0];
-              const exchangePublication = drill.activeReadyVersion ? exchangeBySourceVersionId[drill.activeReadyVersion.versionId] : undefined;
+              const exchangePublication = exchangeBySourceDrillId[drill.drillId];
               const publishDraft = publishDraftByDrillId[drill.drillId] ?? buildPublishDraftFromDrill(drill);
               return (
                 <article
@@ -523,6 +523,7 @@ export function LibraryOverview() {
                     {exchangePublication ? (
                       <p className="muted" style={{ margin: 0 }}>
                         Drill Exchange status: {formatVisibilityStatus(exchangePublication.visibilityStatus)}
+                        {" "}• Published version ID: {exchangePublication.sourceVersionId}
                         {exchangePublication.visibilityStatus === "published" ? (
                           <>
                             {" "}• <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
