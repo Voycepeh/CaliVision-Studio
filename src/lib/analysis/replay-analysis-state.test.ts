@@ -3,6 +3,7 @@ import test from "node:test";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
 import {
   buildReplayAnalysisState,
+  getActiveTimelineIndexAtTimestamp,
   getHoldDurationAtTimestamp,
   getPhaseAtTimestamp,
   getRepCountAtTimestamp,
@@ -100,4 +101,35 @@ test("buildReplayAnalysisState returns consistent replay-relative labels", () =>
   assert.equal(early.currentPhaseLabel, "2. Down");
   assert.equal(late.currentPhaseLabel, "3. Up");
   assert.equal(late.completedRepsLabel, "Completed reps so far: 2");
+  assert.equal(late.activeTimelineIndex, -1);
+});
+
+test("active timeline index resolves by timestamp including exact boundaries", () => {
+  const segments = [
+    { startMs: 0, endMs: 1000 },
+    { startMs: 1000, endMs: 2200 },
+    { startMs: 2200, endMs: 3600 }
+  ];
+
+  assert.equal(getActiveTimelineIndexAtTimestamp(0, segments, 3600), 0);
+  assert.equal(getActiveTimelineIndexAtTimestamp(999, segments, 3600), 0);
+  assert.equal(getActiveTimelineIndexAtTimestamp(1000, segments, 3600), 1);
+  assert.equal(getActiveTimelineIndexAtTimestamp(2200, segments, 3600), 2);
+  assert.equal(getActiveTimelineIndexAtTimestamp(3600, segments, 3600), 2);
+});
+
+test("buildReplayAnalysisState includes active timeline index when segments are available", () => {
+  const session = createSession();
+  const phaseLabelsById = { down: "Down", up: "Up", lockout: "Lockout" };
+  const replay = buildReplayAnalysisState({
+    session,
+    phaseLabelsById,
+    timestampMs: 2150,
+    phaseTimelineSegments: [
+      { startMs: 1000, endMs: 2100 },
+      { startMs: 2100, endMs: 3200 },
+      { startMs: 3200, endMs: 3600 }
+    ]
+  });
+  assert.equal(replay.activeTimelineIndex, 1);
 });

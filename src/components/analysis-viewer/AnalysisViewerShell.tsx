@@ -1,9 +1,9 @@
 "use client";
 
-import type { RefObject } from "react";
-import { useEffect, useState } from "react";
+import React, { type RefObject } from "react";
 import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
+import { getActiveTimelineIndexAtTimestamp } from "@/lib/analysis/replay-analysis-state";
 
 type Props = {
   model: AnalysisViewerModel;
@@ -22,17 +22,6 @@ function toneColor(tone?: "neutral" | "success" | "warning" | "danger" | "info")
 }
 
 export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, overlayCanvas }: Props) {
-  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(model.panel.phaseTimelineSegments[0]?.id ?? null);
-
-  useEffect(() => {
-    setSelectedSegmentId((current) => {
-      if (current && model.panel.phaseTimelineSegments.some((segment) => segment.id === current)) {
-        return current;
-      }
-      return model.panel.phaseTimelineSegments[0]?.id ?? null;
-    });
-  }, [model.panel.phaseTimelineSegments]);
-
   return (
     <section className="analysis-viewer-shell">
       <div className="analysis-viewer-layout">
@@ -55,11 +44,7 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseT
             segments={model.panel.phaseTimelineSegments}
             currentTimestampMs={model.panel.currentTimestampMs}
             timelineDurationMs={model.panel.timelineDurationMs}
-            selectedSegmentId={selectedSegmentId}
-            onSelect={(segment) => {
-              setSelectedSegmentId(segment.id);
-              onPhaseTimelineSelect(segment);
-            }}
+            onSelect={onPhaseTimelineSelect}
           />
 
           <AnalysisDownloads model={model} />
@@ -130,11 +115,11 @@ function AnalysisVideoPane({
   onSurfaceChange: (surface: ViewerSurface) => void;
   overlayCanvas?: React.ReactNode;
 }) {
-  const [stableAspectRatio, setStableAspectRatio] = useState<number>(() =>
+  const [stableAspectRatio, setStableAspectRatio] = React.useState<number>(() =>
     resolveStableAspectRatio(undefined, [model.mediaAspectRatio])
   );
 
-  useEffect(() => {
+  React.useEffect(() => {
     setStableAspectRatio((previous) => resolveStableAspectRatio(previous, [model.mediaAspectRatio]));
   }, [model.mediaAspectRatio]);
 
@@ -192,13 +177,11 @@ function AnalysisPhaseTimeline({
   segments,
   currentTimestampMs,
   timelineDurationMs,
-  selectedSegmentId,
   onSelect
 }: {
   segments: AnalysisViewerPhaseTimelineSegment[];
   currentTimestampMs?: number;
   timelineDurationMs?: number;
-  selectedSegmentId: string | null;
   onSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
   if (segments.length === 0) {
@@ -209,6 +192,9 @@ function AnalysisPhaseTimeline({
   const playheadPercent = typeof currentTimestampMs === "number"
     ? Math.min(100, Math.max(0, (currentTimestampMs / maxDuration) * 100))
     : null;
+  const activeTimelineIndex = typeof currentTimestampMs === "number"
+    ? getActiveTimelineIndexAtTimestamp(currentTimestampMs, segments, maxDuration)
+    : -1;
 
   return (
     <section className="analysis-timeline-section">
@@ -219,15 +205,16 @@ function AnalysisPhaseTimeline({
             <button
               key={segment.id}
               type="button"
+              disabled={!segment.interactive}
               onClick={() => onSelect(segment)}
               className="analysis-phase-segment"
-              aria-pressed={selectedSegmentId === segment.id}
+              aria-pressed={activeTimelineIndex >= 0 && segments[activeTimelineIndex]?.id === segment.id}
               title={segment.interactive ? `Jump to ${segment.label}` : segment.label}
               style={{
                 flex: Math.max(1, segment.endMs - segment.startMs)
               }}
             >
-              <span className={`analysis-phase-chip ${selectedSegmentId === segment.id ? "is-active" : ""}`}>{segment.label}</span>
+              <span className={`analysis-phase-chip ${activeTimelineIndex >= 0 && segments[activeTimelineIndex]?.id === segment.id ? "is-active" : ""}`}>{segment.label}</span>
             </button>
           ))}
           {playheadPercent !== null ? (

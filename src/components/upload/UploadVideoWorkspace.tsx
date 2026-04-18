@@ -756,10 +756,12 @@ export function UploadVideoWorkspace() {
       setReplayTimestampMs(Math.max(0, Math.round(video.currentTime * 1000)));
     };
     video.addEventListener("timeupdate", updateTimestamp);
+    video.addEventListener("seeking", updateTimestamp);
     video.addEventListener("seeked", updateTimestamp);
     video.addEventListener("loadedmetadata", updateTimestamp);
     return () => {
       video.removeEventListener("timeupdate", updateTimestamp);
+      video.removeEventListener("seeking", updateTimestamp);
       video.removeEventListener("seeked", updateTimestamp);
       video.removeEventListener("loadedmetadata", updateTimestamp);
     };

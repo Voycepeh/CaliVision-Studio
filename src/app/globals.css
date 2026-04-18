@@ -1671,6 +1671,17 @@ main {
   border-radius: 0.55rem;
   min-width: 132px;
   overflow: hidden;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+
+.analysis-phase-segment:hover:not(:disabled) {
+  border-color: rgba(114, 168, 255, 0.55);
+  transform: translateY(-1px);
+}
+
+.analysis-phase-segment:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
 .analysis-phase-segment:focus-visible {

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjectionFromLayout, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
+import { formatDurationShort } from "@/lib/format/duration";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
@@ -20,7 +21,7 @@ import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progre
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
-import { getHoldDurationAtTimestamp } from "@/lib/analysis/replay-analysis-state";
+import { buildReplayAnalysisState } from "@/lib/analysis/replay-analysis-state";
 import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
@@ -218,6 +219,7 @@ export function LiveStreamingWorkspace() {
   const [replayExportStageLabel, setReplayExportStageLabel] = useState<string | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
   const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
+  const [replayTimestampMs, setReplayTimestampMs] = useState(0);
   const [annotatedReplayFailureMessage, setAnnotatedReplayFailureMessage] = useState<string | null>(null);
   const [annotatedReplayFailureDetails, setAnnotatedReplayFailureDetails] = useState<string | null>(null);
   const [framingWarning, setFramingWarning] = useState<string | null>(null);
@@ -457,17 +459,40 @@ export function LiveStreamingWorkspace() {
       : null,
     [liveAnalysisSession]
   );
-  const latestHoldDurationMs = useMemo(() => {
-    if (!liveAnalysisSession) {
-      return 0;
+  const replayAnalysisState = useMemo(
+    () =>
+      buildReplayAnalysisState({
+        session: liveAnalysisSession,
+        phaseLabelsById: phaseLabelMap,
+        timestampMs: replayTimestampMs
+      }),
+    [liveAnalysisSession, phaseLabelMap, replayTimestampMs]
+  );
+
+  useEffect(() => {
+    setReplayTimestampMs(0);
+  }, [replayUrl, completedPreviewSurface, postAnalysisSnapshot?.traceId]);
+
+  useEffect(() => {
+    const video = replayVideoRef.current;
+    if (!video) {
+      return;
     }
-    if (selection.mode !== "drill" || selection.drill?.drillType !== "hold") {
-      return liveAnalysisSession.summary.holdDurationMs ?? 0;
-    }
-    const durationMs = liveAnalysisSession.summary.analyzedDurationMs ?? 0;
-    const derivedHoldDurationMs = getHoldDurationAtTimestamp(liveAnalysisSession, durationMs);
-    return Math.max(derivedHoldDurationMs, liveAnalysisSession.summary.holdDurationMs ?? 0);
-  }, [liveAnalysisSession, selection.drill?.drillType, selection.mode]);
+    const updateTimestamp = () => {
+      setReplayTimestampMs(Math.max(0, Math.round(video.currentTime * 1000)));
+    };
+    video.addEventListener("timeupdate", updateTimestamp);
+    video.addEventListener("seeking", updateTimestamp);
+    video.addEventListener("seeked", updateTimestamp);
+    video.addEventListener("loadedmetadata", updateTimestamp);
+    return () => {
+      video.removeEventListener("timeupdate", updateTimestamp);
+      video.removeEventListener("seeking", updateTimestamp);
+      video.removeEventListener("seeked", updateTimestamp);
+      video.removeEventListener("loadedmetadata", updateTimestamp);
+    };
+  }, [replayUrl, completedPreviewSurface]);
+
   const liveViewerModel = useMemo(
     () =>
       mapLiveAnalysisToViewerModel({
@@ -482,14 +507,15 @@ export function LiveStreamingWorkspace() {
         panel: buildAnalysisPanelModel(buildAnalysisDomainModel({
           drillLabel: summary?.drillLabel ?? "Live Streaming",
           movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
-          repCount: summary?.repCount ?? 0,
-          holdDurationMs: latestHoldDurationMs,
+          repCount: replayAnalysisState.repCount,
+          holdDurationMs: replayAnalysisState.holdDurationMs,
           durationMs: liveTrace?.durationMs ?? 0,
           confidence: liveAnalysisSession?.summary.confidenceAvg,
           events: liveAnalysisSession?.events ?? [],
           phaseLabelsById: phaseLabelMap,
           phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
-          mode: "latest",
+          mode: "timestamp",
+          currentTimestampMs: replayTimestampMs,
           feedbackLines: benchmarkFeedback
             ? [benchmarkFeedback.summary.label, benchmarkFeedback.topFindings[0]?.description ?? benchmarkFeedback.summary.description]
             : trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
@@ -526,14 +552,14 @@ export function LiveStreamingWorkspace() {
                 nextSteps: benchmarkFeedback.nextSteps
               }
             : undefined,
-          phaseTimelineInteractive: false
+          phaseTimelineInteractive: true
         })),
         primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
-          { id: "reps", label: "Reps", value: String(summary?.repCount ?? 0) },
-          { id: "holds", label: "Holds", value: summary?.holdSummaryLabel ?? "No holds detected" },
-          { id: "phase", label: "Phases", value: summary?.phaseSummaryLabel ?? "No phase transitions detected" }
+          { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
+          { id: "holds", label: "Current hold", value: replayAnalysisState.holdDurationMs > 0 ? formatDurationShort(replayAnalysisState.holdDurationMs) : "Not active" },
+          { id: "phase", label: "Current phase", value: replayAnalysisState.currentPhaseLabel }
         ],
         technicalStatusChips: [
           { id: "camera_source", label: "Camera source", value: formatActiveCameraSource(activeCameraSource) },
@@ -609,6 +635,10 @@ export function LiveStreamingWorkspace() {
       selection.drill?.phases,
       selection.cameraView,
       benchmarkFeedback,
+      replayAnalysisState.currentPhaseLabel,
+      replayAnalysisState.holdDurationMs,
+      replayAnalysisState.repCount,
+      replayTimestampMs,
       trackingStatusLabel,
       downloadTargets,
       annotatedDownloadLabel,
@@ -620,7 +650,6 @@ export function LiveStreamingWorkspace() {
       rawReplayMimeType,
       replayDownloadSafety.raw?.warning,
       liveAnalysisSession,
-      latestHoldDurationMs,
       annotatedReplayFailureMessage,
       replayPreviewSelection.warning,
       replayUnavailableMessage,
@@ -2160,6 +2189,7 @@ export function LiveStreamingWorkspace() {
               }}
               onPhaseTimelineSelect={(segment) => {
                 if (segment.interactive) {
+                  setReplayTimestampMs(segment.seekTimestampMs);
                   seekVideoToTimestamp(replayVideoRef.current, segment.seekTimestampMs);
                 }
               }}
