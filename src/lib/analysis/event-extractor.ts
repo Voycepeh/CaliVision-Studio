@@ -142,6 +142,29 @@ function extractHoldEvents(
   let activeHoldStartMs: number | null = null;
   let totalQualifiedHoldDurationMs = 0;
 
+  const firstFrame = smoothedFrames[0];
+  const hasExplicitStartAtOrBeforeFirstFrame = firstFrame
+    ? transitions.some(
+      (transition) => transition.type === "phase_enter"
+        && transition.phaseId === targetPhaseId
+        && transition.timestampMs <= firstFrame.timestampMs
+    )
+    : false;
+
+  if (
+    firstFrame
+    && firstFrame.smoothedPhaseId === targetPhaseId
+    && !hasExplicitStartAtOrBeforeFirstFrame
+  ) {
+    activeHoldStartMs = firstFrame.timestampMs;
+    addEvent({
+      timestampMs: firstFrame.timestampMs,
+      type: "hold_start",
+      phaseId: targetPhaseId,
+      details: { inferredSessionStart: true }
+    });
+  }
+
   for (const transition of transitions) {
     if (transition.type === "phase_enter" && transition.phaseId === targetPhaseId) {
       if (activeHoldStartMs === null) {
