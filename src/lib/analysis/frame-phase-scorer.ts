@@ -31,6 +31,19 @@ const SIDE_RIGHT_PROFILE_JOINTS: CanonicalJointName[] = [
   "leftShoulder",
   "leftHip"
 ];
+const LEFT_RIGHT_JOINT_PAIRS: Array<[CanonicalJointName, CanonicalJointName]> = [
+  ["leftShoulder", "rightShoulder"],
+  ["leftElbow", "rightElbow"],
+  ["leftWrist", "rightWrist"],
+  ["leftHip", "rightHip"],
+  ["leftKnee", "rightKnee"],
+  ["leftAnkle", "rightAnkle"]
+];
+
+type RuntimePoseCandidate = {
+  orientationMode: "native" | "mirrored";
+  normalizedPose: ReturnType<typeof normalizePoseForScoring>;
+};
 
 export function scoreFramesAgainstDrillPhases(
   sampledFrames: PoseFrame[],
@@ -43,6 +56,7 @@ export function scoreFramesAgainstDrillPhases(
   return sampledFrames.map((frame) => {
     const perPhaseScores: Record<string, number> = {};
     const jointSubsetByPhaseId: Record<string, CanonicalJointName[]> = {};
+    const sideOrientationModeByPhaseId: Record<string, "native" | "mirrored"> = {};
     const phaseComparisons: NonNullable<FramePhaseScore["debug"]>["phaseComparisons"] = {};
     let bestPhaseId: string | null = null;
     let bestPhaseScore = 0;
@@ -61,8 +75,14 @@ export function scoreFramesAgainstDrillPhases(
         templateNormalization: score.templateNormalization,
         perJointDelta: score.perJointDelta,
         rawScore: score.rawScore,
-        adjustedScore: score.adjustedScore
+        adjustedScore: score.adjustedScore,
+        orientationMode: score.orientationMode,
+        nativeAdjustedScore: score.nativeAdjustedScore,
+        mirroredAdjustedScore: score.mirroredAdjustedScore
       };
+      if (score.orientationMode) {
+        sideOrientationModeByPhaseId[phase.phaseId] = score.orientationMode;
+      }
       if (score.adjustedScore > bestPhaseScore) {
         secondBestPhaseScore = bestPhaseScore;
         bestPhaseScore = score.adjustedScore;
@@ -87,6 +107,7 @@ export function scoreFramesAgainstDrillPhases(
         jointSubsetByPhaseId,
         mirrorApplied: runtimeNormalized.debug.mirrorApplied,
         runtimeNormalization: runtimeNormalized.debug,
+        sideOrientationModeByPhaseId: Object.keys(sideOrientationModeByPhaseId).length > 0 ? sideOrientationModeByPhaseId : undefined,
         phaseComparisons
       },
       quality
@@ -100,7 +121,7 @@ function scoreFrameForPhase(
   tolerance: number,
   cameraView: DrillCameraView,
   runtimeNormalized: ReturnType<typeof normalizePoseForScoring>
-): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[] } {
+): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[]; orientationMode?: "native" | "mirrored"; nativeAdjustedScore?: number; mirroredAdjustedScore?: number } {
   if (phase.poseSequence.length === 0) {
     return {
       adjustedScore: 0,
@@ -118,6 +139,9 @@ function scoreFrameForPhase(
   let bestPerJointDelta: Partial<Record<CanonicalJointName, number>> = {};
   let bestTemplateNormalization = runtimeNormalized.debug;
   let bestJointSubset: CanonicalJointName[] = [];
+  let bestOrientationMode: "native" | "mirrored" | undefined;
+  let bestNativeAdjustedScore: number | undefined;
+  let bestMirroredAdjustedScore: number | undefined;
   for (const template of phase.poseSequence) {
     const templateScore = scoreFrameForTemplate(frame, phase, template, tolerance, cameraView, runtimeNormalized);
     if (templateScore.adjustedScore > bestTemplateScore) {
@@ -126,6 +150,9 @@ function scoreFrameForPhase(
       bestPerJointDelta = templateScore.perJointDelta;
       bestTemplateNormalization = templateScore.templateNormalization;
       bestJointSubset = templateScore.jointSubset;
+      bestOrientationMode = templateScore.orientationMode;
+      bestNativeAdjustedScore = templateScore.nativeAdjustedScore;
+      bestMirroredAdjustedScore = templateScore.mirroredAdjustedScore;
     }
   }
 
@@ -134,7 +161,10 @@ function scoreFrameForPhase(
     rawScore: bestRawTemplateScore,
     perJointDelta: bestPerJointDelta,
     templateNormalization: bestTemplateNormalization,
-    jointSubset: bestJointSubset
+    jointSubset: bestJointSubset,
+    orientationMode: bestOrientationMode,
+    nativeAdjustedScore: bestNativeAdjustedScore,
+    mirroredAdjustedScore: bestMirroredAdjustedScore
   };
 }
 
@@ -145,7 +175,8 @@ function scoreFrameForTemplate(
   tolerance: number,
   cameraView: DrillCameraView,
   runtimeNormalized: ReturnType<typeof normalizePoseForScoring>
-): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[] } {
+): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[]; orientationMode?: "native" | "mirrored"; nativeAdjustedScore?: number; mirroredAdjustedScore?: number } {
+  const candidateRuntimePoses = createRuntimePoseCandidates(runtimeNormalized, cameraView);
   const hintRequired = phase.analysis?.matchHints?.requiredJoints ?? [];
   const hintOptional = phase.analysis?.matchHints?.optionalJoints ?? [];
   const preferredJoints = hintRequired.length > 0 || hintOptional.length > 0
@@ -159,14 +190,28 @@ function scoreFrameForTemplate(
     let bestPerJointDelta: Partial<Record<CanonicalJointName, number>> = {};
     let bestTemplateNormalization = runtimeNormalized.debug;
     let bestJointSubset: CanonicalJointName[] = [];
+    let bestOrientationMode: "native" | "mirrored" | undefined;
+    let bestNativeAdjustedScore: number | undefined;
+    let bestMirroredAdjustedScore: number | undefined;
     for (const jointSet of defaultJointSets) {
-      const candidateScore = computeTemplateScoreForJointSet(frame, phase, template, tolerance, jointSet, hintRequired, runtimeNormalized);
+      const candidateScore = computeBestTemplateScoreForJointSet(
+        frame,
+        phase,
+        template,
+        tolerance,
+        jointSet,
+        hintRequired,
+        candidateRuntimePoses
+      );
       if (candidateScore.adjustedScore > bestDefaultScore) {
         bestDefaultScore = candidateScore.adjustedScore;
         bestRawScore = candidateScore.rawScore;
         bestPerJointDelta = candidateScore.perJointDelta;
         bestTemplateNormalization = candidateScore.templateNormalization;
         bestJointSubset = jointSet;
+        bestOrientationMode = candidateScore.orientationMode;
+        bestNativeAdjustedScore = candidateScore.nativeAdjustedScore;
+        bestMirroredAdjustedScore = candidateScore.mirroredAdjustedScore;
       }
     }
     return {
@@ -174,12 +219,79 @@ function scoreFrameForTemplate(
       rawScore: bestRawScore,
       perJointDelta: bestPerJointDelta,
       templateNormalization: bestTemplateNormalization,
-      jointSubset: bestJointSubset
+      jointSubset: bestJointSubset,
+      orientationMode: bestOrientationMode,
+      nativeAdjustedScore: bestNativeAdjustedScore,
+      mirroredAdjustedScore: bestMirroredAdjustedScore
     };
   }
 
-  const preferredScore = computeTemplateScoreForJointSet(frame, phase, template, tolerance, preferredJoints, hintRequired, runtimeNormalized);
+  const preferredScore = computeBestTemplateScoreForJointSet(
+    frame,
+    phase,
+    template,
+    tolerance,
+    preferredJoints,
+    hintRequired,
+    candidateRuntimePoses
+  );
   return { ...preferredScore, jointSubset: preferredJoints };
+}
+
+function computeBestTemplateScoreForJointSet(
+  frame: PoseFrame,
+  phase: PortablePhase,
+  template: NonNullable<PortablePhase["poseSequence"][number]>,
+  tolerance: number,
+  preferredJoints: CanonicalJointName[],
+  hintRequired: CanonicalJointName[],
+  candidates: RuntimePoseCandidate[]
+): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[]; orientationMode?: "native" | "mirrored"; nativeAdjustedScore?: number; mirroredAdjustedScore?: number } {
+  let best: ReturnType<typeof computeTemplateScoreForJointSet> | null = null;
+  let nativeAdjustedScore: number | undefined;
+  let mirroredAdjustedScore: number | undefined;
+
+  for (const candidate of candidates) {
+    const score = computeTemplateScoreForJointSet(frame, phase, template, tolerance, preferredJoints, hintRequired, candidate.normalizedPose);
+    if (candidate.orientationMode === "native") {
+      nativeAdjustedScore = score.adjustedScore;
+    } else {
+      mirroredAdjustedScore = score.adjustedScore;
+    }
+    if (!best || score.adjustedScore > best.adjustedScore) {
+      best = { ...score, orientationMode: candidate.orientationMode };
+    }
+  }
+
+  if (!best) {
+    return {
+      adjustedScore: 0,
+      rawScore: 0,
+      perJointDelta: {},
+      templateNormalization: candidates[0]?.normalizedPose.debug ?? normalizePoseForScoring({}, { cameraView: "front" }).debug,
+      jointSubset: preferredJoints
+    };
+  }
+
+  return {
+    ...best,
+    nativeAdjustedScore,
+    mirroredAdjustedScore
+  };
+}
+
+function createRuntimePoseCandidates(
+  runtimeNormalized: ReturnType<typeof normalizePoseForScoring>,
+  cameraView: DrillCameraView
+): RuntimePoseCandidate[] {
+  if (cameraView !== "side") {
+    return [{ orientationMode: "native", normalizedPose: runtimeNormalized }];
+  }
+  return [
+    { orientationMode: "native", normalizedPose: runtimeNormalized },
+    // Normalize side poses so authored side semantics match left-facing and right-facing executions.
+    { orientationMode: "mirrored", normalizedPose: mirrorSideRuntimePose(runtimeNormalized) }
+  ];
 }
 
 function computeTemplateScoreForJointSet(
@@ -190,7 +302,7 @@ function computeTemplateScoreForJointSet(
   preferredJoints: CanonicalJointName[],
   hintRequired: CanonicalJointName[],
   runtimeNormalized: ReturnType<typeof normalizePoseForScoring>
-): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[] } {
+): { adjustedScore: number; rawScore: number; perJointDelta: Partial<Record<CanonicalJointName, number>>; templateNormalization: NonNullable<FramePhaseScore["debug"]>["runtimeNormalization"]; jointSubset: CanonicalJointName[]; orientationMode?: "native" | "mirrored" } {
 
   let confidenceWeightedScoreTotal = 0;
   let contributing = 0;
@@ -260,6 +372,37 @@ function computeTemplateScoreForJointSet(
     templateNormalization: templateNormalized.debug,
     jointSubset: preferredJoints
   };
+}
+
+function mirrorSideRuntimePose(runtimeNormalized: ReturnType<typeof normalizePoseForScoring>): ReturnType<typeof normalizePoseForScoring> {
+  const mirrored = Object.entries(runtimeNormalized.joints).reduce<typeof runtimeNormalized.joints>((acc, [jointName, joint]) => {
+    if (!joint) {
+      return acc;
+    }
+    const canonicalName = jointName as CanonicalJointName;
+    const mirroredJointName = resolveMirroredJointName(canonicalName);
+    acc[mirroredJointName] = {
+      ...joint,
+      x: -joint.x
+    };
+    return acc;
+  }, {});
+  return {
+    joints: mirrored,
+    debug: runtimeNormalized.debug
+  };
+}
+
+function resolveMirroredJointName(jointName: CanonicalJointName): CanonicalJointName {
+  for (const [leftJointName, rightJointName] of LEFT_RIGHT_JOINT_PAIRS) {
+    if (jointName === leftJointName) {
+      return rightJointName;
+    }
+    if (jointName === rightJointName) {
+      return leftJointName;
+    }
+  }
+  return jointName;
 }
 
 function applyWinnerMarginSoftPenalty(bestPhaseScore: number, secondBestPhaseScore: number): number {

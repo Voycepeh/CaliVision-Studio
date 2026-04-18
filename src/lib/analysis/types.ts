@@ -30,11 +30,15 @@ export type FramePhaseScoreDebug = {
   jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
   mirrorApplied: boolean;
   runtimeNormalization: PoseNormalizationDebug;
+  sideOrientationModeByPhaseId?: Record<string, "native" | "mirrored">;
   phaseComparisons: Record<string, {
     templateNormalization: PoseNormalizationDebug;
     perJointDelta: Partial<Record<CanonicalJointName, number>>;
     rawScore: number;
     adjustedScore: number;
+    orientationMode?: "native" | "mirrored";
+    nativeAdjustedScore?: number;
+    mirroredAdjustedScore?: number;
   }>;
 };
 
