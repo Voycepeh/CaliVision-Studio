@@ -63,7 +63,16 @@ test("hold duration reflects elapsed hold at current playhead", () => {
   const session = createSession();
   assert.equal(getHoldDurationAtTimestamp(session, 1300), 100);
   assert.equal(getHoldDurationAtTimestamp(session, 1650), 450);
-  assert.equal(getHoldDurationAtTimestamp(session, 1750), 0);
+  assert.equal(getHoldDurationAtTimestamp(session, 1750), 500);
+});
+
+test("hold duration includes completed windows plus active hold until session end", () => {
+  const session = createSession();
+  session.events.push({ eventId: "h3", timestampMs: 2800, type: "hold_start", phaseId: "up" });
+
+  assert.equal(getHoldDurationAtTimestamp(session, 2600), 500);
+  assert.equal(getHoldDurationAtTimestamp(session, 3200), 900);
+  assert.equal(getHoldDurationAtTimestamp(session, 3600), 1300);
 });
 
 test("current phase is resolved at timestamp", () => {

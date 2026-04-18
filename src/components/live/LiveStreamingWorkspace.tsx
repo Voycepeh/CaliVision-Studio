@@ -20,6 +20,7 @@ import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progre
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
+import { getHoldDurationAtTimestamp } from "@/lib/analysis/replay-analysis-state";
 import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import {
   APP_HARDWARE_ZOOM_PRESETS,
@@ -456,6 +457,17 @@ export function LiveStreamingWorkspace() {
       : null,
     [liveAnalysisSession]
   );
+  const latestHoldDurationMs = useMemo(() => {
+    if (!liveAnalysisSession) {
+      return 0;
+    }
+    if (selection.mode !== "drill" || selection.drill?.drillType !== "hold") {
+      return liveAnalysisSession.summary.holdDurationMs ?? 0;
+    }
+    const durationMs = liveAnalysisSession.summary.analyzedDurationMs ?? 0;
+    const derivedHoldDurationMs = getHoldDurationAtTimestamp(liveAnalysisSession, durationMs);
+    return Math.max(derivedHoldDurationMs, liveAnalysisSession.summary.holdDurationMs ?? 0);
+  }, [liveAnalysisSession, selection.drill?.drillType, selection.mode]);
   const liveViewerModel = useMemo(
     () =>
       mapLiveAnalysisToViewerModel({
@@ -471,7 +483,7 @@ export function LiveStreamingWorkspace() {
           drillLabel: summary?.drillLabel ?? "Live Streaming",
           movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
           repCount: summary?.repCount ?? 0,
-          holdDurationMs: liveAnalysisSession?.summary.holdDurationMs ?? 0,
+          holdDurationMs: latestHoldDurationMs,
           durationMs: liveTrace?.durationMs ?? 0,
           confidence: liveAnalysisSession?.summary.confidenceAvg,
           events: liveAnalysisSession?.events ?? [],
@@ -608,6 +620,7 @@ export function LiveStreamingWorkspace() {
       rawReplayMimeType,
       replayDownloadSafety.raw?.warning,
       liveAnalysisSession,
+      latestHoldDurationMs,
       annotatedReplayFailureMessage,
       replayPreviewSelection.warning,
       replayUnavailableMessage,

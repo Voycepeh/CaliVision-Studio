@@ -57,21 +57,33 @@ export function getHoldDurationAtTimestamp(session: AnalysisSessionRecord | null
   const durationMs = getReplayDurationMs(session);
   const clamped = clampTimestamp(timestampMs, durationMs);
   const events = getSortedEvents(session);
-  const holdStarts = events.filter((event) => event.type === "hold_start" && event.timestampMs <= clamped);
-  if (holdStarts.length === 0) {
-    return 0;
+  if (events.length === 0) {
+    const fallback = Math.max(0, Math.round(session?.summary.holdDurationMs ?? 0));
+    return Math.min(fallback, clamped);
   }
-  const activeHoldStart = holdStarts.at(-1);
-  if (!activeHoldStart) {
-    return 0;
+
+  let activeHoldStartMs: number | null = null;
+  let totalHoldDurationMs = 0;
+
+  for (const event of events) {
+    if (event.timestampMs > clamped) {
+      break;
+    }
+    if (event.type === "hold_start" && activeHoldStartMs === null) {
+      activeHoldStartMs = event.timestampMs;
+      continue;
+    }
+    if (event.type === "hold_end" && activeHoldStartMs !== null) {
+      totalHoldDurationMs += Math.max(0, event.timestampMs - activeHoldStartMs);
+      activeHoldStartMs = null;
+    }
   }
-  const holdEnd = events.find(
-    (event) => event.type === "hold_end" && event.timestampMs >= activeHoldStart.timestampMs
-  );
-  if (!holdEnd || holdEnd.timestampMs > clamped) {
-    return Math.max(0, clamped - activeHoldStart.timestampMs);
+
+  if (activeHoldStartMs !== null) {
+    totalHoldDurationMs += Math.max(0, clamped - activeHoldStartMs);
   }
-  return 0;
+
+  return Math.max(0, Math.min(clamped, Math.round(totalHoldDurationMs)));
 }
 
 export function getPhaseAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): string | null {
