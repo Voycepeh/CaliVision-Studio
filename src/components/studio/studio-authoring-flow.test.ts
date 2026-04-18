@@ -1,0 +1,18 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const filePath = join(process.cwd(), "src/components/studio/StudioCenterInspector.tsx");
+const source = readFileSync(filePath, "utf8");
+
+test("drill setup no longer mounts benchmark/reference editor in normal authoring flow", () => {
+  assert.equal(source.includes("<StudioBenchmarkEditor />"), false);
+  assert.equal(source.includes("StudioBenchmarkEditor"), false);
+});
+
+test("phase sequence section explains drill-first reference and optional hold rules", () => {
+  assert.equal(source.includes("Drill phases are the reference standard"), true);
+  assert.equal(source.includes("Phase rules"), true);
+  assert.equal(source.includes("Hold requirement"), true);
+});

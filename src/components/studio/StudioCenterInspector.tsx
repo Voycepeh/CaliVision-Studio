@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { StudioMetadataEditor } from "@/components/studio/StudioMetadataEditor";
-import { StudioBenchmarkEditor } from "@/components/studio/StudioBenchmarkEditor";
 import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
@@ -163,9 +162,12 @@ export function StudioCenterInspector() {
             placeholder="Optional phase notes"
           />
 
-          <div className="card" style={{ display: "grid", gap: "0.4rem", padding: "0.55rem" }}>
+          <div className="card" style={{ display: "grid", gap: "0.45rem", padding: "0.6rem" }}>
             <strong style={{ fontSize: "0.82rem" }}>Phase rules</strong>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.78rem", lineHeight: 1.35 }}>
+              This phase participates in sequence checks by default. Enable hold rules only when this phase needs timing validation.
+            </p>
+            <label style={phaseRuleToggleLabelStyle}>
               <input
                 type="checkbox"
                 checked={phase.analysis?.comparison?.isHoldPhase ?? false}
@@ -174,10 +176,10 @@ export function StudioCenterInspector() {
                   durationMatters: event.target.checked || phase.analysis?.comparison?.durationMatters
                 })}
               />
-              Hold requirement
+              <span>Hold requirement</span>
             </label>
             <div style={{ display: "grid", gap: "0.35rem", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
-              <label style={{ display: "grid", gap: "0.2rem", fontSize: "0.78rem" }}>
+              <label style={phaseRuleFieldLabelStyle}>
                 Min hold (ms)
                 <input
                   type="number"
@@ -192,7 +194,7 @@ export function StudioCenterInspector() {
                   placeholder="Optional"
                 />
               </label>
-              <label style={{ display: "grid", gap: "0.2rem", fontSize: "0.78rem" }}>
+              <label style={phaseRuleFieldLabelStyle}>
                 Target hold (ms)
                 <input
                   type="number"
@@ -291,7 +293,6 @@ export function StudioCenterInspector() {
       <WorkflowSection title="1. Drill setup" stepIndex={WORKFLOW_SECTION_IDS.drillSetup} currentStepIndex={currentStepIndex} open={isSectionOpen(WORKFLOW_SECTION_IDS.drillSetup)} onToggle={handleSectionToggle}>
         <div style={{ display: "grid", gap: "0.55rem" }}>
           <StudioMetadataEditor />
-          <StudioBenchmarkEditor />
         </div>
       </WorkflowSection>
 
@@ -306,6 +307,9 @@ export function StudioCenterInspector() {
               </p>
               <button type="button" onClick={() => addPhase()} className="studio-button studio-button-primary" disabled={holdDrill}>Add phase</button>
             </div>
+            <p className="muted" style={{ margin: 0, fontSize: "0.8rem", lineHeight: 1.4 }}>
+              Drill phases are the reference standard. Configure phase rules only where hold/timing checks are needed.
+            </p>
 
             {displayedPhases.length === 0 ? (
               <div className="card" style={{ marginTop: "0.55rem", display: "grid", gap: "0.45rem" }}>
@@ -341,4 +345,19 @@ const inputStyle: CSSProperties = {
   background: "var(--panel-soft)",
   color: "var(--text)",
   padding: "0.45rem"
+};
+
+const phaseRuleToggleLabelStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.45rem",
+  fontSize: "0.78rem",
+  lineHeight: 1.25
+};
+
+const phaseRuleFieldLabelStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  fontSize: "0.78rem",
+  lineHeight: 1.25
 };
