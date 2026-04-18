@@ -6,14 +6,15 @@ import { DrillSummaryMetadata } from "@/components/workflow-setup/DrillSummaryMe
 type ReferenceAnimationPanelProps = {
   drill: PortableDrill | null;
   sourceKind?: StoredDrillSourceKind;
+  benchmarkState?: "available" | "legacy-missing";
   freestyleDescription: string;
 };
 
-export function ReferenceAnimationPanel({ drill, sourceKind, freestyleDescription }: ReferenceAnimationPanelProps) {
+export function ReferenceAnimationPanel({ drill, sourceKind, benchmarkState, freestyleDescription }: ReferenceAnimationPanelProps) {
   return (
     <section style={{ display: "grid", gap: "0.65rem" }}>
       <DrillSummaryMetadata drill={drill} sourceKind={sourceKind} freestyleDescription={freestyleDescription} />
-      {drill ? <DrillSelectionPreviewPanel drill={drill} sourceKind={sourceKind} showSourceBadge compact quiet /> : null}
+      {drill ? <DrillSelectionPreviewPanel drill={drill} sourceKind={sourceKind} benchmarkState={benchmarkState} showSourceBadge compact quiet /> : null}
     </section>
   );
 }

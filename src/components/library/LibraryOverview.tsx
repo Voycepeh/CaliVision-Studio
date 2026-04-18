@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { listMyExchangePublications, publishDrillToExchange, type ExchangePublication } from "@/lib/exchange";
 import {
@@ -496,6 +497,7 @@ export function LibraryOverview() {
                       <DrillSelectionPreviewPanel
                         drill={previewDrill}
                         sourceKind={signedInMode ? "hosted" : "local"}
+                        benchmarkState={summarizeBenchmark(previewDrill.benchmark).present ? "available" : "legacy-missing"}
                         showSourceBadge
                         compact
                         quiet

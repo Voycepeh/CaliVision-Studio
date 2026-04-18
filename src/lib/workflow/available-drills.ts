@@ -1,6 +1,5 @@
-import { listDrillsWithActiveVersion, type DrillRepositoryContext } from "../library/index.ts";
 import { buildDrillOptionLabel } from "../drills/labels.ts";
-import { listExchangePublications, type ExchangePublication } from "../exchange/index.ts";
+import { summarizeBenchmark } from "../drills/benchmark.ts";
 export {
   buildDrillOptionGroups,
   ensureVisibleDrillSelection,
@@ -11,6 +10,38 @@ export {
   type AvailableDrillOption
 } from "./available-drill-selection.ts";
 import type { AvailableDrillOption } from "./available-drill-selection.ts";
+
+type DrillRepositoryContext = {
+  mode: "local" | "cloud";
+  session?: unknown;
+};
+
+type AvailableDrillDependencies = {
+  listDrills: (context: DrillRepositoryContext) => Promise<Array<{
+    drillId: string;
+    activeReadyVersion: { sourceId: string; packageJson: any } | null;
+  }>>;
+  listExchange: (input: { session: unknown }) => Promise<{ ok: true; value: ExchangePublication[] } | { ok: false; error: string }>;
+};
+
+type ExchangePublication = {
+  id: string;
+  snapshotPackage: {
+    manifest: { packageVersion: string };
+    drills: Array<any>;
+  };
+};
+
+const DEFAULT_AVAILABLE_DRILL_DEPENDENCIES: AvailableDrillDependencies = {
+  listDrills: async (context) => {
+    const library = await import("../library/drill-repository.ts");
+    return library.listDrillsWithActiveVersion(context as Parameters<typeof library.listDrillsWithActiveVersion>[0]);
+  },
+  listExchange: async (input) => {
+    const exchange = await import("../exchange/index.ts");
+    return exchange.listExchangePublications(input as Parameters<typeof exchange.listExchangePublications>[0]);
+  }
+};
 
 export function mapExchangePublicationsToDrillOptions(publications: ExchangePublication[]): AvailableDrillOption[] {
   const options: AvailableDrillOption[] = [];
@@ -25,6 +56,7 @@ export function mapExchangePublicationsToDrillOptions(publications: ExchangePubl
       sourceKind: "exchange",
       sourceId: publication.id,
       packageVersion: publication.snapshotPackage.manifest.packageVersion,
+      benchmarkState: summarizeBenchmark(drill.benchmark).present ? "available" : "legacy-missing",
       drill
     });
   }
@@ -34,12 +66,15 @@ export function mapExchangePublicationsToDrillOptions(publications: ExchangePubl
 export async function loadAvailableDrillOptions(input: {
   session: unknown | null;
   isConfigured: boolean;
-}): Promise<AvailableDrillOption[]> {
+}, dependencies: AvailableDrillDependencies = DEFAULT_AVAILABLE_DRILL_DEPENDENCIES): Promise<AvailableDrillOption[]> {
   const context: DrillRepositoryContext = input.session && input.isConfigured ? { mode: "cloud", session: input.session as DrillRepositoryContext["session"] } : { mode: "local" };
-  const drills = await listDrillsWithActiveVersion(context);
+  const drills = await dependencies.listDrills(context);
   const options: AvailableDrillOption[] = [];
   for (const drill of drills) {
-    const selectedVersion = drill.activeReadyVersion ?? drill.openDraftVersion ?? drill.currentVersion;
+    const selectedVersion = drill.activeReadyVersion;
+    if (!selectedVersion) {
+      continue;
+    }
     const selectedDrill = selectedVersion.packageJson.drills[0];
     if (!selectedDrill) {
       continue;
@@ -53,11 +88,12 @@ export async function loadAvailableDrillOptions(input: {
       sourceKind,
       sourceId,
       packageVersion: selectedVersion.packageJson.manifest.packageVersion,
+      benchmarkState: summarizeBenchmark(selectedDrill.benchmark).present ? "available" : "legacy-missing",
       drill: selectedDrill
     });
   }
 
-  const exchange = await listExchangePublications({ session: input.session as DrillRepositoryContext["session"] }).catch(() => ({ ok: false as const, error: "Unavailable" }));
+  const exchange = await dependencies.listExchange({ session: input.session as DrillRepositoryContext["session"] }).catch(() => ({ ok: false as const, error: "Unavailable" }));
   if (exchange.ok) {
     options.push(...mapExchangePublicationsToDrillOptions(exchange.value));
   }

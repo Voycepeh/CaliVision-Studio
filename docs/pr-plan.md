@@ -75,7 +75,7 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 
 ## Assumptions / non-goals for benchmark-aware coaching foundation
 
-- Assumption: benchmark metadata is attached to each drill as optional additive schema (`PortableDrill.benchmark`) and may be absent on most legacy drills.
+- Assumption: released drill versions are benchmark-backed by default (publish now generates benchmark from the released version snapshot), while legacy releases without benchmark remain explicitly degraded.
 - Assumption: benchmark phase sequences remain separate from authored drill phases while providing deterministic mapping hooks.
 - Assumption: local drafts, hosted drills, seeded drills, and exchange/public payloads must round-trip benchmark metadata safely when present.
 - Current state (April 17, 2026): Studio now includes a first deterministic benchmark comparison engine in analysis result paths (upload + safe live/session integration) with structured outputs for status, phase sequence, and timing tolerance checks.
