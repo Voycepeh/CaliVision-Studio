@@ -42,7 +42,7 @@
    - Annotated Video (`.webm`)
    - Processing Summary (`.json`)
    - Pose Timeline (`.json`)
-12. Leave or refresh `/upload` to intentionally start fresh.
+15. Leave or refresh `/upload` to intentionally start fresh.
 
 
 ## Current Live Streaming flow

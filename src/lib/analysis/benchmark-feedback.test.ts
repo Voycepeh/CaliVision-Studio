@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBenchmarkCoachingFeedback, getComparisonSeverity, getTopComparisonFindings, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
+import { buildBenchmarkCoachingFeedback, formatPhaseSequenceSummary, getComparisonSeverity, getTopComparisonFindings, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
 import type { BenchmarkComparisonResult } from "./benchmark-comparison.ts";
 
 function buildComparison(partial?: Partial<BenchmarkComparisonResult>): BenchmarkComparisonResult {

@@ -34,6 +34,24 @@ export type BenchmarkCoachingFeedback = {
 
 const DEFAULT_MAX_TOP_FINDINGS = 3;
 
+export function formatPhaseSequenceSummary(
+  comparison?: Partial<BenchmarkComparisonResult> | null
+): string {
+  const expectedCount = comparison?.phaseMatch?.expectedPhaseKeys?.length ?? 0;
+  const matchedCount = comparison?.phaseMatch?.matchedCount ?? 0;
+  const exactMatch = comparison?.phaseMatch?.matched === true;
+  if (exactMatch) {
+    return "Phase sequence matched.";
+  }
+  if (expectedCount <= 0) {
+    return "Phase sequence unavailable.";
+  }
+  if (matchedCount > 0) {
+    return `Matched ${Math.min(matchedCount, expectedCount)} of ${expectedCount} benchmark phases in order.`;
+  }
+  return "Phase sequence mismatch.";
+}
+
 export function getComparisonSeverity(
   comparison?: Partial<BenchmarkComparisonResult> | null
 ): BenchmarkFeedbackSeverity {
@@ -102,9 +120,13 @@ export function summarizeBenchmarkComparison(
   }
 
   if (status === "partial") {
+    const sequenceMatched = comparison?.phaseMatch?.matched === true;
+    const timingMissed = comparison?.timing?.present && comparison?.timing?.matched === false;
     return {
       label: "Partial benchmark match",
-      description: "Some benchmark checks matched, but key sequence or timing checks were outside target.",
+      description: sequenceMatched && timingMissed
+        ? "Partial benchmark match: sequence matched, timing missed."
+        : "Some benchmark checks matched, but key sequence or timing checks were outside target.",
       severity
     };
   }

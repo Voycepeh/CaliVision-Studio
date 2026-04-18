@@ -92,10 +92,29 @@ function buildPhaseStartsById(phaseIdsInOrder: string[], events: AnalysisEvent[]
   return Object.fromEntries(entries as Array<[string, number]>);
 }
 
+function buildPhaseTransitionsFromEvents(events: AnalysisEvent[]): Array<{ phaseId: string; startMs: number }> {
+  const ordered = [...events]
+    .filter((event) => event.type === "phase_enter" && event.phaseId && Number.isFinite(event.timestampMs))
+    .sort((a, b) => a.timestampMs - b.timestampMs);
+
+  const transitions: Array<{ phaseId: string; startMs: number }> = [];
+  for (const phaseEvent of ordered) {
+    if (!phaseEvent.phaseId) continue;
+    const startMs = Math.max(0, Math.round(phaseEvent.timestampMs));
+    const previous = transitions.at(-1);
+    if (previous && previous.phaseId === phaseEvent.phaseId) {
+      continue;
+    }
+    transitions.push({ phaseId: phaseEvent.phaseId, startMs });
+  }
+  return transitions;
+}
+
 export function buildAnalysisTimelineSegments(input: {
   phaseIdsInOrder: string[];
   phaseLabelsById: Record<string, string>;
   phaseStartsById: Record<string, number> | null;
+  phaseTransitions?: Array<{ phaseId: string; startMs: number }>;
   durationMs?: number;
   interactive: boolean;
   events?: AnalysisEvent[];
@@ -201,6 +220,7 @@ export function buildAnalysisDomainModel(input: {
   })();
 
   const phaseStartsById = buildPhaseStartsById(phaseIdsInOrder, events);
+  const phaseTransitions = buildPhaseTransitionsFromEvents(events);
 
   return {
     drillContext: {
@@ -222,6 +242,7 @@ export function buildAnalysisDomainModel(input: {
         phaseIdsInOrder,
         phaseLabelsById,
         phaseStartsById,
+        phaseTransitions,
         durationMs,
         interactive: input.phaseTimelineInteractive,
         events
@@ -251,12 +272,16 @@ export function buildAnalysisPanelModel(domainModel: AnalysisDomainModel): Analy
         ? formatDurationClock(sessionSnapshot.holdDurationMs)
         : String(sessionSnapshot.repCount),
     primaryMetricDetail:
-      drillContext.movementType === "hold" ? "Total hold time in this analysis" : "Completed reps in this analysis",
+      drillContext.movementType === "hold"
+        ? (sessionSnapshot.mode === "timestamp" ? "Current hold at playhead" : "Total hold time in this analysis")
+        : (sessionSnapshot.mode === "timestamp" ? "Completed reps so far" : "Completed reps in this analysis"),
     currentPhaseLabel: sessionSnapshot.currentPhaseLabel,
     confidenceLabel: formatPercent(sessionSnapshot.confidence),
     feedbackLines: domainModel.feedbackPreviewLines,
     summaryMetrics: domainModel.summaryMetricSlots,
     benchmarkFeedback: domainModel.benchmarkFeedback,
-    phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments
+    phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments,
+    currentTimestampMs: sessionSnapshot.currentTimestampMs,
+    timelineDurationMs: sessionSnapshot.durationMs
   };
 }

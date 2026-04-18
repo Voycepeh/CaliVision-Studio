@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isSeekTimeoutDuringPoseSampling, shouldNormalize, type VideoDiagnostics } from "./processing-normalization.ts";
+import {
+  isSeekTimeoutDuringPoseSampling,
+  shouldNormalize,
+  validateNormalizedOutput,
+  type VideoDiagnostics
+} from "./processing-normalization.ts";
 
 function buildDiagnostics(overrides?: Partial<VideoDiagnostics>): VideoDiagnostics {
   return {
@@ -77,4 +82,86 @@ test("classifies seek-timeout errors for single retry path", () => {
   );
   assert.equal(isSeekTimeoutDuringPoseSampling(new Error("Video seek failed during pose sampling.")), false);
   assert.equal(isSeekTimeoutDuringPoseSampling({ message: "other upload error" }), false);
+});
+
+test("accepts normalized output when duration remains close to source", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: 32_000 },
+    {
+      durationMs: 32_700,
+      width: 1920,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.diagnostics.durationDriftMs, 700);
+    assert.equal(result.diagnostics.driftCheckSkipped, false);
+  }
+});
+
+test("accepts normalized output when source duration is missing but normalized metadata is valid", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: undefined },
+    {
+      durationMs: 32_700,
+      width: 1920,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.diagnostics.driftCheckSkipped, true);
+    assert.equal(result.diagnostics.durationDriftMs, undefined);
+    assert.equal(result.diagnostics.driftPct, undefined);
+  }
+});
+
+test("rejects normalized output with major duration inflation", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: 32_000 },
+    {
+      durationMs: 52_000,
+      width: 1920,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.reason, "duration-drift");
+  }
+});
+
+test("rejects normalized output missing duration metadata even when source duration is unavailable", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: undefined },
+    {
+      width: 1920,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.reason, "invalid-metadata");
+  }
+});
+
+test("rejects normalized output with invalid dimensions even when source duration is unavailable", () => {
+  const result = validateNormalizedOutput(
+    { durationMs: undefined },
+    {
+      durationMs: 32_500,
+      width: 0,
+      height: 1080
+    }
+  );
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.reason, "invalid-metadata");
+  }
 });
