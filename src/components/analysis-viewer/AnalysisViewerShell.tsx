@@ -74,6 +74,8 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
   const benchmark = model.panel.summaryMetrics.find((metric) => metric.id === "benchmark_status");
   const summaryLine = model.panel.feedbackLines[0] ?? "Coach notes not available yet.";
   const detailLine = model.panel.feedbackLines[1] ?? model.panel.benchmarkFeedback?.summaryDescription ?? "Run another analysis for more guidance.";
+  const overallMatchValue = benchmark?.value ?? model.panel.benchmarkFeedback?.summaryLabel;
+  const hasOverallMatch = Boolean(overallMatchValue);
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
@@ -89,9 +91,9 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">Overall match</p>
-        <p className="analysis-card__body">{benchmark?.value ?? model.panel.benchmarkFeedback?.summaryLabel ?? model.panel.confidenceLabel}</p>
-        <p className="analysis-card__meta">Confidence: {model.panel.confidenceLabel}</p>
+        <p className="analysis-card__label">{hasOverallMatch ? "Overall match" : "Confidence"}</p>
+        <p className="analysis-card__body">{hasOverallMatch ? overallMatchValue : model.panel.confidenceLabel}</p>
+        {hasOverallMatch ? <p className="analysis-card__meta">Confidence: {model.panel.confidenceLabel}</p> : null}
       </article>
 
       <article className="analysis-card">
@@ -245,10 +247,9 @@ function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {
   const benchmark = model.panel.benchmarkFeedback;
 
   return (
-    <details className="analysis-advanced-details">
-      <summary>Advanced analysis details</summary>
+    <section className="analysis-advanced-details">
       {benchmark ? (
-        <details>
+        <details className="analysis-advanced-details__group">
           <summary>Benchmark reasoning</summary>
           <p className="analysis-card__meta">{benchmark.summaryDescription}</p>
           {benchmark.findings.length > 0 ? (
@@ -263,7 +264,7 @@ function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {
           {benchmark.nextSteps.length > 0 ? <p className="analysis-card__meta">Next: {benchmark.nextSteps.join(" ")}</p> : null}
         </details>
       ) : null}
-      <details>
+      <details className="analysis-advanced-details__group">
         <summary>Metrics detail</summary>
         <div className="analysis-summary-metrics">
           {model.panel.summaryMetrics.map((metric) => (
@@ -276,7 +277,7 @@ function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {
       </details>
       {model.technicalStatusChips.length > 0 ? <AnalysisTechnicalStatusBar chips={model.technicalStatusChips} /> : null}
       <AnalysisDiagnosticsAccordion sections={model.diagnosticsSections} />
-    </details>
+    </section>
   );
 }
 

@@ -1698,19 +1698,25 @@ main {
 }
 
 .analysis-advanced-details {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.analysis-advanced-details__group,
+.analysis-advanced-details > details,
+.analysis-advanced-details > details > details {
   border: 1px solid var(--border);
   border-radius: 0.7rem;
   padding: 0.45rem 0.55rem;
   background: rgba(5, 9, 18, 0.3);
 }
 
-.analysis-advanced-details > summary,
 .analysis-advanced-details details > summary {
   cursor: pointer;
 }
 
 .analysis-advanced-details details {
-  margin-top: 0.45rem;
+  margin: 0;
 }
 
 .analysis-details-list {
