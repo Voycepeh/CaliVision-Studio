@@ -257,6 +257,7 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
     ? ({ ok: true, value: existingRows[0].slug } as const)
     : await resolveUniqueSlug(toSlug(baseTitle), session);
   if (!uniqueSlug.ok) return uniqueSlug;
+  const publishEventIso = new Date().toISOString();
 
   const snapshotPackage = structuredClone(input.sourceVersion.packageJson);
   snapshotPackage.manifest.publishing = {
@@ -288,6 +289,8 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
     visibility: "public",
     visibility_status: "published",
     snapshot_package: snapshotPackage,
+    published_at: publishEventIso,
+    updated_at: publishEventIso,
     is_active: true,
     moderation_reason: null,
     moderated_by: null,

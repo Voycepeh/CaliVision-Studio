@@ -13,6 +13,9 @@ test("publishDrillToExchange upserts canonical publication rows by owner + sourc
   assert.match(repositorySource, /on_conflict=owner_user_id,source_drill_id/);
   assert.match(repositorySource, /source_drill_id:\s*input\.sourceVersion\.drillId/);
   assert.match(repositorySource, /source_version_id:\s*input\.sourceVersion\.versionId/);
+  assert.match(repositorySource, /const publishEventIso = new Date\(\)\.toISOString\(\);/);
+  assert.match(repositorySource, /published_at:\s*publishEventIso/);
+  assert.match(repositorySource, /updated_at:\s*publishEventIso/);
 });
 
 test("listing reads dedupe canonical publication rows by owner + source drill", () => {
