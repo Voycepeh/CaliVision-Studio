@@ -7,6 +7,8 @@ Drill Exchange is the discovery/sharing surface for reusable drills.
 - user-facing Exchange UX exists with hosted publish/browse/detail/preview flows,
 - publish creates a snapshot tied to a specific Ready release version,
 - explicit **Add to My Library** creates a user-owned editable draft in normal Library/Studio workflow with stored fork lineage when available,
+- publication lifecycle now supports owner/admin moderation statuses (`Published`, `Hidden`, `Archived`, `Deleted`) with public discovery restricted to active `Published` entries,
+- owner **Remove from Public** transitions visibility without deleting user-imported copies already in personal libraries,
 - Upload Video local analysis remains device-local and separate from hosted exchange,
 - Home + Library positioning keeps Exchange discoverable but secondary to drill creation/editing.
 

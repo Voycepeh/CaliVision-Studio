@@ -7,7 +7,9 @@ import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPr
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
+  getExchangeModerationAccess,
   getExchangePublicationBySlug,
+  moderateExchangePublication,
   recordExchangeFork,
   updateExchangeForkTarget,
   type ExchangePublication
@@ -29,6 +31,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   const [feedback, setFeedback] = useState("");
   const [pendingAdd, setPendingAdd] = useState(false);
   const [addedResult, setAddedResult] = useState<{ drillId: string; draftVersionId: string } | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
     () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
@@ -51,6 +54,18 @@ export function MarketplaceDrillDetail({ slug }: Props) {
 
     void load();
   }, [slug, session]);
+
+  useEffect(() => {
+    async function loadAccess() {
+      if (!session) {
+        setIsModerator(false);
+        return;
+      }
+      const access = await getExchangeModerationAccess();
+      setIsModerator(access.ok && access.value.isModerator);
+    }
+    void loadAccess();
+  }, [session]);
 
   async function onAddToLibrary(): Promise<void> {
     if (!entry) {
@@ -118,6 +133,25 @@ export function MarketplaceDrillDetail({ slug }: Props) {
     }
   }
 
+  async function onModeratorAction(action: "hide" | "archive" | "delete"): Promise<void> {
+    if (!entry) return;
+    const label = action === "hide" ? "Hide publication" : action === "archive" ? "Archive publication" : "Delete publication";
+    const confirmed = window.confirm(`${label} for "${entry.title}"?`);
+    if (!confirmed) return;
+
+    const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
+    const result = await moderateExchangePublication(entry.id, { action, reason });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setFeedback(`${label} complete.`);
+    setEntry((current) => (current ? { ...current, visibilityStatus: result.value } : current));
+    if (result.value !== "published") {
+      router.push("/marketplace");
+    }
+  }
+
   if (loading) {
     return <p className="muted">Loading published drill…</p>;
   }
@@ -160,6 +194,13 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       <button type="button" className="pill" onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
         {pendingAdd ? "Adding…" : "Add to My Library"}
       </button>
+      {isModerator ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+          <button type="button" className="pill" onClick={() => void onModeratorAction("hide")}>Hide publication</button>
+          <button type="button" className="pill" onClick={() => void onModeratorAction("archive")}>Archive publication</button>
+          <button type="button" className="pill" onClick={() => void onModeratorAction("delete")}>Delete publication</button>
+        </div>
+      ) : null}
       {addedResult ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
           <button

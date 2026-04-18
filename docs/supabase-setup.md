@@ -15,6 +15,8 @@ Required for hosted mode:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (required for moderator/admin Drill Exchange moderation endpoints)
+- `EXCHANGE_MODERATOR_USER_IDS` (optional comma-separated user IDs when JWT role claims are not configured yet)
 
 Optional backward compatibility:
 
