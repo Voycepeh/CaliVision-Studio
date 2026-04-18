@@ -63,7 +63,12 @@
       "durationMs": 1200,
       "analysis": {
         "semanticRole": "top",
-        "isCritical": true
+        "isCritical": true,
+        "comparison": {
+          "required": true,
+          "durationRelevant": false,
+          "holdRequired": false
+        }
       },
       "poseSequence": [
         {
@@ -102,6 +107,15 @@
       "phaseId": "phase_002",
       "order": 2,
       "durationMs": 900,
+      "analysis": {
+        "comparison": {
+          "required": true,
+          "durationRelevant": true,
+          "holdRequired": true,
+          "minHoldDurationMs": 800,
+          "targetHoldDurationMs": 900
+        }
+      },
       "poseSequence": [
         {
           "poseId": "pose_pushup_bottom_001",

@@ -98,7 +98,34 @@ export function buildAnalysisTimelineSegments(input: {
   phaseStartsById: Record<string, number> | null;
   durationMs?: number;
   interactive: boolean;
+  events?: AnalysisEvent[];
 }): AnalysisTimelineSegment[] {
+  const durationMs = Math.max(1, toFiniteNonNegativeMs(input.durationMs) ?? 1);
+  const eventSegments = (input.events ?? [])
+    .filter((event) => event.type === "phase_enter" && event.phaseId)
+    .sort((a, b) => a.timestampMs - b.timestampMs)
+    .map((event, index, events) => {
+      const phaseId = event.phaseId as string;
+      const startMs = Math.max(0, Math.min(durationMs, Math.round(event.timestampMs)));
+      const nextStart = events[index + 1]?.timestampMs ?? durationMs;
+      const endMs = Math.max(startMs + 1, Math.min(durationMs, Math.round(nextStart)));
+      const label = input.phaseLabelsById[phaseId] ?? phaseId;
+      return {
+        id: `runtime_phase_${index}_${phaseId}_${startMs}`,
+        label,
+        startMs,
+        endMs,
+        seekTimestampMs: startMs,
+        interactive: input.interactive,
+        phaseId,
+        orderIndex: index
+      };
+    });
+
+  if (eventSegments.length > 0) {
+    return eventSegments;
+  }
+
   const labelsFromIds = input.phaseIdsInOrder
     .map((phaseId) => ({ phaseId, label: input.phaseLabelsById[phaseId] }))
     .filter((phase): phase is { phaseId: string; label: string } => Boolean(phase.label));
@@ -107,7 +134,6 @@ export function buildAnalysisTimelineSegments(input: {
     ? labelsFromIds
     : [{ phaseId: "fallback", label: "Phase timeline unavailable" }];
 
-  const durationMs = Math.max(1, toFiniteNonNegativeMs(input.durationMs) ?? 1);
   const starts = phases.map((phase, index) => {
     if (input.phaseStartsById?.[phase.phaseId] !== undefined) {
       return Math.max(0, Math.min(durationMs, Math.round(input.phaseStartsById[phase.phaseId])));
@@ -197,7 +223,8 @@ export function buildAnalysisDomainModel(input: {
         phaseLabelsById,
         phaseStartsById,
         durationMs,
-        interactive: input.phaseTimelineInteractive
+        interactive: input.phaseTimelineInteractive,
+        events
       })
     },
     feedbackPreviewLines:

@@ -229,6 +229,25 @@ export function normalizePortablePhase(phase: PortablePhase, drillView?: Portabl
     analysis: phase.analysis
       ? {
           ...phase.analysis,
+          comparison: phase.analysis.comparison
+            ? {
+                ...phase.analysis.comparison,
+                required: phase.analysis.comparison.required !== false,
+                durationRelevant: Boolean(phase.analysis.comparison.durationRelevant),
+                holdRequired: Boolean(phase.analysis.comparison.holdRequired),
+                minHoldDurationMs:
+                  typeof phase.analysis.comparison.minHoldDurationMs === "number" && phase.analysis.comparison.minHoldDurationMs > 0
+                    ? phase.analysis.comparison.minHoldDurationMs
+                    : undefined,
+                targetHoldDurationMs:
+                  typeof phase.analysis.comparison.targetHoldDurationMs === "number" && phase.analysis.comparison.targetHoldDurationMs > 0
+                    ? phase.analysis.comparison.targetHoldDurationMs
+                    : undefined,
+                criteriaHooks: Array.isArray(phase.analysis.comparison.criteriaHooks)
+                  ? phase.analysis.comparison.criteriaHooks.filter((hook): hook is string => typeof hook === "string" && hook.trim().length > 0)
+                  : undefined
+              }
+            : undefined,
           matchHints: phase.analysis.matchHints
             ? {
                 ...phase.analysis.matchHints,

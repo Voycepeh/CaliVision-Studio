@@ -75,11 +75,11 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 
 ## Assumptions / non-goals for benchmark-aware coaching foundation
 
-- Assumption: benchmark metadata is attached to each drill as optional additive schema (`PortableDrill.benchmark`) and may be absent on most legacy drills.
-- Assumption: benchmark phase sequences remain separate from authored drill phases while providing deterministic mapping hooks.
+- Assumption: benchmark metadata remains attached as optional additive schema (`PortableDrill.benchmark`) for backward compatibility.
+- Assumption: drill-authored phases plus optional `PortablePhase.analysis.comparison` rules are now the primary reference criteria for deterministic coaching.
 - Assumption: local drafts, hosted drills, seeded drills, and exchange/public payloads must round-trip benchmark metadata safely when present.
 - Current state (April 17, 2026): Studio now includes a first deterministic benchmark comparison engine in analysis result paths (upload + safe live/session integration) with structured outputs for status, phase sequence, and timing tolerance checks.
-- Current state (April 17, 2026): comparison signals are intentionally rule-based only (phase order/count, phase timing when available, rep/hold aggregate timing when available), with no AI-generated explanation.
+- Current state (April 18, 2026): comparison signals remain deterministic/rule-based (phase sequence, required phase rules, optional hold minimums, optional timing when configured), with no AI-generated explanation.
 - Current state (April 18, 2026): PR 6 adds a deterministic, template-driven coaching feedback interpretation layer on top of benchmark comparison outputs (summary label, top findings, and actionable next steps) for compact Upload Video + Live presentation.
 - Current state (April 18, 2026): benchmark feedback categories now include sequence, timing, duration, consistency, benchmark-missing, and attempt-missing-data with fixed severity buckets (`success`/`warning`/`info`), still without any LLM/AI service calls.
 - Non-goal: building full side-by-side benchmark comparison UI in this PR.

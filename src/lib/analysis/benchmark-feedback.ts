@@ -59,10 +59,10 @@ export function summarizeBenchmarkComparison(
 
   if (status === "matched") {
     return {
-      label: "Benchmark aligned",
+      label: "Reference criteria aligned",
       description: movementType === "hold"
-        ? "Phase sequence and hold timing matched the benchmark target."
-        : "Phase sequence and rep timing matched the benchmark target.",
+        ? "Phase sequence and configured hold rules matched the drill reference criteria."
+        : "Phase sequence and configured phase rules matched the drill reference criteria.",
       severity
     };
   }
@@ -167,9 +167,9 @@ function buildFindings(comparison?: Partial<BenchmarkComparisonResult> | null): 
     findings.push({
       category: "benchmark_missing",
       severity: "info",
-      title: "No benchmark configured",
-      description: "This drill has no benchmark reference yet.",
-      recommendedAction: "Add benchmark timing and phase targets in Drill Studio to unlock comparison coaching."
+      title: "No reference criteria configured",
+      description: "This drill has no comparison/reference settings yet.",
+      recommendedAction: "Add expected flow and phase rules in Drill Studio to unlock comparison coaching."
     });
     return findings;
   }
@@ -186,11 +186,15 @@ function buildFindings(comparison?: Partial<BenchmarkComparisonResult> | null): 
   }
 
   if (comparison.phaseMatch && comparison.phaseMatch.matched === false) {
+    const expectedCount = comparison.phaseMatch.expectedPhaseKeys?.length ?? 0;
+    const mismatchCount = Math.max(0, expectedCount - (comparison.phaseMatch.matchedCount ?? 0));
     findings.push({
       category: "sequence",
       severity: "warning",
       title: "Phase sequence mismatch",
-      description: `Matched ${comparison.phaseMatch.matchedCount ?? 0} of ${comparison.phaseMatch.expectedPhaseKeys?.length ?? 0} benchmark phases in order.`,
+      description: mismatchCount === 0
+        ? `Detected extra or missing transitions despite matching ${comparison.phaseMatch.matchedCount ?? 0} of ${expectedCount} expected phases in order.`
+        : `Matched ${comparison.phaseMatch.matchedCount ?? 0} of ${expectedCount} expected phases in order.`,
       recommendedAction: "Focus on matching phase order before optimizing timing."
     });
   } else if (comparison.phaseMatch && comparison.phaseMatch.matched === true) {
@@ -198,8 +202,18 @@ function buildFindings(comparison?: Partial<BenchmarkComparisonResult> | null): 
       category: "sequence",
       severity: "success",
       title: "Phase sequence matched",
-      description: "Phase sequence matched the benchmark.",
+      description: "Phase sequence matched the expected drill flow.",
       recommendedAction: "Keep this sequence consistency while refining timing."
+    });
+  }
+
+  if (comparison.phaseRuleMatch && !comparison.phaseRuleMatch.matched) {
+    findings.push({
+      category: "sequence",
+      severity: "warning",
+      title: "Required phase rules not met",
+      description: `${comparison.phaseRuleMatch.satisfiedPhaseCount}/${comparison.phaseRuleMatch.requiredPhaseCount} required phases and ${comparison.phaseRuleMatch.satisfiedHoldCount}/${comparison.phaseRuleMatch.requiredHoldCount} required hold rules are currently satisfied.`,
+      recommendedAction: "Complete each required phase and meet configured hold minimums before ending the rep."
     });
   }
 

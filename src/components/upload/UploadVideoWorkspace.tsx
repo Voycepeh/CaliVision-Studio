@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
+import { buildReplayAnalysisState, deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
@@ -229,6 +229,10 @@ export function UploadVideoWorkspace() {
   const activeSession = useMemo(
     () => (activeJob ? analysisSessionsByJobId[activeJob.id] ?? null : null),
     [activeJob, analysisSessionsByJobId]
+  );
+  const replayAnalysisState = useMemo(
+    () => buildReplayAnalysisState(activeSession, replayTimestampMs),
+    [activeSession, replayTimestampMs]
   );
   const rawPreviewObjectUrl = activeJob && rawPreviewState?.jobId === activeJob.id ? rawPreviewState.url : null;
   const annotatedPreviewObjectUrl = activeJob && annotatedPreviewState?.jobId === activeJob.id ? annotatedPreviewState.url : null;
@@ -780,8 +784,8 @@ export function UploadVideoWorkspace() {
                 ? "hold"
                 : "rep"
               : "freestyle",
-          repCount: activeSession?.summary.repCount ?? 0,
-          holdDurationMs: activeSession?.summary.holdDurationMs ?? 0,
+          repCount: replayAnalysisState.repCount,
+          holdDurationMs: replayAnalysisState.holdElapsedMs,
           durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
           confidence: activeSession?.summary.confidenceAvg,
           events: activeSession?.events ?? [],
@@ -800,13 +804,13 @@ export function UploadVideoWorkspace() {
               : undefined,
           summaryMetrics: activeSession?.benchmarkComparison
             ? [
-                { id: "benchmark_status", label: "Benchmark", value: activeSession.benchmarkComparison.status },
+                { id: "benchmark_status", label: "Reference", value: activeSession.benchmarkComparison.status },
                 {
                   id: "phase_match",
                   label: "Phase sequence",
                   value: activeSession.benchmarkComparison.phaseMatch.matched
                     ? "Matched"
-                    : `Mismatch (${activeSession.benchmarkComparison.phaseMatch.matchedCount}/${activeSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length})`
+                    : `Mismatch (${Math.max(0, activeSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length - activeSession.benchmarkComparison.phaseMatch.matchedCount)} off)`
                 },
                 {
                   id: "timing_match",

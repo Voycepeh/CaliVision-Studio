@@ -102,6 +102,11 @@
           "analysis": {
             "semanticRole": "top",
             "isCritical": true,
+            "comparison": {
+              "required": true,
+              "durationRelevant": false,
+              "holdRequired": false
+            },
             "matchHints": {
               "requiredJoints": [
                 "leftShoulder",
@@ -158,6 +163,13 @@
           "analysis": {
             "semanticRole": "bottom",
             "isCritical": true,
+            "comparison": {
+              "required": true,
+              "durationRelevant": true,
+              "holdRequired": true,
+              "minHoldDurationMs": 800,
+              "targetHoldDurationMs": 900
+            },
             "matchHints": {
               "requiredJoints": [
                 "leftElbow",

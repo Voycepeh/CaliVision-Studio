@@ -1,6 +1,7 @@
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
 import { normalizeDrillBenchmark } from "../drills/benchmark.ts";
+import { buildCompositeRepState, buildDrillReferenceCriteria, isRepSatisfiedAtTimestamp } from "./reference-criteria.ts";
 
 const DEFAULT_TIMING_TOLERANCE_RATIO = 0.2;
 const DEFAULT_TIMING_TOLERANCE_MIN_MS = 120;
@@ -46,6 +47,13 @@ export type BenchmarkComparisonResult = {
   movementType: "rep" | "hold";
   phaseMatch: BenchmarkPhaseMatch;
   timing: BenchmarkTimingComparison;
+  phaseRuleMatch: {
+    matched: boolean;
+    requiredPhaseCount: number;
+    satisfiedPhaseCount: number;
+    requiredHoldCount: number;
+    satisfiedHoldCount: number;
+  };
   quality: {
     bucket: BenchmarkQualityBucket;
     scoreBucket: "high" | "medium" | "low" | "unknown";
@@ -78,26 +86,42 @@ export function compareAttemptToBenchmark(input: {
   }
 
   const attempt = deriveAttemptRuntime(input.session.events, input.session.summary);
+  const drillReference = buildDrillReferenceCriteria(input.drill);
+  const repRuleMatched = isRepSatisfiedAtTimestamp({
+    criteria: drillReference,
+    events: input.session.events,
+    timestampMs: attempt.analyzedDurationMs
+  });
+  const repRuleState = buildCompositeRepState(drillReference, input.session.events, attempt.analyzedDurationMs);
+  const phaseRuleMatch = {
+    matched: repRuleMatched,
+    requiredPhaseCount: Object.values(drillReference.phaseRules).filter((rule) => rule.required).length,
+    satisfiedPhaseCount: Object.values(repRuleState.requiredPhaseStatus).filter(Boolean).length,
+    requiredHoldCount: Object.values(repRuleState.holdStatusByPhase).filter((entry) => entry.required).length,
+    satisfiedHoldCount: Object.values(repRuleState.holdStatusByPhase).filter((entry) => entry.required && entry.satisfied).length
+  };
   const hasAttemptData = input.session.frameSamples.length > 0 && attempt.analyzedDurationMs > 0;
   if (!hasAttemptData) {
     return createBaseResult("insufficient_attempt_data", movementType, {
       benchmarkPresent: true,
       reasons: ["Attempt did not include enough analyzed frames/timing to compare."],
-      phaseMatch: compareAttemptPhasesToBenchmark(attempt.phaseKeys, benchmark.phaseSequence?.map((phase) => phase.key) ?? [])
+      phaseMatch: compareAttemptPhasesToBenchmark(attempt.phaseKeys, benchmark.phaseSequence?.map((phase) => phase.key) ?? []),
+      phaseRuleMatch
     });
   }
 
   if (movementType === "hold") {
-    return compareHoldAttemptToBenchmark({ attempt, benchmarkPhaseKeys: benchmark.phaseSequence?.map((phase) => phase.key) ?? [], benchmarkTiming: benchmark.timing });
+    return compareHoldAttemptToBenchmark({ attempt, benchmarkPhaseKeys: benchmark.phaseSequence?.map((phase) => phase.key) ?? [], benchmarkTiming: benchmark.timing, phaseRuleMatch });
   }
 
-  return compareRepAttemptToBenchmark({ attempt, benchmarkPhaseKeys: benchmark.phaseSequence?.map((phase) => phase.key) ?? [], benchmarkTiming: benchmark.timing });
+  return compareRepAttemptToBenchmark({ attempt, benchmarkPhaseKeys: benchmark.phaseSequence?.map((phase) => phase.key) ?? [], benchmarkTiming: benchmark.timing, phaseRuleMatch });
 }
 
 export function compareRepAttemptToBenchmark(input: {
   attempt: AttemptRuntime;
   benchmarkPhaseKeys: string[];
   benchmarkTiming?: { expectedRepDurationMs?: number; phaseDurationsMs?: Record<string, number> };
+  phaseRuleMatch?: BenchmarkComparisonResult["phaseRuleMatch"];
 }): BenchmarkComparisonResult {
   const phaseMatch = compareAttemptPhasesToBenchmark(input.attempt.phaseKeys, input.benchmarkPhaseKeys);
   const timing = compareAttemptTimingToBenchmark({
@@ -111,18 +135,26 @@ export function compareRepAttemptToBenchmark(input: {
   if (!phaseMatch.matched) {
     reasons.push("Attempt phase sequence differs from benchmark phase sequence.");
   }
+  if (input.phaseRuleMatch && !input.phaseRuleMatch.matched) {
+    reasons.push("Required phase rules were not fully satisfied.");
+  }
   if (timing.present && timing.matched === false) {
     reasons.push("Attempt rep timing falls outside benchmark tolerance.");
   }
 
-  const status = resolveStatus({ phaseMatched: phaseMatch.matched, timingMatched: timing.matched, timingPresent: timing.present });
-  return buildResult(status, "rep", phaseMatch, timing, reasons);
+  const status = resolveStatus({
+    phaseMatched: phaseMatch.matched && (input.phaseRuleMatch?.matched ?? true),
+    timingMatched: timing.matched,
+    timingPresent: timing.present
+  });
+  return buildResult(status, "rep", phaseMatch, timing, reasons, input.phaseRuleMatch);
 }
 
 export function compareHoldAttemptToBenchmark(input: {
   attempt: AttemptRuntime;
   benchmarkPhaseKeys: string[];
   benchmarkTiming?: { targetHoldDurationMs?: number; phaseDurationsMs?: Record<string, number> };
+  phaseRuleMatch?: BenchmarkComparisonResult["phaseRuleMatch"];
 }): BenchmarkComparisonResult {
   const phaseMatch = compareAttemptPhasesToBenchmark(input.attempt.phaseKeys, input.benchmarkPhaseKeys);
   const timing = compareAttemptTimingToBenchmark({
@@ -136,12 +168,19 @@ export function compareHoldAttemptToBenchmark(input: {
   if (!phaseMatch.matched) {
     reasons.push("Attempt hold phase sequence differs from benchmark phase sequence.");
   }
+  if (input.phaseRuleMatch && !input.phaseRuleMatch.matched) {
+    reasons.push("Required hold-phase rules were not fully satisfied.");
+  }
   if (timing.present && timing.matched === false) {
     reasons.push("Attempt hold timing falls outside benchmark tolerance.");
   }
 
-  const status = resolveStatus({ phaseMatched: phaseMatch.matched, timingMatched: timing.matched, timingPresent: timing.present });
-  return buildResult(status, "hold", phaseMatch, timing, reasons);
+  const status = resolveStatus({
+    phaseMatched: phaseMatch.matched && (input.phaseRuleMatch?.matched ?? true),
+    timingMatched: timing.matched,
+    timingPresent: timing.present
+  });
+  return buildResult(status, "hold", phaseMatch, timing, reasons, input.phaseRuleMatch);
 }
 
 export function compareAttemptPhasesToBenchmark(actualPhaseKeys: string[], expectedPhaseKeys: string[]): BenchmarkPhaseMatch {
@@ -281,7 +320,8 @@ function buildResult(
   movementType: "rep" | "hold",
   phaseMatch: BenchmarkPhaseMatch,
   timing: BenchmarkTimingComparison,
-  reasons: string[]
+  reasons: string[],
+  phaseRuleMatch?: BenchmarkComparisonResult["phaseRuleMatch"]
 ): BenchmarkComparisonResult {
   const flags: string[] = [];
   if (!phaseMatch.matched) {
@@ -296,6 +336,9 @@ function buildResult(
   if (phaseMatch.extraPhases.length > 0) {
     flags.push("extra_phases");
   }
+  if (phaseRuleMatch && !phaseRuleMatch.matched) {
+    flags.push("required_phase_rule_unsatisfied");
+  }
 
   const scoreBucket = flags.length === 0 ? "high" : flags.length <= 2 ? "medium" : "low";
 
@@ -305,6 +348,13 @@ function buildResult(
     movementType,
     phaseMatch,
     timing,
+    phaseRuleMatch: phaseRuleMatch ?? {
+      matched: true,
+      requiredPhaseCount: 0,
+      satisfiedPhaseCount: 0,
+      requiredHoldCount: 0,
+      satisfiedHoldCount: 0
+    },
     quality: {
       bucket: scoreBucket === "high" ? "good" : scoreBucket === "medium" ? "fair" : "poor",
       scoreBucket,
@@ -317,7 +367,7 @@ function buildResult(
 function createBaseResult(
   status: BenchmarkComparisonStatus,
   movementType: "rep" | "hold",
-  overrides?: Partial<Pick<BenchmarkComparisonResult, "benchmarkPresent" | "reasons" | "phaseMatch">>
+  overrides?: Partial<Pick<BenchmarkComparisonResult, "benchmarkPresent" | "reasons" | "phaseMatch" | "phaseRuleMatch">>
 ): BenchmarkComparisonResult {
   return {
     status,
@@ -330,6 +380,13 @@ function createBaseResult(
       matchedCount: 0,
       missingPhases: [],
       extraPhases: []
+    },
+    phaseRuleMatch: overrides?.phaseRuleMatch ?? {
+      matched: true,
+      requiredPhaseCount: 0,
+      satisfiedPhaseCount: 0,
+      requiredHoldCount: 0,
+      satisfiedHoldCount: 0
     },
     timing: {
       present: false,

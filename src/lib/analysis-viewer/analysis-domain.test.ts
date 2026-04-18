@@ -57,7 +57,7 @@ test("buildAnalysisDomainModel falls back phase labels when phase data is incomp
 
   assert.equal(model.sessionSnapshot.currentPhaseLabel, "Phase unavailable");
   assert.equal(model.sessionSnapshot.phaseTimelineSegments.length, 1);
-  assert.equal(model.sessionSnapshot.phaseTimelineSegments[0]?.label, "Phase timeline unavailable");
+  assert.equal(model.sessionSnapshot.phaseTimelineSegments[0]?.label, "unknown");
 });
 
 test("buildAnalysisDomainModel builds reusable timeline segments with identifiers", () => {

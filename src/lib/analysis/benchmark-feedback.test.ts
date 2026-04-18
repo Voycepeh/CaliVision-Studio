@@ -30,6 +30,13 @@ function buildComparison(partial?: Partial<BenchmarkComparisonResult>): Benchmar
       scoreBucket: "high",
       flags: []
     },
+    phaseRuleMatch: {
+      matched: true,
+      requiredPhaseCount: 3,
+      satisfiedPhaseCount: 3,
+      requiredHoldCount: 0,
+      satisfiedHoldCount: 0
+    },
     reasons: [],
     ...partial
   };
@@ -142,4 +149,21 @@ test("safe handling for partial comparison payloads", () => {
 
   assert.equal(partialFeedback.topFindings.length > 0, true);
   assert.equal(summary.label, "Partial benchmark match");
+});
+
+test("sequence mismatch wording avoids contradictory full-match language", () => {
+  const feedback = buildBenchmarkCoachingFeedback({
+    comparison: buildComparison({
+      status: "phase_mismatch",
+      phaseMatch: {
+        expectedPhaseKeys: ["a", "b", "c"],
+        actualPhaseKeys: ["a", "b", "c", "x"],
+        matched: false,
+        matchedCount: 3,
+        missingPhases: [],
+        extraPhases: ["x"]
+      }
+    })
+  });
+  assert.match(feedback.topFindings[0]?.description ?? "", /extra or missing transitions/i);
 });

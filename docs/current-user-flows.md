@@ -12,11 +12,11 @@
 
 1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
 2. Edit drill metadata (title, required drill type, difficulty, primary view). Internal identifiers are system-managed and hidden from normal authoring.
-3. Author benchmark metadata inline in Drill Studio (enabled state, source type, label/description, movement type, camera view, optional draft/ready status).
-4. Bootstrap benchmark phases from authored drill phases using explicit action controls:
-   - initial create when no benchmark phase sequence exists,
-   - optional overwrite sync with warning/confirm when benchmark phases already exist.
-5. Lightly edit benchmark phase sequence fields (order, key, label, target duration, notes) without launching a separate benchmark-only workflow.
+3. Author comparison settings inline in Drill Studio (enabled state, source type, reference label/notes, movement type, camera view, optional draft/ready status).
+4. Bootstrap reference phases from authored drill phases using explicit action controls:
+   - initial create when no reference phase sequence exists,
+   - optional overwrite sync with warning/confirm when reference phases already exist.
+5. Configure per-phase rules in the same compact editor (required phase, optional hold requirement, optional minimum/target hold duration). Timing remains optional by phase, not globally required.
 6. Create/edit/reorder authored drill phases and update saved phase fields (phase name, order, duration, authored pose data).
 7. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
 8. Upload a phase image.
@@ -34,8 +34,9 @@
 5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
 6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
 7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
-8. In drill mode, when benchmark metadata exists and analysis data is sufficient, Studio now attaches a deterministic benchmark comparison summary (matched/partial/mismatch/no benchmark) covering phase order and timing tolerance checks.
-9. Upload analysis now includes a compact **Benchmark feedback** layer (rule-based templates only) that surfaces a concise overall summary, up to three prioritized findings, and actionable next-step hints.
+8. In drill mode, when reference metadata exists and analysis data is sufficient, Studio attaches deterministic comparison summaries focused on ordered phase flow first, phase-rule/hold satisfaction second, and timing only when configured.
+9. Upload replay metrics are playhead-relative: rep count, hold timer, and current phase change when scrubbing backward/forward.
+10. Upload analysis includes a compact deterministic feedback layer (rule-based templates only) with internally consistent wording (no matched/mismatch contradictions), up to three prioritized findings, and actionable next-step hints.
 10. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
 11. Download outputs in this simplified order (shown once in UI):
    - Annotated Video (`.webm`)

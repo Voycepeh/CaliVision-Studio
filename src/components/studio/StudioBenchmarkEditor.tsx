@@ -27,7 +27,8 @@ export function StudioBenchmarkEditor() {
     setBenchmarkStatus,
     bootstrapBenchmarkFromAuthoredPhases,
     updateBenchmarkPhase,
-    moveBenchmarkPhase
+    moveBenchmarkPhase,
+    updatePhaseComparisonRule
   } = useStudioState();
 
   const drill = selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null;
@@ -47,23 +48,25 @@ export function StudioBenchmarkEditor() {
       return;
     }
 
-    if (window.confirm("Overwrite benchmark phases using current authored drill phases? Existing benchmark phase edits will be replaced.")) {
+    if (window.confirm("Overwrite comparison phases using current authored drill phases? Existing phase edits will be replaced.")) {
       bootstrapBenchmarkFromAuthoredPhases(true);
     }
   }
 
+  const authoredPhases = [...drill.phases].sort((a, b) => a.order - b.order);
+
   return (
     <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Benchmark</h3>
+        <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Reference criteria</h3>
         <label style={{ ...labelStyle, display: "inline-flex", alignItems: "center", gap: "0.4rem", fontSize: "0.82rem" }}>
           <input type="checkbox" checked={benchmarkEnabled} onChange={(event) => setBenchmarkEnabled(event.target.checked)} />
-          Benchmark enabled
+          Comparison settings enabled
         </label>
       </div>
 
       <div className="muted" style={{ fontSize: "0.78rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-        <span>{summary.present ? "Benchmark present" : "Benchmark absent"}</span>
+        <span>{summary.present ? "Reference criteria present" : "Reference criteria absent"}</span>
         <span>Source: {summary.sourceType}</span>
         <span>Phases: {summary.phaseCount}</span>
         <span>{summary.hasTiming ? "Timing available" : "No timing"}</span>
@@ -111,14 +114,68 @@ export function StudioBenchmarkEditor() {
           </div>
 
           <label style={labelStyle}>
-            <span>Benchmark label</span>
-            <input value={benchmark?.label ?? ""} onChange={(event) => setBenchmarkLabel(event.target.value)} style={inputStyle} placeholder="Add benchmark label" />
+            <span>Reference label</span>
+            <input value={benchmark?.label ?? ""} onChange={(event) => setBenchmarkLabel(event.target.value)} style={inputStyle} placeholder="Add reference label" />
           </label>
 
           <label style={labelStyle}>
-            <span>Benchmark description</span>
-            <textarea value={benchmark?.description ?? ""} onChange={(event) => setBenchmarkDescription(event.target.value)} style={{ ...inputStyle, minHeight: "64px", resize: "vertical" }} placeholder="Optional benchmark notes" />
+            <span>Comparison notes</span>
+            <textarea value={benchmark?.description ?? ""} onChange={(event) => setBenchmarkDescription(event.target.value)} style={{ ...inputStyle, minHeight: "64px", resize: "vertical" }} placeholder="Optional comparison notes" />
           </label>
+
+          <section style={{ display: "grid", gap: "0.4rem" }}>
+            <strong style={{ fontSize: "0.82rem" }}>Phase rules (coach-first)</strong>
+            {authoredPhases.map((phase) => {
+              const comparison = phase.analysis?.comparison ?? {};
+              return (
+                <article key={phase.phaseId} className="card" style={{ display: "grid", gap: "0.35rem", padding: "0.55rem" }}>
+                  <strong style={{ fontSize: "0.8rem" }}>{phase.name}</strong>
+                  <div className="field-grid">
+                    <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <input
+                        type="checkbox"
+                        checked={comparison.required !== false}
+                        onChange={(event) => updatePhaseComparisonRule(phase.phaseId, { required: event.target.checked })}
+                      />
+                      Required phase
+                    </label>
+                    <label style={{ ...labelStyle, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(comparison.holdRequired)}
+                        onChange={(event) => updatePhaseComparisonRule(phase.phaseId, { holdRequired: event.target.checked, durationRelevant: event.target.checked || comparison.durationRelevant })}
+                      />
+                      Hold requirement
+                    </label>
+                  </div>
+                  <div className="field-grid">
+                    <label style={labelStyle}>
+                      <span>Minimum hold (ms)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={comparison.minHoldDurationMs ?? ""}
+                        onChange={(event) => updatePhaseComparisonRule(phase.phaseId, { minHoldDurationMs: event.target.value ? Number.parseInt(event.target.value, 10) : undefined, holdRequired: Boolean(event.target.value) })}
+                        style={inputStyle}
+                        placeholder="optional"
+                      />
+                    </label>
+                    <label style={labelStyle}>
+                      <span>Target hold (ms)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={comparison.targetHoldDurationMs ?? ""}
+                        onChange={(event) => updatePhaseComparisonRule(phase.phaseId, { targetHoldDurationMs: event.target.value ? Number.parseInt(event.target.value, 10) : undefined })}
+                        style={inputStyle}
+                        placeholder="optional"
+                      />
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
 
           <div className="studio-action-row" style={{ justifyContent: "flex-start" }}>
             <button type="button" className="studio-button studio-button-primary" onClick={runBootstrap}>
@@ -182,19 +239,19 @@ export function StudioBenchmarkEditor() {
             </div>
           ) : (
             <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-              Benchmark enabled, but no benchmark phases yet. Use the bootstrap action to copy authored phase order and starter timing.
+              Reference criteria enabled, but no comparison phases yet. Use the bootstrap action to copy authored phase order and starter timing.
             </p>
           )}
 
           {hasBenchmarkTiming(benchmark) ? null : (
             <p className="muted" style={{ margin: 0, fontSize: "0.75rem" }}>
-              This benchmark currently has no timing data. Add target durations to benchmark phases for comparison-ready timing context.
+              Timing is optional. Add target durations only for phases where timing should influence coaching.
             </p>
           )}
         </>
       ) : (
         <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-          Enable benchmark to author benchmark metadata and phase sequence for this drill.
+          Enable comparison settings to author expected flow and optional timing/hold criteria for this drill.
         </p>
       )}
     </section>

@@ -139,6 +139,10 @@ type StudioStateValue = {
   renamePhase: (phaseId: string, title: string) => void;
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
+  updatePhaseComparisonRule: (
+    phaseId: string,
+    partial: Partial<NonNullable<PortablePhase["analysis"]>["comparison"]>
+  ) => void;
   setDrillTitle: (title: string) => void;
   setDrillDescription: (description: string) => void;
   setDrillType: (drillType: PortableDrill["drillType"]) => void;
@@ -1181,6 +1185,38 @@ export function StudioStateProvider({
     });
   }
 
+  function updatePhaseComparisonRule(
+    phaseId: string,
+    partial: Partial<NonNullable<PortablePhase["analysis"]>["comparison"]>
+  ): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) return;
+        const index = drill.phases.findIndex((phase) => phase.phaseId === phaseId);
+        if (index < 0) return;
+        const phase = drill.phases[index];
+        const nextComparison = {
+          ...(phase.analysis?.comparison ?? {}),
+          ...partial
+        };
+        if (typeof nextComparison.minHoldDurationMs === "number" && nextComparison.minHoldDurationMs <= 0) {
+          nextComparison.minHoldDurationMs = undefined;
+        }
+        if (typeof nextComparison.targetHoldDurationMs === "number" && nextComparison.targetHoldDurationMs <= 0) {
+          nextComparison.targetHoldDurationMs = undefined;
+        }
+        drill.phases[index] = {
+          ...phase,
+          analysis: {
+            ...(phase.analysis ?? {}),
+            comparison: nextComparison
+          }
+        };
+      })
+    );
+  }
+
   function setDrillTitle(title: string): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -2077,6 +2113,7 @@ export function StudioStateProvider({
     renamePhase,
     setPhaseDuration,
     setPhaseSummary,
+    updatePhaseComparisonRule,
     setDrillTitle,
     setDrillDescription,
     setDrillType,

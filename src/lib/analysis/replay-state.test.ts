@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { AnalysisSessionRecord } from "./session-repository.ts";
-import { buildReplayOverlaySamples, deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime, getOverlaySampleAtTime } from "./replay-state.ts";
+import { buildReplayAnalysisState, buildReplayOverlaySamples, deriveReplayMarkers, deriveReplayOverlayStateAtTime, deriveReplaySessionOverview, deriveReplayStateAtTime, getCurrentRepProgressAtTimestamp, getHoldDurationAtTimestamp, getOverlaySampleAtTime, getPhaseAtTimestamp, getRepCountAtTimestamp } from "./replay-state.ts";
 
 function createSession(): AnalysisSessionRecord {
   return {
@@ -195,4 +195,20 @@ test("overlay samples are time-indexed and queryable for replay/export rendering
   const at2s = getOverlaySampleAtTime(samples, 2000);
   assert.equal(at2s?.repCount, 1);
   assert.equal(at2s?.showRepCount, true);
+});
+
+test("replay helpers remain playhead-relative for reps, holds, phase, and progress", () => {
+  const session = createSession();
+  assert.equal(getRepCountAtTimestamp(session.events, 1700), 0);
+  assert.equal(getRepCountAtTimestamp(session.events, 2400), 2);
+  assert.equal(getHoldDurationAtTimestamp(session.events, 1200), 200);
+  assert.equal(getHoldDurationAtTimestamp(session.events, 1700), 0);
+  assert.equal(getPhaseAtTimestamp(session, 1000), "down");
+
+  const progress = getCurrentRepProgressAtTimestamp(session.events, 1700);
+  assert.equal(progress.phaseOrderSoFar.includes("down"), true);
+
+  const replayState = buildReplayAnalysisState(session, 1700);
+  assert.equal(replayState.repCount, 0);
+  assert.equal(replayState.holdElapsedMs, 0);
 });

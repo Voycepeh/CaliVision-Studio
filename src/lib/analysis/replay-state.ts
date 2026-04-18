@@ -18,6 +18,13 @@ export type ReplayDerivedState = {
   nearestEvent: AnalysisEvent | null;
 };
 
+export type ReplayAnalysisState = ReplayDerivedState & {
+  currentRepProgress: {
+    startedAtMs: number | null;
+    phaseOrderSoFar: string[];
+  };
+};
+
 export type ReplayOverlayState = ReplayDerivedState & {
   phaseLabel: string | null;
   measurementType: "rep" | "hold" | "hybrid" | null;
@@ -113,6 +120,10 @@ function getRepCountAtTime(events: AnalysisSessionRecord["events"], timestampMs:
   return Math.max(reps.length, indexedRep);
 }
 
+export function getRepCountAtTimestamp(events: AnalysisSessionRecord["events"], timestampMs: number): number {
+  return getRepCountAtTime(events, timestampMs);
+}
+
 function getHoldWindow(events: AnalysisSessionRecord["events"], timestampMs: number): { holdActive: boolean; holdElapsedMs: number } {
   const starts = events.filter((event) => event.type === "hold_start" && event.timestampMs <= timestampMs);
   if (starts.length === 0) {
@@ -130,6 +141,39 @@ function getHoldWindow(events: AnalysisSessionRecord["events"], timestampMs: num
     holdActive: true,
     holdElapsedMs: Math.max(0, timestampMs - activeStart.timestampMs)
   };
+}
+
+export function getHoldDurationAtTimestamp(events: AnalysisSessionRecord["events"], timestampMs: number): number {
+  return getHoldWindow(events, timestampMs).holdElapsedMs;
+}
+
+export function getPhaseAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): string | null {
+  if (!session) {
+    return null;
+  }
+  const sortedFrames = getSortedFrameSamples(session);
+  const phaseFromFrame = getFramePhaseAtTime(sortedFrames, timestampMs);
+  if (phaseFromFrame) {
+    return phaseFromFrame;
+  }
+  return getPhaseEventAtTime(getSortedEvents(session), timestampMs);
+}
+
+export function getCurrentRepProgressAtTimestamp(
+  events: AnalysisSessionRecord["events"],
+  timestampMs: number
+): ReplayAnalysisState["currentRepProgress"] {
+  const sorted = [...events]
+    .filter((event) => Number.isFinite(event.timestampMs))
+    .sort((a, b) => a.timestampMs - b.timestampMs);
+  const lastRep = [...sorted].reverse().find((event) => event.type === "rep_complete" && event.timestampMs <= timestampMs);
+  const startedAtMs = lastRep ? lastRep.timestampMs : null;
+  const phaseOrderSoFar = sorted
+    .filter((event) => event.type === "phase_enter" && event.timestampMs <= timestampMs && (!startedAtMs || event.timestampMs > startedAtMs))
+    .map((event) => event.phaseId)
+    .filter((phaseId): phaseId is string => Boolean(phaseId))
+    .filter((phaseId, index, arr) => arr[index - 1] !== phaseId);
+  return { startedAtMs, phaseOrderSoFar };
 }
 
 export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | undefined, timestampMs: number): ReplayDerivedState {
@@ -157,11 +201,31 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
 
   return {
     timestampMs: clampedTimestamp,
-    activePhaseId: getFramePhaseAtTime(sortedFrameSamples, clampedTimestamp),
+    activePhaseId: getPhaseAtTimestamp(session, clampedTimestamp),
     repCount: getRepCountAtTime(sortedEvents, clampedTimestamp),
     holdActive,
     holdElapsedMs,
     nearestEvent
+  };
+}
+
+export function buildReplayAnalysisState(
+  session: AnalysisSessionRecord | null | undefined,
+  timestampMs: number
+): ReplayAnalysisState {
+  const base = deriveReplayStateAtTime(session, timestampMs);
+  if (!session) {
+    return {
+      ...base,
+      currentRepProgress: {
+        startedAtMs: null,
+        phaseOrderSoFar: []
+      }
+    };
+  }
+  return {
+    ...base,
+    currentRepProgress: getCurrentRepProgressAtTimestamp(getSortedEvents(session), base.timestampMs)
   };
 }
 

@@ -46,12 +46,25 @@ export {
 export type { AnalysisSessionArtifact } from "./export-artifact.ts";
 
 export {
+  buildReplayAnalysisState,
   deriveReplayMarkers,
   deriveReplayOverlayStateAtTime,
   deriveReplaySessionOverview,
   deriveReplayStateAtTime,
+  getCurrentRepProgressAtTimestamp,
+  getHoldDurationAtTimestamp,
+  getPhaseAtTimestamp,
+  getRepCountAtTimestamp,
   getReplayDurationMs
 } from "./replay-state.ts";
+
+export {
+  buildCompositeRepState,
+  buildDrillReferenceCriteria,
+  getCompletedRepsSoFar,
+  isPhaseRuleSatisfied,
+  isRepSatisfiedAtTimestamp
+} from "./reference-criteria.ts";
 
 export {
   buildPhaseRuntimeModel,
