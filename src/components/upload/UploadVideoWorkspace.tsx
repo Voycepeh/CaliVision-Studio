@@ -181,6 +181,12 @@ function formatTransitionReason(reason: string | undefined): string {
       return "at least 2 phases are required for rep counting";
     case "loop_not_completed":
       return "full authored loop was not completed";
+    case "skipped_required_phase":
+      return "skipped required phase";
+    case "broken_sequence":
+      return "broken phase sequence";
+    case "abandoned_attempt":
+      return "rep was started but not completed";
     default:
       return reason ?? "unknown";
   }
@@ -987,8 +993,7 @@ export function UploadVideoWorkspace() {
       previewSelection.warning,
       preferredDeliverySource,
       hasRawPreview,
-      hasAnnotatedPreview,
-      rawPreviewFileName
+      hasAnnotatedPreview
     ]
   );
 

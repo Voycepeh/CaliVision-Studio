@@ -107,11 +107,19 @@ function extractRepEvents(
     }
 
     if (step.kind === "partial_attempt") {
+      const expectedPhaseLabel = typeof step.details.expectedPhaseId === "string"
+        ? runtimeModel.phaseLabelById[step.details.expectedPhaseId] ?? step.details.expectedPhaseId
+        : null;
+      const resumedAtPhaseLabel = typeof step.details.resumedAtPhaseId === "string"
+        ? runtimeModel.phaseLabelById[step.details.resumedAtPhaseId] ?? step.details.resumedAtPhaseId
+        : null;
       addEvent({
         timestampMs: transition.timestampMs,
         type: "partial_attempt",
         details: {
           ...step.details,
+          ...(expectedPhaseLabel ? { expectedPhaseLabel } : {}),
+          ...(resumedAtPhaseLabel ? { resumedAtPhaseLabel } : {}),
           rejectReason: step.details.reason,
           minRepDurationMs: minimumRepDurationMs,
           legacyMetadataIgnored
