@@ -1,4 +1,5 @@
 import type { DrillPackage } from "../schema/contracts.ts";
+import { ensurePrimaryDrillBenchmarkFromAuthoredPhases } from "../drills/benchmark.ts";
 
 export type LocalVersionSnapshot = {
   drillId: string;
@@ -86,6 +87,7 @@ export function normalizeReadyPackageFromDraft(input: {
     lineageId: pkg.manifest.versioning?.lineageId ?? pkg.manifest.packageId,
     draftStatus: "publish-ready"
   };
+  ensurePrimaryDrillBenchmarkFromAuthoredPhases(pkg);
   pkg.manifest.updatedAtIso = new Date().toISOString();
   return pkg;
 }

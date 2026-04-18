@@ -1,5 +1,5 @@
 import { buildDrillOptionLabel } from "../drills/labels.ts";
-import { summarizeBenchmark } from "../drills/benchmark.ts";
+import { isUsableBenchmark } from "../drills/benchmark.ts";
 import type { DrillPackage, PortableDrill } from "../schema/contracts.ts";
 export {
   buildDrillOptionGroups,
@@ -57,7 +57,7 @@ export function mapExchangePublicationsToDrillOptions(publications: ExchangePubl
       sourceKind: "exchange",
       sourceId: publication.id,
       packageVersion: publication.snapshotPackage.manifest.packageVersion,
-      benchmarkState: summarizeBenchmark(drill.benchmark).present ? "available" : "legacy-missing",
+      benchmarkState: isUsableBenchmark(drill.benchmark) ? "available" : "unavailable",
       drill
     });
   }
@@ -89,7 +89,7 @@ export async function loadAvailableDrillOptions(input: {
       sourceKind,
       sourceId,
       packageVersion: selectedVersion.packageJson.manifest.packageVersion,
-      benchmarkState: summarizeBenchmark(selectedDrill.benchmark).present ? "available" : "legacy-missing",
+      benchmarkState: isUsableBenchmark(selectedDrill.benchmark) ? "available" : "unavailable",
       drill: selectedDrill
     });
   }

@@ -13,7 +13,7 @@ export type AvailableDrillOption = {
   sourceKind: "local" | "hosted" | "exchange";
   sourceId?: string;
   packageVersion?: string;
-  benchmarkState?: "available" | "legacy-missing";
+  benchmarkState?: "available" | "unavailable" | "legacy-missing";
   drill: PortableDrill;
 };
 

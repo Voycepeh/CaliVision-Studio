@@ -1,4 +1,4 @@
-import type { DrillBenchmark, DrillBenchmarkPhase, PortableDrill } from "@/lib/schema/contracts";
+import type { DrillBenchmark, DrillBenchmarkPhase, DrillPackage, PortableDrill } from "@/lib/schema/contracts";
 
 const BENCHMARK_STATUS_FALLBACK: NonNullable<DrillBenchmark["status"]> = "draft";
 
@@ -57,6 +57,14 @@ export function summarizeBenchmark(benchmark: DrillBenchmark | null | undefined)
     hasTiming: hasBenchmarkTiming(normalized),
     status: normalized?.status ?? BENCHMARK_STATUS_FALLBACK
   };
+}
+
+export function isUsableBenchmark(benchmark: DrillBenchmark | null | undefined): boolean {
+  const summary = summarizeBenchmark(benchmark);
+  if (!summary.present) {
+    return false;
+  }
+  return summary.phaseCount > 0 || summary.hasTiming;
 }
 
 export function getNormalizedBenchmarkPhases(drill: PortableDrill): DrillBenchmarkPhase[] {
@@ -148,6 +156,24 @@ export function syncBenchmarkFromDrillPhases(drill: PortableDrill, options: Sync
   }
 
   drill.benchmark = createBenchmarkFromDrillPhases(drill);
+  return true;
+}
+
+export function ensurePrimaryDrillBenchmarkFromAuthoredPhases(pkg: DrillPackage): boolean {
+  const primaryDrill = pkg.drills[0];
+  if (!primaryDrill) {
+    return false;
+  }
+
+  if (primaryDrill.phases.length === 0) {
+    return false;
+  }
+
+  if (isUsableBenchmark(primaryDrill.benchmark)) {
+    return false;
+  }
+
+  primaryDrill.benchmark = createBenchmarkFromDrillPhases(primaryDrill);
   return true;
 }
 

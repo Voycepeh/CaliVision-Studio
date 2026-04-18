@@ -3,7 +3,16 @@ import test from "node:test";
 import { normalizeReadyPackageFromDraft, reconcileLocalVersionSnapshots } from "./local-versioning.ts";
 import type { DrillPackage } from "../schema/contracts.ts";
 
-function makePackage(input: { packageId: string; packageVersion: string; versionId: string; revision: number; draftStatus: "draft" | "publish-ready" }): DrillPackage {
+function makePackage(input: {
+  packageId: string;
+  packageVersion: string;
+  versionId: string;
+  revision: number;
+  draftStatus: "draft" | "publish-ready";
+  drillType?: "rep" | "hold";
+  phases?: DrillPackage["drills"][number]["phases"];
+  benchmark?: DrillPackage["drills"][number]["benchmark"];
+}): DrillPackage {
   return {
     manifest: {
       schemaVersion: "0.1.0",
@@ -29,15 +38,51 @@ function makePackage(input: { packageId: string; packageVersion: string; version
         drillId: input.packageId,
         slug: input.packageId,
         title: "New drill",
-        drillType: "rep",
+        drillType: input.drillType ?? "rep",
         difficulty: "beginner",
         tags: [],
         primaryView: "side",
-        phases: []
+        phases: input.phases ?? [],
+        benchmark: input.benchmark
       }
     ],
     assets: []
   };
+}
+
+function makeAuthoredPhases(input: { drillType: "rep" | "hold" }): DrillPackage["drills"][number]["phases"] {
+  if (input.drillType === "hold") {
+    return [
+      {
+        phaseId: "hold-1",
+        order: 1,
+        name: "Hold",
+        durationMs: 2200,
+        summary: "Static hold",
+        poseSequence: [{ poseId: "hold-pose-1", timestampMs: 0, canvas: { coordinateSystem: "normalized-2d", widthRef: 1080, heightRef: 1920, view: "side" }, joints: {} }],
+        assetRefs: []
+      }
+    ];
+  }
+
+  return [
+    {
+      phaseId: "rep-1",
+      order: 1,
+      name: "Down",
+      durationMs: 800,
+      poseSequence: [{ poseId: "rep-pose-1", timestampMs: 0, canvas: { coordinateSystem: "normalized-2d", widthRef: 1080, heightRef: 1920, view: "side" }, joints: {} }],
+      assetRefs: []
+    },
+    {
+      phaseId: "rep-2",
+      order: 2,
+      name: "Up",
+      durationMs: 700,
+      poseSequence: [{ poseId: "rep-pose-2", timestampMs: 0, canvas: { coordinateSystem: "normalized-2d", widthRef: 1080, heightRef: 1920, view: "side" }, joints: {} }],
+      assetRefs: []
+    }
+  ];
 }
 
 function makeSnapshot(input: { drillId: string; versionId: string; versionNumber: number; status: "draft" | "ready"; updatedAtIso: string }) {
@@ -101,4 +146,73 @@ test("normalizeReadyPackageFromDraft bumps package/version identity when draft c
   assert.equal(normalized.manifest.versioning?.revision, 2);
   assert.equal(normalized.manifest.versioning?.versionId, "drill-a@0.1.1");
   assert.equal(normalized.manifest.versioning?.draftStatus, "publish-ready");
+});
+
+test("normalizeReadyPackageFromDraft bootstraps benchmark for new rep drills with authored phases", () => {
+  const draft = makePackage({
+    packageId: "rep-drill",
+    packageVersion: "0.1.0",
+    versionId: "draft-rep",
+    revision: 1,
+    draftStatus: "draft",
+    drillType: "rep",
+    phases: makeAuthoredPhases({ drillType: "rep" })
+  });
+
+  const normalized = normalizeReadyPackageFromDraft({
+    draftPackage: draft,
+    maxReadyVersionNumber: 0
+  });
+
+  assert.equal(normalized.drills[0]?.benchmark?.sourceType, "reference_pose_sequence");
+  assert.equal(normalized.drills[0]?.benchmark?.phaseSequence?.length, 2);
+  assert.equal(normalized.drills[0]?.benchmark?.timing?.expectedRepDurationMs, 1500);
+});
+
+test("normalizeReadyPackageFromDraft bootstraps benchmark for new hold drills with authored phases", () => {
+  const draft = makePackage({
+    packageId: "hold-drill",
+    packageVersion: "0.1.0",
+    versionId: "draft-hold",
+    revision: 1,
+    draftStatus: "draft",
+    drillType: "hold",
+    phases: makeAuthoredPhases({ drillType: "hold" })
+  });
+
+  const normalized = normalizeReadyPackageFromDraft({
+    draftPackage: draft,
+    maxReadyVersionNumber: 0
+  });
+
+  assert.equal(normalized.drills[0]?.benchmark?.movementType, "hold");
+  assert.equal(normalized.drills[0]?.benchmark?.phaseSequence?.length, 1);
+  assert.equal(normalized.drills[0]?.benchmark?.timing?.targetHoldDurationMs, 2200);
+});
+
+test("normalizeReadyPackageFromDraft preserves existing usable benchmarks", () => {
+  const draft = makePackage({
+    packageId: "preserve-drill",
+    packageVersion: "0.1.0",
+    versionId: "draft-preserve",
+    revision: 1,
+    draftStatus: "draft",
+    drillType: "rep",
+    phases: makeAuthoredPhases({ drillType: "rep" }),
+    benchmark: {
+      sourceType: "reference_pose_sequence",
+      movementType: "rep",
+      cameraView: "front",
+      status: "ready",
+      phaseSequence: [{ key: "existing-1", order: 1, label: "Existing phase", targetDurationMs: 500 }]
+    }
+  });
+
+  const normalized = normalizeReadyPackageFromDraft({
+    draftPackage: draft,
+    maxReadyVersionNumber: 0
+  });
+
+  assert.equal(normalized.drills[0]?.benchmark?.phaseSequence?.[0]?.key, "existing-1");
+  assert.equal(normalized.drills[0]?.benchmark?.phaseSequence?.length, 1);
 });
