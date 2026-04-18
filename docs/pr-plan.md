@@ -85,4 +85,12 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Current state (April 18, 2026): replay analysis metrics in Upload Video are now playhead-relative during replay (reps/hold/phase/current rep), and benchmark sequence wording/chips were aligned to prevent contradictory matched-vs-mismatch UI states.
 - Non-goal: building full side-by-side benchmark comparison UI in this PR.
 - Non-goal: AI/LLM coaching explanations in this phase; richer explainability remains deferred.
+
+## Assumptions / non-goals for coach-first drill reference evolution (April 18, 2026)
+
+- Assumption: the authored drill phase order is now the primary deterministic reference standard for comparison and coaching, while `benchmark` metadata remains optional/additive compatibility plumbing.
+- Assumption: per-phase optional comparison rules can define hold requirements (`isHoldPhase`, `minHoldDurationMs`, `targetHoldDurationMs`, `durationMatters`) without requiring timing on every phase.
+- Assumption: replay analysis cards and timeline should stay playhead-relative (scrub backward reduces current rep/hold/phase state; scrub forward increases).
+- Non-goal: replacing the deterministic rule engine with AI/LLM interpretation (still deferred).
+- Non-goal: introducing side-by-side authored-vs-reference visual comparison in this pass.
 - Non-goal: changing Android runtime/live coaching ownership boundaries; runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.

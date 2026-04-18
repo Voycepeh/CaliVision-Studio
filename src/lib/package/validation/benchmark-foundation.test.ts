@@ -199,3 +199,50 @@ test("normalization remains compatible for local/hosted/public-style drill paylo
   assert.ok(payloads.some((drill) => normalizePortableDrill(drill).benchmark !== null));
   assert.ok(payloads.some((drill) => normalizePortableDrill(drill).benchmark === null));
 });
+
+test("legacy benchmark metadata and new phase rules round-trip together", () => {
+  const drill = makeBaseDrill({
+    benchmark: {
+      sourceType: "seeded",
+      phaseSequence: [{ key: "phase_a", order: 1 }],
+      label: "Legacy benchmark metadata"
+    },
+    phases: [
+      {
+        phaseId: "phase_a",
+        order: 1,
+        name: "Phase A",
+        durationMs: 600,
+        poseSequence: [],
+        assetRefs: [],
+        analysis: { comparison: { required: true, isHoldPhase: false, durationMatters: false } }
+      },
+      {
+        phaseId: "phase_b",
+        order: 2,
+        name: "Phase B",
+        durationMs: 500,
+        poseSequence: [],
+        assetRefs: [],
+        analysis: { comparison: { required: true, isHoldPhase: true, durationMatters: true, minHoldDurationMs: 1500, targetHoldDurationMs: 2000 } }
+      }
+    ]
+  });
+
+  const pkg = normalizePortableDrillPackage(makeBasePackage(drill));
+  const json = JSON.stringify(pkg);
+  const parsed = parsePackageJson(json);
+  assert.equal(parsed.ok, true);
+  if (!parsed.ok) return;
+
+  const validated = toValidatedPackage(parsed.parsed);
+  assert.equal(validated.ok, true);
+  if (!validated.ok) return;
+
+  const normalizedDrill = validated.value.drills[0]!;
+  assert.equal(normalizedDrill.benchmark?.sourceType, "seeded");
+  assert.equal(normalizedDrill.benchmark?.label, "Legacy benchmark metadata");
+  assert.equal(normalizedDrill.phases[0]?.analysis?.comparison?.required, true);
+  assert.equal(normalizedDrill.phases[1]?.analysis?.comparison?.minHoldDurationMs, 1500);
+  assert.equal(normalizedDrill.phases[1]?.analysis?.comparison?.targetHoldDurationMs, 2000);
+});

@@ -59,6 +59,7 @@ import type {
   DrillBenchmarkPhase,
   PortableAssetRef,
   PortableDrill,
+  PortablePhaseComparisonRule,
   PortablePhase,
   PortableViewType,
   SchemaVersion
@@ -139,6 +140,7 @@ type StudioStateValue = {
   renamePhase: (phaseId: string, title: string) => void;
   setPhaseDuration: (phaseId: string, durationMs: number) => void;
   setPhaseSummary: (phaseId: string, summary: string) => void;
+  setPhaseComparisonRule: (phaseId: string, partial: Partial<PortablePhaseComparisonRule>) => void;
   setDrillTitle: (title: string) => void;
   setDrillDescription: (description: string) => void;
   setDrillType: (drillType: PortableDrill["drillType"]) => void;
@@ -1181,6 +1183,18 @@ export function StudioStateProvider({
     });
   }
 
+  function setPhaseComparisonRule(phaseId: string, partial: Partial<PortablePhaseComparisonRule>): void {
+    withPhaseUpdate(phaseId, (phase) => {
+      phase.analysis = {
+        ...(phase.analysis ?? {}),
+        comparison: {
+          ...(phase.analysis?.comparison ?? {}),
+          ...partial
+        }
+      };
+    });
+  }
+
   function setDrillTitle(title: string): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -2077,6 +2091,7 @@ export function StudioStateProvider({
     renamePhase,
     setPhaseDuration,
     setPhaseSummary,
+    setPhaseComparisonRule,
     setDrillTitle,
     setDrillDescription,
     setDrillType,

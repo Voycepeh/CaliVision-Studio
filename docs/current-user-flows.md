@@ -12,18 +12,19 @@
 
 1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
 2. Edit drill metadata (title, required drill type, difficulty, primary view). Internal identifiers are system-managed and hidden from normal authoring.
-3. Author benchmark metadata inline in Drill Studio (enabled state, source type, label/description, movement type, camera view, optional draft/ready status).
-4. Bootstrap benchmark phases from authored drill phases using explicit action controls:
-   - initial create when no benchmark phase sequence exists,
-   - optional overwrite sync with warning/confirm when benchmark phases already exist.
-5. Lightly edit benchmark phase sequence fields (order, key, label, target duration, notes) without launching a separate benchmark-only workflow.
-6. Create/edit/reorder authored drill phases and update saved phase fields (phase name, order, duration, authored pose data).
-7. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
-8. Upload a phase image.
-9. Run detection and apply/refine pose.
-10. Preview and validation review.
-11. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
-12. Open advanced diagnostics only when needed (collapsible, hidden by default).
+3. Create/edit/reorder authored drill phases and update saved phase fields (phase name, order, duration, authored pose data).
+4. Configure **Phase rules** inline per phase where needed:
+   - required phase participation,
+   - optional hold requirement,
+   - optional minimum/target hold durations.
+5. Drill Studio treats authored phase sequence + phase rules as the user-facing reference standard; users do not need to manage a separate benchmark object in normal authoring.
+6. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
+7. Upload a phase image.
+8. Run detection and apply/refine pose.
+9. Preview and validation review.
+10. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
+11. Open advanced diagnostics only when needed (collapsible, hidden by default).
+12. Legacy benchmark/reference metadata remains compatibility plumbing internally for existing data and deterministic comparison outputs.
 
 ## Current Upload Video flow
 

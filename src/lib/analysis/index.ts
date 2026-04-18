@@ -55,11 +55,19 @@ export {
 } from "./replay-state.ts";
 export {
   buildReplayAnalysisState,
+  getCurrentRepProgressAtTimestamp,
   getHoldDurationAtTimestamp,
   getPhaseAtTimestamp,
   getRepCountAtTimestamp,
   getRepIndexAtTimestamp
 } from "./replay-analysis-state.ts";
+export {
+  buildCompositeRepState,
+  getCompletedRepsSoFar,
+  isPhaseRuleSatisfied,
+  isRepSatisfiedAtTimestamp
+} from "./composite-rep.ts";
+export type { CompositeRepState, PhaseRule } from "./composite-rep.ts";
 
 export {
   buildPhaseRuntimeModel,

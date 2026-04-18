@@ -72,6 +72,16 @@ export type PortablePhaseAnalysis = {
   semanticRole?: PortablePhaseSemanticRole;
   isCritical?: boolean;
   matchHints?: PortablePhaseMatchHints;
+  comparison?: PortablePhaseComparisonRule;
+};
+
+export type PortablePhaseComparisonRule = {
+  required?: boolean;
+  durationMatters?: boolean;
+  isHoldPhase?: boolean;
+  minHoldDurationMs?: number;
+  targetHoldDurationMs?: number;
+  criteriaHooks?: string[];
 };
 
 export type PortableAllowedPhaseSkip = {
