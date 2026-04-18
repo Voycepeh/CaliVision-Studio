@@ -235,7 +235,7 @@ test("single-phase hold drills keep accumulating through finalize and infer hold
   trace.pushFrame({ timestampMs: 100, joints: singleHoldDrill.phases[0].poseSequence[0].joints });
   trace.pushFrame({ timestampMs: 500, joints: singleHoldDrill.phases[0].poseSequence[0].joints });
 
-  assert.equal(trace.getHoldDurationMsAtTimestamp(500), 500);
+  assert.equal(trace.getHoldDurationMsAtTimestamp(500), 400);
 
   const finalized = trace.finalize(
     {
@@ -249,7 +249,7 @@ test("single-phase hold drills keep accumulating through finalize and infer hold
     "2026-04-08T00:00:03.000Z"
   );
 
-  assert.equal(finalized.summary.holdDurationMs, 1000);
+  assert.equal(finalized.summary.holdDurationMs, 900);
   const holdEnd = finalized.events.find((event) => event.type === "hold_end");
   assert.ok(holdEnd);
   assert.equal(holdEnd?.details?.inferredSessionEnd, true);
@@ -287,4 +287,47 @@ test("rep drills do not emit hold events or accumulate hold duration", () => {
 
   assert.equal(finalized.summary.holdDurationMs, 0);
   assert.equal(finalized.events.some((event) => event.type === "hold_start" || event.type === "hold_end"), false);
+});
+
+test("hold_start is not emitted for a single unconfirmed hold-frame misclassification", () => {
+  const holdDrill = {
+    ...drill,
+    analysis: {
+      ...drill.analysis,
+      measurementType: "hold" as const,
+      targetHoldPhaseId: "up",
+      minimumHoldDurationMs: 0
+    }
+  };
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_hold_unconfirmed_spike",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: holdDrill as never,
+      drillBindingLabel: holdDrill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: holdDrill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 100, joints: holdDrill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 200, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 300, joints: holdDrill.phases[1].poseSequence[0].joints });
+
+  const finalized = trace.finalize(
+    {
+      durationMs: 400,
+      width: 720,
+      height: 1280,
+      mimeType: "video/webm",
+      sizeBytes: 2000,
+      timing: { mediaStartMs: 0, mediaStopMs: 400, captureStartPerfNowMs: 10, captureStopPerfNowMs: 410 }
+    },
+    "2026-04-08T00:00:01.000Z"
+  );
+
+  assert.equal(finalized.summary.holdDurationMs, 0);
+  assert.equal(finalized.events.some((event) => event.type === "hold_start"), false);
 });

@@ -253,6 +253,7 @@ export function createLiveTraceAccumulator(input: {
       }
     }
 
+    updateHoldTracking(nextPhaseId, timestampMs);
     state.currentPhaseId = nextPhaseId;
   };
 
@@ -337,7 +338,6 @@ export function createLiveTraceAccumulator(input: {
       const candidatePhaseId = rawCandidatePhaseId && state.runtimeModel && !state.runtimeModel.phaseById[rawCandidatePhaseId]
         ? null
         : rawCandidatePhaseId;
-      updateHoldTracking(candidatePhaseId, frame.timestampMs);
       if (shouldDebugRepSequence()) {
         const expectedPhaseIndex = state.repProgress.expectedSequenceIndex;
         const expectedPhaseId = state.runtimeModel?.loopPhaseIds[expectedPhaseIndex] ?? null;
