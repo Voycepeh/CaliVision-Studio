@@ -29,13 +29,13 @@
 ## Current Upload Video flow
 
 1. Upload Video opens in **No drill · Freestyle overlay** mode by default.
-2. User may optionally select a drill from **My Library** (local browser workspace when signed out, hosted user library when signed in). Selectors group by logical drill and prefer the released version when a draft also exists.
+2. User may optionally select a drill from **My Library** (local browser workspace when signed out, hosted user library when signed in). Upload selectors only include released drill versions; open drafts are not offered as analysis targets.
 3. Upload one local video (file picker or drag/drop) to start processing immediately in-browser.
 4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
 5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
 6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
 7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
-8. In drill mode, when benchmark metadata exists and analysis data is sufficient, Studio now attaches a deterministic benchmark comparison summary (matched/partial/mismatch/no benchmark) covering phase order and timing tolerance checks.
+8. In drill mode, analysis assumes released drill versions include benchmark metadata from publish. `No benchmark` is treated as a legacy/degraded state only; healthy released drills should compare normally.
 9. Upload analysis now includes a compact **Benchmark feedback** layer (rule-based templates only) that surfaces a concise overall summary, up to three prioritized findings, and actionable next-step hints.
 10. Replay analysis cards now follow the current playhead timestamp (for example rep count, current hold, current phase, and current rep update when scrubbing backward/forward instead of always showing final session totals).
 11. Phase timeline rendering now follows detected analyzed phase progression over time, with a visible playhead position so timeline state and replay state stay aligned.
@@ -86,7 +86,7 @@ Signed-out draft state is browser/device scoped only. Signed-in mode keeps hoste
 3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
 4. `Mark Ready` is blocked until required draft fields are complete (title, movement type, camera view, and at least one authored phase with user-defined content). Incomplete drafts can still be saved/edited.
 5. When requirements are satisfied, `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
-6. `Publish` requires a Ready release, captures lightweight Exchange metadata (title, description, category, difficulty, equipment, tags), and snapshots that specific released version into Drill Exchange.
+6. `Publish` requires a Ready release, then runs a release pipeline (validate publishability → finalize released snapshot → generate benchmark from that snapshot → persist release + benchmark). Publish success is only shown after benchmark persistence succeeds.
 7. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
 8. `Import drill file` writes to the active workspace only:
    - signed out → **Browser workspace** (local storage),

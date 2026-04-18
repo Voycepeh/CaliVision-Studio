@@ -6,6 +6,7 @@ import { deleteRegistryEntriesByPackageId, loadLocalRegistryEntries, upsertRegis
 import type { DrillPackage } from "@/lib/schema/contracts";
 import { normalizeReadyPackageFromDraft, reconcileLocalVersionSnapshots } from "./local-versioning";
 import { decideDrillImportOutcome } from "./drill-import-logic";
+import { finalizePublishedReadyVersion } from "./publish-finalization";
 
 export type DrillVersionStatus = "draft" | "ready";
 
@@ -543,13 +544,9 @@ export async function markVersionReady(draftVersionId: string, context?: DrillRe
 }
 
 export async function publishVersion(version: DrillVersionSnapshot, context?: DrillRepositoryContext): Promise<void> {
-  if (version.status !== "ready") {
-    throw new Error("Only Ready versions can be published.");
-  }
-
-  const pkg = ensureVersioningMetadata(structuredClone(version.packageJson));
-  pkg.manifest.publishing = { ...(pkg.manifest.publishing ?? {}), publishStatus: "published" };
-  pkg.manifest.updatedAtIso = new Date().toISOString();
+  const pkg = finalizePublishedReadyVersion(version);
+  const publishedAtIso = new Date().toISOString();
+  pkg.manifest.updatedAtIso = publishedAtIso;
 
   const resolved = asContext(context);
   if (isCloudContext(resolved)) {
@@ -564,10 +561,11 @@ export async function publishVersion(version: DrillVersionSnapshot, context?: Dr
     packageJson: pkg,
     sourceType: "mock-published",
     sourceLabel: `published-from:${version.versionId}`,
-    publishedAtIso: new Date().toISOString(),
+    publishedAtIso,
     existingEntryId: version.source === "library" ? version.sourceId : undefined
   });
 }
+
 
 export async function forkPublishedDrillToLibrary(
   input: { publishedPackage: DrillPackage; publishedDrillId: string },

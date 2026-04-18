@@ -8,6 +8,7 @@ import {
   type AvailableDrillDisplayOption,
   type AvailableDrillOption
 } from "./available-drill-selection.ts";
+import { loadAvailableDrillOptions } from "./available-drills.ts";
 
 const baseDrill = {
   slug: "slug",
@@ -154,4 +155,76 @@ test("duplicate same-source titles render unique labels with stable suffix", () 
   assert.notEqual(labels[0], labels[1]);
   assert.match(labels[0] ?? "", /Local [a-z0-9]{4}$/i);
   assert.match(labels[1] ?? "", /Local [a-z0-9]{4}$/i);
+});
+
+test("available drill options only include released versions for upload/live flows", async () => {
+  const readyVersion = {
+    versionId: "ready-v1",
+    packageJson: {
+      manifest: { packageVersion: "0.1.1" },
+      drills: [{ ...baseDrill, drillId: "ready-drill", title: "Ready Drill", benchmark: { sourceType: "reference_pose_sequence", phaseSequence: [] } }]
+    }
+  };
+  const draftOnly = {
+    drillId: "draft-only",
+    title: "Draft Only",
+    currentVersionId: "draft-v1",
+    openDraftVersionId: "draft-v1",
+    activeReadyVersionId: null,
+    latestDraftVersionId: "draft-v1",
+    currentVersion: { sourceId: "draft-v1", packageJson: { manifest: { packageVersion: "0.1.1" }, drills: [{ ...baseDrill, drillId: "draft-only", title: "Draft Only" }] } },
+    activeReadyVersion: null,
+    openDraftVersion: null,
+    updatedAtIso: "2026-04-18T00:00:00.000Z"
+  };
+  const withReady = {
+    ...draftOnly,
+    drillId: "ready-drill",
+    title: "Ready Drill",
+    activeReadyVersionId: "ready-v1",
+    activeReadyVersion: { ...readyVersion, sourceId: "ready-v1" }
+  };
+
+  const options = await loadAvailableDrillOptions(
+    { session: null, isConfigured: false },
+    {
+      listDrills: async () => [withReady, draftOnly] as never,
+      listExchange: async () => ({ ok: false, error: "skip" })
+    }
+  );
+
+  assert.equal(options.length, 1);
+  assert.equal(options[0]?.drill.drillId, "ready-drill");
+});
+
+test("legacy released drills without benchmark are marked as legacy-missing", async () => {
+  const options = await loadAvailableDrillOptions(
+    { session: null, isConfigured: false },
+    {
+      listDrills: async () =>
+        [
+          {
+            drillId: "legacy-drill",
+            title: "Legacy Drill",
+            currentVersionId: "ready-v1",
+            openDraftVersionId: null,
+            activeReadyVersionId: "ready-v1",
+            latestDraftVersionId: null,
+            currentVersion: {
+              sourceId: "ready-v1",
+              packageJson: { manifest: { packageVersion: "0.1.1" }, drills: [{ ...baseDrill, drillId: "legacy-drill", title: "Legacy Drill" }] }
+            },
+            activeReadyVersion: {
+              sourceId: "ready-v1",
+              packageJson: { manifest: { packageVersion: "0.1.1" }, drills: [{ ...baseDrill, drillId: "legacy-drill", title: "Legacy Drill" }] }
+            },
+            openDraftVersion: null,
+            updatedAtIso: "2026-04-18T00:00:00.000Z"
+          }
+        ] as never,
+      listExchange: async () => ({ ok: false, error: "skip" })
+    }
+  );
+
+  assert.equal(options[0]?.benchmarkState, "legacy-missing");
 });

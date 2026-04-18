@@ -980,6 +980,7 @@ export function UploadVideoWorkspace() {
       downloadSafety.annotated?.warning,
       rawDownloadLabel,
       downloadSafety.raw?.warning,
+      rawPreviewFileName,
       traceRows,
       previewSelection.warning,
       preferredDeliverySource,
@@ -1124,6 +1125,7 @@ export function UploadVideoWorkspace() {
           <ReferenceAnimationPanel
             drill={selectedDrill?.drill ?? null}
             sourceKind={selectedDrill?.sourceKind}
+            benchmarkState={selectedDrill?.benchmarkState}
             freestyleDescription="Upload Video will run pose overlay and export outputs without drill-specific rep, hold, or phase scoring."
           />
         }

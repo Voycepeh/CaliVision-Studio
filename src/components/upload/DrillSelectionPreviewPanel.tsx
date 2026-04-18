@@ -11,6 +11,7 @@ import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schem
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
   sourceKind?: StoredDrillSourceKind;
+  benchmarkState?: "available" | "legacy-missing";
   showSourceBadge?: boolean;
   compact?: boolean;
   quiet?: boolean;
@@ -46,7 +47,7 @@ function resolvePreviewPhases(drill: PortableDrill): PortablePhase[] {
   return primaryPhase ? [primaryPhase] : [];
 }
 
-export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
+export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [elapsedMs, setElapsedMs] = useState(0);
   const frameRef = useRef<number | null>(null);
@@ -126,6 +127,11 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
     return "Hold posture";
   }, [drill.drillType, previewPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex]);
   const benchmarkSummary = useMemo(() => summarizeBenchmark(drill.benchmark), [drill.benchmark]);
+  const benchmarkLabel = benchmarkSummary.present
+    ? "Benchmark available"
+    : benchmarkState === "legacy-missing"
+      ? "Benchmark unavailable (legacy)"
+      : "Benchmark unavailable";
 
   return (
     <section
@@ -145,7 +151,7 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, showSourceBadge 
             <span>Type: {formatDrillTypeLabel(drill.drillType)}</span>
             <span>View: {formatViewLabel(drill.primaryView)}</span>
             <span>Phases: {drill.phases.length}</span>
-            <span>{benchmarkSummary.present ? "Benchmark available" : "No benchmark"}</span>
+            <span>{benchmarkLabel}</span>
             {benchmarkSummary.present ? <span>Benchmark phases: {benchmarkSummary.phaseCount}</span> : null}
             {benchmarkSummary.present ? <span>{benchmarkSummary.hasTiming ? "Benchmark timing available" : "Benchmark timing missing"}</span> : null}
           </div>

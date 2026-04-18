@@ -2048,6 +2048,7 @@ export function LiveStreamingWorkspace() {
           <ReferenceAnimationPanel
             drill={selectedDrill?.drill ?? null}
             sourceKind={selectedDrill?.sourceKind}
+            benchmarkState={selectedDrill?.benchmarkState}
             freestyleDescription="Live Streaming runs camera tracking without drill-specific rep, hold, or phase scoring until a drill is selected."
           />
         }
