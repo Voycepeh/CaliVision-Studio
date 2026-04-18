@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
-  active?: "home" | "library" | "studio" | "upload" | "live" | "exchange";
+  active?: "home" | "library" | "studio" | "upload" | "live" | "exchange" | "admin";
 };
 
 const items = [
@@ -18,7 +19,19 @@ const items = [
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
-  const { isConfigured, userEmail, signInWithGoogle, signOut } = useAuth();
+  const { isConfigured, userEmail, signInWithGoogle, signOut, session } = useAuth();
+  const [showAdmin, setShowAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!session) {
+      setShowAdmin(false);
+      return;
+    }
+    fetch("/api/exchange/moderation-access")
+      .then((response) => response.json())
+      .then((payload: { isModerator?: boolean }) => setShowAdmin(payload.isModerator === true))
+      .catch(() => setShowAdmin(false));
+  }, [session]);
 
   async function onAuthClick() {
     if (userEmail) {
@@ -53,6 +66,11 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
               {item.label}
             </Link>
             ))}
+          {showAdmin ? (
+            <Link href="/admin" className={active === "admin" ? "site-nav-link active" : "site-nav-link"}>
+              Admin
+            </Link>
+          ) : null}
         </nav>
         <button type="button" className="site-download-cta" onClick={() => void onAuthClick()} disabled={!isConfigured}>
           {!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in with Google"}

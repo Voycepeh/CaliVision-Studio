@@ -7,9 +7,7 @@ import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPr
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
-  getExchangeModerationAccess,
   listMyExchangePublications,
-  moderateExchangePublication,
   publishDrillToExchange,
   removeOwnPublicationFromPublic,
   type ExchangePublication
@@ -78,7 +76,6 @@ export function LibraryOverview() {
   const [publishTargetDrillId, setPublishTargetDrillId] = useState<string | null>(null);
   const [publishDraftByDrillId, setPublishDraftByDrillId] = useState<Record<string, PublishMetadataDraft>>({});
   const [myExchangePublications, setMyExchangePublications] = useState<ExchangePublication[]>([]);
-  const [isModerator, setIsModerator] = useState(false);
   const [sortBy, setSortBy] = useState<PackageListingSort>("updated-desc");
   const [exchangeFeedback, setExchangeFeedback] = useState<{ status: "added" | "already"; title: string } | null>(null);
   const { persistenceMode, session } = useAuth();
@@ -117,18 +114,6 @@ export function LibraryOverview() {
   useEffect(() => {
     void refreshLibrary();
   }, [refreshLibrary]);
-
-  useEffect(() => {
-    async function loadModerationAccess() {
-      if (!session) {
-        setIsModerator(false);
-        return;
-      }
-      const access = await getExchangeModerationAccess();
-      setIsModerator(access.ok && access.value.isModerator);
-    }
-    void loadModerationAccess();
-  }, [session]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -349,21 +334,6 @@ export function LibraryOverview() {
       throw new Error(result.error);
     }
     setItemFeedback(`drill:${publication.sourceDrillId}`, `Removed "${publication.title}" from public Drill Exchange.`);
-    await refreshLibrary();
-  }
-
-  async function onModeratePublication(drillId: string, publication: ExchangePublication, action: "hide" | "archive" | "delete"): Promise<void> {
-    const actionLabel = action === "hide" ? "Hide publication" : action === "archive" ? "Archive publication" : "Delete publication";
-    const confirmed = window.confirm(`${actionLabel} for "${publication.title}"?`);
-    if (!confirmed) {
-      return;
-    }
-    const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
-    const result = await moderateExchangePublication(publication.id, { action, reason });
-    if (!result.ok) {
-      throw new Error(result.error);
-    }
-    setItemFeedback(`drill:${drillId}`, `${actionLabel} complete.`);
     await refreshLibrary();
   }
 
@@ -599,31 +569,6 @@ export function LibraryOverview() {
                         Remove from Public
                       </button>
                     ) : null}
-                    {isModerator && exchangePublication ? (
-                      <>
-                        <button
-                          type="button"
-                          style={chipStyle(false)}
-                          onClick={() => void runItemAction(`exchange-hide:${drill.drillId}`, "Hiding publication…", () => onModeratePublication(drill.drillId, exchangePublication, "hide"))}
-                        >
-                          Hide publication
-                        </button>
-                        <button
-                          type="button"
-                          style={chipStyle(false)}
-                          onClick={() => void runItemAction(`exchange-archive:${drill.drillId}`, "Archiving publication…", () => onModeratePublication(drill.drillId, exchangePublication, "archive"))}
-                        >
-                          Archive publication
-                        </button>
-                        <button
-                          type="button"
-                          style={chipStyle(false)}
-                          onClick={() => void runItemAction(`exchange-delete:${drill.drillId}`, "Deleting publication…", () => onModeratePublication(drill.drillId, exchangePublication, "delete"))}
-                        >
-                          Delete publication
-                        </button>
-                      </>
-                    ) : null}
                   </div>
                   {publishTargetDrillId === drill.drillId ? (
                     <section className="card" style={{ margin: 0, display: "grid", gap: "0.35rem" }}>
@@ -695,9 +640,6 @@ export function LibraryOverview() {
                   <InlineItemFeedback itemId={`publish:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`export:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                   <InlineItemFeedback itemId={`exchange-remove:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
-                  <InlineItemFeedback itemId={`exchange-hide:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
-                  <InlineItemFeedback itemId={`exchange-archive:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
-                  <InlineItemFeedback itemId={`exchange-delete:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
                 </article>
               );
             })}
