@@ -14,3 +14,10 @@ test("is_exchange_moderator prefers database role source", () => {
   assert.match(migration, /from public\.user_profiles profile/i);
   assert.match(migration, /profile\.role in \('moderator', 'admin'\)/i);
 });
+
+test("self-service profile updates cannot mutate role", () => {
+  assert.match(migration, /create or replace function public\.prevent_user_profile_role_self_escalation\(\)/i);
+  assert.match(migration, /auth\.uid\(\) = old\.user_id/i);
+  assert.match(migration, /new\.role is distinct from old\.role/i);
+  assert.match(migration, /trg_prevent_user_profile_role_self_escalation/i);
+});

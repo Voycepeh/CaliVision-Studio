@@ -37,6 +37,7 @@ If these are missing, Studio keeps working in local-only mode and hosted control
    - `supabase/migrations/20260418_exchange_publication_moderation.sql`
    - `supabase/migrations/20260418_admin_user_profiles.sql`
 5. For initial bootstrap, set one existing user profile to `admin` in `public.user_profiles` after that user signs in once (or after `/api/user/activity` creates their profile row).
+6. `user_profiles.role` is server-managed; authenticated users can update profile activity fields but cannot self-promote role values.
 
 ## 3) Official Next.js auth flow used in Studio
 
