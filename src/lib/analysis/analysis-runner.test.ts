@@ -40,6 +40,22 @@ function poseFrame(timestampMs: number, wristY: number, includeWrists = true): P
   };
 }
 
+function mirrorSideFrame(frame: PoseFrame): PoseFrame {
+  const mirroredJoints = Object.entries(frame.joints).reduce<PoseFrame["joints"]>((acc, [jointName, joint]) => {
+    if (!joint) return acc;
+    const isLeft = jointName.startsWith("left");
+    const isRight = jointName.startsWith("right");
+    const mirroredJointName = isLeft
+      ? (`right${jointName.slice(4)}` as keyof PoseFrame["joints"])
+      : isRight
+        ? (`left${jointName.slice(5)}` as keyof PoseFrame["joints"])
+        : (jointName as keyof PoseFrame["joints"]);
+    acc[mirroredJointName] = { ...joint, x: 1 - joint.x };
+    return acc;
+  }, {});
+  return { ...frame, joints: mirroredJoints };
+}
+
 
 function poseFrameRogue(timestampMs: number): PoseFrame {
   return {
@@ -157,6 +173,26 @@ test("simple rep completion top->bottom->top", () => {
   const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames });
   assert.equal(result.session.summary.repCount, 1);
   assert.equal(result.session.events.filter((event) => event.type === "rep_complete").length, 1);
+});
+
+test("SIDE + REP resolves one rep for both left-facing and right-facing executions", () => {
+  const drill = buildDrill();
+  const leftFacingFrames = [
+    poseFrame(0, 0.2),
+    poseFrame(100, 0.2),
+    poseFrame(200, 0.8),
+    poseFrame(300, 0.8),
+    poseFrame(450, 0.2),
+    poseFrame(550, 0.2)
+  ];
+  const rightFacingFrames = leftFacingFrames.map(mirrorSideFrame);
+
+  const leftResult = runDrillAnalysisPipeline({ drill, sampledFrames: leftFacingFrames, cameraView: "side" });
+  const rightResult = runDrillAnalysisPipeline({ drill, sampledFrames: rightFacingFrames, cameraView: "side" });
+
+  assert.equal(leftResult.session.summary.repCount, 1);
+  assert.equal(rightResult.session.summary.repCount, 1);
+  assert.equal(rightResult.scoredFrames.some((frame) => frame.debug?.sideOrientationModeByPhaseId?.top === "mirrored"), true);
 });
 
 test("two-phase ordered loop counts rep via implicit return transition", () => {
@@ -321,6 +357,38 @@ test("hold start/end with grace dropout behavior", () => {
   assert.equal(result.session.events.filter((event) => event.type === "hold_start").length, 1);
   assert.equal(result.session.events.filter((event) => event.type === "hold_end").length, 1);
   assert.ok((result.session.summary.holdDurationMs ?? 0) >= 250);
+});
+
+test("SIDE + HOLD resolves hold duration for both left-facing and right-facing executions", () => {
+  const drill = buildDrill({
+    drillType: "hold",
+    analysis: {
+      ...buildDrill().analysis!,
+      measurementType: "hold",
+      orderedPhaseSequence: ["bottom"],
+      targetHoldPhaseId: "bottom",
+      minimumHoldDurationMs: 250,
+      minimumConfirmationFrames: 2,
+      exitGraceFrames: 1
+    }
+  });
+
+  const leftFacingFrames = [
+    poseFrame(0, 0.8),
+    poseFrame(100, 0.8),
+    poseFrame(200, 0.8),
+    poseFrame(300, 0.8),
+    poseFrame(500, 0.2),
+    poseFrame(650, 0.2)
+  ];
+  const rightFacingFrames = leftFacingFrames.map(mirrorSideFrame);
+
+  const leftResult = runDrillAnalysisPipeline({ drill, sampledFrames: leftFacingFrames, cameraView: "side" });
+  const rightResult = runDrillAnalysisPipeline({ drill, sampledFrames: rightFacingFrames, cameraView: "side" });
+
+  assert.ok((leftResult.session.summary.holdDurationMs ?? 0) >= 250);
+  assert.ok((rightResult.session.summary.holdDurationMs ?? 0) >= 250);
+  assert.equal(rightResult.scoredFrames.some((frame) => frame.debug?.sideOrientationModeByPhaseId?.bottom === "mirrored"), true);
 });
 
 test("cooldown prevents double-count reps", () => {
