@@ -68,10 +68,12 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Assumption: Exchange entries are preview-only until a user explicitly chooses **Add to My Library**.
 - Assumption: Add-to-library creates a user-owned editable drill in standard Library/Studio flow.
 - Assumption: fork lineage is best-effort and should degrade gracefully if lineage lookups fail.
+- Assumption: owners can remove their own publication from public Drill Exchange via status transitions, while admin/moderator users can hide/archive/delete any publication.
+- Assumption: public Drill Exchange discovery and detail reads include only active `Published` entries; imported library drills stay intact after publication moderation changes.
 - Non-goal: making Exchange rows directly selectable in Upload Video/Live before user import.
 - Non-goal: graph explorer UI/relationship canvas.
 - Non-goal: semantic embeddings or chatbot retrieval.
-- Non-goal: likes, comments, ratings, or full moderation systems.
+- Non-goal: likes, comments, or ratings.
 
 ## Assumptions / non-goals for benchmark-aware coaching foundation
 

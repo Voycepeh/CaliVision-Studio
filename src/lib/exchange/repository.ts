@@ -4,6 +4,8 @@ import type { DrillPackage } from "@/lib/schema/contracts";
 import { getSupabasePublicEnv } from "@/lib/supabase/public-env";
 
 export type ExchangeVisibility = "public";
+export type ExchangeVisibilityStatus = "published" | "hidden" | "archived" | "deleted";
+export type ExchangeModerationAction = "hide" | "archive" | "delete";
 
 export type ExchangePublication = {
   id: string;
@@ -22,11 +24,15 @@ export type ExchangePublication = {
   equipment: string | null;
   tags: string[];
   visibility: ExchangeVisibility;
+  visibilityStatus: ExchangeVisibilityStatus;
   snapshotPackage: DrillPackage;
   publishedAtIso: string;
   updatedAtIso: string;
   forkCount: number;
   isActive: boolean;
+  moderationReason: string | null;
+  moderatedBy: string | null;
+  moderatedAtIso: string | null;
 };
 
 export type ExchangeForkRecord = {
@@ -53,11 +59,15 @@ type ExchangePublicationRow = {
   equipment: string | null;
   tags: string[] | null;
   visibility: ExchangeVisibility;
+  visibility_status: ExchangeVisibilityStatus;
   snapshot_package: DrillPackage;
   published_at: string;
   updated_at: string;
   fork_count: number;
   is_active: boolean;
+  moderation_reason: string | null;
+  moderated_by: string | null;
+  moderated_at: string | null;
 };
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -100,11 +110,15 @@ function mapRow(row: ExchangePublicationRow): ExchangePublication {
     equipment: row.equipment,
     tags: row.tags ?? [],
     visibility: row.visibility,
+    visibilityStatus: row.visibility_status,
     snapshotPackage: row.snapshot_package,
     publishedAtIso: row.published_at,
     updatedAtIso: row.updated_at,
     forkCount: row.fork_count,
-    isActive: row.is_active
+    isActive: row.is_active,
+    moderationReason: row.moderation_reason,
+    moderatedBy: row.moderated_by,
+    moderatedAtIso: row.moderated_at
   };
 }
 
@@ -165,7 +179,7 @@ function buildDiscoveryQuery(params: { movementType?: string; difficulty?: strin
   const query = new URLSearchParams({
     select: "*",
     is_active: "eq.true",
-    visibility: "eq.public",
+    visibility_status: "eq.published",
     order: "published_at.desc"
   });
 
@@ -261,8 +275,12 @@ export async function publishDrillToExchange(session: AuthSession, input: Publis
     equipment: input.metadata.equipment?.trim() || null,
     tags: input.metadata.tags,
     visibility: "public",
+    visibility_status: "published",
     snapshot_package: snapshotPackage,
-    is_active: true
+    is_active: true,
+    moderation_reason: null,
+    moderated_by: null,
+    moderated_at: null
   };
 
   const response = await fetch(`${env.url}/rest/v1/exchange_publications?on_conflict=owner_user_id,source_version_id`, {
@@ -356,9 +374,12 @@ export async function getExchangePublicationBySlug(slug: string, session?: AuthS
   const env = getSupabasePublicEnv();
   if (!env) return { ok: false, error: "Supabase is not configured." };
 
-  const response = await fetch(`${env.url}/rest/v1/exchange_publications?select=*&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&limit=1`, {
+  const response = await fetch(
+    `${env.url}/rest/v1/exchange_publications?select=*&slug=eq.${encodeURIComponent(slug)}&is_active=eq.true&visibility_status=eq.published&limit=1`,
+    {
     headers: headers(session)
-  });
+    }
+  );
 
   if (!response.ok) {
     return { ok: false, error: `Failed to load published drill detail: ${await readBackendError(response)}` };
@@ -382,6 +403,67 @@ export async function listMyExchangePublications(session: AuthSession): Promise<
 
   const rows = (await response.json()) as ExchangePublicationRow[];
   return { ok: true, value: rows.map(mapRow) };
+}
+
+export async function removeOwnPublicationFromPublic(
+  session: AuthSession,
+  input: { publicationId: string; nextStatus?: Extract<ExchangeVisibilityStatus, "hidden" | "archived"> }
+): Promise<Result<ExchangePublication>> {
+  const env = getSupabasePublicEnv();
+  if (!env) return { ok: false, error: "Supabase is not configured." };
+
+  const response = await fetch(`${env.url}/rest/v1/exchange_publications?id=eq.${encodeURIComponent(input.publicationId)}`, {
+    method: "PATCH",
+    headers: {
+      ...headers(session),
+      Prefer: "return=representation"
+    },
+    body: JSON.stringify({
+      visibility_status: input.nextStatus ?? "archived",
+      is_active: true
+    })
+  });
+
+  if (!response.ok) {
+    return { ok: false, error: `Failed to remove publication from Drill Exchange: ${await readBackendError(response)}` };
+  }
+
+  const rows = (await response.json()) as ExchangePublicationRow[];
+  if (!rows[0]) {
+    return { ok: false, error: "Publication was not updated." };
+  }
+  return { ok: true, value: mapRow(rows[0]) };
+}
+
+export async function getExchangeModerationAccess(): Promise<Result<{ isModerator: boolean }>> {
+  const response = await fetch("/api/exchange/moderation-access", { method: "GET" });
+  if (!response.ok) {
+    return { ok: false, error: `Failed to resolve moderation access (${response.status})` };
+  }
+  const payload = (await response.json()) as { isModerator?: boolean };
+  return { ok: true, value: { isModerator: payload.isModerator === true } };
+}
+
+export async function moderateExchangePublication(
+  publicationId: string,
+  input: { action: ExchangeModerationAction; reason?: string }
+): Promise<Result<ExchangeVisibilityStatus>> {
+  const response = await fetch(`/api/exchange/publications/${encodeURIComponent(publicationId)}/moderate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    return { ok: false, error: payload.error || `Failed to moderate publication (${response.status})` };
+  }
+
+  const payload = (await response.json()) as { visibilityStatus?: ExchangeVisibilityStatus };
+  if (!payload.visibilityStatus) {
+    return { ok: false, error: "Moderation completed without a status response." };
+  }
+  return { ok: true, value: payload.visibilityStatus };
 }
 
 export async function recordExchangeFork(
