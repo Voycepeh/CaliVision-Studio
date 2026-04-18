@@ -47,7 +47,7 @@ function createBenchmarkFromReleasedDrill(drill: PortableDrill): DrillBenchmark 
     sourceType: "reference_pose_sequence",
     movementType: drill.drillType,
     cameraView: drill.primaryView,
-    status: "draft",
+    status: "ready",
     phaseSequence: normalizedPhases,
     timing
   };

@@ -74,6 +74,7 @@ test("publish finalization auto-generates benchmark for ready rep drill", () => 
   assert.equal(published.manifest.publishing?.publishStatus, "published");
   assert.equal(Boolean(publishedDrill?.benchmark?.phaseSequence?.length), true);
   assert.equal(publishedDrill?.benchmark?.movementType, "rep");
+  assert.equal(publishedDrill?.benchmark?.status, "ready");
   assert.equal(ready.packageJson.drills[0]?.benchmark, undefined);
 });
 
