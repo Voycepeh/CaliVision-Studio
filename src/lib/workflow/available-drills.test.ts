@@ -229,6 +229,98 @@ test("released drills without benchmark are not automatically marked as legacy",
   assert.equal(options[0]?.benchmarkState, "unavailable");
 });
 
+test("released drills with non-usable benchmark payload map to unavailable", async () => {
+  const options = await loadAvailableDrillOptions(
+    { session: null, isConfigured: false },
+    {
+      listDrills: async () =>
+        [
+          {
+            drillId: "malformed-benchmark-drill",
+            title: "Malformed Benchmark Drill",
+            currentVersionId: "ready-v1",
+            openDraftVersionId: null,
+            activeReadyVersionId: "ready-v1",
+            latestDraftVersionId: null,
+            currentVersion: {
+              sourceId: "ready-v1",
+              packageJson: {
+                manifest: { packageVersion: "0.1.1" },
+                drills: [
+                  {
+                    ...baseDrill,
+                    drillId: "malformed-benchmark-drill",
+                    title: "Malformed Benchmark Drill",
+                    benchmark: {
+                      sourceType: "reference_pose_sequence",
+                      phaseSequence: []
+                    }
+                  }
+                ]
+              }
+            },
+            activeReadyVersion: {
+              sourceId: "ready-v1",
+              packageJson: {
+                manifest: { packageVersion: "0.1.1" },
+                drills: [
+                  {
+                    ...baseDrill,
+                    drillId: "malformed-benchmark-drill",
+                    title: "Malformed Benchmark Drill",
+                    benchmark: {
+                      sourceType: "reference_pose_sequence",
+                      phaseSequence: []
+                    }
+                  }
+                ]
+              }
+            },
+            openDraftVersion: null,
+            updatedAtIso: "2026-04-18T00:00:00.000Z"
+          }
+        ] as never,
+      listExchange: async () => ({ ok: false, error: "skip" })
+    }
+  );
+
+  assert.equal(options[0]?.benchmarkState, "unavailable");
+});
+
+test("exchange drills with non-usable benchmark payload map to unavailable", async () => {
+  const options = await loadAvailableDrillOptions(
+    { session: null, isConfigured: false },
+    {
+      listDrills: async () => [] as never,
+      listExchange: async () => ({
+        ok: true,
+        value: [
+          {
+            id: "publication-1",
+            snapshotPackage: {
+              manifest: { packageVersion: "1.0.0" },
+              drills: [
+                {
+                  ...baseDrill,
+                  drillId: "exchange-drill-1",
+                  title: "Exchange Drill",
+                  benchmark: {
+                    sourceType: "reference_pose_sequence",
+                    phaseSequence: []
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      })
+    }
+  );
+
+  assert.equal(options[0]?.sourceKind, "exchange");
+  assert.equal(options[0]?.benchmarkState, "unavailable");
+});
+
 test("available drill loading returns local and cloud source options with non-legacy missing benchmark state", async () => {
   const baseItem = {
     drillId: "drill-x",
