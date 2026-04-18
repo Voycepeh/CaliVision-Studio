@@ -9,7 +9,7 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
-import { buildPhaseRuntimeModel } from "@/lib/analysis";
+import { buildBenchmarkCoachingFeedback, buildPhaseRuntimeModel } from "@/lib/analysis";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
@@ -451,6 +451,12 @@ export function LiveStreamingWorkspace() {
     }
     return null;
   }, [activeReplaySurface, annotatedReplayUrl, rawReplayUrl, replayPreviewSelection.warning, replayState]);
+  const benchmarkFeedback = useMemo(
+    () => liveAnalysisSession?.status === "completed" && liveAnalysisSession.benchmarkComparison
+      ? buildBenchmarkCoachingFeedback({ comparison: liveAnalysisSession.benchmarkComparison })
+      : null,
+    [liveAnalysisSession]
+  );
   const liveViewerModel = useMemo(
     () =>
       mapLiveAnalysisToViewerModel({
@@ -473,7 +479,9 @@ export function LiveStreamingWorkspace() {
           phaseLabelsById: phaseLabelMap,
           phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
           mode: "latest",
-          feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
+          feedbackLines: benchmarkFeedback
+            ? [benchmarkFeedback.summary.label, benchmarkFeedback.topFindings[0]?.description ?? benchmarkFeedback.summary.description]
+            : trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
           summaryMetrics: liveAnalysisSession?.benchmarkComparison
             ? [
                 { id: "benchmark_status", label: "Benchmark", value: liveAnalysisSession.benchmarkComparison.status },
@@ -492,6 +500,20 @@ export function LiveStreamingWorkspace() {
                     : "Unavailable"
                 }
               ]
+            : undefined,
+          benchmarkFeedback: benchmarkFeedback
+            ? {
+                summaryLabel: benchmarkFeedback.summary.label,
+                summaryDescription: benchmarkFeedback.summary.description,
+                severity: benchmarkFeedback.summary.severity,
+                findings: benchmarkFeedback.topFindings.map((finding, index) => ({
+                  id: `${finding.category}_${index}`,
+                  title: finding.title,
+                  description: finding.description,
+                  severity: finding.severity
+                })),
+                nextSteps: benchmarkFeedback.nextSteps
+              }
             : undefined,
           phaseTimelineInteractive: false
         })),
@@ -575,6 +597,7 @@ export function LiveStreamingWorkspace() {
       selection.drill?.drillType,
       selection.drill?.phases,
       selection.cameraView,
+      benchmarkFeedback,
       trackingStatusLabel,
       downloadTargets,
       annotatedDownloadLabel,

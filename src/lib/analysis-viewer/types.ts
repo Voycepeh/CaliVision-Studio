@@ -52,6 +52,18 @@ export type AnalysisViewerPanelModel = {
   confidenceLabel: string;
   feedbackLines: string[];
   summaryMetrics: Array<{ id: string; label: string; value: string; placeholder?: boolean }>;
+  benchmarkFeedback?: {
+    summaryLabel: string;
+    summaryDescription: string;
+    severity: "info" | "warning" | "success";
+    findings: Array<{
+      id: string;
+      title: string;
+      description: string;
+      severity: "info" | "warning" | "success";
+    }>;
+    nextSteps: string[];
+  };
   phaseTimelineSegments: AnalysisViewerPhaseTimelineSegment[];
 };
 

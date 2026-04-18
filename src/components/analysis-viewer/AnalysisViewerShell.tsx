@@ -13,10 +13,11 @@ type Props = {
   overlayCanvas?: React.ReactNode;
 };
 
-function toneColor(tone?: "neutral" | "success" | "warning" | "danger"): string | undefined {
+function toneColor(tone?: "neutral" | "success" | "warning" | "danger" | "info"): string | undefined {
   if (tone === "success") return "#8ce7bf";
   if (tone === "warning") return "#f7d58b";
   if (tone === "danger") return "#f2bbbb";
+  if (tone === "info") return "#9ac5ff";
   return undefined;
 }
 
@@ -107,6 +108,30 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
           ))}
         </div>
       </article>
+
+      {model.panel.benchmarkFeedback ? (
+        <article className="analysis-card">
+          <p className="analysis-card__label">Benchmark feedback</p>
+          <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback.severity) }}>
+            {model.panel.benchmarkFeedback.summaryLabel}
+          </p>
+          <p className="analysis-card__meta">{model.panel.benchmarkFeedback.summaryDescription}</p>
+          {model.panel.benchmarkFeedback.findings.length > 0 ? (
+            <ul style={{ margin: "0.35rem 0 0", paddingLeft: "1rem", display: "grid", gap: "0.2rem" }}>
+              {model.panel.benchmarkFeedback.findings.map((finding) => (
+                <li key={finding.id} style={{ fontSize: "0.82rem" }}>
+                  <strong>{finding.title}:</strong> {finding.description}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {model.panel.benchmarkFeedback.nextSteps.length > 0 ? (
+            <p className="analysis-card__meta" style={{ marginTop: "0.4rem" }}>
+              Next: {model.panel.benchmarkFeedback.nextSteps.join(" ")}
+            </p>
+          ) : null}
+        </article>
+      ) : null}
 
       {(model.state !== "ready" || model.warnings.length > 0) ? (
         <div className={model.state === "error" ? "result-preview-warning" : "result-preview-processing"}>

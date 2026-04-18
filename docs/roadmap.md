@@ -7,6 +7,7 @@
 - polished Drill Studio draft authoring flow,
 - Upload Video local-first queue + MediaPipe processing + artifact download,
 - deterministic benchmark comparison engine (rule-based phase/timing checks) attached to analysis outputs when drill benchmark metadata exists,
+- deterministic benchmark feedback presentation layer (template-driven summary + top findings + next-step hints) on top of comparison outputs in Upload Video and Live,
 - Drill Exchange naming/discovery clarity,
 - package/file portability retained internally.
 

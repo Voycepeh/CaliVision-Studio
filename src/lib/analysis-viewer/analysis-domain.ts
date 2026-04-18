@@ -47,6 +47,18 @@ export type AnalysisDomainModel = {
   sessionSnapshot: AnalysisSessionSnapshot;
   summaryMetricSlots: AnalysisSummaryMetricSlot[];
   feedbackPreviewLines: string[];
+  benchmarkFeedback?: {
+    summaryLabel: string;
+    summaryDescription: string;
+    severity: "info" | "warning" | "success";
+    findings: Array<{
+      id: string;
+      title: string;
+      description: string;
+      severity: "info" | "warning" | "success";
+    }>;
+    nextSteps: string[];
+  };
 };
 
 function formatPercent(value?: number): string {
@@ -132,6 +144,7 @@ export function buildAnalysisDomainModel(input: {
   phaseIdsInOrder?: string[];
   feedbackLines?: string[];
   summaryMetrics?: AnalysisSummaryMetricSlot[];
+  benchmarkFeedback?: AnalysisDomainModel["benchmarkFeedback"];
   mode?: AnalysisMode;
   currentTimestampMs?: number;
   phaseTimelineInteractive: boolean;
@@ -191,6 +204,7 @@ export function buildAnalysisDomainModel(input: {
       input.feedbackLines && input.feedbackLines.length > 0
         ? input.feedbackLines.slice(0, 2)
         : ["Coach notes not available yet", "Run another analysis for more guidance."],
+    benchmarkFeedback: input.benchmarkFeedback,
     summaryMetricSlots: input.summaryMetrics ?? [
       { id: "quality", label: "Quality", value: "Coming soon", placeholder: true },
       { id: "stability", label: "Stability", value: "Coming soon", placeholder: true },
@@ -215,6 +229,7 @@ export function buildAnalysisPanelModel(domainModel: AnalysisDomainModel): Analy
     confidenceLabel: formatPercent(sessionSnapshot.confidence),
     feedbackLines: domainModel.feedbackPreviewLines,
     summaryMetrics: domainModel.summaryMetricSlots,
+    benchmarkFeedback: domainModel.benchmarkFeedback,
     phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments
   };
 }
