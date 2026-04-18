@@ -985,7 +985,8 @@ export function UploadVideoWorkspace() {
       previewSelection.warning,
       preferredDeliverySource,
       hasRawPreview,
-      hasAnnotatedPreview
+      hasAnnotatedPreview,
+      rawPreviewFileName
     ]
   );
 

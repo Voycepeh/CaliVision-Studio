@@ -11,7 +11,7 @@ type TraceState = {
   captures: LiveSessionTrace["captures"];
   events: AnalysisEvent[];
   repCount: number;
-  holdDurationMs: number;
+  completedHoldDurationMs: number;
   partialAttemptCount: number;
   invalidTransitionCount: number;
   confidenceTotal: number;
@@ -83,7 +83,7 @@ export function createLiveTraceAccumulator(input: {
     captures: [],
     events: [],
     repCount: 0,
-    holdDurationMs: 0,
+    completedHoldDurationMs: 0,
     partialAttemptCount: 0,
     invalidTransitionCount: 0,
     confidenceTotal: 0,
@@ -102,6 +102,52 @@ export function createLiveTraceAccumulator(input: {
 
   const addEvent = (event: Omit<AnalysisEvent, "eventId">) => {
     state.events.push({ ...event, eventId: `evt_${state.events.length + 1}` });
+  };
+
+  const getHoldDurationMsAtTimestamp = (timestampMs: number): number => {
+    const clampedTimestampMs = Math.max(0, Math.round(timestampMs));
+    if (state.activeHoldStartMs === null || clampedTimestampMs <= state.activeHoldStartMs) {
+      return Math.max(0, Math.round(state.completedHoldDurationMs));
+    }
+    return Math.max(0, Math.round(state.completedHoldDurationMs + (clampedTimestampMs - state.activeHoldStartMs)));
+  };
+
+  const closeActiveHold = (timestampMs: number, options?: { inferredSessionEnd?: boolean }) => {
+    if (state.activeHoldStartMs === null) {
+      return;
+    }
+    const targetHold = state.runtimeModel?.holdPhaseId;
+    const endMs = Math.max(state.activeHoldStartMs, Math.round(timestampMs));
+    const durationMs = Math.max(0, endMs - state.activeHoldStartMs);
+    state.completedHoldDurationMs += durationMs;
+    if (targetHold) {
+      const details: NonNullable<AnalysisEvent["details"]> = { durationMs, qualified: true };
+      if (options?.inferredSessionEnd) {
+        details.inferredSessionEnd = true;
+      }
+      addEvent({
+        timestampMs: endMs,
+        type: "hold_end",
+        phaseId: targetHold,
+        details
+      });
+    }
+    state.activeHoldStartMs = null;
+  };
+
+  const updateHoldTracking = (observedPhaseId: string | null, timestampMs: number) => {
+    const targetHold = state.runtimeModel?.holdPhaseId;
+    if (state.runtimeModel?.measurementMode !== "hold" || !targetHold) {
+      return;
+    }
+    if (observedPhaseId === targetHold) {
+      if (state.activeHoldStartMs === null) {
+        state.activeHoldStartMs = timestampMs;
+        addEvent({ timestampMs, type: "hold_start", phaseId: targetHold });
+      }
+      return;
+    }
+    closeActiveHold(timestampMs);
   };
 
   const applyTransition = (drill: PortableDrill | undefined, nextPhaseId: string | null, timestampMs: number) => {
@@ -211,19 +257,7 @@ export function createLiveTraceAccumulator(input: {
       }
     }
 
-    const targetHold = state.runtimeModel?.holdPhaseId;
-    if (state.runtimeModel?.measurementMode === "hold" && targetHold) {
-      if (nextPhaseId === targetHold && state.activeHoldStartMs === null) {
-        state.activeHoldStartMs = timestampMs;
-        addEvent({ timestampMs, type: "hold_start", phaseId: targetHold });
-      } else if (state.currentPhaseId === targetHold && nextPhaseId !== targetHold && state.activeHoldStartMs !== null) {
-        const durationMs = Math.max(0, timestampMs - state.activeHoldStartMs);
-        state.holdDurationMs += durationMs;
-        addEvent({ timestampMs, type: "hold_end", phaseId: targetHold, details: { durationMs, qualified: true } });
-        state.activeHoldStartMs = null;
-      }
-    }
-
+    updateHoldTracking(nextPhaseId, timestampMs);
     state.currentPhaseId = nextPhaseId;
   };
 
@@ -261,7 +295,7 @@ export function createLiveTraceAccumulator(input: {
       createdAtIso: input.startedAtIso,
       summary: {
         repCount: state.repCount,
-        holdDurationMs: Math.round(state.holdDurationMs),
+        holdDurationMs: getHoldDurationMsAtTimestamp(state.captures.at(-1)?.timestampMs ?? 0),
         analyzedDurationMs: state.captures.at(-1)?.timestampMs ?? 0
       },
       frameSamples: state.captures.map((capture) => capture.frameSample),
@@ -377,15 +411,11 @@ export function createLiveTraceAccumulator(input: {
     ): LiveSessionTrace {
       if (state.activeHoldStartMs !== null) {
         const endMs = Math.max(video.durationMs, state.activeHoldStartMs);
-        const targetHold = state.runtimeModel?.holdPhaseId;
-        const durationMs = endMs - state.activeHoldStartMs;
-        state.holdDurationMs += durationMs;
-        if (targetHold) {
-          addEvent({ timestampMs: endMs, type: "hold_end", phaseId: targetHold, details: { durationMs, qualified: true, inferredSessionEnd: true } });
-        }
+        closeActiveHold(endMs, { inferredSessionEnd: true });
       }
 
       const normalized = normalizeTraceToVideoDuration(state.captures, state.events, video.durationMs);
+      const holdDurationMs = Math.min(video.durationMs, getHoldDurationMsAtTimestamp(video.durationMs));
 
       return {
         schemaVersion: "live-session-trace-v1",
@@ -400,7 +430,7 @@ export function createLiveTraceAccumulator(input: {
         events: normalized.events,
         summary: {
           repCount: state.repCount,
-          holdDurationMs: Math.round(state.holdDurationMs),
+          holdDurationMs,
           partialAttemptCount: state.partialAttemptCount,
           invalidTransitionCount: state.invalidTransitionCount,
           analyzedDurationMs: video.durationMs,
@@ -408,6 +438,10 @@ export function createLiveTraceAccumulator(input: {
           lowConfidenceFrames: state.lowConfidenceFrames
         }
       };
+    },
+
+    getHoldDurationMsAtTimestamp(timestampMs: number): number {
+      return getHoldDurationMsAtTimestamp(timestampMs);
     }
   };
 }
