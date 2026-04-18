@@ -937,7 +937,15 @@ export function UploadVideoWorkspace() {
                   title: "Events",
                   content: activeSession.events.map((event) => `${formatDiagnosticEvent(event, activePhaseLabels)} @ ${formatDurationShort(event.timestampMs)}`)
                 },
-                { id: "trace", title: "Temporal trace", content: traceRows.slice(0, 24).map((row) => `${formatDurationShort(row.timestampMs)} • phase=${row.phase} • reps=${row.repCount}`) }
+                { id: "trace", title: "Temporal trace", content: traceRows.slice(0, 24).map((row) => `${formatDurationShort(row.timestampMs)} • phase=${row.phase} • reps=${row.repCount}`) },
+                {
+                  id: "source",
+                  title: "Analysis source",
+                  content: [
+                    `Source: ${activeJob?.artefacts?.analysisSourceKind === "normalized" ? "Normalized fallback timeline" : "Raw upload timeline"}`,
+                    `Preview: ${uploadPreviewState.includes("showing_raw") ? "Raw" : "Annotated"}`
+                  ]
+                }
               ]
             : [],
         warnings: [previewSelection.warning, downloadSafety.annotated?.warning, downloadSafety.raw?.warning, activeJob?.artefacts?.analysisSourceKind === "normalized" ? "Raw = normalized analysis source" : null].filter((value): value is string => Boolean(value)),

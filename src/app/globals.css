@@ -1508,16 +1508,53 @@ main {
   border-color: rgba(247, 213, 139, 0.45);
 }
 
+.analysis-viewer-shell {
+  width: 100%;
+}
+
 .analysis-viewer-layout {
   display: grid;
   gap: 0.9rem;
   align-items: start;
+  width: min(100%, 1400px);
+  margin: 0 auto;
 }
 
 .analysis-panel {
   display: grid;
   gap: 0.7rem;
   min-width: 0;
+  align-content: start;
+}
+
+.analysis-video-pane {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.analysis-video-stage {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  max-height: 72vh;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: #020617;
+}
+
+.analysis-video-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.analysis-video-surface-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
 }
 
 .analysis-panel__header h4 {
@@ -1536,6 +1573,10 @@ main {
   display: grid;
   gap: 0.55rem;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.analysis-panel__cards--minimal .analysis-card--summary {
+  grid-column: 1 / -1;
 }
 
 .analysis-card {
@@ -1581,6 +1622,7 @@ main {
 .analysis-summary-metrics {
   display: grid;
   gap: 0.35rem;
+  margin-top: 0.35rem;
 }
 
 .analysis-summary-metric {
@@ -1596,32 +1638,93 @@ main {
 .analysis-phase-timeline {
   border: 1px solid var(--border);
   border-radius: 0.75rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 0.4rem;
-  padding: 0.45rem;
+  padding: 0.4rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+}
+
+.analysis-phase-timeline__track {
+  display: flex;
+  gap: 0.3rem;
+  min-width: max-content;
+  position: relative;
+  align-items: stretch;
+  isolation: isolate;
 }
 
 .analysis-phase-segment {
-  border: 0;
+  border: 1px solid transparent;
   background: transparent;
   text-align: left;
   padding: 0;
   cursor: pointer;
+  border-radius: 0.55rem;
+  min-width: 132px;
+  overflow: hidden;
+}
+
+.analysis-phase-segment:focus-visible {
+  outline: none;
+  border-color: rgba(114, 168, 255, 0.95);
 }
 
 .analysis-phase-chip {
   display: block;
   border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(5, 9, 18, 0.52);
-  padding: 0.4rem 0.48rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(114, 168, 255, 0.2);
+  padding: 0.45rem 0.55rem;
   font-size: 0.82rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .analysis-phase-chip.is-active {
-  border-color: rgba(140, 231, 191, 0.92);
-  background: rgba(35, 77, 66, 0.72);
+  border-color: rgba(140, 231, 191, 0.85);
+  background: rgba(35, 77, 66, 0.58);
+}
+
+.analysis-phase-playhead {
+  position: absolute;
+  top: 0.22rem;
+  bottom: 0.22rem;
+  width: 2px;
+  background: rgba(140, 231, 191, 0.68);
+  box-shadow: 0 0 0 1px rgba(2, 6, 23, 0.45);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.analysis-advanced-details {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.analysis-advanced-details__group,
+.analysis-advanced-details > details,
+.analysis-advanced-details > details > details {
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(5, 9, 18, 0.3);
+}
+
+.analysis-advanced-details details > summary {
+  cursor: pointer;
+}
+
+.analysis-advanced-details details {
+  margin: 0;
+}
+
+.analysis-details-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.24rem;
+  font-size: 0.82rem;
 }
 
 @media (max-width: 980px) {
@@ -1654,6 +1757,6 @@ main {
   }
 
   .analysis-viewer-layout {
-    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 420px);
   }
 }
