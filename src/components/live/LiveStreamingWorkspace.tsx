@@ -474,6 +474,25 @@ export function LiveStreamingWorkspace() {
           phaseIdsInOrder: selection.drill?.phases.map((phase) => phase.phaseId) ?? [],
           mode: "latest",
           feedbackLines: trackingStatusLabel ? [trackingStatusLabel, "Coach notes not available yet"] : undefined,
+          summaryMetrics: liveAnalysisSession?.benchmarkComparison
+            ? [
+                { id: "benchmark_status", label: "Benchmark", value: liveAnalysisSession.benchmarkComparison.status },
+                {
+                  id: "phase_match",
+                  label: "Phase sequence",
+                  value: liveAnalysisSession.benchmarkComparison.phaseMatch.matched
+                    ? "Matched"
+                    : `Mismatch (${liveAnalysisSession.benchmarkComparison.phaseMatch.matchedCount}/${liveAnalysisSession.benchmarkComparison.phaseMatch.expectedPhaseKeys.length})`
+                },
+                {
+                  id: "timing_match",
+                  label: "Timing",
+                  value: liveAnalysisSession.benchmarkComparison.timing.present
+                    ? (liveAnalysisSession.benchmarkComparison.timing.matched ? "Matched" : "Mismatch")
+                    : "Unavailable"
+                }
+              ]
+            : undefined,
           phaseTimelineInteractive: false
         })),
         primarySummaryChips: [

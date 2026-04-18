@@ -47,6 +47,19 @@ function buildDrill(): PortableDrill {
       cooldownMs: 0,
       entryConfirmationFrames: 1,
       minimumHoldDurationMs: 300
+    },
+    benchmark: {
+      sourceType: "seeded",
+      movementType: "rep",
+      phaseSequence: [
+        { key: "top", order: 1, targetDurationMs: 500 },
+        { key: "bottom", order: 2, targetDurationMs: 500 },
+        { key: "top", order: 3, targetDurationMs: 500 }
+      ],
+      timing: {
+        expectedRepDurationMs: 1500,
+        phaseDurationsMs: { top: 500, bottom: 500 }
+      }
     }
   };
 }
@@ -129,6 +142,7 @@ test("upload analysis path persists exactly one completed session", async () => 
   assert.equal(sessions[0]?.drillBinding?.drillId, "service-drill");
   assert.equal(Array.isArray(sessions[0]?.debug?.smootherTransitions), true);
   assert.equal(Array.isArray(sessions[0]?.debug?.smoothedFrames), true);
+  assert.equal(Boolean(sessions[0]?.benchmarkComparison), true);
 });
 
 test("buildCompletedUploadAnalysisSession constructs a session record without saving", async () => {
@@ -149,6 +163,7 @@ test("buildCompletedUploadAnalysisSession constructs a session record without sa
   assert.equal(built.debug?.runtimeDiagnostics?.allowedTransitions.includes("2. Bottom -> 1. Top"), true);
   assert.equal(built.debug?.cameraView, "side");
   assert.equal(built.debug?.cameraViewLabel, "Side");
+  assert.equal(Boolean(built.benchmarkComparison), true);
   assert.equal((await repository.listRecentSessions()).length, 0);
 });
 

@@ -30,3 +30,41 @@ test("trace and raw video map into replay/export contracts", () => {
   assert.equal(session.sourceKind, "live");
   assert.equal(session.frameSamples.length, 1);
 });
+
+test("live session with a drill can include benchmark comparison payload", () => {
+  const drillTrace: LiveSessionTrace = {
+    ...trace,
+    drillSelection: {
+      mode: "drill",
+      drillBindingLabel: "Rep Drill",
+      drillBindingSource: "local",
+      drill: {
+        drillId: "drill_benchmark_live",
+        title: "Rep Drill",
+        drillType: "rep",
+        difficulty: "beginner",
+        tags: [],
+        primaryView: "side",
+        phases: [
+          { phaseId: "phase_a", order: 1, name: "A", durationMs: 500, poseSequence: [], assetRefs: [] },
+          { phaseId: "phase_b", order: 2, name: "B", durationMs: 500, poseSequence: [], assetRefs: [] }
+        ],
+        benchmark: {
+          sourceType: "seeded",
+          movementType: "rep",
+          phaseSequence: [{ key: "phase_a", order: 1 }, { key: "phase_b", order: 2 }],
+          timing: { expectedRepDurationMs: 2000 }
+        }
+      }
+    },
+    events: [
+      { eventId: "e1", timestampMs: 0, type: "phase_enter", phaseId: "phase_a" },
+      { eventId: "e2", timestampMs: 1000, type: "phase_enter", phaseId: "phase_b" },
+      { eventId: "e3", timestampMs: 2000, type: "rep_complete", repIndex: 1, details: { repDurationMs: 2000 } }
+    ]
+  };
+
+  const session = buildAnalysisSessionFromLiveTrace(drillTrace);
+  assert.equal(Boolean(session.benchmarkComparison), true);
+  assert.equal(session.benchmarkComparison?.benchmarkPresent, true);
+});

@@ -78,5 +78,8 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Assumption: benchmark metadata is attached to each drill as optional additive schema (`PortableDrill.benchmark`) and may be absent on most legacy drills.
 - Assumption: benchmark phase sequences remain separate from authored drill phases while providing deterministic mapping hooks.
 - Assumption: local drafts, hosted drills, seeded drills, and exchange/public payloads must round-trip benchmark metadata safely when present.
+- Current state (April 17, 2026): Studio now includes a first deterministic benchmark comparison engine in analysis result paths (upload + safe live/session integration) with structured outputs for status, phase sequence, and timing tolerance checks.
+- Current state (April 17, 2026): comparison signals are intentionally rule-based only (phase order/count, phase timing when available, rep/hold aggregate timing when available), with no AI-generated explanation.
 - Non-goal: building full side-by-side benchmark comparison UI in this PR.
+- Non-goal: AI/LLM coaching explanations in this phase; richer explainability remains deferred.
 - Non-goal: changing Android runtime/live coaching ownership boundaries; runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
