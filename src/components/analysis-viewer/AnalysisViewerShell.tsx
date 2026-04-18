@@ -1,10 +1,9 @@
 "use client";
 
-import type { RefObject } from "react";
+import React, { type RefObject } from "react";
 import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
 import { getActiveTimelineIndexAtTimestamp } from "@/lib/analysis/replay-analysis-state";
-import { useEffect, useState } from "react";
 
 type Props = {
   model: AnalysisViewerModel;
@@ -116,11 +115,11 @@ function AnalysisVideoPane({
   onSurfaceChange: (surface: ViewerSurface) => void;
   overlayCanvas?: React.ReactNode;
 }) {
-  const [stableAspectRatio, setStableAspectRatio] = useState<number>(() =>
+  const [stableAspectRatio, setStableAspectRatio] = React.useState<number>(() =>
     resolveStableAspectRatio(undefined, [model.mediaAspectRatio])
   );
 
-  useEffect(() => {
+  React.useEffect(() => {
     setStableAspectRatio((previous) => resolveStableAspectRatio(previous, [model.mediaAspectRatio]));
   }, [model.mediaAspectRatio]);
 
