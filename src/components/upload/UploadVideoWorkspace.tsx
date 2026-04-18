@@ -199,10 +199,10 @@ export function UploadVideoWorkspace() {
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
   const centerOfGravityTrackerRef = useRef(createCenterOfGravityTracker());
-  const [rawPreviewObjectUrl, setRawPreviewObjectUrl] = useState<string | null>(null);
-  const [annotatedPreviewObjectUrl, setAnnotatedPreviewObjectUrl] = useState<string | null>(null);
+  const [rawPreviewState, setRawPreviewState] = useState<{ jobId: string; url: string; mimeType?: string; fileName: string } | null>(null);
+  const [annotatedPreviewState, setAnnotatedPreviewState] = useState<{ jobId: string; url: string } | null>(null);
   const [showRawDuringProcessing, setShowRawDuringProcessing] = useState(false);
-  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("raw");
+  const [completedPreviewSurface, setCompletedPreviewSurface] = useState<PreviewSurface>("annotated");
   const [replayTimestampMs, setReplayTimestampMs] = useState(0);
   const [annotatedFailureDetails, setAnnotatedFailureDetails] = useState<string | null>(null);
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
@@ -217,6 +217,10 @@ export function UploadVideoWorkspace() {
     () => (activeJob ? analysisSessionsByJobId[activeJob.id] ?? null : null),
     [activeJob, analysisSessionsByJobId]
   );
+  const rawPreviewObjectUrl = activeJob && rawPreviewState?.jobId === activeJob.id ? rawPreviewState.url : null;
+  const annotatedPreviewObjectUrl = activeJob && annotatedPreviewState?.jobId === activeJob.id ? annotatedPreviewState.url : null;
+  const rawPreviewMimeType = activeJob && rawPreviewState?.jobId === activeJob.id ? rawPreviewState.mimeType : undefined;
+  const rawPreviewFileName = activeJob && rawPreviewState?.jobId === activeJob.id ? rawPreviewState.fileName : undefined;
   const requestedDrillKey = searchParams.get("drillKey");
   const {
     drillOptions,
@@ -261,38 +265,44 @@ export function UploadVideoWorkspace() {
 
   useEffect(() => {
     if (!activeJob) {
-      setRawPreviewObjectUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
+      setRawPreviewState((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
         return null;
       });
-      setAnnotatedPreviewObjectUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
+      setAnnotatedPreviewState((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
         return null;
       });
       return;
     }
 
-    const rawUrl = URL.createObjectURL(activeJob.file);
-    setRawPreviewObjectUrl((previous) => {
-      if (previous) URL.revokeObjectURL(previous);
-      return rawUrl;
+    const rawPreviewFile = activeJob.artefacts?.analysisVideoFile ?? activeJob.file;
+    const rawUrl = URL.createObjectURL(rawPreviewFile);
+    setRawPreviewState((previous) => {
+      if (previous) URL.revokeObjectURL(previous.url);
+      return {
+        jobId: activeJob.id,
+        url: rawUrl,
+        mimeType: rawPreviewFile.type || undefined,
+        fileName: rawPreviewFile.name || activeJob.fileName
+      };
     });
+
     if (activeJob.artefacts?.annotatedVideoBlob) {
       const annotatedUrl = URL.createObjectURL(activeJob.artefacts.annotatedVideoBlob);
-      setAnnotatedPreviewObjectUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return annotatedUrl;
+      setAnnotatedPreviewState((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
+        return {
+          jobId: activeJob.id,
+          url: annotatedUrl
+        };
       });
     } else {
-      setAnnotatedPreviewObjectUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
+      setAnnotatedPreviewState((previous) => {
+        if (previous) URL.revokeObjectURL(previous.url);
         return null;
       });
     }
-
-    return () => {
-      URL.revokeObjectURL(rawUrl);
-    };
   }, [activeJob]);
 
   useEffect(() => {
@@ -394,7 +404,7 @@ export function UploadVideoWorkspace() {
 
     setIsReferencePanelVisible(false);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("raw");
+    setCompletedPreviewSurface("annotated");
     setAnnotatedFailureDetails(null);
     setSelectedJobId(jobId);
     setAnalysisSessionsByJobId((current) => ({ ...current, [jobId]: null }));
@@ -460,31 +470,37 @@ export function UploadVideoWorkspace() {
           : processingJob.drillSelection.drill?.phases.length
       };
 
+      const exportSourceFile = analysisSourceKind === "normalized" ? analysisFile : processingJob.file;
+      const fallbackExportSourceFile = analysisSourceKind === "normalized" ? processingJob.file : null;
       let annotated: Awaited<ReturnType<typeof exportAnnotatedVideo>> | null = null;
       try {
-        annotated = await exportAnnotatedVideo(processingJob.file, timeline, {
+        annotated = await exportAnnotatedVideo(exportSourceFile, timeline, {
           ...overlayOptions,
+          analysisSourceKind,
+          exportSourceFileName: exportSourceFile.name,
           onProgress: (progress, stageLabel) => {
             const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
             setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
           }
         });
       } catch (error) {
-        if (analysisSourceKind === "normalized") {
-          console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_NORMALIZED_SOURCE", {
+        if (fallbackExportSourceFile) {
+          console.info("[upload-processing] ANNOTATED_EXPORT_FALLBACK_ORIGINAL_SOURCE", {
             fileName: processingJob.fileName,
             reason: error instanceof Error ? error.message : "unknown"
           });
           try {
-            annotated = await exportAnnotatedVideo(analysisFile, timeline, {
+            annotated = await exportAnnotatedVideo(fallbackExportSourceFile, timeline, {
               ...overlayOptions,
+              analysisSourceKind,
+              exportSourceFileName: fallbackExportSourceFile.name,
               onProgress: (progress, stageLabel) => {
                 const nextLabel = formatAnnotatedRenderProgressLabel({ stageLabel, completed: false }) ?? stageLabel;
                 setUploadJobs((current) => current.map((job) => (job.id === jobId ? { ...job, progress, stageLabel: nextLabel } : job)));
               }
             });
-          } catch (normalizedError) {
-            setAnnotatedFailureDetails(normalizedError instanceof Error ? normalizedError.message : "Annotated export failed");
+          } catch (fallbackError) {
+            setAnnotatedFailureDetails(fallbackError instanceof Error ? fallbackError.message : "Annotated export failed");
           }
         } else {
           setAnnotatedFailureDetails(error instanceof Error ? error.message : "Annotated export failed");
@@ -505,6 +521,8 @@ export function UploadVideoWorkspace() {
               }) ?? "Completed",
               completedAtIso: new Date().toISOString(),
               artefacts: {
+                analysisSourceKind,
+                ...(analysisSourceKind === "normalized" ? { analysisVideoFile: analysisFile } : {}),
                 poseTimeline: timeline,
                 processingSummary: buildAnalysisSummary(timeline, annotated?.diagnostics),
                 ...(annotated
@@ -612,7 +630,7 @@ export function UploadVideoWorkspace() {
     setIsReferencePanelVisible(true);
     setTraceStepMs(DEFAULT_TRACE_STEP_MS);
     setShowRawDuringProcessing(false);
-    setCompletedPreviewSurface("raw");
+    setCompletedPreviewSurface("annotated");
     setAnnotatedFailureDetails(null);
     if (previewVideoRef.current) {
       previewVideoRef.current.pause();
@@ -670,18 +688,18 @@ export function UploadVideoWorkspace() {
     preferredId: uploadPreviewState === "showing_annotated_completed" ? "annotated" : "raw",
     sources: [
       ...(annotatedPreviewObjectUrl ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl, mimeType: activeJob?.artefacts?.annotatedVideoMimeType }] : []),
-      ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: activeJob?.file?.type }] : [])
+      ...(rawPreviewObjectUrl ? [{ id: "raw" as const, url: rawPreviewObjectUrl, mimeType: rawPreviewMimeType }] : [])
     ]
   });
   const preferredDeliverySource = selectPreferredDeliverySource([
     ...(activeJob?.artefacts?.annotatedVideoMimeType ? [{ id: "annotated" as const, url: annotatedPreviewObjectUrl ?? "", mimeType: activeJob.artefacts.annotatedVideoMimeType }] : []),
-    ...(activeJob?.file?.type ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: activeJob.file.type }] : [])
+    ...(rawPreviewMimeType ? [{ id: "raw" as const, url: rawPreviewObjectUrl ?? "", mimeType: rawPreviewMimeType }] : [])
   ]);
   const downloadSafety = {
     annotated: activeJob?.artefacts?.annotatedVideoMimeType
       ? resolveSafeDelivery({ mimeType: activeJob.artefacts.annotatedVideoMimeType })
       : null,
-    raw: activeJob?.file?.type ? resolveSafeDelivery({ mimeType: activeJob.file.type }) : null
+    raw: rawPreviewMimeType ? resolveSafeDelivery({ mimeType: rawPreviewMimeType }) : null
   };
   const annotatedDownloadLabel = resolveUploadDownloadLabel({ kind: "annotated", downloadable: downloadSafety.annotated?.downloadable });
   const rawDownloadLabel = resolveUploadDownloadLabel({ kind: "raw", downloadable: downloadSafety.raw?.downloadable });
@@ -812,7 +830,7 @@ export function UploadVideoWorkspace() {
               }]
             : []),
           ...(downloadTargets.includes("raw") && activeJob
-            ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.file, activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
+            ? [{ id: "download_raw", label: rawDownloadLabel, onDownload: () => downloadBlob(activeJob.artefacts?.analysisVideoFile ?? activeJob.file, rawPreviewFileName ?? activeJob.fileName), hint: downloadSafety.raw?.warning ?? undefined }]
             : []),
           ...(downloadTargets.includes("processing_summary") && activeJob?.artefacts
             ? [
@@ -848,7 +866,7 @@ export function UploadVideoWorkspace() {
                 { id: "trace", title: "Temporal trace", content: traceRows.slice(0, 24).map((row) => `${formatDurationShort(row.timestampMs)} • phase=${row.phase} • reps=${row.repCount}`) }
               ]
             : [],
-        warnings: [previewSelection.warning, downloadSafety.annotated?.warning, downloadSafety.raw?.warning].filter((value): value is string => Boolean(value)),
+        warnings: [previewSelection.warning, downloadSafety.annotated?.warning, downloadSafety.raw?.warning, activeJob?.artefacts?.analysisSourceKind === "normalized" ? "Raw = normalized analysis source" : null].filter((value): value is string => Boolean(value)),
         recommendedDeliveryLabel: preferredDeliverySource ? `Recommended delivery: ${preferredDeliverySource.id === "annotated" ? "Annotated" : "Raw"}` : undefined,
         overlayFullscreenAction: previewUrl
           ? {

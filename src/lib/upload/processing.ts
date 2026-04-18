@@ -4,7 +4,7 @@ import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import type { PoseTimeline } from "@/lib/upload/types";
-import { createOverlayProjection } from "@/lib/live/overlay-geometry";
+import { createAnnotatedExportGeometry } from "@/lib/upload/annotated-export-geometry";
 import { resolveExportTimeline } from "@/lib/upload/export-timeline";
 import { selectPreferredCaptureMimeType } from "@/lib/media/media-capabilities";
 import {
@@ -518,6 +518,8 @@ export async function exportAnnotatedVideo(
     phaseLabels?: Record<string, string>;
     phaseCount?: number;
     onProgress?: (progress: number, stageLabel: string) => void;
+    analysisSourceKind?: "original" | "normalized";
+    exportSourceFileName?: string;
   }
 ): Promise<{
   blob: Blob;
@@ -539,9 +541,15 @@ export async function exportAnnotatedVideo(
   };
 }> {
   const { video, objectUrl } = await loadVideoElement(file);
+  const geometry = createAnnotatedExportGeometry({
+    sourceWidth: video.videoWidth,
+    sourceHeight: video.videoHeight,
+    timelineWidth: timeline.video.width,
+    timelineHeight: timeline.video.height
+  });
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = geometry.canvasWidth;
+  canvas.height = geometry.canvasHeight;
   const ctx = canvas.getContext("2d");
 
   if (!ctx) {
@@ -593,15 +601,38 @@ export async function exportAnnotatedVideo(
   const analyzedDurationSec = timeline.video.durationMs / 1000;
   const expectedOutputDurationSec = durationMs / 1000;
   const maxRenderRuntimeMs = Math.round(durationMs * (1 + EXPORT_DURATION_DIAGNOSTIC_TOLERANCE_RATIO));
-  const exportProjection = createOverlayProjection({
-    viewportWidth: canvas.width,
-    viewportHeight: canvas.height,
-    sourceWidth: video.videoWidth,
-    sourceHeight: video.videoHeight,
-    fitMode: "contain",
-    mirrored: false
-  });
+  const exportProjection = geometry.projection;
   const centerOfGravityTracker = createCenterOfGravityTracker();
+
+  if (process.env.NODE_ENV !== "production") {
+    console.debug("[upload-processing] ANNOTATED_EXPORT_GEOMETRY", {
+      analysisSourceKind: options?.analysisSourceKind ?? "unknown",
+      exportSourceFileName: options?.exportSourceFileName ?? file.name,
+      exportSourceWidth: video.videoWidth,
+      exportSourceHeight: video.videoHeight,
+      timelineWidth: timeline.video.width,
+      timelineHeight: timeline.video.height,
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      projectionSourceWidth: geometry.canvasWidth,
+      projectionSourceHeight: geometry.canvasHeight,
+      projectionRenderedWidth: exportProjection.renderedWidth,
+      projectionRenderedHeight: exportProjection.renderedHeight,
+      projectionOffsetX: exportProjection.offsetX,
+      projectionOffsetY: exportProjection.offsetY,
+      timelineMatchesSource: geometry.timelineMatchesSource
+    });
+  }
+  if (!geometry.timelineMatchesSource) {
+    logUploadEvent("ANNOTATED_EXPORT_TIMELINE_DIMENSION_MISMATCH", {
+      analysisSourceKind: options?.analysisSourceKind ?? "unknown",
+      exportSourceFileName: options?.exportSourceFileName ?? file.name,
+      exportSourceWidth: video.videoWidth,
+      exportSourceHeight: video.videoHeight,
+      timelineWidth: timeline.video.width,
+      timelineHeight: timeline.video.height
+    });
+  }
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) {
