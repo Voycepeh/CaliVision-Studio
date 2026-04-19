@@ -20,11 +20,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
       .select("id, package_id, title, status, updated_at")
       .eq("owner_user_id", userId)
       .order("updated_at", { ascending: false })
-      .limit(50),
+      .limit(100),
     service
       .from("exchange_publications")
-      .select("id, source_drill_id, visibility_status")
+      .select("id, source_drill_id, title, visibility_status, is_active, published_at, updated_at")
       .eq("owner_user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(100)
   ]);
 
   if (draftError) {
@@ -34,19 +36,32 @@ export async function GET(_request: Request, { params }: { params: Promise<{ use
     return NextResponse.json({ error: publicationError.message }, { status: 400 });
   }
 
-  const publicationByDrillId = new Map<string, { id: string; status: string }>();
-  for (const publication of publications ?? []) {
-    publicationByDrillId.set(publication.source_drill_id, { id: publication.id, status: publication.visibility_status });
-  }
+  const draftByDrillId = new Map((drafts ?? []).map((draft) => [draft.package_id, draft]));
+  const publicationByDrillId = new Map((publications ?? []).map((publication) => [publication.source_drill_id, publication]));
 
-  const drills = (drafts ?? []).map((draft) => ({
-    id: draft.package_id,
-    publicationId: publicationByDrillId.get(draft.package_id)?.id ?? null,
-    title: draft.title,
-    status: draft.status,
-    updatedAtIso: draft.updated_at,
-    exchangeStatus: publicationByDrillId.get(draft.package_id)?.status ?? null
-  }));
+  const sourceDrillIds = new Set<string>([
+    ...Array.from(draftByDrillId.keys()),
+    ...Array.from(publicationByDrillId.keys())
+  ]);
+
+  const drills = Array.from(sourceDrillIds)
+    .map((sourceDrillId) => {
+      const draft = draftByDrillId.get(sourceDrillId);
+      const publication = publicationByDrillId.get(sourceDrillId);
+      return {
+        id: sourceDrillId,
+        sourceDrillId,
+        publicationId: publication?.id ?? null,
+        title: draft?.title ?? publication?.title ?? sourceDrillId,
+        status: draft?.status ?? "published_only",
+        updatedAtIso: draft?.updated_at ?? publication?.updated_at ?? publication?.published_at ?? new Date(0).toISOString(),
+        exchangeStatus: publication?.visibility_status ?? null,
+        publicationUpdatedAtIso: publication?.updated_at ?? null,
+        publicationPublishedAtIso: publication?.published_at ?? null,
+        publicationIsActive: publication?.is_active ?? null
+      };
+    })
+    .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
 
   return NextResponse.json({ drills });
 }

@@ -11,6 +11,26 @@ function parseModeratorAllowList(raw: string | undefined): Set<string> {
 
 export type ModerationRole = "user" | "moderator" | "admin";
 
+export function resolveModerationRole(input: {
+  profileRole: unknown;
+  metadataRole: unknown;
+  moderatorClaim: unknown;
+  userId: string;
+  allowList: Set<string>;
+}): { role: ModerationRole; isModerator: boolean } {
+  const profileRole = input.profileRole === "admin" || input.profileRole === "moderator" ? input.profileRole : "user";
+  const metadataRole = typeof input.metadataRole === "string" ? input.metadataRole.toLowerCase() : "";
+  const metadataRoleResolved: ModerationRole = metadataRole === "admin" ? "admin" : metadataRole === "moderator" ? "moderator" : "user";
+  const moderatorClaim = input.moderatorClaim === true;
+
+  const fallbackModerator = metadataRoleResolved !== "user" || moderatorClaim || input.allowList.has(input.userId);
+  const fallbackRole: ModerationRole = metadataRoleResolved !== "user" ? metadataRoleResolved : "moderator";
+  const effectiveRole: ModerationRole = profileRole !== "user" ? profileRole : fallbackModerator ? fallbackRole : "user";
+  const isModerator = effectiveRole === "admin" || effectiveRole === "moderator";
+
+  return { role: effectiveRole, isModerator };
+}
+
 export async function getModerationAccess(): Promise<{ userId: string | null; isModerator: boolean; role: ModerationRole }> {
   const serverClient = await createServerSupabaseClient();
   if (!serverClient) {
@@ -30,13 +50,14 @@ export async function getModerationAccess(): Promise<{ userId: string | null; is
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const profileRole = profile?.role === "moderator" || profile?.role === "admin" ? profile.role : "user";
-  const metadataRole = typeof user.app_metadata?.role === "string" ? user.app_metadata.role.toLowerCase() : "";
-  const moderatorClaim = user.app_metadata?.exchange_moderator === true;
   const allowList = parseModeratorAllowList(process.env.EXCHANGE_MODERATOR_USER_IDS);
-  const fallbackModerator = metadataRole === "admin" || metadataRole === "moderator" || moderatorClaim || allowList.has(user.id);
-  const effectiveRole = profileRole === "user" && fallbackModerator ? (metadataRole === "admin" ? "admin" : "moderator") : profileRole;
-  const isModerator = effectiveRole === "admin" || effectiveRole === "moderator" || fallbackModerator;
+  const resolved = resolveModerationRole({
+    profileRole: profile?.role,
+    metadataRole: user.app_metadata?.role,
+    moderatorClaim: user.app_metadata?.exchange_moderator,
+    userId: user.id,
+    allowList
+  });
 
-  return { userId: user.id, isModerator, role: effectiveRole };
+  return { userId: user.id, isModerator: resolved.isModerator, role: resolved.role };
 }

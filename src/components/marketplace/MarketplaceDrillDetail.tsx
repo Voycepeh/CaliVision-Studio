@@ -32,6 +32,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   const [pendingAdd, setPendingAdd] = useState(false);
   const [addedResult, setAddedResult] = useState<{ drillId: string; draftVersionId: string } | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [pendingModeratorRemoval, setPendingModeratorRemoval] = useState(false);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
     () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
@@ -133,23 +134,21 @@ export function MarketplaceDrillDetail({ slug }: Props) {
     }
   }
 
-  async function onModeratorAction(action: "hide" | "archive" | "delete"): Promise<void> {
+  async function onModeratorRemove(): Promise<void> {
     if (!entry) return;
-    const label = action === "hide" ? "Hide publication" : action === "archive" ? "Archive publication" : "Delete publication";
-    const confirmed = window.confirm(`${label} for "${entry.title}"?`);
+    const confirmed = window.confirm(`Remove "${entry.title}" from Drill Exchange?`);
     if (!confirmed) return;
 
     const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
-    const result = await moderateExchangePublication(entry.id, { action, reason });
+    setPendingModeratorRemoval(true);
+    const result = await moderateExchangePublication(entry.id, { action: "archive", reason });
+    setPendingModeratorRemoval(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setFeedback(`${label} complete.`);
-    setEntry((current) => (current ? { ...current, visibilityStatus: result.value } : current));
-    if (result.value !== "published") {
-      router.push("/marketplace");
-    }
+    setFeedback("Removed from Drill Exchange.");
+    router.push("/marketplace");
   }
 
   if (loading) {
@@ -195,11 +194,9 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         {pendingAdd ? "Adding…" : "Add to My Library"}
       </button>
       {isModerator ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("hide")}>Hide publication</button>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("archive")}>Archive publication</button>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("delete")}>Delete publication</button>
-        </div>
+        <button type="button" className="pill" disabled={pendingModeratorRemoval} onClick={() => void onModeratorRemove()}>
+          {pendingModeratorRemoval ? "Removing…" : "Remove from Exchange"}
+        </button>
       ) : null}
       {addedResult ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>

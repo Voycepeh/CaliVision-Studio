@@ -13,11 +13,15 @@ export type AdminUserSummary = {
 
 export type AdminUserDrill = {
   id: string;
+  sourceDrillId: string;
   publicationId: string | null;
   title: string;
   status: string;
   updatedAtIso: string;
   exchangeStatus: string | null;
+  publicationUpdatedAtIso: string | null;
+  publicationPublishedAtIso: string | null;
+  publicationIsActive: boolean | null;
 };
 
 export type AdminUserDetail = {
