@@ -12,6 +12,7 @@ import {
   moderateExchangePublication,
   recordExchangeFork,
   updateExchangeForkTarget,
+  type ExchangeModerationAction,
   type ExchangePublication
 } from "@/lib/exchange";
 import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
@@ -32,6 +33,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   const [pendingAdd, setPendingAdd] = useState(false);
   const [addedResult, setAddedResult] = useState<{ drillId: string; draftVersionId: string } | null>(null);
   const [isModerator, setIsModerator] = useState(false);
+  const [pendingModerationAction, setPendingModerationAction] = useState<ExchangeModerationAction | null>(null);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
     () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
@@ -133,14 +135,16 @@ export function MarketplaceDrillDetail({ slug }: Props) {
     }
   }
 
-  async function onModeratorAction(action: "hide" | "archive" | "delete"): Promise<void> {
+  async function onModeratorAction(action: ExchangeModerationAction): Promise<void> {
     if (!entry) return;
     const label = action === "hide" ? "Hide publication" : action === "archive" ? "Archive publication" : "Delete publication";
     const confirmed = window.confirm(`${label} for "${entry.title}"?`);
     if (!confirmed) return;
 
     const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
+    setPendingModerationAction(action);
     const result = await moderateExchangePublication(entry.id, { action, reason });
+    setPendingModerationAction(null);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -196,9 +200,9 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       </button>
       {isModerator ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("hide")}>Hide publication</button>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("archive")}>Archive publication</button>
-          <button type="button" className="pill" onClick={() => void onModeratorAction("delete")}>Delete publication</button>
+          <button type="button" className="pill" disabled={pendingModerationAction !== null} onClick={() => void onModeratorAction("hide")}>Hide publication</button>
+          <button type="button" className="pill" disabled={pendingModerationAction !== null} onClick={() => void onModeratorAction("archive")}>Archive publication</button>
+          <button type="button" className="pill" disabled={pendingModerationAction !== null} onClick={() => void onModeratorAction("delete")}>Delete publication</button>
         </div>
       ) : null}
       {addedResult ? (

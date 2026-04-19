@@ -449,13 +449,13 @@ export async function removeOwnPublicationFromPublic(
   return { ok: true, value: mapRow(rows[0]) };
 }
 
-export async function getExchangeModerationAccess(): Promise<Result<{ isModerator: boolean }>> {
+export async function getExchangeModerationAccess(): Promise<Result<{ isModerator: boolean; role: "user" | "moderator" | "admin" }>> {
   const response = await fetch("/api/exchange/moderation-access", { method: "GET" });
   if (!response.ok) {
     return { ok: false, error: `Failed to resolve moderation access (${response.status})` };
   }
-  const payload = (await response.json()) as { isModerator?: boolean };
-  return { ok: true, value: { isModerator: payload.isModerator === true } };
+  const payload = (await response.json()) as { isModerator?: boolean; role?: "user" | "moderator" | "admin" };
+  return { ok: true, value: { isModerator: payload.isModerator === true, role: payload.role ?? "user" } };
 }
 
 export async function moderateExchangePublication(

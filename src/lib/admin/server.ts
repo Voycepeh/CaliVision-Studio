@@ -9,6 +9,16 @@ function coerceRole(value: unknown): AdminUserRole {
   return "user";
 }
 
+function coerceRoleFromSources(profileRole: unknown, metadataRole: unknown): AdminUserRole {
+  const databaseRole = coerceRole(profileRole);
+  if (databaseRole !== "user") return databaseRole;
+
+  const metadata = typeof metadataRole === "string" ? metadataRole.toLowerCase() : "";
+  if (metadata === "admin") return "admin";
+  if (metadata === "moderator") return "moderator";
+  return "user";
+}
+
 function coerceDisplayName(input: { displayName: string | null | undefined; email: string | null | undefined; fallback: string }): string {
   return input.displayName?.trim() || input.email?.trim() || input.fallback;
 }
@@ -30,7 +40,7 @@ export async function listAdminUsers(): Promise<{ ok: true; users: AdminUserSumm
     return { ok: false, error: "Supabase service role key is not configured." };
   }
 
-  const collected: Array<{ id: string; email: string | null; provider: string | null; displayName: string | null }> = [];
+  const collected: Array<{ id: string; email: string | null; provider: string | null; appRole: string | null; displayName: string | null }> = [];
   let page = 1;
   const perPage = 200;
 
@@ -45,6 +55,7 @@ export async function listAdminUsers(): Promise<{ ok: true; users: AdminUserSumm
         id: user.id,
         email: user.email ?? null,
         provider: typeof user.app_metadata?.provider === "string" ? user.app_metadata.provider : null,
+        appRole: typeof user.app_metadata?.role === "string" ? user.app_metadata.role : null,
         displayName:
           typeof user.user_metadata?.full_name === "string"
             ? user.user_metadata.full_name
@@ -101,7 +112,7 @@ export async function listAdminUsers(): Promise<{ ok: true; users: AdminUserSumm
       email: profile?.email ?? entry.email,
       displayName,
       provider: profile?.provider ?? entry.provider,
-      role: coerceRole(profile?.role),
+      role: coerceRoleFromSources(profile?.role, entry.appRole),
       lastActiveAtIso: profile?.last_active_at ?? null,
       authoredDrillCount: authoredCountByUser.get(entry.id) ?? 0,
       publishedDrillCount: publishedCountByUser.get(entry.id) ?? 0

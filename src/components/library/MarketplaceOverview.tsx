@@ -6,7 +6,9 @@ import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
+  getExchangeModerationAccess,
   listExchangePublications,
+  moderateExchangePublication,
   recordExchangeFork,
   updateExchangeForkTarget,
   type ExchangePublication
@@ -25,6 +27,8 @@ export function MarketplaceOverview() {
   const [difficulty, setDifficulty] = useState(ALL_FILTER);
   const [category, setCategory] = useState(ALL_FILTER);
   const [pendingAddId, setPendingAddId] = useState<string | null>(null);
+  const [pendingModerationPublicationId, setPendingModerationPublicationId] = useState<string | null>(null);
+  const [isModerator, setIsModerator] = useState(false);
   const [feedback, setFeedback] = useState<string>("");
   const [warning, setWarning] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -34,28 +38,40 @@ export function MarketplaceOverview() {
     [persistenceMode, session]
   );
 
-  useEffect(() => {
-    async function load() {
-      const result = await listExchangePublications({
-        searchText,
-        movementType,
-        difficulty,
-        category,
-        session
-      });
+  async function loadPublications(): Promise<void> {
+    const result = await listExchangePublications({
+      searchText,
+      movementType,
+      difficulty,
+      category,
+      session
+    });
 
-      if (!result.ok) {
-        setEntries([]);
-        setError(result.error);
-        return;
-      }
-
-      setError("");
-      setEntries(result.value);
+    if (!result.ok) {
+      setEntries([]);
+      setError(result.error);
+      return;
     }
 
-    void load();
+    setError("");
+    setEntries(result.value);
+  }
+
+  useEffect(() => {
+    void loadPublications();
   }, [searchText, movementType, difficulty, category, session]);
+
+  useEffect(() => {
+    async function loadAccess() {
+      if (!session) {
+        setIsModerator(false);
+        return;
+      }
+      const access = await getExchangeModerationAccess();
+      setIsModerator(access.ok && access.value.isModerator);
+    }
+    void loadAccess();
+  }, [session]);
 
   const movementOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.movementType))], [entries]);
   const difficultyOptions = useMemo(() => [ALL_FILTER, ...new Set(entries.map((entry) => entry.difficultyLevel))], [entries]);
@@ -118,6 +134,21 @@ export function MarketplaceOverview() {
     } finally {
       setPendingAddId(null);
     }
+  }
+
+  async function onModeratorRemove(entry: ExchangePublication): Promise<void> {
+    const confirmed = window.confirm(`Remove "${entry.title}" from Drill Exchange?`);
+    if (!confirmed) return;
+    const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
+    setPendingModerationPublicationId(entry.id);
+    const result = await moderateExchangePublication(entry.id, { action: "archive", reason });
+    setPendingModerationPublicationId(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setEntries((current) => current.filter((row) => row.id !== entry.id));
+    setFeedback(`Removed "${entry.title}" from Drill Exchange.`);
   }
 
   return (
@@ -188,6 +219,16 @@ export function MarketplaceOverview() {
                 <button type="button" className="pill" disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
                   {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
                 </button>
+                {isModerator ? (
+                  <button
+                    type="button"
+                    className="pill"
+                    disabled={pendingModerationPublicationId === entry.id}
+                    onClick={() => void onModeratorRemove(entry)}
+                  >
+                    {pendingModerationPublicationId === entry.id ? "Removing…" : "Remove from Exchange"}
+                  </button>
+                ) : null}
               </div>
             </article>
           ))
