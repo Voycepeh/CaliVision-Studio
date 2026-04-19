@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { AdminUserDrill, AdminUserSummary } from "@/lib/admin/types";
-import { moderateExchangePublication } from "@/lib/exchange";
+import { moderateExchangePublication, type ExchangeModerationAction } from "@/lib/exchange";
 
 type AdminPanelProps = {
   canManageRoles: boolean;
@@ -105,14 +105,15 @@ export function AdminPanel({ canManageRoles }: AdminPanelProps) {
     setPendingRoleUserId(null);
   }
 
-  async function onRemoveFromExchange(userId: string, sourceDrillId: string, publicationId: string): Promise<void> {
-    const confirmed = window.confirm("Remove this publication from Drill Exchange?");
+  async function onModeratePublication(userId: string, sourceDrillId: string, publicationId: string, action: ExchangeModerationAction): Promise<void> {
+    const label = action === "hide" ? "Hide publication" : action === "archive" ? "Archive publication" : "Delete publication";
+    const confirmed = window.confirm(`${label}?`);
     if (!confirmed) {
       return;
     }
     const reason = window.prompt("Optional moderation note (internal only):", "") ?? "";
     setPendingModerationPublicationId(publicationId);
-    const result = await moderateExchangePublication(publicationId, { action: "archive", reason });
+    const result = await moderateExchangePublication(publicationId, { action, reason });
     setPendingModerationPublicationId(null);
     if (!result.ok) {
       setError(result.error);
@@ -203,18 +204,32 @@ export function AdminPanel({ canManageRoles }: AdminPanelProps) {
                           <p className="muted" style={{ margin: "0.2rem 0 0", fontSize: "0.8rem" }}>
                             Publication ID: {drill.publicationId} • Published: {formatDate(drill.publicationPublishedAtIso)} • Publication updated: {formatDate(drill.publicationUpdatedAtIso)} • Active: {drill.publicationIsActive ? "yes" : "no"}
                           </p>
-                          {drill.exchangeStatus === "published" ? (
-                            <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
-                              <button
-                                type="button"
-                                className="pill"
-                                disabled={pendingModerationPublicationId === drill.publicationId}
-                                onClick={() => void onRemoveFromExchange(user.userId, drill.sourceDrillId, drill.publicationId as string)}
-                              >
-                                {pendingModerationPublicationId === drill.publicationId ? "Removing…" : "Remove from Exchange"}
-                              </button>
-                            </div>
-                          ) : null}
+                          <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              className="pill"
+                              disabled={pendingModerationPublicationId === drill.publicationId}
+                              onClick={() => void onModeratePublication(user.userId, drill.sourceDrillId, drill.publicationId as string, "hide")}
+                            >
+                              Hide publication
+                            </button>
+                            <button
+                              type="button"
+                              className="pill"
+                              disabled={pendingModerationPublicationId === drill.publicationId}
+                              onClick={() => void onModeratePublication(user.userId, drill.sourceDrillId, drill.publicationId as string, "archive")}
+                            >
+                              Archive publication
+                            </button>
+                            <button
+                              type="button"
+                              className="pill"
+                              disabled={pendingModerationPublicationId === drill.publicationId}
+                              onClick={() => void onModeratePublication(user.userId, drill.sourceDrillId, drill.publicationId as string, "delete")}
+                            >
+                              Delete publication
+                            </button>
+                          </div>
                         </>
                       ) : null}
                     </div>

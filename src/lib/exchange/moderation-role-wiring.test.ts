@@ -19,7 +19,9 @@ test("moderator controls are hidden for non-moderators in exchange surfaces", ()
   assert.match(overview, /\{isModerator \? \(/);
   assert.match(detail, /\{isModerator \? \(/);
   assert.match(overview, /Remove from Exchange/);
-  assert.match(detail, /Remove from Exchange/);
+  assert.match(detail, /Hide publication/);
+  assert.match(detail, /Archive publication/);
+  assert.match(detail, /Delete publication/);
 });
 
 test("admin inspect drills panel includes publication metadata and moderator remove action", () => {
@@ -29,6 +31,8 @@ test("admin inspect drills panel includes publication metadata and moderator rem
   assert.match(route, /from\("exchange_publications"\)/);
   assert.match(route, /visibility_status, is_active, published_at, updated_at/);
   assert.match(panel, /Publication ID:/);
-  assert.match(panel, /Remove from Exchange/);
-  assert.match(panel, /action: "archive"/);
+  assert.match(panel, /Hide publication/);
+  assert.match(panel, /Archive publication/);
+  assert.match(panel, /Delete publication/);
+  assert.match(panel, /onModeratePublication\(/);
 });
