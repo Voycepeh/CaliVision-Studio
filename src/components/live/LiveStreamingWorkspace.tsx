@@ -508,7 +508,9 @@ export function LiveStreamingWorkspace() {
           drillLabel: summary?.drillLabel ?? "Live Streaming",
           movementType: selection.mode === "drill" ? (selection.drill?.drillType === "hold" ? "hold" : "rep") : "freestyle",
           repCount: replayAnalysisState.repCount,
-          holdDurationMs: replayAnalysisState.holdDurationMs,
+          holdDurationMs: replayAnalysisState.currentHoldMsAtPlayhead > 0
+            ? replayAnalysisState.currentHoldMsAtPlayhead
+            : replayAnalysisState.detectedHoldMs,
           durationMs: liveTrace?.durationMs ?? 0,
           confidence: liveAnalysisSession?.summary.confidenceAvg,
           events: liveAnalysisSession?.events ?? [],
@@ -558,7 +560,19 @@ export function LiveStreamingWorkspace() {
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
           { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
-          { id: "holds", label: "Current hold", value: replayAnalysisState.holdDurationMs > 0 ? formatDurationShort(replayAnalysisState.holdDurationMs) : "Not active" },
+          {
+            id: "holds",
+            label: "Current hold",
+            value: (selection.drill?.drillType === "hold"
+              ? (replayAnalysisState.currentHoldMsAtPlayhead > 0 ? replayAnalysisState.currentHoldMsAtPlayhead : replayAnalysisState.detectedHoldMs)
+              : replayAnalysisState.currentHoldMsAtPlayhead) > 0
+              ? formatDurationShort(
+                selection.drill?.drillType === "hold"
+                  ? (replayAnalysisState.currentHoldMsAtPlayhead > 0 ? replayAnalysisState.currentHoldMsAtPlayhead : replayAnalysisState.detectedHoldMs)
+                  : replayAnalysisState.currentHoldMsAtPlayhead
+              )
+              : "Not active"
+          },
           { id: "phase", label: "Current phase", value: replayAnalysisState.currentPhaseLabel }
         ],
         technicalStatusChips: [
@@ -636,7 +650,8 @@ export function LiveStreamingWorkspace() {
       selection.cameraView,
       benchmarkFeedback,
       replayAnalysisState.currentPhaseLabel,
-      replayAnalysisState.holdDurationMs,
+      replayAnalysisState.currentHoldMsAtPlayhead,
+      replayAnalysisState.detectedHoldMs,
       replayAnalysisState.repCount,
       replayTimestampMs,
       trackingStatusLabel,

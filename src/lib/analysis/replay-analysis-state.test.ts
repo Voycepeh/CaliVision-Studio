@@ -5,6 +5,7 @@ import {
   buildReplayAnalysisState,
   getActiveTimelineIndexAtTimestamp,
   getHoldDurationAtTimestamp,
+  getHoldMetrics,
   getPhaseAtTimestamp,
   getRepCountAtTimestamp,
   getRepIndexAtTimestamp
@@ -60,20 +61,92 @@ test("rep count and rep index are playhead-relative while scrubbing", () => {
   assert.equal(getRepIndexAtTimestamp(session, 3400), 2);
 });
 
-test("hold duration reflects elapsed hold at current playhead", () => {
+test("hold duration reflects active hold elapsed at current playhead", () => {
   const session = createSession();
   assert.equal(getHoldDurationAtTimestamp(session, 1300), 100);
   assert.equal(getHoldDurationAtTimestamp(session, 1650), 450);
-  assert.equal(getHoldDurationAtTimestamp(session, 1750), 500);
+  assert.equal(getHoldDurationAtTimestamp(session, 1750), 0);
 });
 
-test("hold duration includes completed windows plus active hold until session end", () => {
+test("hold metrics include completed windows plus open hold through clip end", () => {
   const session = createSession();
   session.events.push({ eventId: "h3", timestampMs: 2800, type: "hold_start", phaseId: "up" });
+  const early = getHoldMetrics(session, 2600);
+  const mid = getHoldMetrics(session, 3200);
+  const end = getHoldMetrics(session, 3600);
 
-  assert.equal(getHoldDurationAtTimestamp(session, 2600), 500);
-  assert.equal(getHoldDurationAtTimestamp(session, 3200), 900);
-  assert.equal(getHoldDurationAtTimestamp(session, 3600), 1300);
+  assert.equal(early.currentHoldMsAtPlayhead, 0);
+  assert.equal(mid.currentHoldMsAtPlayhead, 400);
+  assert.equal(end.currentHoldMsAtPlayhead, 800);
+  assert.equal(end.detectedHoldMs, 1300);
+  assert.equal(end.maxHoldMs, 800);
+});
+
+test("phase-only open-ended hold is counted through playhead and clip end", () => {
+  const session = createSession();
+  session.drillMeasurementType = "hold";
+  session.summary.analyzedDurationMs = 18000;
+  session.events = [{ eventId: "p-hold", timestampMs: 9598, type: "phase_enter", phaseId: "hold" }];
+
+  const during = getHoldMetrics(session, 14000);
+  const before = getHoldMetrics(session, 9000);
+  const end = getHoldMetrics(session, 18000);
+
+  assert.equal(before.currentHoldMsAtPlayhead, 0);
+  assert.equal(during.currentHoldMsAtPlayhead, 4402);
+  assert.equal(end.currentHoldMsAtPlayhead, 8402);
+  assert.equal(end.detectedHoldMs, 8402);
+});
+
+test("phase enter + exit yields closed hold segment duration", () => {
+  const session = createSession();
+  session.drillMeasurementType = "hold";
+  session.events = [
+    { eventId: "p1", timestampMs: 1200, type: "phase_enter", phaseId: "hold" },
+    { eventId: "p2", timestampMs: 4200, type: "phase_exit", phaseId: "hold" }
+  ];
+  session.summary.analyzedDurationMs = 6000;
+  const mid = getHoldMetrics(session, 3000);
+  const after = getHoldMetrics(session, 5000);
+  assert.equal(mid.currentHoldMsAtPlayhead, 1800);
+  assert.equal(after.currentHoldMsAtPlayhead, 0);
+  assert.equal(after.detectedHoldMs, 3000);
+});
+
+test("multiple phase-only hold segments resolve current active segment and max aggregate", () => {
+  const session = createSession();
+  session.drillMeasurementType = "hold";
+  session.summary.analyzedDurationMs = 9000;
+  session.events = [
+    { eventId: "e1", timestampMs: 1000, type: "phase_enter", phaseId: "hold" },
+    { eventId: "e2", timestampMs: 2400, type: "phase_exit", phaseId: "hold" },
+    { eventId: "e3", timestampMs: 5000, type: "phase_enter", phaseId: "hold" },
+    { eventId: "e4", timestampMs: 7100, type: "phase_exit", phaseId: "hold" }
+  ];
+
+  const first = getHoldMetrics(session, 1800);
+  const second = getHoldMetrics(session, 6200);
+  const done = getHoldMetrics(session, 9000);
+
+  assert.equal(first.currentHoldMsAtPlayhead, 800);
+  assert.equal(second.currentHoldMsAtPlayhead, 1200);
+  assert.equal(done.currentHoldMsAtPlayhead, 0);
+  assert.equal(done.detectedHoldMs, 3500);
+  assert.equal(done.maxHoldMs, 2100);
+});
+
+test("malformed timestamps clamp negative hold metrics to zero", () => {
+  const session = createSession();
+  session.summary.analyzedDurationMs = 3000;
+  session.summary.holdDurationMs = 0;
+  session.events = [
+    { eventId: "bad_start", timestampMs: -1500, type: "hold_start", phaseId: "hold" },
+    { eventId: "bad_end", timestampMs: -1400, type: "hold_end", phaseId: "hold" }
+  ];
+  const metrics = getHoldMetrics(session, 2800);
+  assert.equal(metrics.currentHoldMsAtPlayhead, 0);
+  assert.equal(metrics.detectedHoldMs, 0);
+  assert.equal(metrics.maxHoldMs, 0);
 });
 
 test("current phase is resolved at timestamp", () => {
@@ -98,6 +171,8 @@ test("buildReplayAnalysisState returns consistent replay-relative labels", () =>
   assert.equal(early.repCount, 0);
   assert.equal(late.repCount, 2);
   assert.equal(rewound.repCount, 0);
+  assert.equal(late.currentHoldMsAtPlayhead, 0);
+  assert.equal(late.detectedHoldMs, 500);
   assert.equal(early.currentPhaseLabel, "2. Down");
   assert.equal(late.currentPhaseLabel, "3. Up");
   assert.equal(late.completedRepsLabel, "Completed reps so far: 2");

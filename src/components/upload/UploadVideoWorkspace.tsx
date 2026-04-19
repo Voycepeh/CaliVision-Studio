@@ -805,7 +805,9 @@ export function UploadVideoWorkspace() {
                 : "rep"
               : "freestyle",
           repCount: replayAnalysisState.repCount,
-          holdDurationMs: replayAnalysisState.holdDurationMs,
+          holdDurationMs: replayAnalysisState.currentHoldMsAtPlayhead > 0
+            ? replayAnalysisState.currentHoldMsAtPlayhead
+            : replayAnalysisState.detectedHoldMs,
           durationMs: activeSession?.summary.analyzedDurationMs ?? activeJob?.durationMs,
           confidence: activeSession?.summary.confidenceAvg,
           events: activeSession?.events ?? [],
@@ -877,7 +879,19 @@ export function UploadVideoWorkspace() {
                 {
                   id: "hold",
                   label: "Current hold",
-                  value: replayAnalysisState.holdDurationMs > 0 ? formatDuration(replayAnalysisState.holdDurationMs) : "Not active"
+                  value: (activeJob.drillSelection.drill?.drillType === "hold"
+                    ? (replayAnalysisState.currentHoldMsAtPlayhead > 0
+                      ? replayAnalysisState.currentHoldMsAtPlayhead
+                      : replayAnalysisState.detectedHoldMs)
+                    : replayAnalysisState.currentHoldMsAtPlayhead) > 0
+                    ? formatDuration(
+                      activeJob.drillSelection.drill?.drillType === "hold"
+                        ? (replayAnalysisState.currentHoldMsAtPlayhead > 0
+                          ? replayAnalysisState.currentHoldMsAtPlayhead
+                          : replayAnalysisState.detectedHoldMs)
+                        : replayAnalysisState.currentHoldMsAtPlayhead
+                    )
+                    : "Not active"
                 },
                 { id: "current_rep", label: "Current rep", value: String(replayAnalysisState.repIndex) },
                 { id: "duration", label: "Duration", value: formatDuration(activeSession.summary.analyzedDurationMs) }
