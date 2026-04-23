@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   isSeekTimeoutDuringPoseSampling,
   shouldNormalize,
+  shouldNormalizeWithCompatibility,
   validateNormalizedOutput,
   type VideoDiagnostics
 } from "./processing-normalization.ts";
@@ -62,6 +63,33 @@ test("keeps browser-friendly desktop uploads on original source", () => {
   const decision = shouldNormalize(file, buildDiagnostics());
   assert.equal(decision.required, false);
   assert.deepEqual(decision.reasons, []);
+});
+
+test("normalizes risky compatibility reports before analysis starts", () => {
+  const file = new File(["video"], "mobile-recording.mp4", { type: 'video/mp4; codecs="avc1.42E01E"' });
+  const decision = shouldNormalizeWithCompatibility(file, buildDiagnostics(), {
+    level: "risky",
+    reasons: ["incomplete or low-confidence metadata", "QuickTime/MOV container can include fragile metadata"]
+  });
+
+  assert.equal(decision.required, true);
+  assert.equal(decision.reasons.includes("compatibility classified as risky"), true);
+  assert.equal(decision.reasons.includes("compatibility signal: incomplete or low-confidence metadata"), true);
+});
+
+test("normalizes portrait uploads with ambiguous rotation metadata", () => {
+  const file = new File(["video"], "portrait.mp4", { type: 'video/mp4; codecs="avc1.42E01E"' });
+  const decision = shouldNormalize(
+    file,
+    buildDiagnostics({
+      width: 1080,
+      height: 1920,
+      rotationMetadata: undefined
+    })
+  );
+
+  assert.equal(decision.required, true);
+  assert.equal(decision.reasons.includes("portrait source has ambiguous rotation metadata"), true);
 });
 
 test("classifies seek-timeout errors for single retry path", () => {

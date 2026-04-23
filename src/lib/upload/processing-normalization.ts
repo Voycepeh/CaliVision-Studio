@@ -116,6 +116,17 @@ export function validateNormalizedOutput(
 }
 
 export function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { required: boolean; reasons: string[] } {
+  return shouldNormalizeWithCompatibility(file, diagnostics, {});
+}
+
+export function shouldNormalizeWithCompatibility(
+  file: File,
+  diagnostics: VideoDiagnostics,
+  compatibility: {
+    level?: "supported" | "risky" | "unsupported";
+    reasons?: string[];
+  }
+): { required: boolean; reasons: string[] } {
   const reasons: string[] = [];
   const mimeType = file.type.toLowerCase();
   const fileName = file.name.toLowerCase();
@@ -131,6 +142,9 @@ export function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { re
 
   if (isPortrait && typeof diagnostics.rotationMetadata === "number" && diagnostics.rotationMetadata % 360 !== 0) {
     reasons.push("portrait source has non-zero rotation metadata");
+  }
+  if (isPortrait && (typeof diagnostics.rotationMetadata !== "number" || Number.isNaN(diagnostics.rotationMetadata))) {
+    reasons.push("portrait source has ambiguous rotation metadata");
   }
 
   if (diagnostics.isHdrSource) {
@@ -156,8 +170,14 @@ export function shouldNormalize(file: File, diagnostics: VideoDiagnostics): { re
   if (!file.type) {
     reasons.push("missing mime type metadata");
   }
+  if (compatibility.level === "risky" || compatibility.level === "unsupported") {
+    reasons.push("compatibility classified as risky");
+    if (compatibility.reasons?.length) {
+      reasons.push(...compatibility.reasons.map((reason) => `compatibility signal: ${reason}`));
+    }
+  }
 
-  return { required: reasons.length > 0, reasons };
+  return { required: reasons.length > 0, reasons: Array.from(new Set(reasons)) };
 }
 
 export function isSeekTimeoutDuringPoseSampling(error: unknown): boolean {

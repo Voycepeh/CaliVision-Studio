@@ -422,7 +422,7 @@ export function UploadVideoWorkspace() {
     const processingJob: UploadJob = {
       ...queuedJob,
       status: "processing",
-      stageLabel: "Initializing MediaPipe Pose Landmarker",
+      stageLabel: "Checking compatibility",
       progress: 0,
       startedAtIso: new Date().toISOString(),
       errorMessage: undefined,
@@ -479,7 +479,7 @@ export function UploadVideoWorkspace() {
           ? {
               ...job,
               progress: 0.97,
-              stageLabel: analysisSourceKind === "normalized" ? "Rendering annotated video (normalized source)" : "Rendering annotated video"
+              stageLabel: analysisSourceKind === "normalized" ? "Generating annotated video (normalized source)" : "Generating annotated video"
             }
           : job
       )));

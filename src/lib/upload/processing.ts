@@ -15,10 +15,11 @@ import {
 } from "@/lib/upload/export-frame-pacing";
 import {
   isSeekTimeoutDuringPoseSampling,
-  shouldNormalize,
+  shouldNormalizeWithCompatibility,
   validateNormalizedOutput,
   type VideoDiagnostics
 } from "@/lib/upload/processing-normalization";
+import { classifyUploadCompatibility } from "@/lib/upload/compatibility";
 
 export type ProcessVideoOptions = {
   cadenceFps: number;
@@ -116,6 +117,7 @@ async function samplePoseTimelineFromAnalysisSource(
   originalFileType: string
 ): Promise<ProcessVideoResult> {
   const cadenceMs = 1000 / options.cadenceFps;
+  options.onProgress?.(0.3, "Initializing pose model");
   const poseLandmarker = await createPoseLandmarkerForJob();
   const { video, objectUrl } = await loadVideoElement(analysisFile);
 
@@ -124,7 +126,7 @@ async function samplePoseTimelineFromAnalysisSource(
   let lastTimestampMs = -1;
 
   try {
-    options.onProgress?.(0.02, analysisSourceKind === "normalized" ? "Sampling normalized frames" : "Sampling frames");
+    options.onProgress?.(0.36, "Running pose analysis");
 
     const sampleCount = Math.max(1, Math.ceil(durationMs / cadenceMs) + 1);
     for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
@@ -155,12 +157,13 @@ async function samplePoseTimelineFromAnalysisSource(
         );
       }
 
-      const progressRatio = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
-      options.onProgress?.(progressRatio, `Processing ${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s`);
+      const sampleProgress = durationMs === 0 ? 0.95 : Math.min(0.95, timestampMs / durationMs);
+      const progressRatio = 0.36 + sampleProgress * 0.57;
+      options.onProgress?.(progressRatio, `Running pose analysis (${Math.round(timestampMs / 1000)}s / ${Math.round(durationMs / 1000)}s)`);
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
-    options.onProgress?.(1, "Pose timeline complete");
+    options.onProgress?.(0.95, "Pose analysis complete");
 
     return {
       timeline: {
@@ -476,6 +479,7 @@ async function normalizeVideoForAnalysisWithValidation(
 }
 
 export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<ProcessVideoResult> {
+  options.onProgress?.(0.01, "Checking compatibility");
   const diagnostics = await inspectVideoDiagnostics(file);
   logUploadEvent("VIDEO_METADATA_INSPECTED", {
     fileName: file.name,
@@ -488,7 +492,28 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     colorTransfer: diagnostics.colorTransfer
   });
 
-  const normalizationDecision = shouldNormalize(file, diagnostics);
+  const compatibilityReport = classifyUploadCompatibility({
+    fileName: file.name,
+    mimeType: file.type,
+    width: diagnostics.width,
+    height: diagnostics.height,
+    durationMs: diagnostics.durationMs,
+    fps: diagnostics.fps,
+    codec: diagnostics.codec,
+    colorTransfer: diagnostics.colorTransfer,
+    isHdr: diagnostics.isHdrSource,
+    rotationMetadata: diagnostics.rotationMetadata
+  });
+  logUploadEvent("COMPATIBILITY_CLASSIFIED", {
+    fileName: file.name,
+    level: compatibilityReport.level,
+    reasons: compatibilityReport.reasons
+  });
+
+  const normalizationDecision = shouldNormalizeWithCompatibility(file, diagnostics, {
+    level: compatibilityReport.level,
+    reasons: compatibilityReport.reasons
+  });
   logUploadEvent("NORMALIZATION_DECISION", {
     fileName: file.name,
     required: normalizationDecision.required,
@@ -502,6 +527,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   const shouldRunNormalization = normalizationStrategy === "force" || (normalizationStrategy === "auto" && normalizationDecision.required);
 
   if (shouldRunNormalization) {
+    options.onProgress?.(0.08, "Normalizing video");
     logUploadEvent("NORMALIZATION_REQUIRED", {
       fileName: file.name,
       reasons: normalizationDecision.reasons
@@ -541,6 +567,12 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
 
   let retryWithNormalizedSource = false;
   try {
+    logUploadEvent("ANALYSIS_PATH_DECIDED", {
+      fileName: file.name,
+      path: analysisSourceKind === "normalized" ? "normalize-first" : "direct-analysis",
+      normalizationRequired: shouldRunNormalization,
+      compatibilityLevel: compatibilityReport.level
+    });
     logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
       mode: analysisSourceKind,
       selectedFileName: analysisFile.name,
@@ -559,6 +591,12 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
       logUploadEvent("ANALYSIS_RETRY_NORMALIZED_AFTER_SEEK_TIMEOUT", {
         fileName: file.name,
         reason: error instanceof Error ? error.message : "unknown"
+      });
+      logUploadEvent("ANALYSIS_PATH_DECIDED", {
+        fileName: file.name,
+        path: "direct-then-fallback-normalized",
+        compatibilityLevel: compatibilityReport.level,
+        fallbackTrigger: "seek-timeout-during-pose-analysis"
       });
 
       const normalizedOutput = await normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
