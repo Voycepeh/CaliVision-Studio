@@ -1,29 +1,38 @@
-# Roadmap
+# Roadmap (PR 0 Reset)
 
-## Phase A (current)
+Date: April 23, 2026.
 
-- drill-first IA and wording across Library + Studio,
-- Library as primary workspace entry with obvious New drill CTA,
-- polished Drill Studio draft authoring flow,
-- Upload Video local-first queue + MediaPipe processing + artifact download,
-- deterministic benchmark comparison engine (rule-based phase/timing checks) attached to analysis outputs when drill benchmark metadata exists,
-- deterministic benchmark feedback presentation layer (template-driven summary + top findings + next-step hints) on top of comparison outputs in Upload Video and Live,
-- Drill Exchange naming/discovery clarity,
-- package/file portability retained internally.
+Android runtime specialization (separate repo): https://github.com/Voycepeh/CaliVision.
 
-## Phase B (next)
+## Phase 0 (this PR)
 
-- Upload Video optional cloud fallback,
-- generated drill draft handoff automation,
-- optional hosted history/artifact persistence.
-- finish account-first Library polish so Drafts + My drills stay storage-agnostic for normal users.
+- Product truth and design contract published.
+- Canonical IA normalized toward **Dashboard / Drills / Analysis / Compare**.
+- Homepage messaging aligned to target workflow.
+- Lightweight reusable visual system foundations applied.
+- Golden-screen maturity levels documented (shipped/partial/planned).
 
-## Phase C
+## Phase 1 (next PR)
 
-- hosted auth/storage,
-- full Drill Exchange sharing/versioning workflows,
-- stronger Studio/mobile continuity.
+- Analysis review redesign aligned to PR 0 contract.
+- Stronger key-metrics hierarchy and compare-centric narrative.
+- Reusable panel/stat/action patterns applied across analysis surfaces.
+- Mobile review layout polish.
 
-Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+## Phase 2
 
-> Note (April 2026): Studio now has initial Supabase hosted-draft/auth groundwork; public Exchange/publishing and mobile runtime remain separate concerns (mobile runtime: https://github.com/Voycepeh/CaliVision).
+- Drill Library + Drill Studio visual continuity pass.
+- Better selected drill cards, side insight panels, compact action rows.
+- More explicit handoff between Drills and Analysis.
+
+## Phase 3
+
+- Deeper Compare surfaces for benchmark deltas.
+- Stronger benchmark/reference explanation UX.
+- Additional responsiveness and progression polish.
+
+## Ongoing constraints
+
+- Keep local-first safety intact even as hosted capabilities mature.
+- Keep Studio authoring/source-of-truth boundaries explicit.
+- Keep Android runtime/live coaching boundary explicit via https://github.com/Voycepeh/CaliVision.

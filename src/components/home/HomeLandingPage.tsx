@@ -3,7 +3,7 @@ import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { HomeDemoMedia } from "@/components/home/HomeDemoMedia";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 
-type IconName = "upload" | "studio" | "live";
+type IconName = "upload" | "studio" | "compare";
 
 type HomeCard = {
   icon: IconName;
@@ -16,20 +16,20 @@ type HomeCard = {
 const cards: HomeCard[] = [
   {
     icon: "studio",
-    title: "Create or use a drill",
-    description: "Start from your own drill or pick one from your library and Drill Exchange.",
+    title: "Drills: Studio + Library",
+    description: "Create drills in Drill Studio or use existing drills from Drill Library and Drill Exchange.",
     href: "/library"
   },
   {
     icon: "upload",
-    title: "Upload Video",
-    description: "Upload a clip, run drill-aware analysis, and review overlay, phases, reps, and holds.",
+    title: "Analysis: Upload + Review",
+    description: "Upload a clip, run drill-aware analysis, and review key metrics, phases, reps, and holds.",
     href: "/upload"
   },
   {
-    icon: "live",
-    title: "Start live coaching",
-    description: "Start a browser camera session for live overlay feedback and post-session replay review.",
+    icon: "compare",
+    title: "Compare: Benchmark posture",
+    description: "Use benchmark-aware review to compare movement outcomes and prioritize coaching next steps.",
     href: "/live"
   },
 ];
@@ -57,14 +57,15 @@ function HomeIcon({ name }: { name: IconName }) {
   }
 
 
-  if (name === "live") {
+  if (name === "compare") {
     return (
       <svg viewBox="0 0 24 24" aria-hidden>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M4 12a8 8 0 0 1 8-8" />
-        <path d="M20 12a8 8 0 0 0-8-8" />
-        <path d="M4 12a8 8 0 0 0 8 8" />
-        <path d="M20 12a8 8 0 0 1-8 8" />
+        <path d="M4 7h7" />
+        <path d="M4 12h10" />
+        <path d="M4 17h5" />
+        <circle cx="17" cy="7" r="2" />
+        <circle cx="14" cy="12" r="2" />
+        <circle cx="19" cy="17" r="2" />
       </svg>
     );
   }
@@ -81,17 +82,17 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <h1>Drill-aware calisthenics motion analysis</h1>
+          <h1>Premium web coaching workflow for drill creation, analysis, and compare</h1>
           <p className="home-subtitle">
-            Create drills, analyze videos, and get live overlay feedback in one browser-first workflow.
+            CaliVision Studio unifies Drill Studio, Drill Library, Upload Analysis, Review metrics, and Benchmark Compare in one responsive web product.
           </p>
         </section>
 
         <HomeDemoMedia
-          title="Product demo preview"
-          caption="Future demo clip should show drill selection, upload/live capture, and overlay review with rep/hold/phase-aware feedback."
+          title="Golden workflow preview"
+          caption="Future demo clip should show: Drill Library selection, Drill Studio editing, Upload Analysis review, and Benchmark Compare insights."
           placeholderLabel="Product demo coming soon"
-          steps={["Choose or author a drill", "Upload or stream", "Review overlay and metrics"]}
+          steps={["Create or select a drill", "Upload and analyze movement", "Review metrics and compare benchmark"]}
         />
 
         <section className="home-feature-grid" aria-label="Core entry points">
@@ -99,7 +100,7 @@ export function HomeLandingPage() {
             <Link
               key={card.title}
               href={card.href}
-              className="home-feature-card"
+              className="home-feature-card cv-card cv-card--interactive"
               {...(card.external ? { target: "_blank", rel: "noreferrer" } : {})}
             >
               <span className="home-feature-icon" aria-hidden>

@@ -1,107 +1,61 @@
-# Current User Flows (Available Now)
+# Current User Flows (PR 0 Aligned)
 
-## Home and navigation flow
+Date: April 23, 2026.
 
-1. User lands on **Home** (`/`) as the brand-first product entry.
-2. User picks one of the primary paths: **Open Library**, **Upload Video**, or **Live Streaming**.
-3. From **Library** (`/library`), each drill row is a direct action hub: **Analyze Video**, **Live Coach**, **Edit in Studio**, plus inline **Preview** (no route detour required just to inspect a drill).
-4. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal Library drill cards keep owner-facing actions only (for example **Remove from Public**).
-5. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
-6. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
+Android runtime counterpart (separate ownership): https://github.com/Voycepeh/CaliVision.
 
-## Current Drill Studio flow
+## Top-level flow map
 
-1. Open/create/import a drill from **Library** and enter Studio with one selected drill.
-2. Edit drill metadata (title, required drill type, difficulty, primary view). Internal identifiers are system-managed and hidden from normal authoring.
-3. Create/edit/reorder authored drill phases and update saved phase fields (phase name, order, duration, authored pose data).
-4. Configure **Phase rules** inline per phase where needed:
-   - required phase participation,
-   - optional hold requirement,
-   - optional minimum/target hold durations.
-5. Drill Studio treats authored phase sequence + phase rules as the user-facing reference standard; users do not need to manage a separate benchmark object in normal authoring.
-6. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
-7. Upload a phase image.
-8. Run detection and apply/refine pose.
-9. Preview and validation review.
-10. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
-11. Open advanced diagnostics only when needed (collapsible, hidden by default).
-12. Legacy benchmark/reference metadata remains compatibility plumbing internally for existing data and deterministic comparison outputs.
+1. Enter **Dashboard** (`/library`) as the default working hub.
+2. Move into **Drills** (Drill Library + Drill Studio) to create/edit a draft.
+3. Move into **Analysis** (`/upload`) for Upload Analysis and review metrics.
+4. Use **Compare** posture (`/live` today) for benchmark-aware interpretation.
+5. Return to Dashboard and iterate.
 
-## Current Upload Video flow
+## Dashboard → Drills flow
 
-1. Upload Video opens in **No drill · Freestyle overlay** mode by default.
-2. User may optionally select a drill from **My Library** (local browser workspace when signed out, hosted user library when signed in). Upload selectors only include released drill versions; open drafts are not offered as analysis targets.
-3. Upload one local video (file picker or drag/drop) to start processing immediately in-browser.
-4. Run MediaPipe Pose analysis locally in-browser for that one active upload.
-5. Review the result in the primary analysis area (video + pose overlay + in-video HUD).
-6. Use **Overlay Fullscreen** when needed so fullscreen playback keeps video and overlay together.
-7. In freestyle mode, drill-specific counters stay hidden; in drill mode, rep/hold/phase diagnostics are shown.
-8. In drill mode, analysis assumes released drill versions include benchmark metadata from publish. `No benchmark` is treated as a legacy/degraded state only; healthy released drills should compare normally.
-9. Upload analysis now includes a compact **Benchmark feedback** layer (rule-based templates only) that surfaces a concise overall summary, up to three prioritized findings, and actionable next-step hints.
-10. Replay analysis cards now follow the current playhead timestamp (for example rep count, current hold, current phase, and current rep update when scrubbing backward/forward instead of always showing final session totals).
-11. Phase timeline rendering now follows detected analyzed phase progression over time, with a visible playhead position so timeline state and replay state stay aligned.
-12. Benchmark phase-sequence wording now stays internally consistent across summary/findings/metric chips (no contradictory “matched” and “mismatch” labels for the same state).
-13. Optionally expand advanced diagnostics (temporal trace/events/deep inspection) when drill-mode troubleshooting is needed.
-14. Download outputs in this simplified order (shown once in UI):
-   - Annotated Video (`.webm`)
-   - Processing Summary (`.json`)
-   - Pose Timeline (`.json`)
-15. Leave or refresh `/upload` to intentionally start fresh.
+1. Open Drill Library and inspect available drills.
+2. Create a new draft or open an existing drill.
+3. Route into Drill Studio for authoring updates.
+4. Return to library-level actions: Upload Analysis, Benchmark Compare posture, publish/discovery steps.
 
+## Drill Studio flow (current)
 
-## Current Live Streaming flow
+1. Edit draft metadata and authored phases.
+2. Refine pose/detection and preview animation.
+3. Save draft, mark ready, and publish when valid.
+4. Keep diagnostics secondary/collapsible so authoring remains primary.
 
-1. Open **Live Streaming** (`/live`) from primary navigation.
-2. Choose **No drill · Freestyle** or select a drill from **My Library** before session start. The same drill source semantics used by Library are reused in Live.
-3. Request camera permission, choose front/rear camera, and confirm preview readiness.
-4. Start a live browser session with intentionally capped overlay cadence (**10 FPS**) for mobile stability.
-5. If the active camera track exposes real hardware zoom, Studio keeps a compact always-visible **Zoom** control on top of the live preview; unsupported tracks show no zoom control (no software/crop/CSS fallback mode).
-6. While running, Studio records raw video and retains timestamped trace data (phase classification, rep/hold events, overlay geometry source data), keeping live overlay alignment bound to the active camera stream geometry.
-7. Stop session to finalize recorder + trace; Studio composes annotated replay from retained trace + raw recording so replay/export framing matches the same live camera zoom framing used in-session.
-8. Review replay and summary outputs without routing through Upload Video’s offline-file pipeline by default.
-9. When a drill includes benchmark metadata, live session summaries can include the same deterministic benchmark comparison payload used by upload analysis, plus compact rule-based benchmark feedback once a stable session summary exists (still no AI/LLM explainability).
+Maturity: **Shipped core**.
 
-Cadence note (April 8, 2026): this browser cadence follows the Android repo’s documented “lightweight in-session overlay” philosophy in `docs/features/live-coaching.md` and `docs/architecture/overlay-rendering.md`, emphasizing responsive coaching feedback over max-FPS rendering.
+## Analysis flow (current)
 
-## Current availability notes
+1. Select drill context (or freestyle).
+2. Upload local footage for browser-based processing.
+3. Review replay with overlay and key metrics.
+4. Inspect benchmark feedback and timeline events.
+5. Export artifacts as needed.
 
-- Upload Video processing is browser-local and tab-bound.
-- Drill Exchange is browse/preview first; published drills stay separate from My Library until the user explicitly adds one.
-- Hosted auth/storage/community services are deferred.
+Maturity: **Shipped core** with ongoing visual polish.
 
-Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
+## Compare posture flow (current)
 
-## Draft durability flow (available now)
+1. Start from live capture/replay route (`/live`) or analysis replay outcomes.
+2. Use benchmark-aware result interpretation.
+3. Prioritize coaching next steps from summary/finding signals.
 
-1. User edits in Drill Studio and sees draft save state updates.
-2. Draft and phase image assets autosave into IndexedDB for resilience.
-3. On refresh/reopen, user restores the last-opened draft from Library.
-4. User exports a portable drill file when they need portability/import to Android runtime client: <https://github.com/Voycepeh/CaliVision>.
+Maturity: **Partial** (posture and language aligned; richer compare UI deferred).
 
-Signed-out draft state is browser/device scoped only. Signed-in mode keeps hosted persistence as the primary source of truth.
+## Drill Exchange flow (current)
 
-## Library drill/version lifecycle flow (available now)
+1. Browse public Drill Exchange listings.
+2. Preview details.
+3. Explicitly add to Drill Library.
 
-1. `Create new drill` creates one drill identity with one open **working draft** (no released version yet) that starts as a true empty draft (blank title, no auto-seeded phases/pose content).
-2. Version numbers belong to released revisions only (`v1`, `v2`, `v3`).
-3. `Edit` opens/resumes the single open draft. If no draft exists and a released version exists, Studio opens a draft for the **next** release (for example, released `v1` => open draft for `v2`).
-4. `Mark Ready` is blocked until required draft fields are complete (title, movement type, camera view, and at least one authored phase with user-defined content). Incomplete drafts can still be saved/edited.
-5. When requirements are satisfied, `Mark Ready` finalizes the open draft into the next released version, closes draft state, shows success feedback, and routes back to Library.
-6. `Publish` requires a Ready release, then runs a release pipeline (validate publishability → finalize released snapshot → generate benchmark from that snapshot → persist release + benchmark). Publish success is only shown after benchmark persistence succeeds.
-7. `Version history` lists released versions only. Open draft state appears separately (for example, “Open draft for v2”).
-8. `Import drill file` writes to the active workspace only:
-   - signed out → **Browser workspace** (local storage),
-   - signed in → **Cloud workspace** (hosted storage).
-9. Duplicate imports are explicitly reported (for example, “already exists in Browser workspace / Cloud workspace”) instead of silently no-oping.
-10. When signed in, Library does not silently merge browser-local drills into cloud-owned drill rows; local-vs-cloud ownership is clearly separated in messaging.
+Maturity: **Partial**, supporting Drills pillar but not replacing primary Dashboard/Drills/Analysis/Compare flow.
 
-## Hosted drafts + Drill Exchange MVP foundation (April 2026)
+## Responsive posture
 
-Studio now supports a first real hosted slice with Supabase Auth + Postgres hosted drafts + Storage groundwork while preserving local-first IndexedDB drafts.
-
-- Hosted drafts/My drills are private and user-owned.
-- Public Drill Exchange now supports publish → browse → detail/preview → explicit **Add to My Library** in Supabase-backed Exchange tables.
-- Package-first authoring remains the core workflow.
-- Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
-- Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.
-- Sign-in local→hosted import is a **move**: each local draft is hosted first, then deleted locally only after hosted save succeeds (failed items remain local and can be retried).
+- Laptop-first composition remains primary.
+- Mobile web uses responsive variants of the same product routes and terminology.
+- Dense diagnostics are treated as secondary on small screens.

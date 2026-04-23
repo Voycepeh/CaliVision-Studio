@@ -4,8 +4,10 @@ import { LibraryOverview } from "@/components/library/LibraryOverview";
 export default function LibraryPage() {
   return (
     <RoutePageIntro
-      title="Library"
-      description="Select a drill and jump straight into Live Streaming, Upload Video, or Studio editing from one primary workflow hub."
+      eyebrow="Dashboard"
+      statusLabel="Shipped · Core workflow"
+      title="Drill Library"
+      description="Use Drill Library as your workspace hub: select a drill, open Drill Studio, run Upload Analysis, or enter Benchmark Compare posture."
       navActive="library"
     >
       <LibraryOverview />

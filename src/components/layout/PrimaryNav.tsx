@@ -10,12 +10,10 @@ type PrimaryNavProps = {
 };
 
 const items = [
-  { href: "/", label: "Home", key: "home" },
-  { href: "/library", label: "Library", key: "library" },
-  { href: "/studio", label: "Studio", key: "studio" },
-  { href: "/upload", label: "Upload Video", key: "upload" },
-  { href: "/live", label: "Live Streaming", key: "live" },
-  { href: "/marketplace", label: "Exchange", key: "exchange" }
+  { href: "/library", label: "Dashboard", key: "library" },
+  { href: "/studio", label: "Drills", key: "studio" },
+  { href: "/upload", label: "Analysis", key: "upload" },
+  { href: "/live", label: "Compare", key: "live" }
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
@@ -59,13 +57,14 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
           <span className="site-brand-text">CaliVision</span>
         </Link>
         <nav className="site-nav" aria-label="Primary">
-          {items
-            .filter((item) => item.key !== "studio")
-            .map((item) => (
+          {items.map((item) => (
             <Link key={item.href} href={item.href} className={active === item.key ? "site-nav-link active" : "site-nav-link"}>
               {item.label}
             </Link>
-            ))}
+          ))}
+          <Link href="/marketplace" className={active === "exchange" ? "site-nav-link active secondary" : "site-nav-link secondary"}>
+            Drill Exchange
+          </Link>
           {showAdmin ? (
             <Link href="/admin" className={active === "admin" ? "site-nav-link active" : "site-nav-link"}>
               Admin

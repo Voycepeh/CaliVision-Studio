@@ -6,8 +6,10 @@ export default function UploadPage() {
   return (
     <RoutePageIntro
       navActive="upload"
+      eyebrow="Analysis"
+      statusLabel="Shipped · Review foundation"
       title="Upload Video"
-      description="Select a drill, upload a video, and review drill-aware overlay feedback with reps, holds, and phase transitions."
+      description="Upload Analysis for drill-aware review: select a drill, process footage in-browser, and inspect key metrics, timeline phases, and benchmark feedback."
     >
       <Suspense fallback={<div className="text-sm text-slate-500">Loading upload workspace…</div>}>
         <UploadVideoWorkspace />

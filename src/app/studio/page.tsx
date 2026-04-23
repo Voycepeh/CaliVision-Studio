@@ -12,8 +12,11 @@ export default async function StudioPage({
   const params = await searchParams;
   return (
     <RoutePageIntro
+      eyebrow="Drills"
+      statusLabel="Shipped · Authoring core"
       title="Drill Studio"
       description="Edit the current drill draft. Open Studio from Library or Create New Drill to load editing context."
+      navActive="studio"
     >
       <StudioExperience
         initialPackageId={params.packageId}

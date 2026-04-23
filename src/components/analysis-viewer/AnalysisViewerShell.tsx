@@ -58,29 +58,29 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
-      <article className="analysis-card analysis-card--primary">
+      <article className="analysis-card cv-stat-card analysis-card--primary">
         <p className="analysis-card__label">{model.panel.primaryMetricLabel}</p>
         <p className="analysis-card__value">{model.panel.primaryMetricValue}</p>
         {model.panel.primaryMetricDetail ? <p className="analysis-card__meta">{model.panel.primaryMetricDetail}</p> : null}
       </article>
 
-      <article className="analysis-card">
+      <article className="analysis-card cv-stat-card">
         <p className="analysis-card__label">Current phase</p>
         <p className="analysis-card__body">{model.panel.currentPhaseLabel}</p>
       </article>
 
-      <article className="analysis-card">
+      <article className="analysis-card cv-stat-card">
         <p className="analysis-card__label">{hasOverallMatch ? "Overall match" : "Confidence"}</p>
         <p className="analysis-card__body">{hasOverallMatch ? overallMatchValue : model.panel.confidenceLabel}</p>
         {hasOverallMatch ? <p className="analysis-card__meta">Confidence: {model.panel.confidenceLabel}</p> : null}
       </article>
 
-      <article className="analysis-card">
+      <article className="analysis-card cv-stat-card">
         <p className="analysis-card__label">Drill mode</p>
         <p className="analysis-card__body">{model.panel.movementTypeLabel}</p>
       </article>
 
-      <article className="analysis-card analysis-card--summary">
+      <article className="analysis-card cv-side-panel analysis-card--summary">
         <p className="analysis-card__label">Analysis summary</p>
         <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{summaryLine}</p>
         <p className="analysis-card__meta">{detailLine}</p>
@@ -186,7 +186,7 @@ function AnalysisStructuredList({
   const intervals = React.useMemo(() => buildStructuredIntervals(model), [model]);
 
   if (!intervals.length) {
-    return <p className="muted" style={{ margin: 0 }}>No structured intervals available for this analysis yet.</p>;
+    return <p className="muted cv-empty-state" style={{ margin: 0 }}>No structured intervals available for this analysis yet.</p>;
   }
 
   return (

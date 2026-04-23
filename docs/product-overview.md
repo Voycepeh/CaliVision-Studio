@@ -6,14 +6,13 @@ CaliVision Studio is the web-first source of truth for drill authoring and drill
 
 Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/CaliVision>.
 
-## Product pillars
+## Product pillars (PR 0 alignment)
 
-1. **Home:** brand-led landing page that introduces core flows and routes users into Library, Upload Video, or Live Streaming.
-2. **Library:** primary workspace to create a new drill, continue Drafts, open My drills, import drill files, and browse Exchange.
-3. **Drill Studio:** edit one drill draft at a time (metadata/phases, image-assisted detection/refinement, animation preview, export).
-4. **Upload Video:** first-class local browser processing flow for queueing videos, MediaPipe pose analysis, overlay validation, and local artifact download.
-5. **Live Streaming:** dedicated browser camera session flow (choose drill/freestyle, run lightweight live overlay, retain trace, finalize annotated replay/export).
-6. **Drill Exchange:** discovery/sharing/versioning direction (currently local/mock-backed).
+1. **Dashboard:** default web workspace entry at `/library`.
+2. **Drills:** Drill Library + Drill Studio authoring lifecycle.
+3. **Analysis:** Upload Analysis + review metrics workflow.
+4. **Compare:** benchmark/reference interpretation posture.
+5. **Drill Exchange (supporting):** discovery/import workflow supporting Drills, not replacing the primary pillar flow.
 
 ## Language model
 
