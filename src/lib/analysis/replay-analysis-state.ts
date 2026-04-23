@@ -11,12 +11,20 @@ export type ReplayAnalysisState = {
   timestampMs: number;
   repCount: number;
   holdDurationMs: number;
+  currentHoldMsAtPlayhead: number;
+  detectedHoldMs: number;
+  maxHoldMs: number;
   repIndex: number;
   currentPhaseId: string | null;
   currentPhaseLabel: string;
   completedRepsLabel: string;
   currentRepProgressLabel: string;
   activeTimelineIndex: number;
+};
+
+type HoldSegment = {
+  startMs: number;
+  endMs: number | null;
 };
 
 function clampTimestamp(value: number, durationMs: number): number {
@@ -94,36 +102,142 @@ export function getRepIndexAtTimestamp(session: AnalysisSessionRecord | null | u
 }
 
 export function getHoldDurationAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): number {
+  return getHoldMetrics(session, timestampMs).currentHoldMsAtPlayhead;
+}
+
+function clampDuration(startMs: number, endMs: number): number {
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.round(endMs) - Math.round(startMs));
+}
+
+function buildPhaseHoldSegments(events: AnalysisEvent[], durationMs: number, targetPhaseId: string): HoldSegment[] {
+  const segments: HoldSegment[] = [];
+  let active: HoldSegment | null = null;
+
+  for (const event of events) {
+    if (event.type === "phase_enter" && event.phaseId === targetPhaseId) {
+      if (active?.startMs !== undefined) {
+        active.endMs = event.timestampMs;
+        segments.push(active);
+      }
+      active = { startMs: event.timestampMs, endMs: null };
+      continue;
+    }
+    if (event.type === "phase_exit" && active !== null && event.phaseId === targetPhaseId) {
+      active.endMs = event.timestampMs;
+      segments.push(active);
+      active = null;
+    }
+  }
+
+  if (active !== null) {
+    segments.push(active);
+  }
+
+  return segments
+    .map((segment) => ({
+      startMs: Math.max(0, Math.round(segment.startMs)),
+      endMs: segment.endMs === null ? null : Math.max(0, Math.min(durationMs, Math.round(segment.endMs)))
+    }))
+    .filter((segment) => segment.startMs <= durationMs);
+}
+
+function buildEventHoldSegments(events: AnalysisEvent[], durationMs: number): HoldSegment[] {
+  const segments: HoldSegment[] = [];
+  let activeStartMs: number | null = null;
+
+  for (const event of events) {
+    if (event.type === "hold_start" && activeStartMs === null) {
+      activeStartMs = event.timestampMs;
+      continue;
+    }
+    if (event.type === "hold_end" && activeStartMs !== null) {
+      segments.push({
+        startMs: Math.max(0, Math.round(activeStartMs)),
+        endMs: Math.max(0, Math.min(durationMs, Math.round(event.timestampMs)))
+      });
+      activeStartMs = null;
+    }
+  }
+
+  if (activeStartMs !== null) {
+    segments.push({ startMs: Math.max(0, Math.round(activeStartMs)), endMs: null });
+  }
+
+  return segments.filter((segment) => segment.startMs <= durationMs);
+}
+
+function resolveSinglePhaseHoldFallbackTarget(
+  session: AnalysisSessionRecord | null | undefined,
+  events: AnalysisEvent[]
+): string | null {
+  if (session?.drillMeasurementType !== "hold") {
+    return null;
+  }
+  const phaseIds = new Set(
+    events
+      .filter((event) => (event.type === "phase_enter" || event.type === "phase_exit") && event.phaseId)
+      .map((event) => event.phaseId as string)
+  );
+  if (phaseIds.size !== 1) {
+    return null;
+  }
+  return phaseIds.values().next().value ?? null;
+}
+
+export function getHoldMetrics(
+  session: AnalysisSessionRecord | null | undefined,
+  timestampMs: number
+): { currentHoldMsAtPlayhead: number; detectedHoldMs: number; maxHoldMs: number } {
   const durationMs = getReplayDurationMs(session);
   const clamped = clampTimestamp(timestampMs, durationMs);
   const events = getSortedEvents(session);
   if (events.length === 0) {
     const fallback = Math.max(0, Math.round(session?.summary.holdDurationMs ?? 0));
-    return Math.min(fallback, clamped);
+    return {
+      currentHoldMsAtPlayhead: Math.min(fallback, clamped),
+      detectedHoldMs: fallback,
+      maxHoldMs: fallback
+    };
   }
 
-  let activeHoldStartMs: number | null = null;
-  let totalHoldDurationMs = 0;
+  const explicitSegments = buildEventHoldSegments(events, durationMs);
+  const fallbackTargetPhaseId = explicitSegments.length === 0 ? resolveSinglePhaseHoldFallbackTarget(session, events) : null;
+  const fallbackPhaseSegments = fallbackTargetPhaseId ? buildPhaseHoldSegments(events, durationMs, fallbackTargetPhaseId) : [];
+  const segments = [...explicitSegments, ...fallbackPhaseSegments].sort((a, b) => a.startMs - b.startMs);
 
-  for (const event of events) {
-    if (event.timestampMs > clamped) {
-      break;
-    }
-    if (event.type === "hold_start" && activeHoldStartMs === null) {
-      activeHoldStartMs = event.timestampMs;
-      continue;
-    }
-    if (event.type === "hold_end" && activeHoldStartMs !== null) {
-      totalHoldDurationMs += Math.max(0, event.timestampMs - activeHoldStartMs);
-      activeHoldStartMs = null;
+  if (segments.length === 0) {
+    const fallback = Math.max(0, Math.round(session?.summary.holdDurationMs ?? 0));
+    return {
+      currentHoldMsAtPlayhead: Math.min(fallback, clamped),
+      detectedHoldMs: fallback,
+      maxHoldMs: fallback
+    };
+  }
+
+  let currentHoldMsAtPlayhead = 0;
+  let detectedHoldMs = 0;
+  let maxHoldMs = 0;
+
+  for (const segment of segments) {
+    const boundedEnd = segment.endMs === null ? durationMs : segment.endMs;
+    const segmentDurationMs = clampDuration(segment.startMs, boundedEnd);
+    detectedHoldMs += segmentDurationMs;
+    maxHoldMs = Math.max(maxHoldMs, segmentDurationMs);
+    const isActiveAtPlayhead = clamped >= segment.startMs && (segment.endMs === null ? clamped <= durationMs : clamped < segment.endMs);
+    if (isActiveAtPlayhead) {
+      const activeEnd = segment.endMs === null ? clamped : Math.min(clamped, segment.endMs);
+      currentHoldMsAtPlayhead = Math.max(currentHoldMsAtPlayhead, clampDuration(segment.startMs, activeEnd));
     }
   }
 
-  if (activeHoldStartMs !== null) {
-    totalHoldDurationMs += Math.max(0, clamped - activeHoldStartMs);
-  }
-
-  return Math.max(0, Math.min(clamped, Math.round(totalHoldDurationMs)));
+  return {
+    currentHoldMsAtPlayhead: Math.max(0, currentHoldMsAtPlayhead),
+    detectedHoldMs: Math.max(0, detectedHoldMs),
+    maxHoldMs: Math.max(0, maxHoldMs)
+  };
 }
 
 export function getPhaseAtTimestamp(session: AnalysisSessionRecord | null | undefined, timestampMs: number): string | null {
@@ -152,13 +266,16 @@ export function buildReplayAnalysisState(input: {
   const clamped = clampTimestamp(input.timestampMs, durationMs);
   const currentPhaseId = getPhaseAtTimestamp(input.session, clamped);
   const repCount = getRepCountAtTimestamp(input.session, clamped);
-  const holdDurationMs = getHoldDurationAtTimestamp(input.session, clamped);
+  const holdMetrics = getHoldMetrics(input.session, clamped);
   const currentRepProgressLabel = getCurrentRepProgressAtTimestamp(input.session, clamped);
 
   return {
     timestampMs: clamped,
     repCount,
-    holdDurationMs,
+    holdDurationMs: holdMetrics.currentHoldMsAtPlayhead,
+    currentHoldMsAtPlayhead: holdMetrics.currentHoldMsAtPlayhead,
+    detectedHoldMs: holdMetrics.detectedHoldMs,
+    maxHoldMs: holdMetrics.maxHoldMs,
     repIndex: getRepIndexAtTimestamp(input.session, clamped),
     currentPhaseId,
     currentPhaseLabel: currentPhaseId ? (input.phaseLabelsById?.[currentPhaseId] ?? currentPhaseId) : "No phase detected yet",
