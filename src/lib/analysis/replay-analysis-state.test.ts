@@ -135,6 +135,24 @@ test("multiple phase-only hold segments resolve current active segment and max a
   assert.equal(done.maxHoldMs, 2100);
 });
 
+test("phase fallback is ignored for multi-phase hold drill transitions", () => {
+  const session = createSession();
+  session.drillMeasurementType = "hold";
+  session.summary.analyzedDurationMs = 6000;
+  session.summary.holdDurationMs = 0;
+  session.events = [
+    { eventId: "a", timestampMs: 1000, type: "phase_enter", phaseId: "prep" },
+    { eventId: "b", timestampMs: 2000, type: "phase_exit", phaseId: "prep" },
+    { eventId: "c", timestampMs: 3000, type: "phase_enter", phaseId: "hold" },
+    { eventId: "d", timestampMs: 5000, type: "phase_exit", phaseId: "hold" }
+  ];
+
+  const metrics = getHoldMetrics(session, 4500);
+  assert.equal(metrics.currentHoldMsAtPlayhead, 0);
+  assert.equal(metrics.detectedHoldMs, 0);
+  assert.equal(metrics.maxHoldMs, 0);
+});
+
 test("malformed timestamps clamp negative hold metrics to zero", () => {
   const session = createSession();
   session.summary.analyzedDurationMs = 3000;

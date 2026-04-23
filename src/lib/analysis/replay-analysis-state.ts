@@ -112,12 +112,12 @@ function clampDuration(startMs: number, endMs: number): number {
   return Math.max(0, Math.round(endMs) - Math.round(startMs));
 }
 
-function buildPhaseHoldSegments(events: AnalysisEvent[], durationMs: number): HoldSegment[] {
+function buildPhaseHoldSegments(events: AnalysisEvent[], durationMs: number, targetPhaseId: string): HoldSegment[] {
   const segments: HoldSegment[] = [];
   let active: HoldSegment | null = null;
 
   for (const event of events) {
-    if (event.type === "phase_enter" && event.phaseId) {
+    if (event.type === "phase_enter" && event.phaseId === targetPhaseId) {
       if (active?.startMs !== undefined) {
         active.endMs = event.timestampMs;
         segments.push(active);
@@ -125,7 +125,7 @@ function buildPhaseHoldSegments(events: AnalysisEvent[], durationMs: number): Ho
       active = { startMs: event.timestampMs, endMs: null };
       continue;
     }
-    if (event.type === "phase_exit" && active !== null && event.phaseId) {
+    if (event.type === "phase_exit" && active !== null && event.phaseId === targetPhaseId) {
       active.endMs = event.timestampMs;
       segments.push(active);
       active = null;
@@ -169,6 +169,24 @@ function buildEventHoldSegments(events: AnalysisEvent[], durationMs: number): Ho
   return segments.filter((segment) => segment.startMs <= durationMs);
 }
 
+function resolveSinglePhaseHoldFallbackTarget(
+  session: AnalysisSessionRecord | null | undefined,
+  events: AnalysisEvent[]
+): string | null {
+  if (session?.drillMeasurementType !== "hold") {
+    return null;
+  }
+  const phaseIds = new Set(
+    events
+      .filter((event) => (event.type === "phase_enter" || event.type === "phase_exit") && event.phaseId)
+      .map((event) => event.phaseId as string)
+  );
+  if (phaseIds.size !== 1) {
+    return null;
+  }
+  return phaseIds.values().next().value ?? null;
+}
+
 export function getHoldMetrics(
   session: AnalysisSessionRecord | null | undefined,
   timestampMs: number
@@ -186,7 +204,8 @@ export function getHoldMetrics(
   }
 
   const explicitSegments = buildEventHoldSegments(events, durationMs);
-  const fallbackPhaseSegments = explicitSegments.length === 0 ? buildPhaseHoldSegments(events, durationMs) : [];
+  const fallbackTargetPhaseId = explicitSegments.length === 0 ? resolveSinglePhaseHoldFallbackTarget(session, events) : null;
+  const fallbackPhaseSegments = fallbackTargetPhaseId ? buildPhaseHoldSegments(events, durationMs, fallbackTargetPhaseId) : [];
   const segments = [...explicitSegments, ...fallbackPhaseSegments].sort((a, b) => a.startMs - b.startMs);
 
   if (segments.length === 0) {
