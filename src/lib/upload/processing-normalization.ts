@@ -171,7 +171,11 @@ export function shouldNormalizeWithCompatibility(
     reasons.push("missing mime type metadata");
   }
   if (compatibility.level === "risky" || compatibility.level === "unsupported") {
-    reasons.push("compatibility classified as risky");
+    reasons.push(
+      compatibility.level === "unsupported"
+        ? "compatibility classified as unsupported"
+        : "compatibility classified as risky"
+    );
     if (compatibility.reasons?.length) {
       reasons.push(...compatibility.reasons.map((reason) => `compatibility signal: ${reason}`));
     }

@@ -47,6 +47,14 @@ const EXPORT_DURATION_DIAGNOSTIC_TOLERANCE_RATIO = 0.02;
 const EXPORT_ENCODED_DURATION_TOLERANCE_MS = 350;
 const UPLOAD_DIAGNOSTICS_PREFIX = "[upload-processing]";
 
+type ProcessVideoPipelineDeps = {
+  inspectVideoDiagnostics: (file: File) => Promise<VideoDiagnostics>;
+  classifyUploadCompatibility: typeof classifyUploadCompatibility;
+  shouldNormalizeWithCompatibility: typeof shouldNormalizeWithCompatibility;
+  normalizeVideoForAnalysisWithValidation: typeof normalizeVideoForAnalysisWithValidation;
+  samplePoseTimelineFromAnalysisSource: typeof samplePoseTimelineFromAnalysisSource;
+};
+
 type VideoFrameMetadata = {
   mediaTime?: number;
 };
@@ -478,9 +486,21 @@ async function normalizeVideoForAnalysisWithValidation(
   };
 }
 
-export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<ProcessVideoResult> {
+const DEFAULT_PROCESS_VIDEO_PIPELINE_DEPS: ProcessVideoPipelineDeps = {
+  inspectVideoDiagnostics,
+  classifyUploadCompatibility,
+  shouldNormalizeWithCompatibility,
+  normalizeVideoForAnalysisWithValidation,
+  samplePoseTimelineFromAnalysisSource
+};
+
+export async function processVideoFileWithPipeline(
+  file: File,
+  options: ProcessVideoOptions,
+  deps: ProcessVideoPipelineDeps = DEFAULT_PROCESS_VIDEO_PIPELINE_DEPS
+): Promise<ProcessVideoResult> {
   options.onProgress?.(0.01, "Checking compatibility");
-  const diagnostics = await inspectVideoDiagnostics(file);
+  const diagnostics = await deps.inspectVideoDiagnostics(file);
   logUploadEvent("VIDEO_METADATA_INSPECTED", {
     fileName: file.name,
     width: diagnostics.width,
@@ -492,7 +512,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     colorTransfer: diagnostics.colorTransfer
   });
 
-  const compatibilityReport = classifyUploadCompatibility({
+  const compatibilityReport = deps.classifyUploadCompatibility({
     fileName: file.name,
     mimeType: file.type,
     width: diagnostics.width,
@@ -510,7 +530,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     reasons: compatibilityReport.reasons
   });
 
-  const normalizationDecision = shouldNormalizeWithCompatibility(file, diagnostics, {
+  const normalizationDecision = deps.shouldNormalizeWithCompatibility(file, diagnostics, {
     level: compatibilityReport.level,
     reasons: compatibilityReport.reasons
   });
@@ -535,7 +555,7 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
     logUploadEvent("NORMALIZATION_STARTED", { fileName: file.name });
 
     try {
-      const normalizedOutput = await normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
+      const normalizedOutput = await deps.normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
       analysisFile = normalizedOutput.file;
       analysisSourceKind = "normalized";
       logUploadEvent("NORMALIZATION_SUCCEEDED", {
@@ -566,62 +586,66 @@ export async function processVideoFile(file: File, options: ProcessVideoOptions)
   }
 
   let retryWithNormalizedSource = false;
+  logUploadEvent("ANALYSIS_PATH_DECIDED", {
+    fileName: file.name,
+    path: analysisSourceKind === "normalized" ? "normalize-first" : "direct-analysis",
+    normalizationRequired: shouldRunNormalization,
+    compatibilityLevel: compatibilityReport.level
+  });
+  logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
+    mode: analysisSourceKind,
+    selectedFileName: analysisFile.name,
+    selectedMimeType: analysisFile.type || "unknown"
+  });
   try {
+    return await deps.samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
+  } catch (error) {
+    const shouldRetryWithNormalizedSource =
+      analysisSourceKind === "original" && !retryWithNormalizedSource && isSeekTimeoutDuringPoseSampling(error);
+    if (!shouldRetryWithNormalizedSource) {
+      throw error;
+    }
+
+    retryWithNormalizedSource = true;
+    logUploadEvent("ANALYSIS_RETRY_NORMALIZED_AFTER_SEEK_TIMEOUT", {
+      fileName: file.name,
+      reason: error instanceof Error ? error.message : "unknown"
+    });
     logUploadEvent("ANALYSIS_PATH_DECIDED", {
       fileName: file.name,
-      path: analysisSourceKind === "normalized" ? "normalize-first" : "direct-analysis",
-      normalizationRequired: shouldRunNormalization,
-      compatibilityLevel: compatibilityReport.level
+      path: "direct-then-fallback-normalized",
+      compatibilityLevel: compatibilityReport.level,
+      fallbackTrigger: "seek-timeout-during-pose-analysis"
+    });
+
+    const normalizedOutput = await deps.normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
+    analysisFile = normalizedOutput.file;
+    analysisSourceKind = "normalized";
+    logUploadEvent("NORMALIZATION_SUCCEEDED", {
+      sourceFileName: file.name,
+      normalizedFileName: analysisFile.name,
+      normalizedMimeType: analysisFile.type,
+      normalizedSizeBytes: analysisFile.size,
+      sourceDurationMs: normalizedOutput.validation.sourceDurationMs,
+      normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
+      durationDriftMs: normalizedOutput.validation.durationDriftMs,
+      durationDriftPct: normalizedOutput.validation.driftPct,
+      driftCheckSkipped: normalizedOutput.validation.driftCheckSkipped,
+      trigger: "seek-timeout-retry"
     });
     logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
       mode: analysisSourceKind,
       selectedFileName: analysisFile.name,
-      selectedMimeType: analysisFile.type || "unknown"
+      selectedMimeType: analysisFile.type || "unknown",
+      trigger: "seek-timeout-retry"
     });
-    try {
-      return await samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
-    } catch (error) {
-      const shouldRetryWithNormalizedSource =
-        analysisSourceKind === "original" && !retryWithNormalizedSource && isSeekTimeoutDuringPoseSampling(error);
-      if (!shouldRetryWithNormalizedSource) {
-        throw error;
-      }
+    return await deps.samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
+  }
+}
 
-      retryWithNormalizedSource = true;
-      logUploadEvent("ANALYSIS_RETRY_NORMALIZED_AFTER_SEEK_TIMEOUT", {
-        fileName: file.name,
-        reason: error instanceof Error ? error.message : "unknown"
-      });
-      logUploadEvent("ANALYSIS_PATH_DECIDED", {
-        fileName: file.name,
-        path: "direct-then-fallback-normalized",
-        compatibilityLevel: compatibilityReport.level,
-        fallbackTrigger: "seek-timeout-during-pose-analysis"
-      });
-
-      const normalizedOutput = await normalizeVideoForAnalysisWithValidation(file, diagnostics, options.signal);
-      analysisFile = normalizedOutput.file;
-      analysisSourceKind = "normalized";
-      logUploadEvent("NORMALIZATION_SUCCEEDED", {
-        sourceFileName: file.name,
-        normalizedFileName: analysisFile.name,
-        normalizedMimeType: analysisFile.type,
-        normalizedSizeBytes: analysisFile.size,
-        sourceDurationMs: normalizedOutput.validation.sourceDurationMs,
-        normalizedDurationMs: normalizedOutput.validation.normalizedDurationMs,
-        durationDriftMs: normalizedOutput.validation.durationDriftMs,
-        durationDriftPct: normalizedOutput.validation.driftPct,
-        driftCheckSkipped: normalizedOutput.validation.driftCheckSkipped,
-        trigger: "seek-timeout-retry"
-      });
-      logUploadEvent("ANALYSIS_SOURCE_SELECTED", {
-        mode: analysisSourceKind,
-        selectedFileName: analysisFile.name,
-        selectedMimeType: analysisFile.type || "unknown",
-        trigger: "seek-timeout-retry"
-      });
-      return await samplePoseTimelineFromAnalysisSource(analysisFile, analysisSourceKind, options, file.type);
-    }
+export async function processVideoFile(file: File, options: ProcessVideoOptions): Promise<ProcessVideoResult> {
+  try {
+    return await processVideoFileWithPipeline(file, options);
   } catch (error) {
     throw toUserFacingUploadError(error);
   }

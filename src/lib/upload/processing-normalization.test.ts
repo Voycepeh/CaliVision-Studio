@@ -77,6 +77,18 @@ test("normalizes risky compatibility reports before analysis starts", () => {
   assert.equal(decision.reasons.includes("compatibility signal: incomplete or low-confidence metadata"), true);
 });
 
+test("uses unsupported compatibility wording for unsupported sources", () => {
+  const file = new File(["video"], "unsupported.mkv", { type: "video/x-matroska" });
+  const decision = shouldNormalizeWithCompatibility(file, buildDiagnostics(), {
+    level: "unsupported",
+    reasons: ["not a recognized video file"]
+  });
+
+  assert.equal(decision.required, true);
+  assert.equal(decision.reasons.includes("compatibility classified as unsupported"), true);
+  assert.equal(decision.reasons.includes("compatibility classified as risky"), false);
+});
+
 test("normalizes portrait uploads with ambiguous rotation metadata", () => {
   const file = new File(["video"], "portrait.mp4", { type: 'video/mp4; codecs="avc1.42E01E"' });
   const decision = shouldNormalize(
