@@ -28,8 +28,8 @@ const cards: HomeCard[] = [
   },
   {
     icon: "compare",
-    title: "Compare: Benchmark posture",
-    description: "Use benchmark-aware review to compare movement outcomes and prioritize coaching next steps.",
+    title: "Live & Compare",
+    description: "Run live coaching capture, then compare replay outcomes with benchmark-aware review guidance.",
     href: "/live"
   },
 ];
@@ -82,15 +82,15 @@ export function HomeLandingPage() {
           <div className="home-hero-logo-wrap">
             <CaliVisionLogo size="hero" priority className="home-hero-logo" />
           </div>
-          <h1>Premium web coaching workflow for drill creation, analysis, and compare</h1>
+          <h1>Premium web coaching workflow for drills, upload analysis, and live review</h1>
           <p className="home-subtitle">
-            CaliVision Studio unifies Drill Studio, Drill Library, Upload Analysis, Review metrics, and Benchmark Compare in one responsive web product.
+            CaliVision Studio unifies Drill Studio, Dashboard workflows, Upload Analysis, and live coaching review with benchmark-aware compare posture.
           </p>
         </section>
 
         <HomeDemoMedia
           title="Golden workflow preview"
-          caption="Future demo clip should show: Drill Library selection, Drill Studio editing, Upload Analysis review, and Benchmark Compare insights."
+          caption="Future demo clip should show: Dashboard drill selection, Drill Studio editing, Upload Analysis review, and Live & Compare insights."
           placeholderLabel="Product demo coming soon"
           steps={["Create or select a drill", "Upload and analyze movement", "Review metrics and compare benchmark"]}
         />

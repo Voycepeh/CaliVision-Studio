@@ -13,7 +13,7 @@ Android runtime counterpart (separate scope): https://github.com/Voycepeh/CaliVi
 1. **Dashboard** — default workspace entry, centered on Drill Library and recent work.
 2. **Drills** — Drill Studio authoring + Drill Library selection and management.
 3. **Analysis** — Upload Analysis workflow and review metrics.
-4. **Compare** — benchmark/reference comparison posture from replay and session review.
+4. **Live & Compare** — live capture/review plus benchmark/reference comparison posture from replay and session review.
 
 Supporting pillar:
 - **Drill Exchange** — discovery/import into Drill Library, not the primary top-level workflow.
@@ -23,7 +23,7 @@ Supporting pillar:
 1. Open **Dashboard** (`/library`) and choose a drill context.
 2. Enter **Drills** (`/studio` and library actions) to create/edit a draft.
 3. Use **Analysis** (`/upload`) to process footage and review key metrics.
-4. Use **Compare** posture (`/live` today, richer comparison surfaces planned) for benchmark-aware coaching interpretation.
+4. Use **Live & Compare** (`/live`) for live capture plus benchmark-aware coaching interpretation.
 5. Return to Dashboard for iteration and next session setup.
 
 ## Golden screens (target)
@@ -60,6 +60,7 @@ Supporting pillar:
 
 ### 6) Compare
 - **Role:** benchmark-aware interpretation surface.
+- **Current route posture:** live capture and review first, compare depth layered on top.
 - **Primary content:** benchmark status and coaching deltas.
 - **Secondary content:** deeper sequence/timing compare visualization.
 - **Maturity:** **Partial** (foundational posture and labels, deeper UI planned).

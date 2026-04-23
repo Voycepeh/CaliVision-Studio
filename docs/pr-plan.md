@@ -13,18 +13,18 @@ Android runtime/live coaching counterpart remains separate: https://github.com/V
 - **Dashboard**
 - **Drills**
 - **Analysis**
-- **Compare**
+- **Live & Compare**
 
 With product sub-areas:
 - **Drills:** Drill Studio + Drill Library
 - **Analysis:** Upload Analysis + review metrics
-- **Compare:** benchmark/reference comparison posture
+- **Live & Compare:** live capture/review posture with benchmark/reference comparison layering
 
 ## Scope in PR 0
 
 1. Document the product truth and visual contract.
 2. Refresh workflow/roadmap docs around canonical IA and golden screens.
-3. Normalize app naming and top-level labels toward Dashboard/Drills/Analysis/Compare.
+3. Normalize app naming and top-level labels toward Dashboard/Drills/Analysis/Live & Compare.
 4. Introduce lightweight reusable visual primitives (page header/status chip, dark card polish, spacing consistency).
 5. Align homepage copy to the target workflow while keeping maturity claims honest.
 6. Add screen-level maturity notes (shipped/partial/planned).

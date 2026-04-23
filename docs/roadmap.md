@@ -7,7 +7,7 @@ Android runtime specialization (separate repo): https://github.com/Voycepeh/Cali
 ## Phase 0 (this PR)
 
 - Product truth and design contract published.
-- Canonical IA normalized toward **Dashboard / Drills / Analysis / Compare**.
+- Canonical IA normalized toward **Dashboard / Drills / Analysis / Live & Compare**.
 - Homepage messaging aligned to target workflow.
 - Lightweight reusable visual system foundations applied.
 - Golden-screen maturity levels documented (shipped/partial/planned).

@@ -6,8 +6,8 @@ export default function LibraryPage() {
     <RoutePageIntro
       eyebrow="Dashboard"
       statusLabel="Shipped · Core workflow"
-      title="Drill Library"
-      description="Use Drill Library as your workspace hub: select a drill, open Drill Studio, run Upload Analysis, or enter Benchmark Compare posture."
+      title="Dashboard"
+      description="Use Dashboard as your workspace hub: select a drill, open Drill Studio, run Upload Analysis, or launch Live & Compare."
       navActive="library"
     >
       <LibraryOverview />

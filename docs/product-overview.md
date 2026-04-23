@@ -11,7 +11,7 @@ Android runtime/live coaching client (downstream): <https://github.com/Voycepeh/
 1. **Dashboard:** default web workspace entry at `/library`.
 2. **Drills:** Drill Library + Drill Studio authoring lifecycle.
 3. **Analysis:** Upload Analysis + review metrics workflow.
-4. **Compare:** benchmark/reference interpretation posture.
+4. **Live & Compare:** live coaching capture/review plus benchmark/reference interpretation posture.
 5. **Drill Exchange (supporting):** discovery/import workflow supporting Drills, not replacing the primary pillar flow.
 
 ## Language model

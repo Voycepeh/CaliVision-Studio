@@ -5,7 +5,7 @@ CaliVision Studio product direction is organized around canonical web IA:
 - **Dashboard (`/library`)** is the default workspace route.
 - **Drills** spans **Drill Library (`/library`)** and **Drill Studio (`/studio`)**.
 - **Analysis (`/upload`)** is the first-class Upload Analysis route.
-- **Compare (`/live`, current posture)** carries benchmark-aware compare/review framing.
+- **Live & Compare (`/live`, current posture)** carries live coaching plus benchmark-aware compare/review framing.
 - **Drill Exchange (`/marketplace`)** remains supporting discovery/import workflow.
 - **`/packages`** remains compatibility-only for technical routing and should not be a primary user entry.
 

@@ -13,7 +13,7 @@ const items = [
   { href: "/library", label: "Dashboard", key: "library" },
   { href: "/studio", label: "Drills", key: "studio" },
   { href: "/upload", label: "Analysis", key: "upload" },
-  { href: "/live", label: "Compare", key: "live" }
+  { href: "/live", label: "Live & Compare", key: "live" }
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
