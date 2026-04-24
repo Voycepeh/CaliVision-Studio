@@ -9,18 +9,27 @@ type PrimaryNavProps = {
   active?: "home" | "library" | "studio" | "upload" | "live" | "exchange" | "admin";
 };
 
-const items = [
+type NavItem = {
+  href: string;
+  label: string;
+  mobileLabel?: string;
+  key: "home" | "library" | "studio" | "upload" | "live" | "exchange";
+};
+
+const items: readonly NavItem[] = [
   { href: "/", label: "Home", key: "home" },
   { href: "/library", label: "Library", key: "library" },
   { href: "/studio", label: "Studio", key: "studio" },
-  { href: "/upload", label: "Upload Video", key: "upload" },
-  { href: "/live", label: "Live Streaming", key: "live" },
+  { href: "/upload", label: "Upload Video", mobileLabel: "Upload", key: "upload" },
+  { href: "/live", label: "Live Streaming", mobileLabel: "Live", key: "live" },
   { href: "/marketplace", label: "Exchange", key: "exchange" }
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
   const { isConfigured, userEmail, signInWithGoogle, signOut, session } = useAuth();
   const [showAdmin, setShowAdmin] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const hasSecondaryMenu = showAdmin || Boolean(userEmail);
 
   useEffect(() => {
     if (!session) {
@@ -32,6 +41,10 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
       .then((payload: { isModerator?: boolean }) => setShowAdmin(payload.isModerator === true))
       .catch(() => setShowAdmin(false));
   }, [session]);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [active, hasSecondaryMenu]);
 
   async function onAuthClick() {
     if (userEmail) {
@@ -54,17 +67,38 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
   return (
     <header className="site-header">
       <div className="site-header-inner">
-        <Link href="/library" className="site-brand">
-          <CaliVisionLogo size="nav" className="site-brand-logo" />
-          <span className="site-brand-text">CaliVision</span>
-        </Link>
+        <div className="site-header-top-row">
+          <Link href="/library" className="site-brand">
+            <CaliVisionLogo size="nav" className="site-brand-logo" />
+            <span className="site-brand-text">CaliVision</span>
+          </Link>
+          <div className="site-header-actions">
+            <button type="button" className="site-download-cta" onClick={() => void onAuthClick()} disabled={!isConfigured} aria-label={userEmail ? "Sign out" : "Sign in with Google"}>
+              <span className="site-download-cta-desktop">{!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in with Google"}</span>
+              <span className="site-download-cta-mobile">{!isConfigured ? "Local" : userEmail ? "Account" : "Google"}</span>
+            </button>
+            {hasSecondaryMenu ? (
+              <button
+                type="button"
+                className="site-overflow-button"
+                onClick={() => setMobileMenuOpen((current) => !current)}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="site-mobile-menu"
+                aria-label={mobileMenuOpen ? "Close account menu" : "Open account menu"}
+              >
+                ☰
+              </button>
+            ) : null}
+          </div>
+        </div>
         <nav className="site-nav" aria-label="Primary">
           {items
             .filter((item) => item.key !== "studio")
             .map((item) => (
-            <Link key={item.href} href={item.href} className={active === item.key ? "site-nav-link active" : "site-nav-link"}>
-              {item.label}
-            </Link>
+              <Link key={item.href} href={item.href} className={active === item.key ? "site-nav-link active" : "site-nav-link"}>
+                <span className="site-nav-label-desktop">{item.label}</span>
+                <span className="site-nav-label-mobile">{item.mobileLabel ?? item.label}</span>
+              </Link>
             ))}
           {showAdmin ? (
             <Link href="/admin" className={active === "admin" ? "site-nav-link active" : "site-nav-link"}>
@@ -72,9 +106,23 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
             </Link>
           ) : null}
         </nav>
-        <button type="button" className="site-download-cta" onClick={() => void onAuthClick()} disabled={!isConfigured}>
-          {!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in with Google"}
-        </button>
+        {hasSecondaryMenu ? (
+          <div id="site-mobile-menu" className={mobileMenuOpen ? "site-mobile-menu is-open" : "site-mobile-menu"} aria-label="Account">
+            {showAdmin ? (
+              <Link href="/admin" className={active === "admin" ? "site-mobile-menu-link active" : "site-mobile-menu-link"}>
+                Admin tools
+              </Link>
+            ) : null}
+            {userEmail ? (
+              <>
+                <p className="site-mobile-menu-email">Signed in as {userEmail}</p>
+                <button type="button" className="site-mobile-menu-action" onClick={() => void onAuthClick()}>
+                  Sign out
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </header>
   );
