@@ -8,6 +8,12 @@ This document establishes the canonical product truth for CaliVision Studio befo
 
 Android runtime counterpart (separate scope): https://github.com/Voycepeh/CaliVision.
 
+## State framing (locked for this branch)
+
+- **Current shipped:** what users can reliably do in production-grade workflows today.
+- **Near-term target:** what this design-direction branch is actively shaping next.
+- **Later vision:** directional outcomes that should not be implied as fully shipped yet.
+
 ## Canonical product pillars
 
 1. **Dashboard** — default workspace entry, centered on Drill Library and recent work.
@@ -17,6 +23,16 @@ Android runtime counterpart (separate scope): https://github.com/Voycepeh/CaliVi
 
 Supporting pillar:
 - **Drill Exchange** — discovery/import into Drill Library, not the primary top-level workflow.
+
+## Locked vocabulary
+
+- Dashboard
+- Drill Studio
+- Analysis
+- Live & Compare
+- Drill Exchange
+
+Avoid introducing additional top-level synonyms unless product ownership changes materially.
 
 ## Canonical user workflow
 
@@ -98,6 +114,23 @@ Avoided direction:
 | Compare | **Partial** posture + benchmark language |
 | Drill Exchange | **Partial** discovery/import maturity |
 | Mobile web responsiveness | **Shipped baseline / Partial polish** |
+
+## Current shipped vs near-term target vs later vision
+
+### Current shipped
+- Dashboard as primary working route.
+- Drill Studio authoring flow.
+- Analysis upload + review core with benchmark-aware feedback foundation.
+- Live capture + replay review foundation.
+
+### Near-term target
+- Stronger analysis review hierarchy (metric clarity + benchmark storytelling + side panel structure).
+- Better reusable metric-card and review-shell polish across laptop/mobile.
+- Live & Compare labeling consistency across routes and docs.
+
+### Later vision
+- Deeper compare experiences beyond current live/replay posture.
+- Broader Drill Exchange maturity and advanced comparison storytelling surfaces.
 
 ## PR sequence after this alignment
 

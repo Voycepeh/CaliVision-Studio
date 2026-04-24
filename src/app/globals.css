@@ -1671,6 +1671,14 @@ main {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.analysis-panel__section-label {
+  margin: 0.2rem 0 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94e5f2;
+}
+
 @container (min-width: 34rem) {
   .analysis-panel__cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2004,6 +2012,14 @@ main {
 
   .analysis-panel__cards {
     grid-template-columns: 1fr;
+  }
+
+  .analysis-panel {
+    gap: 0.65rem;
+  }
+
+  .analysis-video-stage {
+    max-height: 56vh;
   }
 }
 

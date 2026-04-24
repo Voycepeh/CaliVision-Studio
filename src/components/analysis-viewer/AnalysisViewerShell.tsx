@@ -58,6 +58,7 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
+      <p className="analysis-panel__section-label">Performance snapshot</p>
       <article className="analysis-card cv-stat-card analysis-card--primary">
         <p className="analysis-card__label">{model.panel.primaryMetricLabel}</p>
         <p className="analysis-card__value">{model.panel.primaryMetricValue}</p>
@@ -80,6 +81,7 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
         <p className="analysis-card__body">{model.panel.movementTypeLabel}</p>
       </article>
 
+      <p className="analysis-panel__section-label">Benchmark story</p>
       <article className="analysis-card cv-side-panel analysis-card--summary">
         <p className="analysis-card__label">Analysis summary</p>
         <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{summaryLine}</p>
@@ -191,6 +193,7 @@ function AnalysisStructuredList({
 
   return (
     <section className="analysis-intervals">
+      <p className="analysis-panel__section-label">Review breakdown</p>
       <strong>{intervals[0]?.kind === "hold" ? "Hold analysis" : "Rep analysis"}</strong>
       <div className="analysis-intervals__list">
         {intervals.map((interval) => {

@@ -12,6 +12,12 @@ Android runtime specialization (separate repo): https://github.com/Voycepeh/Cali
 - Lightweight reusable visual system foundations applied.
 - Golden-screen maturity levels documented (shipped/partial/planned).
 
+### State framing lock
+
+- **Current shipped:** Dashboard + Drill Studio + Analysis + Live replay foundations.
+- **Near-term target:** analysis review hierarchy and benchmark storytelling polish.
+- **Later vision:** deeper compare engine surfaces and broader Exchange maturity.
+
 ## Phase 1 (next PR)
 
 - Analysis review redesign aligned to PR 0 contract.

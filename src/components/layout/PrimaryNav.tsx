@@ -11,7 +11,7 @@ type PrimaryNavProps = {
 
 const items = [
   { href: "/library", label: "Dashboard", key: "library" },
-  { href: "/studio", label: "Drills", key: "studio" },
+  { href: "/studio", label: "Drill Studio", key: "studio" },
   { href: "/upload", label: "Analysis", key: "upload" },
   { href: "/live", label: "Live & Compare", key: "live" }
 ] as const;

@@ -52,7 +52,7 @@ Maturity: **Partial** (live capture/review is shipped; richer compare UI remains
 2. Preview details.
 3. Explicitly add to Drill Library.
 
-Maturity: **Partial**, supporting Drills pillar but not replacing primary Dashboard/Drills/Analysis/Compare flow.
+Maturity: **Partial**, supporting Drill Studio and Analysis workflows without replacing the primary Dashboard/Drill Studio/Analysis/Live & Compare flow.
 
 ## Responsive posture
 

@@ -8,6 +8,16 @@ Establish a coherent product truth, visual direction, and information architectu
 
 Android runtime/live coaching counterpart remains separate: https://github.com/Voycepeh/CaliVision.
 
+## Branch posture
+
+This branch is treated as a **target-state alignment branch** and should explicitly separate:
+
+- **current shipped truth,**
+- **near-term target execution,**
+- **later vision.**
+
+Do not blur those states in page labels or maturity claims.
+
 ## Canonical IA for this phase
 
 - **Dashboard**
@@ -28,6 +38,7 @@ With product sub-areas:
 4. Introduce lightweight reusable visual primitives (page header/status chip, dark card polish, spacing consistency).
 5. Align homepage copy to the target workflow while keeping maturity claims honest.
 6. Add screen-level maturity notes (shipped/partial/planned).
+7. Preserve operational implementation truth in a dedicated companion doc.
 
 ## Non-goals
 
@@ -49,3 +60,5 @@ With product sub-areas:
 - compare-focused benchmark storytelling,
 - shared visual primitives applied to analysis/review shells,
 - responsive mobile review polish.
+
+This PR 1 work is the first required proof that this branch delivers real user-facing review improvements, not only doc/naming alignment.
