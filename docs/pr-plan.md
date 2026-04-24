@@ -96,3 +96,13 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Non-goal: replacing the deterministic rule engine with AI/LLM interpretation (still deferred).
 - Non-goal: introducing side-by-side authored-vs-reference visual comparison in this pass.
 - Non-goal: changing Android runtime/live coaching ownership boundaries; runtime responsibilities remain in Android: <https://github.com/Voycepeh/CaliVision>.
+
+## Assumptions / non-goals for single-user-first MVP sequencing (April 24, 2026)
+
+- Assumption: near-term roadmap priority is single-user training loop quality (pick drill → run live/upload → understand result → improve next attempt → save progress) before broad marketplace/social expansion.
+- Assumption: implementation sequence should follow this order to reduce dependency churn: analysis review clarity, then session history, then fast drill access, then live usability polish, then personal authoring polish.
+- Assumption: Drill Exchange remains available during this phase but is not the default center of the training path.
+- Non-goal: advanced public discovery sophistication in this phase (large search/filter surfaces, social/community systems, or moderation/admin expansion beyond current baseline).
+- Non-goal: multi-user collaboration workflows in this phase.
+- Non-goal: moving Android runtime/live coaching ownership into Studio; Android runtime remains in <https://github.com/Voycepeh/CaliVision>.
+- Reference roadmap document: `docs/product/single-user-first-roadmap.md`.
