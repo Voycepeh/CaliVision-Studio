@@ -5,7 +5,7 @@ import {
   HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS,
   HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS,
   HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS,
-} from "@/lib/media/homepage-carousel-settings";
+} from "@/lib/media/homepage-carousel-constants";
 
 type ImageDimensions = { width: number; height: number } | null;
 
