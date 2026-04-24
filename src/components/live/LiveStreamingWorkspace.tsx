@@ -266,6 +266,7 @@ export function LiveStreamingWorkspace() {
   const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
   const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
   const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
+  const [hasLiveCueEventOccurred, setHasLiveCueEventOccurred] = useState(false);
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
     phaseId: null,
     phaseLabel: null,
@@ -872,6 +873,7 @@ export function LiveStreamingWorkspace() {
     lastAnnouncedRepRef.current = 0;
     holdActiveRef.current = false;
     holdTargetReachedRef.current = false;
+    setHasLiveCueEventOccurred(false);
     setLiveHudState({ phaseId: null, phaseLabel: null, repCount: 0, holdElapsedMs: 0 });
   }, [selectedKey]);
 
@@ -1604,6 +1606,7 @@ export function LiveStreamingWorkspace() {
           if (selection.drill?.drillType === "rep") {
             if (analyzedFrameState.overlay.repCount > lastAnnouncedRepRef.current) {
               lastAnnouncedRepRef.current = analyzedFrameState.overlay.repCount;
+              setHasLiveCueEventOccurred(true);
               void audioController.playRepSuccess(liveAudioCueStyle, analyzedFrameState.overlay.repCount);
             }
           } else if (selection.drill?.drillType === "hold") {
@@ -1613,14 +1616,17 @@ export function LiveStreamingWorkspace() {
             if (isHolding && !holdActiveRef.current) {
               holdActiveRef.current = true;
               holdTargetReachedRef.current = false;
+              setHasLiveCueEventOccurred(true);
               void audioController.playHoldStart(liveAudioCueStyle);
             }
             if (isHolding && targetHoldMs && !holdTargetReachedRef.current && analyzedFrameState.overlay.holdElapsedMs >= targetHoldMs) {
               holdTargetReachedRef.current = true;
+              setHasLiveCueEventOccurred(true);
               void audioController.playHoldSuccess(liveAudioCueStyle);
             }
             if (!isHolding && holdActiveRef.current) {
               if (targetHoldMs && !holdTargetReachedRef.current) {
+                setHasLiveCueEventOccurred(true);
                 void audioController.playHoldWarning(liveAudioCueStyle);
               }
               holdActiveRef.current = false;
@@ -1927,24 +1933,38 @@ export function LiveStreamingWorkspace() {
     }
   }, []);
 
+  const playTestSound = useCallback(async () => {
+    if (!isLiveAudioSupported) {
+      return;
+    }
+    await audioCueControllerRef.current?.prime();
+    await audioCueControllerRef.current?.playTestCue(liveAudioCueStyle);
+  }, [isLiveAudioSupported, liveAudioCueStyle]);
+
   const toggleAudioCues = useCallback(async () => {
     if (!isLiveAudioSupported) {
       return;
     }
     if (!liveAudioEnabled) {
-      await audioCueControllerRef.current?.prime();
+      const primed = await audioCueControllerRef.current?.prime();
       setLiveAudioEnabled(true);
-      setIsLiveAudioPrimed(true);
+      setIsLiveAudioPrimed(Boolean(primed));
+      if (primed) {
+        await audioCueControllerRef.current?.playActivationConfirm(liveAudioCueStyle);
+      }
       return;
     }
     if (!isLiveAudioPrimed) {
-      await audioCueControllerRef.current?.prime();
-      setIsLiveAudioPrimed(true);
+      const primed = await audioCueControllerRef.current?.prime();
+      setIsLiveAudioPrimed(Boolean(primed));
+      if (primed) {
+        await audioCueControllerRef.current?.playActivationConfirm(liveAudioCueStyle);
+      }
       return;
     }
     setLiveAudioEnabled(false);
     setIsLiveAudioPrimed(false);
-  }, [isLiveAudioPrimed, isLiveAudioSupported, liveAudioEnabled]);
+  }, [isLiveAudioPrimed, isLiveAudioSupported, liveAudioCueStyle, liveAudioEnabled]);
 
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
@@ -2381,8 +2401,13 @@ export function LiveStreamingWorkspace() {
                     </button>
                   ) : null}
                   <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
-                    Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready"}
+                    Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
                   </button>
+                  {isLiveAudioSupported ? (
+                    <button type="button" className="studio-button" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
+                      Test sound
+                    </button>
+                  ) : null}
                 </div>
                 <details className="live-cockpit-mobile-advanced">
                   <summary>More controls</summary>
