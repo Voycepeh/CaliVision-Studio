@@ -24,6 +24,7 @@ export function BrandingAssetsAdmin() {
   const [displayOrder, setDisplayOrder] = useState("0");
   const [file, setFile] = useState<File | null>(null);
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions>(null);
+  const [previewAsset, setPreviewAsset] = useState<BrandingAsset | null>(null);
 
   async function resolveImageDimensions(selected: File): Promise<ImageDimensions> {
     const objectUrl = URL.createObjectURL(selected);
@@ -148,40 +149,40 @@ export function BrandingAssetsAdmin() {
         </p>
       </header>
 
-      <form onSubmit={onUpload} style={{ display: "grid", gap: "0.55rem" }}>
-        <input
-          id="branding-upload-file"
-          type="file"
-          accept="image/*"
-          onChange={(event) => {
-            const selected = event.target.files?.[0] ?? null;
-            setFile(selected);
-            if (!selected) {
-              setImageDimensions(null);
-              return;
-            }
-            void resolveImageDimensions(selected).then((dimensions) => setImageDimensions(dimensions));
-          }}
-          style={inputStyle}
-          disabled={uploading}
-        />
-        {imageDimensions ? (
-          <p className="muted" style={{ margin: 0 }}>
-            Detected image size: {imageDimensions.width} × {imageDimensions.height}
-          </p>
-        ) : null}
-
-        <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+      <form onSubmit={onUpload} style={{ display: "grid", gap: "0.55rem", padding: "0.75rem", border: "1px solid var(--border)", borderRadius: "0.8rem" }}>
+        <strong style={{ fontSize: "0.95rem" }}>Upload new branding image</strong>
+        <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+          <input
+            id="branding-upload-file"
+            type="file"
+            accept="image/*"
+            onChange={(event) => {
+              const selected = event.target.files?.[0] ?? null;
+              setFile(selected);
+              if (!selected) {
+                setImageDimensions(null);
+                return;
+              }
+              void resolveImageDimensions(selected).then((dimensions) => setImageDimensions(dimensions));
+            }}
+            style={inputStyle}
+            disabled={uploading}
+          />
           <input placeholder="Title (optional)" value={title} onChange={(event) => setTitle(event.target.value)} style={inputStyle} />
           <input placeholder="Alt text (optional)" value={altText} onChange={(event) => setAltText(event.target.value)} style={inputStyle} />
           <input
-            placeholder="Display order"
+            placeholder="Sort order"
             value={displayOrder}
             onChange={(event) => setDisplayOrder(event.target.value)}
             inputMode="numeric"
             style={inputStyle}
           />
         </div>
+        {imageDimensions ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Detected image size: {imageDimensions.width} × {imageDimensions.height}
+          </p>
+        ) : null}
         <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
           <button type="submit" className="pill" disabled={uploading}>{uploading ? "Uploading…" : "Upload branding image"}</button>
           <button type="button" className="pill" onClick={() => void loadAssets()} disabled={loading}>Refresh</button>
@@ -189,41 +190,94 @@ export function BrandingAssetsAdmin() {
       </form>
 
       {error ? <p role="alert" style={{ margin: 0, color: "#f3b8b8" }}>{error}</p> : null}
-      {loading ? <p className="muted" style={{ margin: 0 }}>Loading branding assets…</p> : null}
-
-      {!loading && assets.length === 0 ? (
-        <p className="muted" style={{ margin: 0 }}>No branding images uploaded yet.</p>
+      {loading ? (
+        <div style={statusPanelStyle}>
+          <p className="muted" style={{ margin: 0 }}>Loading branding assets…</p>
+        </div>
       ) : null}
 
-      <div style={{ display: "grid", gap: "0.65rem" }}>
+      {!loading && assets.length === 0 ? (
+        <div style={statusPanelStyle}>
+          <p className="muted" style={{ margin: 0 }}>No branding images uploaded yet.</p>
+          <p className="muted" style={{ margin: 0, fontSize: "0.9rem" }}>Upload an image above to add it to the homepage carousel list.</p>
+        </div>
+      ) : null}
+
+      {!loading && assets.length > 0 ? (
+        <h3 style={{ margin: "0.15rem 0 0", fontSize: "1rem" }}>Homepage Branding Images</h3>
+      ) : null}
+
+      <div style={{ display: "grid", gap: "0.55rem" }}>
         {assets.map((asset) => (
-          <article key={asset.id} className="card" style={{ display: "grid", gap: "0.45rem" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={asset.publicUrl} alt={asset.altText ?? asset.title ?? "Branding image"} style={{ width: "100%", maxHeight: "240px", objectFit: "cover", borderRadius: "0.55rem" }} />
-            <div style={{ display: "grid", gap: "0.4rem", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
-              <input
-                value={asset.title ?? ""}
-                onChange={(event) => setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, title: event.target.value } : row)))}
-                placeholder="Title"
-                style={inputStyle}
-              />
-              <input
-                value={asset.altText ?? ""}
-                onChange={(event) => setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, altText: event.target.value } : row)))}
-                placeholder="Alt text"
-                style={inputStyle}
-              />
-              <input
-                value={String(asset.displayOrder)}
-                onChange={(event) => {
-                  const parsed = Number.parseInt(event.target.value, 10);
-                  setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, displayOrder: Number.isFinite(parsed) ? parsed : 0 } : row)));
+          <article
+            key={asset.id}
+            className="card"
+            style={{
+              display: "grid",
+              gap: "0.65rem",
+              alignItems: "start",
+              gridTemplateColumns: "minmax(120px, 140px) minmax(220px, 1fr) auto"
+            }}
+          >
+            <div style={{ display: "grid", gap: "0.45rem" }}>
+              <button
+                type="button"
+                onClick={() => setPreviewAsset(asset)}
+                style={{
+                  display: "block",
+                  padding: 0,
+                  border: "1px solid var(--border)",
+                  borderRadius: "0.65rem",
+                  overflow: "hidden",
+                  background: "transparent",
+                  cursor: "pointer"
                 }}
-                inputMode="numeric"
-                style={inputStyle}
-              />
+                aria-label={`Preview ${asset.title ?? "branding image"}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={asset.publicUrl}
+                  alt={asset.altText ?? asset.title ?? "Branding image"}
+                  style={{ width: "100%", height: "120px", objectFit: "contain", background: "#06080f" }}
+                />
+              </button>
+              <button type="button" className="pill" onClick={() => setPreviewAsset(asset)}>Preview</button>
             </div>
-            <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
+
+            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+              <label style={{ display: "grid", gap: "0.25rem" }}>
+                <span className="muted" style={{ fontSize: "0.8rem" }}>Title</span>
+                <input
+                  value={asset.title ?? ""}
+                  onChange={(event) => setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, title: event.target.value } : row)))}
+                  placeholder="Title"
+                  style={inputStyle}
+                />
+              </label>
+              <label style={{ display: "grid", gap: "0.25rem" }}>
+                <span className="muted" style={{ fontSize: "0.8rem" }}>Alt text</span>
+                <input
+                  value={asset.altText ?? ""}
+                  onChange={(event) => setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, altText: event.target.value } : row)))}
+                  placeholder="Alt text"
+                  style={inputStyle}
+                />
+              </label>
+              <label style={{ display: "grid", gap: "0.25rem" }}>
+                <span className="muted" style={{ fontSize: "0.8rem" }}>Sort order</span>
+                <input
+                  value={String(asset.displayOrder)}
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    setAssets((current) => current.map((row) => (row.id === asset.id ? { ...row, displayOrder: Number.isFinite(parsed) ? parsed : 0 } : row)));
+                  }}
+                  inputMode="numeric"
+                  style={inputStyle}
+                />
+              </label>
+            </div>
+
+            <div style={{ display: "grid", gap: "0.45rem", justifyItems: "start", minWidth: "130px" }}>
               <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                 <input
                   type="checkbox"
@@ -238,6 +292,51 @@ export function BrandingAssetsAdmin() {
           </article>
         ))}
       </div>
+
+      {previewAsset ? (
+        <div
+          role="presentation"
+          onClick={() => setPreviewAsset(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 90,
+            background: "rgba(2, 5, 12, 0.84)",
+            display: "grid",
+            placeItems: "center",
+            padding: "1rem"
+          }}
+        >
+          <dialog
+            open
+            aria-label="Branding image preview"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              margin: 0,
+              border: "1px solid var(--border)",
+              borderRadius: "0.9rem",
+              background: "var(--panel)",
+              color: "var(--text)",
+              width: "min(92vw, 920px)",
+              maxHeight: "90vh",
+              padding: "0.9rem",
+              display: "grid",
+              gap: "0.65rem"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "0.65rem", alignItems: "center" }}>
+              <strong style={{ fontSize: "1rem", overflowWrap: "anywhere" }}>{previewAsset.title?.trim() || "Branding image preview"}</strong>
+              <button type="button" className="pill" onClick={() => setPreviewAsset(null)}>Close</button>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewAsset.publicUrl}
+              alt={previewAsset.altText ?? previewAsset.title ?? "Branding image"}
+              style={{ width: "100%", maxHeight: "72vh", objectFit: "contain", background: "#06080f", borderRadius: "0.55rem" }}
+            />
+          </dialog>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -248,4 +347,13 @@ const inputStyle = {
   background: "var(--panel)",
   color: "var(--text)",
   padding: "0.5rem 0.65rem"
+} as const;
+
+const statusPanelStyle = {
+  padding: "0.7rem 0.8rem",
+  borderRadius: "0.7rem",
+  border: "1px dashed var(--border)",
+  background: "rgba(10, 15, 26, 0.55)",
+  display: "grid",
+  gap: "0.3rem"
 } as const;

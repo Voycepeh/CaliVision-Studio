@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
-import { HomeDemoMedia } from "@/components/home/HomeDemoMedia";
 import { HomeBrandingCarousel } from "@/components/home/HomeBrandingCarousel";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 import { getHomepageBrandingImages } from "@/lib/media/server";
@@ -92,14 +91,6 @@ export async function HomeLandingPage() {
         </section>
 
         <HomeBrandingCarousel items={brandingImages} />
-
-        <HomeDemoMedia
-          title="Product demo preview"
-          caption="Future demo clip should show drill selection, upload/live capture, and overlay review with rep/hold/phase-aware feedback."
-          placeholderLabel="Product demo coming soon"
-          steps={["Choose or author a drill", "Upload or stream", "Review overlay and metrics"]}
-        />
-
         <section className="home-feature-grid" aria-label="Core entry points">
           {cards.map((card) => (
             <Link
