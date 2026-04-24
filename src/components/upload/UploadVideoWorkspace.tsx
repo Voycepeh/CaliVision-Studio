@@ -875,7 +875,9 @@ export function UploadVideoWorkspace() {
                   label: "Current phase",
                   value: replayAnalysisState.currentPhaseLabel
                 },
-                { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
+                ...(activeJob.drillSelection.drill?.drillType === "hold"
+                  ? []
+                  : [{ id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) }]),
                 {
                   id: "hold",
                   label: "Current hold",
@@ -893,7 +895,9 @@ export function UploadVideoWorkspace() {
                     )
                     : "Not active"
                 },
-                { id: "current_rep", label: "Current rep", value: String(replayAnalysisState.repIndex) },
+                ...(activeJob.drillSelection.drill?.drillType === "hold"
+                  ? []
+                  : [{ id: "current_rep", label: "Current rep", value: String(replayAnalysisState.repIndex) }]),
                 { id: "duration", label: "Duration", value: formatDuration(activeSession.summary.analyzedDurationMs) }
               ]
             : activeJob?.artefacts

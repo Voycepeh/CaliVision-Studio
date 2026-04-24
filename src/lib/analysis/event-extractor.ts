@@ -52,7 +52,7 @@ function extractRepEvents(
   transitions: SmootherTransition[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
 ): { repCount: number; partialAttemptCount: number } {
-  if (analysis.measurementType === "hold") {
+  if (runtimeModel.measurementMode === "hold") {
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
@@ -138,7 +138,7 @@ function extractHoldEvents(
   smoothedFrames: SmoothedPhaseFrame[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
 ): { totalQualifiedHoldDurationMs: number } {
-  if (analysis.measurementType === "rep") {
+  if (runtimeModel.measurementMode !== "hold") {
     return { totalQualifiedHoldDurationMs: 0 };
   }
 

@@ -331,3 +331,56 @@ test("hold_start is not emitted for a single unconfirmed hold-frame misclassific
   assert.equal(finalized.summary.holdDurationMs, 0);
   assert.equal(finalized.events.some((event) => event.type === "hold_start"), false);
 });
+
+test("hold drill type suppresses rep state even when legacy analysis measurementType is rep", () => {
+  const holdDrill = {
+    ...drill,
+    drillType: "hold" as const,
+    analysis: {
+      ...drill.analysis,
+      measurementType: "rep" as const,
+      targetHoldPhaseId: "up",
+      minimumHoldDurationMs: 0
+    }
+  };
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_hold_type_override",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: holdDrill as never,
+      drillBindingLabel: holdDrill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 10
+  });
+
+  trace.pushFrame({ timestampMs: 0, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 150, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 450, joints: holdDrill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 600, joints: holdDrill.phases[1].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 750, joints: holdDrill.phases[0].poseSequence[0].joints });
+  trace.pushFrame({ timestampMs: 900, joints: holdDrill.phases[0].poseSequence[0].joints });
+
+  const overlay = trace.getOverlayState(350);
+  assert.equal(overlay.measurementType, "hold");
+  assert.equal(overlay.showRepCount, false);
+  assert.equal(overlay.statusLabel, undefined);
+
+  const finalized = trace.finalize(
+    {
+      durationMs: 1000,
+      width: 720,
+      height: 1280,
+      mimeType: "video/webm",
+      sizeBytes: 2000,
+      timing: { mediaStartMs: 0, mediaStopMs: 1000, captureStartPerfNowMs: 10, captureStopPerfNowMs: 1010 }
+    },
+    "2026-04-08T00:00:01.000Z"
+  );
+
+  assert.equal(finalized.summary.repCount, 0);
+  assert.equal(finalized.summary.holdDurationMs, 550);
+  assert.equal(finalized.events.filter((event) => event.type === "hold_start").length, 2);
+  assert.equal(finalized.events.some((event) => event.type === "rep_complete"), false);
+});

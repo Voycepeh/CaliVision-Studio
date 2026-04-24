@@ -1,5 +1,5 @@
 import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts";
-import { buildPhaseRuntimeModel, type PhaseRuntimeModel } from "../analysis/phase-runtime.ts";
+import { buildPhaseRuntimeModel, resolveDrillMeasurementType, type PhaseRuntimeModel } from "../analysis/phase-runtime.ts";
 import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
 import { advanceRepSequence, createRepSequenceProgress, type RepSequenceProgress } from "../analysis/rep-sequence-engine.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
@@ -293,7 +293,7 @@ export function createLiveTraceAccumulator(input: {
       drillId: drill?.drillId ?? "freestyle",
       drillTitle: drill?.title ?? "No drill",
       drillVersion: input.drillSelection.drillVersion,
-      drillMeasurementType: drill?.analysis?.measurementType ?? drill?.drillType,
+      drillMeasurementType: drill?.analysis ? resolveDrillMeasurementType(drill, drill.analysis) : drill?.drillType,
       pipelineVersion: "live-session-trace-v1",
       scorerVersion: "frame-phase-scorer-v1",
       sourceKind: "live",

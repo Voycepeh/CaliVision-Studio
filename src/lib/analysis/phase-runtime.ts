@@ -3,6 +3,13 @@ import { compareNormalizedJoints } from "./pose-comparison.ts";
 
 export type RuntimeMeasurementMode = "rep" | "hold";
 
+export function resolveDrillMeasurementType(drill: PortableDrill, analysis: PortableDrillAnalysis): PortableDrillAnalysis["measurementType"] {
+  if (drill.drillType === "hold") {
+    return "hold";
+  }
+  return analysis.measurementType;
+}
+
 export type RuntimePhase = {
   phaseId: string;
   sequenceIndex: number;
@@ -118,7 +125,8 @@ export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableD
     }
   }
 
-  const measurementMode: RuntimeMeasurementMode = analysis.measurementType === "hold" ? "hold" : "rep";
+  const resolvedMeasurementType = resolveDrillMeasurementType(drill, analysis);
+  const measurementMode: RuntimeMeasurementMode = resolvedMeasurementType === "hold" ? "hold" : "rep";
   const holdPhaseId = measurementMode === "hold"
     ? (analysis.targetHoldPhaseId && phaseById[analysis.targetHoldPhaseId] ? analysis.targetHoldPhaseId : orderedPhaseIds[0] ?? null)
     : null;
@@ -136,7 +144,7 @@ export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableD
     loopLabel: loopPhaseIds.map((phaseId) => phaseById[phaseId]?.displayLabel ?? phaseId).join(" -> "),
     phaseCount,
     allowedTransitionKeys,
-    measurementType: analysis.measurementType,
+    measurementType: resolvedMeasurementType,
     measurementMode,
     repRequiresAtLeastPhaseCount: 2,
     repCompletionSummary: "Rep drills count one rep when the full loop returns to phase 1.",

@@ -214,3 +214,15 @@ test("overlay rep status surfaces skipped phase outcomes using authored labels",
   assert.equal(overlay.statusLabel, "Skipped phase: 2. Hands Up");
   assert.equal(overlay.repOutcome?.kind, "skipped_phase");
 });
+
+test("hold measurement overlay hides rep status and rep counters", () => {
+  const session = createSession();
+  session.drillMeasurementType = "hold";
+  session.events = session.events.filter((event) => event.type !== "rep_complete" && event.type !== "partial_attempt");
+  const overlay = deriveReplayOverlayStateAtTime(session, 1200);
+
+  assert.equal(overlay.showRepCount, false);
+  assert.equal(overlay.showHoldTimer, true);
+  assert.equal(overlay.statusLabel, undefined);
+  assert.equal(overlay.repOutcome, undefined);
+});
