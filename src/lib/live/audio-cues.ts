@@ -35,7 +35,7 @@ export function createLiveAudioCueController() {
     return true;
   };
 
-  const tone = async (frequency: number, durationMs: number, gain = 0.04) => {
+  const tone = async (frequency: number, durationMs: number, gain = 0.055) => {
     const context = getAudioContext();
     if (!context) return;
     if (context.state === "suspended") {
@@ -66,36 +66,59 @@ export function createLiveAudioCueController() {
     async prime() {
       return prime();
     },
+    async playActivationConfirm(style: LiveAudioCueStyle) {
+      if (style === "silent") return;
+      if (style === "chime" || style === "voice-count") {
+        await tone(760, 50, 0.05);
+        await tone(980, 65, 0.055);
+        return;
+      }
+      await tone(880, 75, 0.06);
+    },
+    async playTestCue(style: LiveAudioCueStyle) {
+      if (style === "silent") return;
+      if (style === "voice-count") {
+        await tone(880, 70, 0.05);
+        speakCount(1);
+        return;
+      }
+      if (style === "chime") {
+        await tone(740, 70, 0.05);
+        await tone(980, 90, 0.055);
+        return;
+      }
+      await tone(880, 100, 0.06);
+    },
     async playRepSuccess(style: LiveAudioCueStyle, repCount: number) {
       if (style === "silent") return;
       if (style === "voice-count") {
-        await tone(880, 70, 0.03);
+        await tone(880, 70, 0.045);
         speakCount(repCount);
         return;
       }
       if (style === "chime") {
-        await tone(740, 70, 0.035);
-        await tone(980, 90, 0.035);
+        await tone(740, 70, 0.05);
+        await tone(980, 90, 0.055);
         return;
       }
-      await tone(880, 100, 0.04);
+      await tone(880, 100, 0.06);
     },
     async playHoldStart(style: LiveAudioCueStyle) {
       if (style === "silent") return;
-      await tone(620, 90, 0.03);
+      await tone(620, 90, 0.05);
     },
     async playHoldSuccess(style: LiveAudioCueStyle) {
       if (style === "silent") return;
       if (style === "chime" || style === "voice-count") {
-        await tone(740, 80, 0.03);
-        await tone(1040, 110, 0.035);
+        await tone(740, 80, 0.05);
+        await tone(1040, 110, 0.055);
         return;
       }
-      await tone(900, 110, 0.04);
+      await tone(900, 110, 0.06);
     },
     async playHoldWarning(style: LiveAudioCueStyle) {
       if (style === "silent") return;
-      await tone(320, 120, 0.045);
+      await tone(320, 120, 0.06);
     }
   };
 }
