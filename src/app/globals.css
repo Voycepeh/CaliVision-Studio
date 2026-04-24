@@ -1809,6 +1809,30 @@ main {
   min-width: 0;
 }
 
+.analysis-intervals__summary {
+  display: grid;
+  gap: 0.18rem;
+  font-size: 0.74rem;
+  min-width: 0;
+}
+
+.analysis-intervals__summary span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.analysis-intervals__toggle {
+  justify-self: start;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.34);
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  color: inherit;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .analysis-interval-row {
   border: 1px solid var(--border);
   border-radius: 0.58rem;
