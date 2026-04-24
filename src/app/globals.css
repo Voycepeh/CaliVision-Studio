@@ -2341,6 +2341,11 @@ main {
     min-height: min(50dvh, 340px);
   }
 
+  .live-cockpit-shell--mobile-cue-hidden .live-streaming-media-container {
+    max-height: min(74dvh, calc(100dvh - 115px));
+    min-height: min(56dvh, 380px);
+  }
+
   .live-cockpit-panel {
     border: none;
     background: transparent;
