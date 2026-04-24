@@ -14,6 +14,8 @@ export type AnalysisViewerEvent = {
   timestampMs: number;
   label: string;
   kind: "rep" | "hold" | "phase" | "other";
+  eventType?: string;
+  phaseId?: string;
   seekable?: boolean;
 };
 

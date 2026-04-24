@@ -464,6 +464,29 @@ test("hold entryConfirmationFrames overrides generic confirmation for hold entry
   assert.equal(holdStart?.timestampMs, 200);
 });
 
+test("hold summary duration is clamped by maxTimestampMs", () => {
+  const drill = buildDrill({
+    drillType: "hold",
+    analysis: {
+      ...buildDrill().analysis!,
+      measurementType: "hold",
+      orderedPhaseSequence: ["bottom"],
+      targetHoldPhaseId: "bottom",
+      minimumConfirmationFrames: 1,
+      entryConfirmationFrames: 1,
+      exitGraceFrames: 1,
+      minimumHoldDurationMs: 0
+    }
+  });
+  const frames = [poseFrame(0, 0.8), poseFrame(500, 0.8), poseFrame(1200, 0.8)];
+  const result = runDrillAnalysisPipeline({ drill, sampledFrames: frames, maxTimestampMs: 800 });
+  const holdEnd = result.session.events.find((event) => event.type === "hold_end");
+
+  assert.equal(result.session.summary.analyzedDurationMs, 800);
+  assert.equal(result.session.summary.holdDurationMs, 800);
+  assert.equal(holdEnd?.timestampMs, 800);
+});
+
 test("phase scorer can match any authored pose in phase poseSequence", () => {
   const drill = buildDrill({
     phases: [

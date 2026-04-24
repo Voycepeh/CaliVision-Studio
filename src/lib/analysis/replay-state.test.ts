@@ -135,11 +135,16 @@ test("overlay state shows rep count and active hold timer signals", () => {
   assert.equal(inHold.showRepCount, true);
   assert.equal(inHold.showHoldTimer, true);
   assert.equal(inHold.statusLabel, "Rep in progress");
+  assert.equal(inHold.detectedHoldMs, 0);
 
   const afterHold = deriveReplayOverlayStateAtTime(session, 2500);
   assert.equal(afterHold.showRepCount, true);
   assert.equal(afterHold.showHoldTimer, true);
   assert.equal(afterHold.statusLabel, "Rep counted");
+  assert.equal(afterHold.holdActive, false);
+  assert.equal(afterHold.holdElapsedMs, 0);
+  assert.equal(afterHold.detectedHoldMs, 600);
+  assert.equal(afterHold.bestHoldMs, 600);
 });
 
 test("overlay state falls back to phase-enter events when frame samples are missing", () => {
@@ -186,6 +191,16 @@ test("replay state ignores invalid timestamps and durations", () => {
   const state = deriveReplayStateAtTime(session, Number.NaN);
   assert.equal(state.timestampMs, 0);
   assert.equal(state.repCount, 0);
+});
+
+test("replay duration prefers analyzed summary duration over out-of-range frame/event timestamps", () => {
+  const session = createSession();
+  session.summary.analyzedDurationMs = 3000;
+  session.frameSamples.push({ timestampMs: 9100, classifiedPhaseId: "late", confidence: 0.8 });
+  session.events.push({ eventId: "late_hold", timestampMs: 9200, type: "hold_start", phaseId: "down" });
+
+  const state = deriveReplayStateAtTime(session, 9000);
+  assert.equal(state.timestampMs, 3000);
 });
 
 test("overlay samples are time-indexed and queryable for replay/export rendering", () => {

@@ -313,7 +313,29 @@ export function drawAnalysisOverlay(
     phaseCount?: number;
   }
 ): void {
+  const lines = buildAnalysisOverlayLines(replayOverlayState, options);
+  if (lines.length === 0) return;
+
   const sidePadding = Math.max(10, width * 0.025);
+  const align: CanvasTextAlign = width < 900 ? "right" : "left";
+  const anchorX = align === "left" ? sidePadding : width - sidePadding;
+  const estimatedHeight = 20 + lines.length * 24;
+  const overlayY = Math.max(sidePadding, height - estimatedHeight - sidePadding);
+  drawOverlayBlock(ctx, anchorX, overlayY, lines, align);
+  if (replayOverlayState?.statusLabel) {
+    drawStatusPill(ctx, anchorX, Math.max(sidePadding, overlayY - 28), replayOverlayState.statusLabel, align);
+  }
+}
+
+export function buildAnalysisOverlayLines(
+  replayOverlayState?: ReplayOverlayState | null,
+  options?: {
+    modeLabel?: string;
+    showDrillMetrics?: boolean;
+    phaseLabels?: Record<string, string>;
+    phaseCount?: number;
+  }
+): string[] {
   const lines: string[] = [];
   if (options?.modeLabel) {
     lines.push(options.modeLabel);
@@ -323,7 +345,14 @@ export function drawAnalysisOverlay(
     const phaseHudLabel = toHudPhaseLabel(phaseLabel, options?.phaseCount);
     lines.push(phaseHudLabel ?? "Phase: No phase detected");
     if (replayOverlayState.showHoldTimer && !replayOverlayState.showRepCount) {
-      lines.push(`Hold: ${replayOverlayState.holdActive ? formatOverlayDuration(replayOverlayState.holdElapsedMs) : "No holds detected"}`);
+      if (replayOverlayState.holdActive) {
+        lines.push(`Hold: ${formatOverlayDuration(replayOverlayState.holdElapsedMs)}`);
+      } else if (replayOverlayState.detectedHoldMs > 0) {
+        lines.push(`Hold total: ${formatOverlayDuration(replayOverlayState.detectedHoldMs)}`);
+        lines.push(`Best hold: ${formatOverlayDuration(replayOverlayState.bestHoldMs)}`);
+      } else {
+        lines.push("Hold: No holds detected");
+      }
     } else if (replayOverlayState.showRepCount && !replayOverlayState.showHoldTimer) {
       lines.push(replayOverlayState.repCount > 0 ? `Reps: ${replayOverlayState.repCount}` : "Reps: No reps detected");
     } else if (replayOverlayState.showRepCount && replayOverlayState.showHoldTimer) {
@@ -336,14 +365,5 @@ export function drawAnalysisOverlay(
       );
     }
   }
-  if (lines.length === 0) return;
-
-  const align: CanvasTextAlign = width < 900 ? "right" : "left";
-  const anchorX = align === "left" ? sidePadding : width - sidePadding;
-  const estimatedHeight = 20 + lines.length * 24;
-  const overlayY = Math.max(sidePadding, height - estimatedHeight - sidePadding);
-  drawOverlayBlock(ctx, anchorX, overlayY, lines, align);
-  if (replayOverlayState?.statusLabel) {
-    drawStatusPill(ctx, anchorX, Math.max(sidePadding, overlayY - 28), replayOverlayState.statusLabel, align);
-  }
+  return lines;
 }

@@ -20,12 +20,17 @@ export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOu
       ? effectiveAnalysis.entryConfirmationFrames
       : effectiveAnalysis.minimumConfirmationFrames
   });
-  const extracted = extractAnalysisEvents(input.drill, smoothed.frames, smoothed.transitions, runtimeModel);
+  const extracted = extractAnalysisEvents(input.drill, smoothed.frames, smoothed.transitions, runtimeModel, {
+    maxTimestampMs: input.maxTimestampMs
+  });
 
   const startedAtIso = new Date().toISOString();
   const completedAtIso = new Date().toISOString();
-  const analyzedDurationMs = input.sampledFrames.length > 1
+  const derivedDurationMs = input.sampledFrames.length > 1
     ? input.sampledFrames[input.sampledFrames.length - 1].timestampMs - input.sampledFrames[0].timestampMs
+    : 0;
+  const analyzedDurationMs = derivedDurationMs > 0
+    ? Math.max(0, Math.round(input.maxTimestampMs ?? derivedDurationMs))
     : 0;
 
   const confidenceAvg = scoredFrames.length === 0

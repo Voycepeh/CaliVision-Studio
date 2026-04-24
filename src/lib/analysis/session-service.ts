@@ -178,6 +178,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
     drill: input.drill,
     cameraView: cameraViewResolution.cameraView,
     sampledFrames: input.timeline.frames,
+    maxTimestampMs: input.timeline.video.durationMs,
     sourceType: "upload-video",
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
   });

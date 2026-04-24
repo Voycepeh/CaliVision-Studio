@@ -15,6 +15,8 @@ export type ReplayDerivedState = {
   repCount: number;
   holdActive: boolean;
   holdElapsedMs: number;
+  detectedHoldMs: number;
+  bestHoldMs: number;
   nearestEvent: AnalysisEvent | null;
 };
 
@@ -78,6 +80,9 @@ export function getReplayDurationMs(session?: AnalysisSessionRecord | null): num
     return 0;
   }
   const fromSummary = toSafeTimestampMs(session.summary.analyzedDurationMs ?? 0);
+  if (fromSummary > 0) {
+    return fromSummary;
+  }
   const sortedFrames = getSortedFrameSamples(session);
   const sortedEvents = getSortedEvents(session);
   const fromFrames = toSafeTimestampMs(sortedFrames.at(-1)?.timestampMs ?? 0);
@@ -165,22 +170,43 @@ function toRepOutcomeLabel(
   return undefined;
 }
 
-function getHoldWindow(events: AnalysisSessionRecord["events"], timestampMs: number): { holdActive: boolean; holdElapsedMs: number } {
-  const starts = events.filter((event) => event.type === "hold_start" && event.timestampMs <= timestampMs);
-  if (starts.length === 0) {
-    return { holdActive: false, holdElapsedMs: 0 };
+function getHoldWindow(
+  events: AnalysisSessionRecord["events"],
+  timestampMs: number
+): { holdActive: boolean; holdElapsedMs: number; detectedHoldMs: number; bestHoldMs: number } {
+  let activeStartMs: number | null = null;
+  let detectedHoldMs = 0;
+  let bestHoldMs = 0;
+
+  for (const event of events) {
+    if (event.timestampMs > timestampMs) {
+      break;
+    }
+    if (event.type === "hold_start") {
+      if (activeStartMs === null) {
+        activeStartMs = Math.max(0, event.timestampMs);
+      }
+      continue;
+    }
+    if (event.type === "hold_end" && activeStartMs !== null) {
+      const endMs = Math.max(activeStartMs, event.timestampMs);
+      const durationMs = Math.max(0, endMs - activeStartMs);
+      detectedHoldMs += durationMs;
+      bestHoldMs = Math.max(bestHoldMs, durationMs);
+      activeStartMs = null;
+    }
   }
 
-  const activeStart = starts[starts.length - 1];
-  const endEvent = events.find((event) => event.type === "hold_end" && event.timestampMs >= activeStart.timestampMs);
-
-  if (endEvent && endEvent.timestampMs <= timestampMs) {
-    return { holdActive: false, holdElapsedMs: 0 };
+  if (activeStartMs === null) {
+    return { holdActive: false, holdElapsedMs: 0, detectedHoldMs, bestHoldMs };
   }
 
+  const holdElapsedMs = Math.max(0, timestampMs - activeStartMs);
   return {
     holdActive: true,
-    holdElapsedMs: Math.max(0, timestampMs - activeStart.timestampMs)
+    holdElapsedMs,
+    detectedHoldMs,
+    bestHoldMs: Math.max(bestHoldMs, holdElapsedMs)
   };
 }
 
@@ -192,6 +218,8 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
       repCount: 0,
       holdActive: false,
       holdElapsedMs: 0,
+      detectedHoldMs: 0,
+      bestHoldMs: 0,
       nearestEvent: null
     };
   }
@@ -205,7 +233,7 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
       .filter((event) => event.timestampMs <= clampedTimestamp)
       .at(-1) ?? null;
 
-  const { holdActive, holdElapsedMs } = getHoldWindow(sortedEvents, clampedTimestamp);
+  const { holdActive, holdElapsedMs, detectedHoldMs, bestHoldMs } = getHoldWindow(sortedEvents, clampedTimestamp);
 
   return {
     timestampMs: clampedTimestamp,
@@ -213,6 +241,8 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
     repCount: getRepCountAtTime(sortedEvents, clampedTimestamp),
     holdActive,
     holdElapsedMs,
+    detectedHoldMs,
+    bestHoldMs,
     nearestEvent
   };
 }

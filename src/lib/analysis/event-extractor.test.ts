@@ -73,7 +73,7 @@ test("hold duration is nonzero when session starts in hold without explicit phas
   const holdEnd = result.events.find((event) => event.type === "hold_end");
   assert.equal(holdStart?.timestampMs, 0);
   assert.equal(holdStart?.details?.inferredSessionStart, true);
-  assert.equal(holdEnd?.details?.inferredSessionEnd, true);
+  assert.equal(holdEnd?.details?.exitReason, "session_end");
 });
 
 test("hold active at session start can end before clip end", () => {
@@ -86,7 +86,23 @@ test("hold active at session start can end before clip end", () => {
   assert.equal(result.summary.holdDurationMs, 200);
   const holdEnd = result.events.find((event) => event.type === "hold_end");
   assert.equal(holdEnd?.timestampMs, 200);
-  assert.equal(holdEnd?.details?.inferredSessionEnd, undefined);
+  assert.equal(holdEnd?.details?.exitReason, "phase_exit");
+});
+
+test("hold closes on non-target phase_enter when explicit phase_exit is missing", () => {
+  const drill = buildHoldDrill();
+  const smoothedFrames = [frame(0, "hold"), frame(200, "hold"), frame(400, "rest"), frame(600, "rest")];
+  const transitions: SmootherTransition[] = [
+    { timestampMs: 0, type: "phase_enter", phaseId: "hold" },
+    { timestampMs: 400, type: "phase_enter", phaseId: "rest" }
+  ];
+
+  const result = extractAnalysisEvents(drill, smoothedFrames, transitions);
+  const holdEnd = result.events.find((event) => event.type === "hold_end");
+
+  assert.equal(holdEnd?.timestampMs, 400);
+  assert.equal(holdEnd?.details?.exitReason, "phase_replaced");
+  assert.equal(result.summary.holdDurationMs, 400);
 });
 
 test("explicit mid-session phase_enter starts hold tracking", () => {
@@ -116,7 +132,7 @@ test("active hold without explicit exit is closed at inferred session end", () =
   assert.equal(result.summary.holdDurationMs, 200);
   const holdEnd = result.events.find((event) => event.type === "hold_end");
   assert.equal(holdEnd?.timestampMs, 300);
-  assert.equal(holdEnd?.details?.inferredSessionEnd, true);
+  assert.equal(holdEnd?.details?.exitReason, "session_end");
 });
 
 test("mixed explicit transitions with start-in-hold do not double count", () => {
@@ -164,4 +180,17 @@ test("hold drill type uses hold intervals and suppresses rep events even with st
   assert.equal(result.events.some((event) => event.type === "rep_complete"), false);
   assert.equal(result.summary.repCount, 0);
   assert.equal(result.summary.holdDurationMs, 700);
+});
+
+test("hold session end close is clamped to max timestamp and includes clamping metadata", () => {
+  const drill = buildHoldDrill(["hold"]);
+  const smoothedFrames = [frame(0, "hold"), frame(200, "hold"), frame(1200, "hold")];
+  const result = extractAnalysisEvents(drill, smoothedFrames, [], undefined, { maxTimestampMs: 800 });
+  const holdEnd = result.events.find((event) => event.type === "hold_end");
+
+  assert.equal(holdEnd?.timestampMs, 800);
+  assert.equal(holdEnd?.details?.exitReason, "session_end");
+  assert.equal(holdEnd?.details?.clamped, true);
+  assert.equal(holdEnd?.details?.rawDurationMs, 1200);
+  assert.equal(result.summary.holdDurationMs, 800);
 });
