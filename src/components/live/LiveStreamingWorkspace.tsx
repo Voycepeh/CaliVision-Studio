@@ -45,6 +45,9 @@ import {
   type VideoInputDescriptor,
   stopMediaStream,
   summarizeLiveTraceFreshness,
+  canUseLiveAudioCues,
+  createLiveAudioCueController,
+  type LiveAudioCueStyle,
   type LiveDrillSelection,
   type LiveSessionTrace,
   type LiveSessionStatus,
@@ -74,6 +77,8 @@ const LIVE_DIAGNOSTIC_LOG_INTERVAL_MS = 1_500;
 const LIVE_PREVIEW_READINESS_CHECK_INTERVAL_MS = 220;
 const LIVE_MIN_TRACE_TIMESTAMP_STEP_MS = 4;
 const LIVE_SELECTED_DRILL_STORAGE_KEY = "live.selected-drill";
+const LIVE_AUDIO_ENABLED_STORAGE_KEY = "liveAudioEnabled";
+const LIVE_AUDIO_CUE_STYLE_STORAGE_KEY = "liveAudioCueStyle";
 const LIVE_HUD_UPDATE_INTERVAL_MS = 250;
 const FULL_BODY_REQUIRED_JOINTS: CanonicalJointName[] = [
   "leftShoulder",
@@ -123,6 +128,12 @@ type LivePostAnalysisSnapshot = {
 };
 
 type LiveWorkspacePhase = "idle" | "live" | "processing" | "ready";
+type LiveCockpitHudState = {
+  phaseId: string | null;
+  phaseLabel: string | null;
+  repCount: number;
+  holdElapsedMs: number;
+};
 
 async function readRecordedVideoMetadata(blob: Blob): Promise<{ durationMs: number; width: number; height: number }> {
   const objectUrl = URL.createObjectURL(blob);
@@ -157,6 +168,26 @@ function buildPhaseLabelMap(drill?: NonNullable<LiveDrillSelection["drill"]>): R
     acc[phase.phaseId] = `${index + 1}. ${label}`;
     return acc;
   }, {});
+}
+
+function formatLiveSeconds(milliseconds: number): string {
+  return `${(Math.max(0, milliseconds) / 1000).toFixed(1)}s`;
+}
+
+function phaseDisplayLabel(phase: NonNullable<LiveDrillSelection["drill"]>["phases"][number]): string {
+  return (phase.name || phase.title || "").trim() || `Phase ${phase.order}`;
+}
+
+function buildCoachingCue(phaseLabel: string | null): string {
+  if (!phaseLabel) {
+    return "Follow the current phase and keep control.";
+  }
+  const normalized = phaseLabel.toLowerCase();
+  if (normalized.includes("down") || normalized.includes("lower")) return "Control the descent and stay balanced.";
+  if (normalized.includes("up") || normalized.includes("rise")) return "Drive up with control and keep posture tall.";
+  if (normalized.includes("hold")) return "Hold steady and keep your form locked in.";
+  if (normalized.includes("rest")) return "Reset your stance and breathe for the next effort.";
+  return "Follow the current phase and keep control.";
 }
 
 function triggerDownload(url: string, fileName: string) {
@@ -231,6 +262,17 @@ export function LiveStreamingWorkspace() {
   const [activeCameraSource, setActiveCameraSource] = useState<ActiveCameraSource>("rear-main");
   const [zoomStatusMessage, setZoomStatusMessage] = useState<string | null>(null);
   const [selectedZoomPreset, setSelectedZoomPreset] = useState<number>(1);
+  const [liveAudioEnabled, setLiveAudioEnabled] = useState(false);
+  const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
+  const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
+  const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
+  const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
+    phaseId: null,
+    phaseLabel: null,
+    repCount: 0,
+    holdElapsedMs: 0
+  });
   const requestedDrillKey = searchParams.get("drillKey");
   const { drillOptions, drillOptionGroups, selectedDrillKey: selectedKey, setSelectedDrillKey: setSelectedKey, selectedSource, setSelectedSource } =
     useAvailableDrills({
@@ -284,6 +326,11 @@ export function LiveStreamingWorkspace() {
   const selectedZoomRef = useRef<number>(1);
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const mainRearDeviceIdRef = useRef<string | null>(null);
+  const audioCueControllerRef = useRef<ReturnType<typeof createLiveAudioCueController> | null>(null);
+  const lastAnnouncedRepRef = useRef(0);
+  const holdActiveRef = useRef(false);
+  const holdTargetReachedRef = useRef(false);
+  const lastCockpitHudUpdateAtRef = useRef(0);
   const liveCadenceStatsRef = useRef<LiveCadenceStats>({
     renderFrames: 0,
     analysisTicks: 0,
@@ -331,6 +378,26 @@ export function LiveStreamingWorkspace() {
     };
   }, [selectedDrill]);
   const phaseLabelMap = useMemo(() => buildPhaseLabelMap(selection.drill), [selection.drill]);
+  const authoredPhases = useMemo(
+    () => [...(selection.drill?.phases ?? [])].sort((a, b) => a.order - b.order),
+    [selection.drill?.phases]
+  );
+  const livePhaseIndex = useMemo(
+    () => authoredPhases.findIndex((phase) => phase.phaseId === liveHudState.phaseId),
+    [authoredPhases, liveHudState.phaseId]
+  );
+  const livePhaseDisplayLabel = useMemo(() => {
+    const matched = authoredPhases.find((phase) => phase.phaseId === liveHudState.phaseId);
+    if (matched) {
+      return phaseDisplayLabel(matched);
+    }
+    if (liveHudState.phaseLabel && !liveHudState.phaseLabel.startsWith("phase_")) {
+      return liveHudState.phaseLabel;
+    }
+    return null;
+  }, [authoredPhases, liveHudState.phaseId, liveHudState.phaseLabel]);
+  const liveCoachingCue = useMemo(() => buildCoachingCue(livePhaseDisplayLabel), [livePhaseDisplayLabel]);
+  const hasSelectedDrill = selection.mode === "drill";
   const requiredFramingJoints = useMemo(() => {
     if (!selection.drill?.phases.length) {
       return [];
@@ -773,11 +840,50 @@ export function LiveStreamingWorkspace() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    setIsLiveAudioSupported(canUseLiveAudioCues());
+    const storedEnabled = window.localStorage.getItem(LIVE_AUDIO_ENABLED_STORAGE_KEY);
+    const storedStyle = window.localStorage.getItem(LIVE_AUDIO_CUE_STYLE_STORAGE_KEY);
+    setLiveAudioEnabled(storedEnabled === "true");
+    setIsLiveAudioPrimed(false);
+    if (storedStyle === "beep" || storedStyle === "chime" || storedStyle === "voice-count" || storedStyle === "silent") {
+      setLiveAudioCueStyle(storedStyle);
+    }
+    audioCueControllerRef.current = createLiveAudioCueController();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LIVE_AUDIO_ENABLED_STORAGE_KEY, String(liveAudioEnabled));
+  }, [liveAudioEnabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LIVE_AUDIO_CUE_STYLE_STORAGE_KEY, liveAudioCueStyle);
+  }, [liveAudioCueStyle]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     if (getCameraSupportStatus(window) === "unsupported") {
       setStatus("unsupported");
       setErrorMessage("Live Streaming is unsupported in this browser. Use a browser with camera + MediaRecorder support.");
     }
   }, [updateFramingWarning, updateTrackingStatus]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = window.matchMedia("(max-width: 980px)");
+    const apply = () => setIsCompactViewport(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    lastAnnouncedRepRef.current = 0;
+    holdActiveRef.current = false;
+    holdTargetReachedRef.current = false;
+    setLiveHudState({ phaseId: null, phaseLabel: null, repCount: 0, holdElapsedMs: 0 });
+  }, [selectedKey]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -851,6 +957,11 @@ export function LiveStreamingWorkspace() {
     lastTrackingHudUpdateAtRef.current = 0;
     lastFramingHudUpdateAtRef.current = 0;
     stalePoseLoggedRef.current = false;
+    lastAnnouncedRepRef.current = 0;
+    holdActiveRef.current = false;
+    holdTargetReachedRef.current = false;
+    lastCockpitHudUpdateAtRef.current = 0;
+    setLiveHudState({ phaseId: null, phaseLabel: null, repCount: 0, holdElapsedMs: 0 });
     liveCadenceStatsRef.current = {
       renderFrames: 0,
       analysisTicks: 0,
@@ -1488,6 +1599,46 @@ export function LiveStreamingWorkspace() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       const analyzedFrameState = traceRef.current.getAnalyzedFrameState(traceTimestampMs);
+      if (performance.now() - lastCockpitHudUpdateAtRef.current >= LIVE_HUD_UPDATE_INTERVAL_MS) {
+        setLiveHudState({
+          phaseId: analyzedFrameState.overlay.activePhaseId,
+          phaseLabel: analyzedFrameState.overlay.phaseLabel,
+          repCount: analyzedFrameState.overlay.repCount,
+          holdElapsedMs: analyzedFrameState.overlay.holdElapsedMs
+        });
+        lastCockpitHudUpdateAtRef.current = performance.now();
+      }
+      if (liveAudioEnabled && isLiveAudioPrimed) {
+        const audioController = audioCueControllerRef.current;
+        if (audioController) {
+          if (selection.drill?.drillType === "rep") {
+            if (analyzedFrameState.overlay.repCount > lastAnnouncedRepRef.current) {
+              lastAnnouncedRepRef.current = analyzedFrameState.overlay.repCount;
+              void audioController.playRepSuccess(liveAudioCueStyle, analyzedFrameState.overlay.repCount);
+            }
+          } else if (selection.drill?.drillType === "hold") {
+            const isHolding = analyzedFrameState.overlay.holdActive;
+            const activePhase = authoredPhases.find((phase) => phase.phaseId === analyzedFrameState.overlay.activePhaseId);
+            const targetHoldMs = activePhase?.analysis?.comparison?.targetHoldDurationMs ?? null;
+            if (isHolding && !holdActiveRef.current) {
+              holdActiveRef.current = true;
+              holdTargetReachedRef.current = false;
+              void audioController.playHoldStart(liveAudioCueStyle);
+            }
+            if (isHolding && targetHoldMs && !holdTargetReachedRef.current && analyzedFrameState.overlay.holdElapsedMs >= targetHoldMs) {
+              holdTargetReachedRef.current = true;
+              void audioController.playHoldSuccess(liveAudioCueStyle);
+            }
+            if (!isHolding && holdActiveRef.current) {
+              if (targetHoldMs && !holdTargetReachedRef.current) {
+                void audioController.playHoldWarning(liveAudioCueStyle);
+              }
+              holdActiveRef.current = false;
+              holdTargetReachedRef.current = false;
+            }
+          }
+        }
+      }
       const staleForMs = Math.max(0, traceTimestampMs - lastPoseFrameAtRef.current);
       const staleLandmarkAgeMs = Math.max(0, Math.round(performance.now() - lastAcceptedLandmarkPerfNowRef.current));
       const canReuseStalePose = lastPoseFrameAtRef.current > 0 && staleForMs <= LIVE_POSE_STALE_HOLD_MS;
@@ -1539,7 +1690,7 @@ export function LiveStreamingWorkspace() {
 
       drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
-        showDrillMetrics: selection.mode === "drill",
+        showDrillMetrics: false,
         phaseLabels: phaseLabelMap
       });
 
@@ -1549,7 +1700,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, buildStabilizedPoseFrame, cleanupSession, isRearCamera, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
+  }, [annotatedReplayUrl, authoredPhases, buildStabilizedPoseFrame, cleanupSession, isRearCamera, isLiveAudioPrimed, liveAudioCueStyle, liveAudioEnabled, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
 
   const updateHardwareZoom = useCallback(
     async (presetZoom: number) => {
@@ -1785,6 +1936,25 @@ export function LiveStreamingWorkspace() {
       await stageEl.requestFullscreen();
     }
   }, []);
+
+  const toggleAudioCues = useCallback(async () => {
+    if (!isLiveAudioSupported) {
+      return;
+    }
+    if (!liveAudioEnabled) {
+      await audioCueControllerRef.current?.prime();
+      setLiveAudioEnabled(true);
+      setIsLiveAudioPrimed(true);
+      return;
+    }
+    if (!isLiveAudioPrimed) {
+      await audioCueControllerRef.current?.prime();
+      setIsLiveAudioPrimed(true);
+      return;
+    }
+    setLiveAudioEnabled(false);
+    setIsLiveAudioPrimed(false);
+  }, [isLiveAudioPrimed, isLiveAudioSupported, liveAudioEnabled]);
 
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
@@ -2134,77 +2304,215 @@ export function LiveStreamingWorkspace() {
       <article ref={sessionStageRef} className={`card live-streaming-results-card ${isSessionStageActive ? "live-streaming-results-card--session-active" : ""}`}>
         {isLivePhase ? (
           <div className="live-streaming-preview-shell">
-            {shouldShowSessionToolbar ? (
-              <div className="live-streaming-session-toolbar">
-                <div className="pill">Drill: {selection.drillBindingLabel}</div>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  {status === "live-session-running" ? (
-                    <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
-                      Stop session
-                    </button>
-                  ) : null}
+            <div className="live-cockpit-shell">
+              {shouldShowSessionToolbar ? (
+                <div className="live-streaming-session-toolbar">
+                  <div className="pill">Drill: {selection.drillBindingLabel}</div>
+                  <span className="live-streaming-session-status">Tracking: {trackingStatusLabel}</span>
+                </div>
+              ) : null}
+              <div className="live-cockpit-grid">
+                <div className="live-cockpit-video-pane">
+                  <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
+                    <video
+                      ref={previewVideoRef}
+                      muted
+                      playsInline
+                      className="live-streaming-video"
+                      onLoadedMetadata={() => {
+                        overlayNeedsResizeSyncRef.current = true;
+                        syncOverlayCanvasSize(true);
+                        const video = previewVideoRef.current;
+                        if (video?.videoWidth && video.videoHeight) {
+                          setPreviewAspectRatio(video.videoWidth / video.videoHeight);
+                        }
+                      }}
+                      onResize={() => {
+                        overlayNeedsResizeSyncRef.current = true;
+                      }}
+                      style={{ transform: isRearCamera ? "none" : "scaleX(-1)" }}
+                    />
+                    <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: isLivePhase ? "block" : "none" }} />
+                    {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
+                  </div>
+                  <div className="live-cockpit-mobile-summary">
+                    <div className="live-cockpit-mobile-chip">
+                      <span>Phase</span>
+                      <strong>{hasSelectedDrill ? (livePhaseDisplayLabel || "Waiting for movement") : "Select a drill"}</strong>
+                    </div>
+                    <div className="live-cockpit-mobile-chip">
+                      <span>{selection.drill?.drillType === "hold" ? "Hold" : "Reps"}</span>
+                      <strong>
+                        {!selection.drill
+                          ? "Select a drill"
+                          : selection.drill.drillType === "hold"
+                            ? formatLiveSeconds(liveHudState.holdElapsedMs)
+                            : `${liveHudState.repCount} reps`}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+                <aside className="live-cockpit-panel">
+                <article className="live-cockpit-card live-cockpit-card--desktop-metric">
+                  <h4>Current Phase</h4>
+                  <strong>{hasSelectedDrill ? (livePhaseDisplayLabel || "Waiting for movement") : "Select a drill to start live coaching"}</strong>
+                  <p className="muted" style={{ margin: 0 }}>
+                    {hasSelectedDrill
+                      ? authoredPhases.length > 0 && livePhaseIndex >= 0
+                        ? `Phase ${livePhaseIndex + 1} of ${authoredPhases.length}`
+                        : "Waiting for movement"
+                      : "Select a drill to start live coaching"}
+                  </p>
+                </article>
+                <article className="live-cockpit-card live-cockpit-card--desktop-metric">
+                  <h4>{selection.drill?.drillType === "hold" ? "Hold" : "Reps"}</h4>
+                  <strong>
+                    {!selection.drill
+                      ? "Select a drill"
+                      : selection.drill.drillType === "hold"
+                        ? formatLiveSeconds(liveHudState.holdElapsedMs)
+                        : `${liveHudState.repCount} reps`}
+                  </strong>
+                </article>
+                <article className="live-cockpit-card">
+                  <h4>Coaching Cue</h4>
+                  <p style={{ margin: 0 }}>{liveCoachingCue}</p>
+                </article>
+                </aside>
+              </div>
+              {!isCompactViewport ? (
+                <div className="live-cockpit-timeline">
+                  {authoredPhases.length > 0 ? authoredPhases.map((phase, index) => (
+                    <div key={phase.phaseId} className={`live-cockpit-phase-chip ${phase.phaseId === liveHudState.phaseId ? "is-active" : ""}`}>
+                      <span>{index + 1}. {phaseDisplayLabel(phase)}</span>
+                      {phase.durationMs > 0 ? <small>{Math.round(phase.durationMs / 1000)}s</small> : null}
+                    </div>
+                  )) : (
+                    <div className="live-cockpit-empty">Select a drill to start live coaching.</div>
+                  )}
+                </div>
+              ) : null}
+              <div className="live-cockpit-controls">
+                <div className="live-cockpit-controls-primary">
+                  <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+                    Stop stream
+                  </button>
                   {isFullscreenSupported ? (
                     <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
                       {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
                     </button>
-                  ) : (
-                    <span className="pill">Fullscreen unavailable</span>
-                  )}
+                  ) : null}
+                  <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
+                    Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready"}
+                  </button>
                 </div>
-              </div>
-            ) : null}
-            <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
-              <video
-                ref={previewVideoRef}
-                muted
-                playsInline
-                className="live-streaming-video"
-                onLoadedMetadata={() => {
-                  overlayNeedsResizeSyncRef.current = true;
-                  syncOverlayCanvasSize(true);
-                  const video = previewVideoRef.current;
-                  if (video?.videoWidth && video.videoHeight) {
-                    setPreviewAspectRatio(video.videoWidth / video.videoHeight);
-                  }
-                }}
-                onResize={() => {
-                  overlayNeedsResizeSyncRef.current = true;
-                }}
-                style={{ transform: isRearCamera ? "none" : "scaleX(-1)" }}
-              />
-              <canvas ref={previewCanvasRef} className="live-streaming-overlay-canvas" style={{ display: isLivePhase ? "block" : "none" }} />
-              {status === "live-session-running" ? (
-                <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
-                  <span className="live-streaming-zoom-label">Zoom</span>
-                  <div className="live-streaming-zoom-presets">
-                    {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
-                      const isActive = activeZoomPreset === preset;
-                      const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
-                      return (
-                        <button
-                          key={preset}
-                          type="button"
-                          className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
-                          aria-pressed={isActive}
-                          disabled={isDisabled}
-                          title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
-                          onClick={() => {
-                            void handleZoomPresetSelection(preset);
-                          }}
-                        >
-                          {formatHardwareZoomLabel(preset)}
-                        </button>
-                      );
-                    })}
+                {!isCompactViewport ? (
+                  <div className="live-cockpit-controls-secondary">
+                    <label className="live-cockpit-cue-select">
+                      <span>Cue style</span>
+                      <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
+                        <option value="beep">Beep</option>
+                        <option value="chime">Chime</option>
+                        <option value="voice-count">{selection.drill?.drillType === "hold" ? "Voice count / chime" : "Voice count"}</option>
+                        <option value="silent">Silent</option>
+                      </select>
+                    </label>
+                    {status === "live-session-running" ? (
+                      <div className="live-cockpit-zoom-row">
+                        <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
+                          <span className="live-streaming-zoom-label">Zoom</span>
+                          <div className="live-streaming-zoom-presets">
+                            {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
+                              const isActive = activeZoomPreset === preset;
+                              const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
+                              return (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                                  aria-pressed={isActive}
+                                  disabled={isDisabled}
+                                  title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
+                                  onClick={() => {
+                                    void handleZoomPresetSelection(preset);
+                                  }}
+                                >
+                                  {formatHardwareZoomLabel(preset)}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
-                  <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
-                </div>
-              ) : null}
-              {status === "live-session-running" && framingWarning ? <div className="live-streaming-zoom-unsupported">{framingWarning}</div> : null}
+                ) : (
+                  <details className="live-cockpit-mobile-advanced">
+                    <summary>More controls</summary>
+                    <div className="live-cockpit-controls-secondary">
+                      <label className="live-cockpit-cue-select">
+                        <span>Cue style</span>
+                        <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
+                          <option value="beep">Beep</option>
+                          <option value="chime">Chime</option>
+                          <option value="voice-count">{selection.drill?.drillType === "hold" ? "Voice count / chime" : "Voice count"}</option>
+                          <option value="silent">Silent</option>
+                        </select>
+                      </label>
+                      {status === "live-session-running" ? (
+                        <div className="live-cockpit-zoom-row">
+                          <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
+                            <span className="live-streaming-zoom-label">Zoom</span>
+                            <div className="live-streaming-zoom-presets">
+                              {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
+                                const isActive = activeZoomPreset === preset;
+                                const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
+                                return (
+                                  <button
+                                    key={preset}
+                                    type="button"
+                                    className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                                    aria-pressed={isActive}
+                                    disabled={isDisabled}
+                                    title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
+                                    onClick={() => {
+                                      void handleZoomPresetSelection(preset);
+                                    }}
+                                  >
+                                    {formatHardwareZoomLabel(preset)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
+                          </div>
+                        </div>
+                      ) : null}
+                      <div className="live-cockpit-timeline live-cockpit-timeline--compact">
+                        {authoredPhases.length > 0 ? authoredPhases.map((phase, index) => (
+                          <div key={phase.phaseId} className={`live-cockpit-phase-chip ${phase.phaseId === liveHudState.phaseId ? "is-active" : ""}`}>
+                            <span>{index + 1}. {phaseDisplayLabel(phase)}</span>
+                          </div>
+                        )) : (
+                          <div className="live-cockpit-empty">Select a drill to start live coaching.</div>
+                        )}
+                      </div>
+                      {zoomHelperText ? <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>{zoomHelperText}</p> : null}
+                    </div>
+                  </details>
+                )}
+              </div>
             </div>
-            {zoomHelperText ? (
+            {!isCompactViewport && zoomHelperText ? (
               <p className="muted" style={{ marginTop: "0.45rem", marginBottom: 0, fontSize: "0.82rem" }}>
                 {zoomHelperText}
+              </p>
+            ) : null}
+            {!isLiveAudioSupported ? <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>Audio cues unavailable in this browser. Live coaching will stay silent.</p> : null}
+            {isLiveAudioSupported && liveAudioEnabled && !isLiveAudioPrimed ? (
+              <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+                Audio cues are ready. Tap the audio button once to enable sound in this session.
               </p>
             ) : null}
           </div>
