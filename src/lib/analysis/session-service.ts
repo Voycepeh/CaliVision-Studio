@@ -1,5 +1,5 @@
 import { runDrillAnalysisPipeline } from "./analysis-runner.ts";
-import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel } from "./phase-runtime.ts";
+import { buildPhaseRuntimeModel, resolveAuthoredPhaseLabel, resolveDrillMeasurementType } from "./phase-runtime.ts";
 import { formatCameraViewLabel, resolveDrillCameraViewWithDiagnostics, type DrillCameraView } from "./camera-view.ts";
 import { compareAttemptToBenchmark } from "./benchmark-comparison.ts";
 import type { AnalysisSessionRecord, AnalysisSessionRepository } from "./session-repository.ts";
@@ -178,6 +178,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
     drill: input.drill,
     cameraView: cameraViewResolution.cameraView,
     sampledFrames: input.timeline.frames,
+    maxTimestampMs: input.timeline.video.durationMs,
     sourceType: "upload-video",
     sourceLabel: input.sourceLabel ?? input.timeline.video.fileName
   });
@@ -188,7 +189,7 @@ export function buildCompletedUploadAnalysisSession(input: PersistUploadInput): 
     drillId: output.session.drillId,
     drillTitle: input.drill.title,
     drillVersion: input.drillVersion,
-    drillMeasurementType: input.drill.analysis?.measurementType ?? input.drill.drillType,
+    drillMeasurementType: input.drill.analysis ? resolveDrillMeasurementType(input.drill, input.drill.analysis) : input.drill.drillType,
     pipelineVersion: PIPELINE_VERSION,
     scorerVersion: SCORER_VERSION,
     sourceKind: "upload",
@@ -263,7 +264,7 @@ export async function persistFailedUploadAnalysisSession(input: {
     drillId: input.drill.drillId,
     drillTitle: input.drill.title,
     drillVersion: input.drillVersion,
-    drillMeasurementType: input.drill.analysis?.measurementType ?? input.drill.drillType,
+    drillMeasurementType: input.drill.analysis ? resolveDrillMeasurementType(input.drill, input.drill.analysis) : input.drill.drillType,
     pipelineVersion: PIPELINE_VERSION,
     scorerVersion: SCORER_VERSION,
     sourceKind: "upload",

@@ -70,6 +70,7 @@ export type AnalysisRunInput = {
   cameraView?: DrillCameraView;
   sourceLabel?: string;
   sourceType?: AnalysisSession["source"]["sourceType"];
+  maxTimestampMs?: number;
 };
 
 export type AnalysisRunOutput = {

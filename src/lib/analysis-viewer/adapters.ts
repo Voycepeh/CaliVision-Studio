@@ -39,6 +39,8 @@ export function mapUploadAnalysisToViewerModel(input: {
     timestampMs: event.timestampMs,
     label: `${formatDurationClock(event.timestampMs)} · ${event.type}`,
     kind: kindFromEventType(event.type),
+    eventType: event.type,
+    phaseId: event.phaseId,
     seekable: true
   }));
 

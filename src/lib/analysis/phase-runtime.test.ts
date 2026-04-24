@@ -112,3 +112,18 @@ test("similar phase warning flags near-duplicate poses", () => {
   assert.equal(warnings.length > 0, true);
   assert.equal(warnings[0]?.adjacentInLoop, true);
 });
+
+test("hold drill type forces hold runtime mode even if legacy analysis metadata still says rep", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.drillType = "hold";
+  drill.analysis = {
+    ...drill.analysis!,
+    measurementType: "rep",
+    targetHoldPhaseId: "bottom"
+  };
+  const model = buildPhaseRuntimeModel(drill, drill.analysis);
+
+  assert.equal(model.measurementMode, "hold");
+  assert.equal(model.measurementType, "hold");
+  assert.equal(model.holdPhaseId, "bottom");
+});

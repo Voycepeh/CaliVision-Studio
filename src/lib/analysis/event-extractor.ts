@@ -7,7 +7,8 @@ export function extractAnalysisEvents(
   drill: PortableDrill,
   smoothedFrames: SmoothedPhaseFrame[],
   transitions: SmootherTransition[],
-  runtimeModel?: PhaseRuntimeModel
+  runtimeModel?: PhaseRuntimeModel,
+  options?: { maxTimestampMs?: number }
 ): { events: AnalysisEvent[]; summary: AnalysisSession["summary"] } {
   const analysis = drill.analysis;
   if (!analysis) {
@@ -32,7 +33,7 @@ export function extractAnalysisEvents(
   }
 
   const repSummary = extractRepEvents(resolvedRuntimeModel, analysis, transitions, addEvent);
-  const holdSummary = extractHoldEvents(analysis, resolvedRuntimeModel, transitions, smoothedFrames, addEvent);
+  const holdSummary = extractHoldEvents(analysis, resolvedRuntimeModel, transitions, smoothedFrames, addEvent, options);
   const invalidTransitionCount = transitions.filter((item) => item.type === "invalid_transition").length;
 
   return {
@@ -52,7 +53,7 @@ function extractRepEvents(
   transitions: SmootherTransition[],
   addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
 ): { repCount: number; partialAttemptCount: number } {
-  if (analysis.measurementType === "hold") {
+  if (runtimeModel.measurementMode === "hold") {
     return { repCount: 0, partialAttemptCount: 0 };
   }
 
@@ -136,9 +137,10 @@ function extractHoldEvents(
   runtimeModel: PhaseRuntimeModel,
   transitions: SmootherTransition[],
   smoothedFrames: SmoothedPhaseFrame[],
-  addEvent: (event: Omit<AnalysisEvent, "eventId">) => void
+  addEvent: (event: Omit<AnalysisEvent, "eventId">) => void,
+  options?: { maxTimestampMs?: number }
 ): { totalQualifiedHoldDurationMs: number } {
-  if (analysis.measurementType === "rep") {
+  if (runtimeModel.measurementMode !== "hold") {
     return { totalQualifiedHoldDurationMs: 0 };
   }
 
@@ -146,9 +148,52 @@ function extractHoldEvents(
   if (!targetPhaseId) {
     return { totalQualifiedHoldDurationMs: 0 };
   }
+  const fallbackMaxTimestampMs = Math.max(
+    0,
+    smoothedFrames[smoothedFrames.length - 1]?.timestampMs ?? 0,
+    transitions[transitions.length - 1]?.timestampMs ?? 0
+  );
+  const maxTimestampMs = Number.isFinite(options?.maxTimestampMs)
+    ? Math.max(0, Math.round(options?.maxTimestampMs ?? 0))
+    : fallbackMaxTimestampMs;
 
   let activeHoldStartMs: number | null = null;
   let totalQualifiedHoldDurationMs = 0;
+  const minHoldDurationMs = Math.max(0, analysis.minimumHoldDurationMs ?? 0);
+  const clampTimestamp = (value: number): { value: number; clamped: boolean } => {
+    const safe = Math.max(0, Math.round(value));
+    const clamped = Math.min(maxTimestampMs, safe);
+    return { value: clamped, clamped: clamped !== safe };
+  };
+  const closeHold = (endTimestampMs: number, exitReason: "phase_exit" | "phase_replaced" | "session_end") => {
+    if (activeHoldStartMs === null) {
+      return;
+    }
+    const startRaw = Math.max(0, Math.round(activeHoldStartMs));
+    const endRaw = Math.max(startRaw, Math.round(endTimestampMs));
+    const clampedStart = clampTimestamp(startRaw);
+    const clampedEnd = clampTimestamp(endRaw);
+    const rawDurationMs = Math.max(0, endRaw - startRaw);
+    const durationMs = Math.max(0, clampedEnd.value - clampedStart.value);
+    const clamped = clampedStart.clamped || clampedEnd.clamped || rawDurationMs !== durationMs;
+    const qualified = durationMs >= minHoldDurationMs;
+    if (qualified) {
+      totalQualifiedHoldDurationMs += durationMs;
+    }
+    addEvent({
+      timestampMs: clampedEnd.value,
+      type: "hold_end",
+      phaseId: targetPhaseId,
+      details: {
+        durationMs,
+        qualified,
+        exitReason,
+        clamped,
+        ...(clamped ? { rawDurationMs } : {})
+      }
+    });
+    activeHoldStartMs = null;
+  };
 
   const firstFrame = smoothedFrames[0];
   const hasExplicitStartAtOrBeforeFirstFrame = firstFrame
@@ -164,9 +209,9 @@ function extractHoldEvents(
     && firstFrame.smoothedPhaseId === targetPhaseId
     && !hasExplicitStartAtOrBeforeFirstFrame
   ) {
-    activeHoldStartMs = firstFrame.timestampMs;
+    activeHoldStartMs = clampTimestamp(firstFrame.timestampMs).value;
     addEvent({
-      timestampMs: firstFrame.timestampMs,
+      timestampMs: activeHoldStartMs,
       type: "hold_start",
       phaseId: targetPhaseId,
       details: { inferredSessionStart: true }
@@ -176,42 +221,28 @@ function extractHoldEvents(
   for (const transition of transitions) {
     if (transition.type === "phase_enter" && transition.phaseId === targetPhaseId) {
       if (activeHoldStartMs === null) {
-        activeHoldStartMs = transition.timestampMs;
-        addEvent({ timestampMs: transition.timestampMs, type: "hold_start", phaseId: targetPhaseId });
+        activeHoldStartMs = clampTimestamp(transition.timestampMs).value;
+        addEvent({ timestampMs: activeHoldStartMs, type: "hold_start", phaseId: targetPhaseId });
       }
       continue;
     }
 
-    if (transition.type === "phase_exit" && transition.phaseId === targetPhaseId && activeHoldStartMs !== null) {
-      const durationMs = transition.timestampMs - activeHoldStartMs;
-      const qualified = durationMs >= analysis.minimumHoldDurationMs;
-      if (qualified) {
-        totalQualifiedHoldDurationMs += durationMs;
-      }
-      addEvent({
-        timestampMs: transition.timestampMs,
-        type: "hold_end",
-        phaseId: targetPhaseId,
-        details: { durationMs, qualified }
-      });
-      activeHoldStartMs = null;
+    if (activeHoldStartMs !== null && transition.type === "phase_exit" && transition.phaseId === targetPhaseId) {
+      closeHold(transition.timestampMs, "phase_exit");
+      continue;
+    }
+
+    if (activeHoldStartMs !== null && transition.type === "phase_enter" && transition.phaseId && transition.phaseId !== targetPhaseId) {
+      closeHold(transition.timestampMs, "phase_replaced");
     }
   }
 
   if (activeHoldStartMs !== null && smoothedFrames.length > 0) {
-    const endTs = smoothedFrames[smoothedFrames.length - 1].timestampMs;
-    const durationMs = endTs - activeHoldStartMs;
-    const qualified = durationMs >= analysis.minimumHoldDurationMs;
-    if (qualified) {
-      totalQualifiedHoldDurationMs += durationMs;
+    const finalObservedPhaseId = smoothedFrames[smoothedFrames.length - 1].smoothedPhaseId ?? null;
+    if (finalObservedPhaseId === targetPhaseId) {
+      closeHold(smoothedFrames[smoothedFrames.length - 1].timestampMs, "session_end");
     }
-    addEvent({
-      timestampMs: endTs,
-      type: "hold_end",
-      phaseId: targetPhaseId,
-      details: { durationMs, qualified, inferredSessionEnd: true }
-    });
   }
 
-  return { totalQualifiedHoldDurationMs };
+  return { totalQualifiedHoldDurationMs: Math.max(0, Math.min(maxTimestampMs, totalQualifiedHoldDurationMs)) };
 }

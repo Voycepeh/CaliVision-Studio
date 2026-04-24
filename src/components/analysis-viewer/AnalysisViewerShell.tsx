@@ -173,6 +173,7 @@ type AnalysisInterval = {
   index: number;
   startMs: number;
   endMs: number;
+  phaseLabel?: string;
   checkpoints: Array<{ id: string; label: string; timestampMs: number }>;
 };
 
@@ -205,6 +206,48 @@ function AnalysisStructuredList({
 
   return (
     <section className="analysis-intervals">
+      <strong>{intervals[0]?.kind === "hold" ? "Hold analysis" : "Rep analysis"}</strong>
+      <div className="analysis-intervals__list">
+        {intervals.map((interval) => {
+          const durationMs = Math.max(0, interval.endMs - interval.startMs);
+          return (
+            <article key={interval.id} className="analysis-interval-row">
+              <div className="analysis-interval-row__header">
+                <strong>{interval.kind === "hold" ? `Hold ${interval.index}` : `Rep ${interval.index}`}</strong>
+                <span className="analysis-interval-row__duration">{formatClockDuration(durationMs)}</span>
+              </div>
+              <div className="analysis-interval-row__meta muted">
+                <span>Start {formatClockDuration(interval.startMs)}</span>
+                <span>End {formatClockDuration(interval.endMs)}</span>
+                {interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
+              </div>
+              {interval.checkpoints.length > 0 ? (
+                <ol className="analysis-interval-checkpoints">
+                  {interval.checkpoints.map((checkpoint, checkpointIndex) => (
+                    <li key={checkpoint.id} className="analysis-interval-checkpoint">
+                      <span className="analysis-interval-checkpoint__index">Phase {checkpointIndex + 1}</span>
+                      <button
+                        type="button"
+                        className="analysis-interval-checkpoint__jump"
+                        onClick={() => {
+                          const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id);
+                          if (matchingSegment?.interactive) {
+                            onPhaseTimelineSelect(matchingSegment);
+                          }
+                        }}
+                        disabled={!model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id)?.interactive}
+                        title={checkpoint.label}
+                      >
+                        <span>{checkpoint.label}</span>
+                        <span>{formatClockDuration(checkpoint.timestampMs)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </article>
+          );
+        })}
       <strong>{sectionLabel}</strong>
       <div className="analysis-intervals__summary muted">
         <span>{intervals.length} {itemLabel} detected</span>
@@ -293,34 +336,34 @@ function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisView
 }
 
 function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  const holdStarts = events
-    .filter((event) => event.kind === "hold" && event.label.includes("hold_start"))
-    .map((event) => Math.max(0, Math.round(event.timestampMs)))
-    .sort((a, b) => a - b);
-  const holdEnds = events
-    .filter((event) => event.kind === "hold" && event.label.includes("hold_end"))
-    .map((event) => Math.max(0, Math.round(event.timestampMs)))
-    .sort((a, b) => a - b);
-
   const intervals: AnalysisInterval[] = [];
-  let endCursor = 0;
-  holdStarts.forEach((startMs, index) => {
-    const endIndex = holdEnds.findIndex((candidate, candidateIndex) => candidateIndex >= endCursor && candidate >= startMs);
-    if (endIndex === -1) return;
-    const endMs = holdEnds[endIndex]!;
-    endCursor = endIndex + 1;
+  let activeStart: AnalysisViewerEvent | null = null;
+  let intervalIndex = 0;
+  for (const event of events.filter((item) => item.kind === "hold").sort((a, b) => a.timestampMs - b.timestampMs)) {
+    if (event.eventType === "hold_start") {
+      activeStart = event;
+      continue;
+    }
+    if (event.eventType !== "hold_end" || !activeStart) {
+      continue;
+    }
+    intervalIndex += 1;
+    const startMs = Math.max(0, Math.round(activeStart.timestampMs));
+    const endMs = Math.max(startMs, Math.round(event.timestampMs));
     const checkpoints = segments
       .filter((segment) => segment.startMs >= startMs && segment.startMs <= endMs)
       .map((segment) => ({ id: segment.id, label: segment.label, timestampMs: segment.startMs }));
     intervals.push({
-      id: `hold_${index + 1}_${startMs}_${endMs}`,
+      id: `hold_${intervalIndex}_${startMs}_${endMs}`,
       kind: "hold",
-      index: index + 1,
+      index: intervalIndex,
       startMs,
       endMs,
+      phaseLabel: activeStart.phaseId,
       checkpoints
     });
-  });
+    activeStart = null;
+  }
 
   return intervals;
 }
