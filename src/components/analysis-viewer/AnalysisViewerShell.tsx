@@ -228,9 +228,9 @@ function AnalysisStructuredList({
                   <span>Start {formatClockDuration(interval.startMs)}</span>
                   <span>End {formatClockDuration(interval.endMs)}</span>
                   {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
-                  {interval.kind === "hold" && interval.exitReason ? <span>Exit {interval.exitReason.replaceAll("_", " ")}</span> : null}
+                  {interval.kind === "hold" && interval.exitReason ? <span>Ended: {formatHoldExitReason(interval.exitReason)}</span> : null}
                 </div>
-                {interval.checkpoints.length > 0 ? (
+                {interval.kind === "rep" && interval.checkpoints.length > 0 ? (
                   <ol className="analysis-interval-checkpoints">
                     {interval.checkpoints.map((checkpoint, checkpointIndex) => (
                       <li key={checkpoint.id} className="analysis-interval-checkpoint">
@@ -321,7 +321,7 @@ function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisVie
       index: intervalIndex,
       startMs,
       endMs,
-      phaseLabel: activeStart.phaseId,
+      phaseLabel: resolveHoldPhaseLabel(activeStart.phaseId, segments),
       exitReason: event.exitReason,
       checkpoints
     });
@@ -329,6 +329,29 @@ function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisVie
   }
 
   return intervals;
+}
+
+function resolveHoldPhaseLabel(phaseId: string | undefined, segments: AnalysisViewerPhaseTimelineSegment[]): string | undefined {
+  if (!phaseId) {
+    return undefined;
+  }
+  const authoredLabel = segments.find((segment) => segment.phaseId === phaseId)?.label;
+  if (authoredLabel) {
+    return authoredLabel;
+  }
+  if (phaseId.startsWith("phase_")) {
+    return undefined;
+  }
+  return phaseId;
+}
+
+function formatHoldExitReason(reason: string): string {
+  if (reason === "match_rejected") return "Pose no longer matched";
+  if (reason === "low_confidence") return "Pose tracking lost";
+  if (reason === "phase_replaced") return "Moved to another phase";
+  if (reason === "phase_exit") return "Left hold phase";
+  if (reason === "session_end") return "Session ended";
+  return reason.replaceAll("_", " ");
 }
 
 function formatClockDuration(durationMs: number): string {
