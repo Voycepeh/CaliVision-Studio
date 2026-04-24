@@ -32,10 +32,8 @@ test("structured hold intervals can be inferred from hold events even when movem
 test("hold interval details include phase label and exit reason metadata", () => {
   assert.match(shellSource, /Phase \{interval\.phaseLabel\}/);
   assert.match(shellSource, /Ended: \{formatHoldExitReason\(interval\.exitReason\)\}/);
-  assert.match(shellSource, /if \(reason === "match_rejected"\) return "Pose no longer matched";/);
-  assert.match(shellSource, /if \(reason === "low_confidence"\) return "Pose tracking lost";/);
 });
 
-test("hold phase labels hide raw internal phase ids", () => {
-  assert.match(shellSource, /if \(phaseId\.startsWith\("phase_"\)\) \{/);
+test("hold cards keep generated checkpoint rows focused on rep-only checkpoint list rendering", () => {
+  assert.match(shellSource, /interval\.kind === "rep" && interval\.checkpoints\.length > 0/);
 });

@@ -3,6 +3,10 @@
 import React, { type RefObject } from "react";
 import type { AnalysisViewerModel, AnalysisViewerEvent, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
+import {
+  buildHoldIntervals as buildHoldIntervalsFromEvents,
+  formatHoldExitReason
+} from "@/lib/analysis-viewer/hold-intervals";
 
 type Props = {
   model: AnalysisViewerModel;
@@ -298,60 +302,7 @@ function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisView
 }
 
 function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  const intervals: AnalysisInterval[] = [];
-  let activeStart: AnalysisViewerEvent | null = null;
-  let intervalIndex = 0;
-  for (const event of events.filter((item) => item.kind === "hold").sort((a, b) => a.timestampMs - b.timestampMs)) {
-    if (event.eventType === "hold_start") {
-      activeStart = event;
-      continue;
-    }
-    if (event.eventType !== "hold_end" || !activeStart) {
-      continue;
-    }
-    intervalIndex += 1;
-    const startMs = Math.max(0, Math.round(activeStart.timestampMs));
-    const endMs = Math.max(startMs, Math.round(event.timestampMs));
-    const checkpoints = segments
-      .filter((segment) => segment.startMs >= startMs && segment.startMs <= endMs)
-      .map((segment) => ({ id: segment.id, label: segment.label, timestampMs: segment.startMs }));
-    intervals.push({
-      id: `hold_${intervalIndex}_${startMs}_${endMs}`,
-      kind: "hold",
-      index: intervalIndex,
-      startMs,
-      endMs,
-      phaseLabel: resolveHoldPhaseLabel(activeStart.phaseId, segments),
-      exitReason: event.exitReason,
-      checkpoints
-    });
-    activeStart = null;
-  }
-
-  return intervals;
-}
-
-function resolveHoldPhaseLabel(phaseId: string | undefined, segments: AnalysisViewerPhaseTimelineSegment[]): string | undefined {
-  if (!phaseId) {
-    return undefined;
-  }
-  const authoredLabel = segments.find((segment) => segment.phaseId === phaseId)?.label;
-  if (authoredLabel) {
-    return authoredLabel;
-  }
-  if (phaseId.startsWith("phase_")) {
-    return undefined;
-  }
-  return phaseId;
-}
-
-function formatHoldExitReason(reason: string): string {
-  if (reason === "match_rejected") return "Pose no longer matched";
-  if (reason === "low_confidence") return "Pose tracking lost";
-  if (reason === "phase_replaced") return "Moved to another phase";
-  if (reason === "phase_exit") return "Left hold phase";
-  if (reason === "session_end") return "Session ended";
-  return reason.replaceAll("_", " ");
+  return buildHoldIntervalsFromEvents(events, segments);
 }
 
 function formatClockDuration(durationMs: number): string {
