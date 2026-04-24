@@ -1709,6 +1709,58 @@ main {
   padding-top: 0.3rem;
 }
 
+.live-cockpit-mobile-advanced-section {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.live-cockpit-mobile-advanced-section h5 {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8ed8ff;
+}
+
+.live-cockpit-mobile-tray {
+  display: none;
+}
+
+.live-cockpit-mobile-tray-toggle {
+  width: 100%;
+  border: 1px solid rgba(124, 164, 197, 0.45);
+  border-radius: 0.65rem;
+  padding: 0.36rem 0.55rem;
+  background: rgba(11, 19, 32, 0.84);
+  color: #d8edfd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.live-cockpit-mobile-tray-panel {
+  margin-top: 0.3rem;
+  border: 1px solid rgba(102, 142, 179, 0.54);
+  border-radius: 0.72rem;
+  background: linear-gradient(180deg, rgba(15, 26, 40, 0.96), rgba(10, 18, 31, 0.94));
+  padding: 0 0.55rem;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: max-height 240ms ease, opacity 220ms ease, transform 220ms ease, padding 220ms ease;
+}
+
+.live-cockpit-mobile-tray.is-expanded .live-cockpit-mobile-tray-panel {
+  max-height: min(46dvh, 320px);
+  overflow-y: auto;
+  opacity: 1;
+  transform: translateY(0);
+  padding: 0.48rem 0.55rem 0.55rem;
+}
+
 .live-cockpit-controls-primary,
 .live-cockpit-controls-secondary {
   display: flex;
@@ -2384,6 +2436,10 @@ main {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .live-cockpit-mobile-advanced-section h5 {
+    font-size: 0.65rem;
+  }
+
   .live-cockpit-mobile-advanced[open] {
     padding-bottom: 0.1rem;
   }
@@ -2401,8 +2457,8 @@ main {
   .live-cockpit-controls .studio-button {
     width: 100%;
     min-width: 0;
-    padding: 0.32rem 0.5rem;
-    font-size: 0.74rem;
+    padding: 0.34rem 0.5rem;
+    font-size: 0.72rem;
   }
 
   .live-cockpit-mobile-only {
@@ -2417,6 +2473,7 @@ main {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     white-space: nowrap;
+    font-size: 0.7rem;
   }
 
   .live-cockpit-cue-select select {
@@ -2450,6 +2507,21 @@ main {
 
   .live-cockpit-card p {
     font-size: 0.82rem;
+  }
+}
+
+@media (max-width: 980px) and (orientation: portrait) {
+  .live-cockpit-mobile-advanced {
+    display: none;
+  }
+
+  .live-cockpit-mobile-tray {
+    display: block;
+  }
+
+  .live-cockpit-controls-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.32rem;
   }
 }
 
