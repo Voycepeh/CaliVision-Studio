@@ -1593,9 +1593,9 @@ main {
 
 .live-cockpit-grid {
   display: grid;
-  gap: 0.5rem;
-  grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 360px);
-  align-items: stretch;
+  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 22vw, 320px);
+  align-items: start;
   min-height: 0;
 }
 
@@ -1609,23 +1609,24 @@ main {
 
 .live-cockpit-panel {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  align-content: start;
   min-height: 0;
   overflow-y: auto;
   padding-right: 0.15rem;
   background: rgba(7, 14, 24, 0.95);
   border: 1px solid rgba(74, 109, 145, 0.45);
   border-radius: 0.72rem;
-  padding: 0.45rem;
+  padding: 0.4rem;
 }
 
 .live-cockpit-card {
   border: 1px solid rgba(100, 166, 198, 0.58);
   background: rgba(9, 18, 30, 0.94);
   border-radius: 0.72rem;
-  padding: 0.7rem;
+  padding: 0.5rem 0.55rem;
   display: grid;
-  gap: 0.35rem;
+  gap: 0.22rem;
   color: #f2f7ff;
 }
 
@@ -1638,8 +1639,15 @@ main {
 }
 
 .live-cockpit-card strong {
-  font-size: 1.2rem;
+  font-size: 1.05rem;
   color: #ffffff;
+}
+
+.live-cockpit-phase-timeline-desktop {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
 }
 
 .live-cockpit-timeline {
@@ -1668,7 +1676,7 @@ main {
 
 .live-cockpit-controls {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.3rem;
 }
 
 .live-cockpit-mobile-advanced {
@@ -1694,13 +1702,13 @@ main {
 .live-cockpit-mobile-advanced-body {
   display: grid;
   gap: 0.35rem;
-  padding-top: 0.35rem;
+  padding-top: 0.3rem;
 }
 
 .live-cockpit-controls-primary,
 .live-cockpit-controls-secondary {
   display: flex;
-  gap: 0.45rem;
+  gap: 0.35rem;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -1739,7 +1747,7 @@ main {
 
 .live-cockpit-controls .studio-button {
   font-size: 0.78rem;
-  padding: 0.35rem 0.65rem;
+  padding: 0.32rem 0.58rem;
 }
 
 .live-cockpit-mobile-only {
@@ -2351,6 +2359,10 @@ main {
     background: transparent;
     padding: 0;
     overflow: visible;
+  }
+
+  .live-cockpit-phase-timeline-desktop {
+    display: none;
   }
 
   .live-cockpit-mobile-summary {

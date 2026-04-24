@@ -2381,132 +2381,147 @@ export function LiveStreamingWorkspace() {
                       </strong>
                     </div>
                   </div>
-                </div>
-                <aside className="live-cockpit-panel">
-                <article className="live-cockpit-card live-cockpit-card--desktop-metric">
-                  <h4>Current Phase</h4>
-                  <strong>{hasSelectedDrill ? (livePhaseDisplayLabel || "Waiting for movement") : "Select a drill to start live coaching"}</strong>
-                  <p className="muted" style={{ margin: 0 }}>
-                    {hasSelectedDrill
-                      ? authoredPhases.length > 0 && livePhaseIndex >= 0
-                        ? `Phase ${livePhaseIndex + 1} of ${authoredPhases.length}`
-                        : "Waiting for movement"
-                      : "Select a drill to start live coaching"}
-                  </p>
-                </article>
-                <article className="live-cockpit-card live-cockpit-card--desktop-metric">
-                  <h4>{selection.drill?.drillType === "hold" ? "Hold" : "Reps"}</h4>
-                  <strong>
-                    {!selection.drill
-                      ? "Select a drill"
-                      : selection.drill.drillType === "hold"
-                        ? formatLiveSeconds(liveHudState.holdElapsedMs)
-                        : `${liveHudState.repCount} reps`}
-                  </strong>
-                </article>
-                {shouldShowCoachingCueCard ? (
-                  <article className="live-cockpit-card">
-                    <h4>Coaching Cue</h4>
-                    <p style={{ margin: 0 }}>{liveCoachingCue}</p>
-                  </article>
-                ) : null}
-                </aside>
-              </div>
-              <div className="live-cockpit-controls">
-                <div className="live-cockpit-controls-primary">
-                  <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
-                    Stop stream
-                  </button>
-                  {isFullscreenSupported ? (
-                    <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
-                      {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                    </button>
-                  ) : null}
-                  <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
-                    Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
-                  </button>
-                  {isLiveAudioSupported ? (
-                    <button type="button" className="studio-button live-cockpit-desktop-only" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
-                      Test sound
-                    </button>
-                  ) : null}
-                </div>
-                <details className="live-cockpit-mobile-advanced">
-                  <summary>More controls</summary>
-                  <div className="live-cockpit-mobile-advanced-body">
-                    <div className="live-cockpit-timeline">
-                      {authoredPhases.length > 0 ? authoredPhases.map((phase, index) => (
+                  {authoredPhases.length > 0 ? (
+                    <div className="live-cockpit-phase-timeline-desktop" aria-label="Phase timeline">
+                      {authoredPhases.map((phase, index) => (
                         <div key={phase.phaseId} className={`live-cockpit-phase-chip ${phase.phaseId === liveHudState.phaseId ? "is-active" : ""}`}>
                           <span>{index + 1}. {phaseDisplayLabel(phase)}</span>
                           {phase.durationMs > 0 ? <small>{Math.round(phase.durationMs / 1000)}s</small> : null}
                         </div>
-                      )) : (
-                        <div className="live-cockpit-empty">Select a drill to start live coaching.</div>
-                      )}
+                      ))}
                     </div>
-                    <div className="live-cockpit-controls-secondary">
+                  ) : null}
+                </div>
+                <aside className="live-cockpit-panel">
+                  <article className="live-cockpit-card live-cockpit-card--desktop-metric">
+                    <h4>Current Phase</h4>
+                    <strong>{hasSelectedDrill ? (livePhaseDisplayLabel || "Waiting for movement") : "Select a drill to start live coaching"}</strong>
+                    <p className="muted" style={{ margin: 0 }}>
+                      {hasSelectedDrill
+                        ? authoredPhases.length > 0 && livePhaseIndex >= 0
+                          ? `Phase ${livePhaseIndex + 1} of ${authoredPhases.length}`
+                          : "Waiting for movement"
+                        : "Select a drill to start live coaching"}
+                    </p>
+                  </article>
+                  <article className="live-cockpit-card live-cockpit-card--desktop-metric">
+                    <h4>{selection.drill?.drillType === "hold" ? "Hold" : "Reps"}</h4>
+                    <strong>
+                      {!selection.drill
+                        ? "Select a drill"
+                        : selection.drill.drillType === "hold"
+                          ? formatLiveSeconds(liveHudState.holdElapsedMs)
+                          : `${liveHudState.repCount} reps`}
+                    </strong>
+                  </article>
+                  {shouldShowCoachingCueCard ? (
+                    <article className="live-cockpit-card">
+                      <h4>Coaching Cue</h4>
+                      <p style={{ margin: 0 }}>{liveCoachingCue}</p>
+                    </article>
+                  ) : null}
+                  <div className="live-cockpit-controls">
+                    <div className="live-cockpit-controls-primary">
+                      <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
+                        Stop stream
+                      </button>
+                      {isFullscreenSupported ? (
+                        <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
+                          {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                        </button>
+                      ) : null}
+                      <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
+                        Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
+                      </button>
                       {isLiveAudioSupported ? (
-                        <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => void playTestSound()}>
+                        <button type="button" className="studio-button live-cockpit-desktop-only" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
                           Test sound
                         </button>
                       ) : null}
-                      {isMobileViewport ? (
-                        <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => setIsMobileCoachingCueVisible((visible) => !visible)}>
-                          {isMobileCoachingCueVisible ? "Hide coaching cue" : "Show coaching cue"}
-                        </button>
-                      ) : null}
-                      <label className="live-cockpit-cue-select">
-                        <span>Cue style</span>
-                        <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
-                          <option value="beep">Beep</option>
-                          <option value="chime">Chime</option>
-                          <option value="voice-count">{selection.drill?.drillType === "hold" ? "Voice count / chime" : "Voice count"}</option>
-                          <option value="silent">Silent</option>
-                        </select>
-                      </label>
-                      {status === "live-session-running" ? (
-                        <div className="live-cockpit-zoom-row">
-                          <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
-                            <span className="live-streaming-zoom-label">Zoom</span>
-                            <div className="live-streaming-zoom-presets">
-                              {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
-                                const isActive = activeZoomPreset === preset;
-                                const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
-                                return (
-                                  <button
-                                    key={preset}
-                                    type="button"
-                                    className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
-                                    aria-pressed={isActive}
-                                    disabled={isDisabled}
-                                    title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
-                                    onClick={() => {
-                                      void handleZoomPresetSelection(preset);
-                                    }}
-                                  >
-                                    {formatHardwareZoomLabel(preset)}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
-                          </div>
-                        </div>
-                      ) : null}
                     </div>
-                    {zoomHelperText ? (
-                      <p className="muted" style={{ marginTop: "0.2rem", marginBottom: 0, fontSize: "0.75rem" }}>
-                        {zoomHelperText}
-                      </p>
-                    ) : null}
-                    {!isLiveAudioSupported ? <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>Audio cues unavailable in this browser. Live coaching will stay silent.</p> : null}
-                    {isLiveAudioSupported && liveAudioEnabled && !isLiveAudioPrimed ? (
-                      <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
-                        Audio cues are ready. Tap the audio button once to enable sound in this session.
-                      </p>
-                    ) : null}
+                    <details className="live-cockpit-mobile-advanced">
+                      <summary>More controls</summary>
+                      <div className="live-cockpit-mobile-advanced-body">
+                        <div className="live-cockpit-timeline">
+                          {authoredPhases.length > 0 ? authoredPhases.map((phase, index) => (
+                            <div key={phase.phaseId} className={`live-cockpit-phase-chip ${phase.phaseId === liveHudState.phaseId ? "is-active" : ""}`}>
+                              <span>{index + 1}. {phaseDisplayLabel(phase)}</span>
+                              {phase.durationMs > 0 ? <small>{Math.round(phase.durationMs / 1000)}s</small> : null}
+                            </div>
+                          )) : (
+                            <div className="live-cockpit-empty">Select a drill to start live coaching.</div>
+                          )}
+                        </div>
+                        <div className="live-cockpit-controls-secondary">
+                          {isLiveAudioSupported ? (
+                            <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => void playTestSound()}>
+                              Test sound
+                            </button>
+                          ) : null}
+                          {isMobileViewport ? (
+                            <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => setIsMobileCoachingCueVisible((visible) => !visible)}>
+                              {isMobileCoachingCueVisible ? "Hide coaching cue" : "Show coaching cue"}
+                            </button>
+                          ) : null}
+                          <label className="live-cockpit-cue-select">
+                            <span>Cue style</span>
+                            <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
+                              <option value="beep">Beep</option>
+                              <option value="chime">Chime</option>
+                              <option value="voice-count">{selection.drill?.drillType === "hold" ? "Voice count / chime" : "Voice count"}</option>
+                              <option value="silent">Silent</option>
+                            </select>
+                          </label>
+                          {status === "live-session-running" ? (
+                            <div className="live-cockpit-zoom-row">
+                              <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
+                                <span className="live-streaming-zoom-label">Zoom</span>
+                                <div className="live-streaming-zoom-presets">
+                                  {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
+                                    const isActive = activeZoomPreset === preset;
+                                    const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
+                                    return (
+                                      <button
+                                        key={preset}
+                                        type="button"
+                                        className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                                        aria-pressed={isActive}
+                                        disabled={isDisabled}
+                                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
+                                        onClick={() => {
+                                          void handleZoomPresetSelection(preset);
+                                        }}
+                                      >
+                                        {formatHardwareZoomLabel(preset)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                        {zoomHelperText ? (
+                          <p className="muted" style={{ marginTop: "0.2rem", marginBottom: 0, fontSize: "0.75rem" }}>
+                            {zoomHelperText}
+                          </p>
+                        ) : null}
+                        {!isLiveAudioSupported ? <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>Audio cues unavailable in this browser. Live coaching will stay silent.</p> : null}
+                        {isLiveAudioSupported && liveAudioEnabled && !isLiveAudioPrimed ? (
+                          <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
+                            Audio cues are ready. Tap the audio button once to enable sound in this session.
+                          </p>
+                        ) : null}
+                        {isLiveAudioSupported && liveAudioEnabled && isLiveAudioPrimed ? (
+                          <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
+                            Sound is on. Cues play when reps complete or holds start.
+                          </p>
+                        ) : null}
+                      </div>
+                    </details>
                   </div>
-                </details>
+                </aside>
               </div>
             </div>
           </div>
