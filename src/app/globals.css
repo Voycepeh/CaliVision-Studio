@@ -1509,15 +1509,48 @@ main {
 }
 
 .live-cockpit-controls {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.live-cockpit-controls-primary,
+.live-cockpit-controls-secondary {
   display: flex;
-  flex-wrap: wrap;
   gap: 0.45rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .live-cockpit-zoom-row {
-  flex-basis: 100%;
   display: flex;
+}
+
+.live-cockpit-mobile-summary {
+  display: none;
+}
+
+.live-cockpit-mobile-chip {
+  border: 1px solid rgba(102, 142, 179, 0.58);
+  background: rgba(11, 21, 35, 0.88);
+  border-radius: 0.65rem;
+  padding: 0.4rem 0.5rem;
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.live-cockpit-mobile-chip span {
+  font-size: 0.68rem;
+  color: #8ed8ff;
+  text-transform: uppercase;
+}
+
+.live-cockpit-mobile-chip strong {
+  font-size: 0.82rem;
+  color: #f8fbff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .live-cockpit-controls .studio-button {
@@ -2114,13 +2147,54 @@ main {
     max-height: min(56dvh, 520px);
   }
 
-  .live-cockpit-controls {
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
-    flex-wrap: nowrap;
+  .live-cockpit-mobile-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .live-cockpit-card--desktop-metric {
+    display: none;
+  }
+
+  .live-cockpit-controls-primary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .live-cockpit-controls-secondary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+  }
+
+  .live-cockpit-controls .studio-button {
+    width: 100%;
+    min-width: 0;
   }
 
   .live-cockpit-cue-select {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    white-space: nowrap;
+  }
+
+  .live-cockpit-cue-select select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .live-streaming-zoom-control {
+    width: 100%;
+    font-size: 0.68rem;
+  }
+
+  .live-streaming-zoom-unsupported {
+    font-size: 0.66rem;
+    padding: 0.28rem 0.45rem;
+    max-width: calc(100% - 1.2rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
 }
