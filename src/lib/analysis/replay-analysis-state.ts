@@ -14,6 +14,7 @@ export type ReplayAnalysisState = {
   currentHoldMsAtPlayhead: number;
   detectedHoldMs: number;
   maxHoldMs: number;
+  holdCount: number;
   repIndex: number;
   currentPhaseId: string | null;
   currentPhaseLabel: string;
@@ -190,7 +191,7 @@ function resolveSinglePhaseHoldFallbackTarget(
 export function getHoldMetrics(
   session: AnalysisSessionRecord | null | undefined,
   timestampMs: number
-): { currentHoldMsAtPlayhead: number; detectedHoldMs: number; maxHoldMs: number } {
+): { currentHoldMsAtPlayhead: number; detectedHoldMs: number; maxHoldMs: number; holdCount: number } {
   const durationMs = getReplayDurationMs(session);
   const clamped = clampTimestamp(timestampMs, durationMs);
   const events = getSortedEvents(session);
@@ -199,7 +200,8 @@ export function getHoldMetrics(
     return {
       currentHoldMsAtPlayhead: Math.min(fallback, clamped),
       detectedHoldMs: fallback,
-      maxHoldMs: fallback
+      maxHoldMs: fallback,
+      holdCount: fallback > 0 ? 1 : 0
     };
   }
 
@@ -213,19 +215,24 @@ export function getHoldMetrics(
     return {
       currentHoldMsAtPlayhead: Math.min(fallback, clamped),
       detectedHoldMs: fallback,
-      maxHoldMs: fallback
+      maxHoldMs: fallback,
+      holdCount: fallback > 0 ? 1 : 0
     };
   }
 
   let currentHoldMsAtPlayhead = 0;
   let detectedHoldMs = 0;
   let maxHoldMs = 0;
+  let holdCount = 0;
 
   for (const segment of segments) {
     const boundedEnd = segment.endMs === null ? durationMs : segment.endMs;
     const segmentDurationMs = clampDuration(segment.startMs, boundedEnd);
     detectedHoldMs += segmentDurationMs;
     maxHoldMs = Math.max(maxHoldMs, segmentDurationMs);
+    if (segment.endMs !== null) {
+      holdCount += 1;
+    }
     const isActiveAtPlayhead = clamped >= segment.startMs && (segment.endMs === null ? clamped <= durationMs : clamped < segment.endMs);
     if (isActiveAtPlayhead) {
       const activeEnd = segment.endMs === null ? clamped : Math.min(clamped, segment.endMs);
@@ -236,7 +243,8 @@ export function getHoldMetrics(
   return {
     currentHoldMsAtPlayhead: Math.max(0, currentHoldMsAtPlayhead),
     detectedHoldMs: Math.max(0, detectedHoldMs),
-    maxHoldMs: Math.max(0, maxHoldMs)
+    maxHoldMs: Math.max(0, maxHoldMs),
+    holdCount: Math.max(0, holdCount)
   };
 }
 
@@ -276,6 +284,7 @@ export function buildReplayAnalysisState(input: {
     currentHoldMsAtPlayhead: holdMetrics.currentHoldMsAtPlayhead,
     detectedHoldMs: holdMetrics.detectedHoldMs,
     maxHoldMs: holdMetrics.maxHoldMs,
+    holdCount: holdMetrics.holdCount,
     repIndex: getRepIndexAtTimestamp(input.session, clamped),
     currentPhaseId,
     currentPhaseLabel: currentPhaseId ? (input.phaseLabelsById?.[currentPhaseId] ?? currentPhaseId) : "No phase detected yet",

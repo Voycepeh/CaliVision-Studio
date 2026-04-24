@@ -560,19 +560,34 @@ export function LiveStreamingWorkspace() {
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
           { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
-          {
-            id: "holds",
-            label: "Current hold",
-            value: (selection.drill?.drillType === "hold"
-              ? (replayAnalysisState.currentHoldMsAtPlayhead > 0 ? replayAnalysisState.currentHoldMsAtPlayhead : replayAnalysisState.detectedHoldMs)
-              : replayAnalysisState.currentHoldMsAtPlayhead) > 0
-              ? formatDurationShort(
-                selection.drill?.drillType === "hold"
-                  ? (replayAnalysisState.currentHoldMsAtPlayhead > 0 ? replayAnalysisState.currentHoldMsAtPlayhead : replayAnalysisState.detectedHoldMs)
-                  : replayAnalysisState.currentHoldMsAtPlayhead
-              )
-              : "Not active"
-          },
+          ...(selection.drill?.drillType === "hold"
+            ? [
+                {
+                  id: "hold_current",
+                  label: "Current hold",
+                  value: replayAnalysisState.currentHoldMsAtPlayhead > 0 ? formatDurationShort(replayAnalysisState.currentHoldMsAtPlayhead) : "Not active"
+                },
+                {
+                  id: "hold_best",
+                  label: "Best hold",
+                  value: replayAnalysisState.maxHoldMs > 0 ? formatDurationShort(replayAnalysisState.maxHoldMs) : "None"
+                },
+                {
+                  id: "hold_total",
+                  label: "Total hold time",
+                  value: replayAnalysisState.detectedHoldMs > 0 ? formatDurationShort(replayAnalysisState.detectedHoldMs) : "0s"
+                },
+                {
+                  id: "hold_count",
+                  label: "Hold count",
+                  value: String(replayAnalysisState.holdCount)
+                }
+              ]
+            : [{
+                id: "holds",
+                label: "Current hold",
+                value: replayAnalysisState.currentHoldMsAtPlayhead > 0 ? formatDurationShort(replayAnalysisState.currentHoldMsAtPlayhead) : "Not active"
+              }]),
           { id: "phase", label: "Current phase", value: replayAnalysisState.currentPhaseLabel }
         ],
         technicalStatusChips: [
@@ -652,6 +667,8 @@ export function LiveStreamingWorkspace() {
       replayAnalysisState.currentPhaseLabel,
       replayAnalysisState.currentHoldMsAtPlayhead,
       replayAnalysisState.detectedHoldMs,
+      replayAnalysisState.maxHoldMs,
+      replayAnalysisState.holdCount,
       replayAnalysisState.repCount,
       replayTimestampMs,
       trackingStatusLabel,

@@ -28,3 +28,8 @@ test("structured summary remains visible while details are collapsed", () => {
 test("structured hold intervals can be inferred from hold events even when movement label is stale", () => {
   assert.match(shellSource, /const hasHoldEvents = model\.timelineEvents\.some\(\(event\) => event\.kind === "hold"\);/);
 });
+
+test("hold interval details include phase label and exit reason metadata", () => {
+  assert.match(shellSource, /Phase \{interval\.phaseLabel\}/);
+  assert.match(shellSource, /Exit \{interval\.exitReason\.replaceAll\("_", " "\)\}/);
+});

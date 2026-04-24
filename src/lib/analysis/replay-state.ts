@@ -17,6 +17,7 @@ export type ReplayDerivedState = {
   holdElapsedMs: number;
   detectedHoldMs: number;
   bestHoldMs: number;
+  holdCount: number;
   nearestEvent: AnalysisEvent | null;
 };
 
@@ -173,10 +174,11 @@ function toRepOutcomeLabel(
 function getHoldWindow(
   events: AnalysisSessionRecord["events"],
   timestampMs: number
-): { holdActive: boolean; holdElapsedMs: number; detectedHoldMs: number; bestHoldMs: number } {
+): { holdActive: boolean; holdElapsedMs: number; detectedHoldMs: number; bestHoldMs: number; holdCount: number } {
   let activeStartMs: number | null = null;
   let detectedHoldMs = 0;
   let bestHoldMs = 0;
+  let holdCount = 0;
 
   for (const event of events) {
     if (event.timestampMs > timestampMs) {
@@ -193,12 +195,13 @@ function getHoldWindow(
       const durationMs = Math.max(0, endMs - activeStartMs);
       detectedHoldMs += durationMs;
       bestHoldMs = Math.max(bestHoldMs, durationMs);
+      holdCount += 1;
       activeStartMs = null;
     }
   }
 
   if (activeStartMs === null) {
-    return { holdActive: false, holdElapsedMs: 0, detectedHoldMs, bestHoldMs };
+    return { holdActive: false, holdElapsedMs: 0, detectedHoldMs, bestHoldMs, holdCount };
   }
 
   const holdElapsedMs = Math.max(0, timestampMs - activeStartMs);
@@ -206,7 +209,8 @@ function getHoldWindow(
     holdActive: true,
     holdElapsedMs,
     detectedHoldMs,
-    bestHoldMs: Math.max(bestHoldMs, holdElapsedMs)
+    bestHoldMs: Math.max(bestHoldMs, holdElapsedMs),
+    holdCount
   };
 }
 
@@ -220,6 +224,7 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
       holdElapsedMs: 0,
       detectedHoldMs: 0,
       bestHoldMs: 0,
+      holdCount: 0,
       nearestEvent: null
     };
   }
@@ -233,7 +238,7 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
       .filter((event) => event.timestampMs <= clampedTimestamp)
       .at(-1) ?? null;
 
-  const { holdActive, holdElapsedMs, detectedHoldMs, bestHoldMs } = getHoldWindow(sortedEvents, clampedTimestamp);
+  const { holdActive, holdElapsedMs, detectedHoldMs, bestHoldMs, holdCount } = getHoldWindow(sortedEvents, clampedTimestamp);
 
   return {
     timestampMs: clampedTimestamp,
@@ -243,6 +248,7 @@ export function deriveReplayStateAtTime(session: AnalysisSessionRecord | null | 
     holdElapsedMs,
     detectedHoldMs,
     bestHoldMs,
+    holdCount,
     nearestEvent
   };
 }

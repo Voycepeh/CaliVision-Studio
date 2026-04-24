@@ -174,6 +174,7 @@ type AnalysisInterval = {
   startMs: number;
   endMs: number;
   phaseLabel?: string;
+  exitReason?: string;
   checkpoints: Array<{ id: string; label: string; timestampMs: number }>;
 };
 
@@ -226,6 +227,8 @@ function AnalysisStructuredList({
                 <div className="analysis-interval-row__meta muted">
                   <span>Start {formatClockDuration(interval.startMs)}</span>
                   <span>End {formatClockDuration(interval.endMs)}</span>
+                  {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
+                  {interval.kind === "hold" && interval.exitReason ? <span>Exit {interval.exitReason.replaceAll("_", " ")}</span> : null}
                 </div>
                 {interval.checkpoints.length > 0 ? (
                   <ol className="analysis-interval-checkpoints">
@@ -319,6 +322,7 @@ function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisVie
       startMs,
       endMs,
       phaseLabel: activeStart.phaseId,
+      exitReason: event.exitReason,
       checkpoints
     });
     activeStart = null;

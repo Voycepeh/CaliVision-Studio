@@ -878,23 +878,34 @@ export function UploadVideoWorkspace() {
                 ...(activeJob.drillSelection.drill?.drillType === "hold"
                   ? []
                   : [{ id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) }]),
-                {
-                  id: "hold",
-                  label: "Current hold",
-                  value: (activeJob.drillSelection.drill?.drillType === "hold"
-                    ? (replayAnalysisState.currentHoldMsAtPlayhead > 0
-                      ? replayAnalysisState.currentHoldMsAtPlayhead
-                      : replayAnalysisState.detectedHoldMs)
-                    : replayAnalysisState.currentHoldMsAtPlayhead) > 0
-                    ? formatDuration(
-                      activeJob.drillSelection.drill?.drillType === "hold"
-                        ? (replayAnalysisState.currentHoldMsAtPlayhead > 0
-                          ? replayAnalysisState.currentHoldMsAtPlayhead
-                          : replayAnalysisState.detectedHoldMs)
-                        : replayAnalysisState.currentHoldMsAtPlayhead
-                    )
-                    : "Not active"
-                },
+                ...(activeJob.drillSelection.drill?.drillType === "hold"
+                  ? [
+                      {
+                        id: "hold_current",
+                        label: "Current hold",
+                        value: replayAnalysisState.currentHoldMsAtPlayhead > 0 ? formatDuration(replayAnalysisState.currentHoldMsAtPlayhead) : "Not active"
+                      },
+                      {
+                        id: "hold_best",
+                        label: "Best hold",
+                        value: replayAnalysisState.maxHoldMs > 0 ? formatDuration(replayAnalysisState.maxHoldMs) : "None"
+                      },
+                      {
+                        id: "hold_total",
+                        label: "Total hold time",
+                        value: replayAnalysisState.detectedHoldMs > 0 ? formatDuration(replayAnalysisState.detectedHoldMs) : "0s"
+                      },
+                      {
+                        id: "hold_count",
+                        label: "Hold count",
+                        value: String(replayAnalysisState.holdCount)
+                      }
+                    ]
+                  : [{
+                      id: "hold",
+                      label: "Current hold",
+                      value: replayAnalysisState.currentHoldMsAtPlayhead > 0 ? formatDuration(replayAnalysisState.currentHoldMsAtPlayhead) : "Not active"
+                    }]),
                 ...(activeJob.drillSelection.drill?.drillType === "hold"
                   ? []
                   : [{ id: "current_rep", label: "Current rep", value: String(replayAnalysisState.repIndex) }]),
