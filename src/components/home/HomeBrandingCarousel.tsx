@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { HomepageBrandingImage } from "@/lib/media/types";
 
 type HomeBrandingCarouselProps = {
   items: HomepageBrandingImage[];
 };
 
+const AUTO_ADVANCE_MS = 7000;
+
 export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   const total = items.length;
   const activeItem = items[activeIndex] ?? items[0];
@@ -19,6 +23,24 @@ export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
     }
     return "16 / 9";
   }, [activeItem?.height, activeItem?.width]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setPrefersReducedMotion(mediaQuery.matches);
+    onChange();
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (total <= 1 || isPaused || prefersReducedMotion) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % total);
+    }, AUTO_ADVANCE_MS);
+
+    return () => window.clearInterval(timer);
+  }, [isPaused, prefersReducedMotion, total]);
 
   if (total === 0) {
     return null;
@@ -43,7 +65,14 @@ export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
         <p>Create drills, analyze movement, and review progress across the web experience.</p>
       </header>
 
-      <div className="home-branding-stage" style={{ aspectRatio: activeAspectRatio }}>
+      <div
+        className="home-branding-stage"
+        style={{ aspectRatio: activeAspectRatio }}
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+        onFocusCapture={() => setIsPaused(true)}
+        onBlurCapture={() => setIsPaused(false)}
+      >
         <button type="button" className="home-branding-nav home-branding-nav-prev" onClick={() => goTo(activeIndex - 1)} aria-label="Previous slide">
           ‹
         </button>
@@ -55,8 +84,14 @@ export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
             if (event.key === "ArrowLeft") goTo(activeIndex - 1);
             if (event.key === "ArrowRight") goTo(activeIndex + 1);
           }}
-          onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
-          onTouchEnd={(event) => onTouchEnd(event.changedTouches[0]?.clientX ?? 0)}
+          onTouchStart={(event) => {
+            setIsPaused(true);
+            setTouchStartX(event.touches[0]?.clientX ?? null);
+          }}
+          onTouchEnd={(event) => {
+            onTouchEnd(event.changedTouches[0]?.clientX ?? 0);
+            setIsPaused(false);
+          }}
         >
           <div className="home-branding-track" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
             {items.map((item, index) => (
