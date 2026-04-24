@@ -3,7 +3,7 @@
 CaliVision Studio supports two runtime modes:
 
 - **Local-only mode (signed out or missing env vars):** drafts/library persistence stays in browser storage.
-- **Hosted mode (signed in with Google):** Supabase-backed drafts/library is enabled for the signed-in user.
+- **Hosted mode (signed in with Google):** Supabase-backed drafts/library is enabled for the signed-in user, with admin-managed homepage branding images served from Supabase Storage.
 
 Android/mobile runtime responsibilities remain in the companion client: <https://github.com/Voycepeh/CaliVision>.
 
@@ -36,6 +36,7 @@ If these are missing, Studio keeps working in local-only mode and hosted control
    - `supabase/migrations/20260412_exchange_mvp.sql`
    - `supabase/migrations/20260418_exchange_publication_moderation.sql`
    - `supabase/migrations/20260418_admin_user_profiles.sql`
+   - `supabase/migrations/20260423_media_assets_foundation.sql`
 5. For initial bootstrap, set one existing user profile to `admin` in `public.user_profiles` after that user signs in once (or after `/api/user/activity` creates their profile row).
 6. `user_profiles.role` is server-managed; authenticated users can update profile activity fields but cannot self-promote role values.
 
@@ -111,3 +112,14 @@ Common checks:
 - confirm signed-in user session is active before clicking **Save to account**.
 
 Hosted draft writes rely on PostgREST upsert conflict keys `(owner_user_id, package_id, package_version)`. If a deployment is running older code without this conflict target, repeated saves for the same draft package/version can fail with a unique-constraint error.
+
+
+## 8) Media assets foundation (branding first pass)
+
+- Migration `20260423_media_assets_foundation.sql` adds reusable `public.media_assets` metadata for image/video/thumbnail/overlay assets across scopes (`branding`, `drill`, `benchmark`, `session`, `generated`).
+- This milestone actively uses the `branding-assets` storage bucket + `scope = branding` records to power the homepage branding carousel.
+- Public homepage rendering reads only active public branding images (`is_public = true`, `is_active = true`) and gracefully hides the carousel if no assets exist.
+- Admin upload/edit/delete controls are available on `/admin` for moderators/admins via:
+  - `GET/POST /api/admin/media/branding`
+  - `PATCH/DELETE /api/admin/media/branding/[assetId]`
+- The same metadata/storage pattern is designed to extend later to drill reference images, benchmark media, and session/generated media assets without reworking homepage UI code.

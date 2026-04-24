@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AdminUserDrill, AdminUserSummary } from "@/lib/admin/types";
 import { moderateExchangePublication, type ExchangeModerationAction } from "@/lib/exchange";
+import { BrandingAssetsAdmin } from "@/components/admin/BrandingAssetsAdmin";
 
 type AdminPanelProps = {
   canManageRoles: boolean;
@@ -134,7 +135,9 @@ export function AdminPanel({ canManageRoles }: AdminPanelProps) {
   }
 
   return (
-    <section className="card" style={{ display: "grid", gap: "0.75rem" }}>
+    <div style={{ display: "grid", gap: "0.85rem" }}>
+      <BrandingAssetsAdmin />
+      <section className="card" style={{ display: "grid", gap: "0.75rem" }}>
       <div style={{ display: "grid", gap: "0.6rem", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
         <article className="card"><strong>{summary.totalUsers}</strong><p className="muted" style={{ margin: 0 }}>Users</p></article>
         <article className="card"><strong>{summary.moderators}</strong><p className="muted" style={{ margin: 0 }}>Moderators/Admins</p></article>
@@ -240,7 +243,8 @@ export function AdminPanel({ canManageRoles }: AdminPanelProps) {
           );
         })}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
