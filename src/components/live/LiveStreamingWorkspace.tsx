@@ -263,6 +263,7 @@ export function LiveStreamingWorkspace() {
   const [zoomStatusMessage, setZoomStatusMessage] = useState<string | null>(null);
   const [selectedZoomPreset, setSelectedZoomPreset] = useState<number>(1);
   const [liveAudioEnabled, setLiveAudioEnabled] = useState(false);
+  const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
   const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
   const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
@@ -841,6 +842,7 @@ export function LiveStreamingWorkspace() {
     const storedEnabled = window.localStorage.getItem(LIVE_AUDIO_ENABLED_STORAGE_KEY);
     const storedStyle = window.localStorage.getItem(LIVE_AUDIO_CUE_STYLE_STORAGE_KEY);
     setLiveAudioEnabled(storedEnabled === "true");
+    setIsLiveAudioPrimed(false);
     if (storedStyle === "beep" || storedStyle === "chime" || storedStyle === "voice-count" || storedStyle === "silent") {
       setLiveAudioCueStyle(storedStyle);
     }
@@ -1595,7 +1597,7 @@ export function LiveStreamingWorkspace() {
         });
         lastCockpitHudUpdateAtRef.current = performance.now();
       }
-      if (liveAudioEnabled) {
+      if (liveAudioEnabled && isLiveAudioPrimed) {
         const audioController = audioCueControllerRef.current;
         if (audioController) {
           if (selection.drill?.drillType === "rep") {
@@ -1617,7 +1619,7 @@ export function LiveStreamingWorkspace() {
               void audioController.playHoldSuccess(liveAudioCueStyle);
             }
             if (!isHolding && holdActiveRef.current) {
-              if (!holdTargetReachedRef.current) {
+              if (targetHoldMs && !holdTargetReachedRef.current) {
                 void audioController.playHoldWarning(liveAudioCueStyle);
               }
               holdActiveRef.current = false;
@@ -1687,7 +1689,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, authoredPhases, buildStabilizedPoseFrame, cleanupSession, isRearCamera, liveAudioCueStyle, liveAudioEnabled, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
+  }, [annotatedReplayUrl, authoredPhases, buildStabilizedPoseFrame, cleanupSession, isRearCamera, isLiveAudioPrimed, liveAudioCueStyle, liveAudioEnabled, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
 
   const updateHardwareZoom = useCallback(
     async (presetZoom: number) => {
@@ -1931,10 +1933,17 @@ export function LiveStreamingWorkspace() {
     if (!liveAudioEnabled) {
       await audioCueControllerRef.current?.prime();
       setLiveAudioEnabled(true);
+      setIsLiveAudioPrimed(true);
+      return;
+    }
+    if (!isLiveAudioPrimed) {
+      await audioCueControllerRef.current?.prime();
+      setIsLiveAudioPrimed(true);
       return;
     }
     setLiveAudioEnabled(false);
-  }, [isLiveAudioSupported, liveAudioEnabled]);
+    setIsLiveAudioPrimed(false);
+  }, [isLiveAudioPrimed, isLiveAudioSupported, liveAudioEnabled]);
 
   const resetToIdle = useCallback(async () => {
     await cleanupSession({ stopRecorder: true, discardRecording: true, nextStatus: "idle" });
@@ -2289,20 +2298,7 @@ export function LiveStreamingWorkspace() {
                 {shouldShowSessionToolbar ? (
                   <div className="live-streaming-session-toolbar">
                     <div className="pill">Drill: {selection.drillBindingLabel}</div>
-                    <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      {status === "live-session-running" ? (
-                        <button type="button" className="studio-button studio-button-danger" onClick={() => void stopSession()}>
-                          Stop stream
-                        </button>
-                      ) : null}
-                      {isFullscreenSupported ? (
-                        <button type="button" className="studio-button" onClick={() => void toggleSessionFullscreen()}>
-                          {isStageFullscreen ? "Exit fullscreen" : "Fullscreen"}
-                        </button>
-                      ) : (
-                        <span className="pill">Fullscreen unavailable</span>
-                      )}
-                    </div>
+                    <span className="pill">Tracking: {trackingStatusLabel}</span>
                   </div>
                 ) : null}
                 <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
@@ -2347,17 +2343,46 @@ export function LiveStreamingWorkspace() {
                     </button>
                   ) : null}
                   <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
-                    Audio cues: {liveAudioEnabled ? "On" : "Off"}
+                    Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready"}
                   </button>
                   <label className="live-cockpit-cue-select">
                     <span>Cue style</span>
                     <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
                       <option value="beep">Beep</option>
                       <option value="chime">Chime</option>
-                      <option value="voice-count">Voice count</option>
+                      <option value="voice-count">{selection.drill?.drillType === "hold" ? "Voice count / chime" : "Voice count"}</option>
                       <option value="silent">Silent</option>
                     </select>
                   </label>
+                  {status === "live-session-running" ? (
+                    <div className="live-cockpit-zoom-row">
+                      <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
+                        <span className="live-streaming-zoom-label">Zoom</span>
+                        <div className="live-streaming-zoom-presets">
+                          {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
+                            const isActive = activeZoomPreset === preset;
+                            const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
+                            return (
+                              <button
+                                key={preset}
+                                type="button"
+                                className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
+                                aria-pressed={isActive}
+                                disabled={isDisabled}
+                                title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
+                                onClick={() => {
+                                  void handleZoomPresetSelection(preset);
+                                }}
+                              >
+                                {formatHardwareZoomLabel(preset)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <aside className="live-cockpit-panel">
@@ -2389,34 +2414,12 @@ export function LiveStreamingWorkspace() {
                 {zoomHelperText}
               </p>
             ) : null}
-            {status === "live-session-running" ? (
-              <div className="live-streaming-zoom-control" role="group" aria-label="Camera zoom control">
-                <span className="live-streaming-zoom-label">Zoom</span>
-                <div className="live-streaming-zoom-presets">
-                  {APP_HARDWARE_ZOOM_PRESETS.map((preset) => {
-                    const isActive = activeZoomPreset === preset;
-                    const isDisabled = preset === 0.5 && !halfXAccess.available && !canAttemptHalfXFallbackProbe;
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        className={`live-streaming-zoom-chip ${isActive ? "is-active" : ""}`}
-                        aria-pressed={isActive}
-                        disabled={isDisabled}
-                        title={isDisabled ? "0.5x ultrawide lens not accessible from this browser session" : preset === 0.5 && canAttemptHalfXFallbackProbe ? "Tap to probe alternate rear cameras for ultrawide access" : undefined}
-                        onClick={() => {
-                          void handleZoomPresetSelection(preset);
-                        }}
-                      >
-                        {formatHardwareZoomLabel(preset)}
-                      </button>
-                    );
-                  })}
-                </div>
-                <span>{formatHardwareZoomLabel(selectedZoomRef.current)}</span>
-              </div>
-            ) : null}
             {!isLiveAudioSupported ? <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>Audio cues unavailable in this browser. Live coaching will stay silent.</p> : null}
+            {isLiveAudioSupported && liveAudioEnabled && !isLiveAudioPrimed ? (
+              <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+                Audio cues are ready. Tap the audio button once to enable sound in this session.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
