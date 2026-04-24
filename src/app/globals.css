@@ -1438,9 +1438,109 @@ main {
 
 .live-streaming-preview-shell {
   display: grid;
-  justify-items: center;
+  justify-items: stretch;
   gap: 0.55rem;
   width: 100%;
+}
+
+.live-cockpit-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+  align-items: start;
+}
+
+.live-cockpit-main {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.live-cockpit-panel {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.live-cockpit-card {
+  border: 1px solid rgba(88, 132, 166, 0.45);
+  background: rgba(10, 20, 34, 0.72);
+  border-radius: 0.72rem;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.live-cockpit-card h4 {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8ed8ff;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.live-cockpit-card strong {
+  font-size: 1.2rem;
+}
+
+.live-cockpit-timeline {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.live-cockpit-phase-chip {
+  border: 1px solid rgba(104, 132, 167, 0.45);
+  background: rgba(13, 24, 38, 0.72);
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.74rem;
+  white-space: nowrap;
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.live-cockpit-phase-chip.is-active {
+  border-color: rgba(120, 233, 255, 0.9);
+  background: rgba(20, 59, 74, 0.85);
+}
+
+.live-cockpit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.live-cockpit-controls .studio-button {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.live-cockpit-cue-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #cde7f9;
+}
+
+.live-cockpit-cue-select select {
+  background: #0f1c2f;
+  border: 1px solid #35506d;
+  border-radius: 0.4rem;
+  color: #f3f8ff;
+  padding: 0.2rem 0.35rem;
+}
+
+.live-cockpit-empty {
+  border: 1px dashed rgba(124, 161, 198, 0.5);
+  background: rgba(15, 24, 38, 0.65);
+  border-radius: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  color: #c6d8eb;
+  font-size: 0.82rem;
 }
 
 .live-streaming-session-toolbar {
@@ -1454,7 +1554,7 @@ main {
 
 .live-streaming-media-container {
   position: relative;
-  width: min(100%, 980px);
+  width: 100%;
   max-height: min(80dvh, 960px);
   aspect-ratio: 9 / 16;
   border-radius: 0.8rem;
@@ -1488,11 +1588,7 @@ main {
 }
 
 .live-streaming-zoom-control {
-  position: absolute;
-  left: 0.6rem;
-  right: 0.6rem;
-  bottom: 0.6rem;
-  z-index: 3;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1504,6 +1600,8 @@ main {
   backdrop-filter: blur(4px);
   color: #f5f7ff;
   font-size: 0.72rem;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .live-streaming-zoom-label {
@@ -1986,6 +2084,20 @@ main {
 
   .live-streaming-control-row {
     grid-template-columns: 1fr;
+  }
+
+  .live-cockpit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-cockpit-controls {
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    flex-wrap: nowrap;
+  }
+
+  .live-cockpit-cue-select {
+    white-space: nowrap;
   }
 }
 
