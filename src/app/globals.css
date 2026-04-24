@@ -791,10 +791,21 @@ main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0.9rem 1.6rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.site-header-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+
+.site-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .site-brand {
@@ -837,6 +848,51 @@ main {
 .site-nav-link:hover {
   background: rgba(114, 168, 255, 0.2);
   color: var(--text);
+}
+
+
+.site-nav-label-mobile {
+  display: none;
+}
+
+.site-overflow-button {
+  display: none;
+  border: 1px solid rgba(145, 173, 204, 0.4);
+  background: rgba(17, 27, 41, 0.74);
+  color: #d9e8ff;
+  border-radius: 0.6rem;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.site-mobile-menu {
+  display: none;
+}
+
+.site-download-cta-mobile {
+  display: none;
+}
+
+.site-mobile-menu-link {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.6rem;
+}
+
+.site-mobile-menu-link.active,
+.site-mobile-menu-link:hover {
+  background: rgba(114, 168, 255, 0.2);
+  color: var(--text);
+}
+
+.site-mobile-menu-email {
+  margin: 0;
+  font-size: 0.77rem;
+  color: var(--muted);
 }
 
 .site-download-cta {
@@ -1092,33 +1148,94 @@ main {
     grid-template-columns: 1fr;
   }
   .site-header-inner {
-    padding: 0.75rem 1rem;
-    display: grid;
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 0.6rem;
+    padding: 0.45rem 0.7rem 0.5rem;
+    gap: 0.38rem;
+  }
+
+  .site-header-top-row {
+    min-height: 2.2rem;
   }
 
   .site-nav {
     width: 100%;
-    border-radius: 0.75rem;
-    padding: 0.3rem;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.28rem;
+    border-radius: 999px;
+    padding: 0.2rem;
+    display: flex;
+    gap: 0.2rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .site-nav::-webkit-scrollbar {
+    height: 3px;
+  }
+
+  .site-nav::-webkit-scrollbar-thumb {
+    background: rgba(114, 168, 255, 0.32);
+    border-radius: 999px;
+  }
+
+  .site-brand {
+    gap: 0.35rem;
   }
 
   .site-brand-logo {
-    width: 5.8rem;
+    width: 4.4rem;
   }
 
   .site-brand-text {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
 
   .site-nav-link {
     text-align: center;
-    padding: 0.5rem 0.45rem;
+    padding: 0.4rem 0.62rem;
+    font-size: 0.8rem;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .site-nav-label-desktop {
+    display: none;
+  }
+
+  .site-nav-label-mobile {
+    display: inline;
+  }
+
+  .site-download-cta {
+    padding: 0.35rem 0.58rem;
+    min-height: 2rem;
+    font-size: 0.76rem;
+  }
+
+  .site-download-cta-desktop {
+    display: none;
+  }
+
+  .site-download-cta-mobile {
+    display: inline;
+  }
+
+  .site-overflow-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .site-mobile-menu {
+    display: none;
+  }
+
+  .site-mobile-menu.is-open {
+    display: grid;
+    gap: 0.22rem;
+    padding: 0.4rem;
+    border: 1px solid rgba(145, 173, 204, 0.16);
+    border-radius: 0.6rem;
+    background: rgba(13, 21, 32, 0.9);
   }
 
   .home-hero-logo-wrap {
