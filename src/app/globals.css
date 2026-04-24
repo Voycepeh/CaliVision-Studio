@@ -1742,6 +1742,14 @@ main {
   padding: 0.35rem 0.65rem;
 }
 
+.live-cockpit-mobile-only {
+  display: none;
+}
+
+.live-cockpit-desktop-only {
+  display: inline-flex;
+}
+
 .live-cockpit-cue-select {
   display: inline-flex;
   align-items: center;
@@ -2329,8 +2337,13 @@ main {
   }
 
   .live-streaming-media-container {
-    max-height: min(62dvh, calc(100dvh - 165px));
-    min-height: min(46dvh, 320px);
+    max-height: min(68dvh, calc(100dvh - 145px));
+    min-height: min(50dvh, 340px);
+  }
+
+  .live-cockpit-shell--mobile-cue-hidden .live-streaming-media-container {
+    max-height: min(74dvh, calc(100dvh - 115px));
+    min-height: min(56dvh, 380px);
   }
 
   .live-cockpit-panel {
@@ -2370,6 +2383,14 @@ main {
     min-width: 0;
     padding: 0.32rem 0.5rem;
     font-size: 0.74rem;
+  }
+
+  .live-cockpit-mobile-only {
+    display: inline-flex;
+  }
+
+  .live-cockpit-desktop-only {
+    display: none;
   }
 
   .live-cockpit-cue-select {

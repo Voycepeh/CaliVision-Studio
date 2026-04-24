@@ -266,6 +266,8 @@ export function LiveStreamingWorkspace() {
   const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
   const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
   const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isMobileCoachingCueVisible, setIsMobileCoachingCueVisible] = useState(false);
   const [, setHasLiveCueEventOccurred] = useState(false);
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
     phaseId: null,
@@ -463,6 +465,7 @@ export function LiveStreamingWorkspace() {
   const isPostAnalysisPhase = workspacePhase === "processing" || workspacePhase === "ready";
   const isSessionStageActive = isLivePhase;
   const shouldShowSessionToolbar = isLivePhase || isStageFullscreen;
+  const shouldShowCoachingCueCard = !isMobileViewport || isMobileCoachingCueVisible;
   const activeZoomPreset = resolveSelectedZoomPreset(selectedZoomPreset, APP_HARDWARE_ZOOM_PRESETS);
   const halfXAccess = useMemo(() => {
     if (activeCameraSource === "rear-ultrawide") {
@@ -849,6 +852,23 @@ export function LiveStreamingWorkspace() {
       setLiveAudioCueStyle(storedStyle);
     }
     audioCueControllerRef.current = createLiveAudioCueController();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mobileViewportQuery = window.matchMedia("(max-width: 980px)");
+    const syncMobileLayoutState = (matchesMobile: boolean) => {
+      setIsMobileViewport(matchesMobile);
+      setIsMobileCoachingCueVisible(!matchesMobile);
+    };
+    syncMobileLayoutState(mobileViewportQuery.matches);
+    const onMobileViewportChange = (event: MediaQueryListEvent) => {
+      syncMobileLayoutState(event.matches);
+    };
+    mobileViewportQuery.addEventListener("change", onMobileViewportChange);
+    return () => {
+      mobileViewportQuery.removeEventListener("change", onMobileViewportChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -2314,7 +2334,7 @@ export function LiveStreamingWorkspace() {
       <article ref={sessionStageRef} className={`card live-streaming-results-card ${isSessionStageActive ? "live-streaming-results-card--session-active" : ""}`}>
         {isLivePhase ? (
           <div className="live-streaming-preview-shell">
-            <div className="live-cockpit-shell">
+            <div className={`live-cockpit-shell ${isMobileViewport && !isMobileCoachingCueVisible ? "live-cockpit-shell--mobile-cue-hidden" : ""}`}>
               {shouldShowSessionToolbar ? (
                 <div className="live-streaming-session-toolbar">
                   <div className="pill">Drill: {selection.drillBindingLabel}</div>
@@ -2384,10 +2404,12 @@ export function LiveStreamingWorkspace() {
                         : `${liveHudState.repCount} reps`}
                   </strong>
                 </article>
-                <article className="live-cockpit-card">
-                  <h4>Coaching Cue</h4>
-                  <p style={{ margin: 0 }}>{liveCoachingCue}</p>
-                </article>
+                {shouldShowCoachingCueCard ? (
+                  <article className="live-cockpit-card">
+                    <h4>Coaching Cue</h4>
+                    <p style={{ margin: 0 }}>{liveCoachingCue}</p>
+                  </article>
+                ) : null}
                 </aside>
               </div>
               <div className="live-cockpit-controls">
@@ -2404,7 +2426,7 @@ export function LiveStreamingWorkspace() {
                     Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
                   </button>
                   {isLiveAudioSupported ? (
-                    <button type="button" className="studio-button" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
+                    <button type="button" className="studio-button live-cockpit-desktop-only" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
                       Test sound
                     </button>
                   ) : null}
@@ -2423,6 +2445,16 @@ export function LiveStreamingWorkspace() {
                       )}
                     </div>
                     <div className="live-cockpit-controls-secondary">
+                      {isLiveAudioSupported ? (
+                        <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => void playTestSound()}>
+                          Test sound
+                        </button>
+                      ) : null}
+                      {isMobileViewport ? (
+                        <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => setIsMobileCoachingCueVisible((visible) => !visible)}>
+                          {isMobileCoachingCueVisible ? "Hide coaching cue" : "Show coaching cue"}
+                        </button>
+                      ) : null}
                       <label className="live-cockpit-cue-select">
                         <span>Cue style</span>
                         <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
