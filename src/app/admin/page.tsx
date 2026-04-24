@@ -13,7 +13,7 @@ export default async function AdminPage() {
     <RoutePageIntro
       navActive="admin"
       title="Admin"
-      description="Admin-only moderation and user-role tools for Drill Exchange, with user activity and authored drill visibility."
+      description="Admin-only moderation, user-role tools, and homepage branding media management for Drill Exchange and Studio."
     >
       <AdminPanel canManageRoles={access.role === "admin"} />
     </RoutePageIntro>

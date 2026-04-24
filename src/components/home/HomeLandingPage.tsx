@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { HomeDemoMedia } from "@/components/home/HomeDemoMedia";
+import { HomeBrandingCarousel } from "@/components/home/HomeBrandingCarousel";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
+import { getHomepageBrandingImages } from "@/lib/media/server";
 
 type IconName = "upload" | "studio" | "live";
 
@@ -72,7 +74,9 @@ function HomeIcon({ name }: { name: IconName }) {
   return null;
 }
 
-export function HomeLandingPage() {
+export async function HomeLandingPage() {
+  const brandingImages = await getHomepageBrandingImages();
+
   return (
     <>
       <PrimaryNav active="home" />
@@ -86,6 +90,8 @@ export function HomeLandingPage() {
             Create drills, analyze videos, and get live overlay feedback in one browser-first workflow.
           </p>
         </section>
+
+        <HomeBrandingCarousel items={brandingImages} />
 
         <HomeDemoMedia
           title="Product demo preview"

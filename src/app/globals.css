@@ -891,6 +891,65 @@ main {
   line-height: 1.5;
 }
 
+
+.home-branding {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.home-branding-header {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.home-branding-header h2 {
+  margin: 0;
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
+}
+
+.home-branding-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.home-branding-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(76%, 1fr);
+  gap: 0.8rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x mandatory;
+}
+
+.home-branding-item {
+  margin: 0;
+  border: 1px solid rgba(145, 173, 204, 0.25);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: rgba(10, 16, 24, 0.9);
+  min-height: 180px;
+  scroll-snap-align: start;
+  display: grid;
+}
+
+.home-branding-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-branding-item figcaption {
+  margin: 0;
+  padding: 0.42rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid rgba(145, 173, 204, 0.16);
+  background: rgba(4, 8, 12, 0.62);
+}
+
 .home-demo {
   display: grid;
   gap: 0.65rem;
@@ -1020,12 +1079,20 @@ main {
 }
 
 @media (max-width: 980px) {
+  .home-branding-track {
+    grid-auto-columns: minmax(88%, 1fr);
+  }
+
   .home-feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
+  .home-branding-track {
+    grid-auto-columns: 100%;
+  }
+
   .home-feature-grid {
     grid-template-columns: 1fr;
   }
