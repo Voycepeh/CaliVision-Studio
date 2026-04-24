@@ -47,7 +47,9 @@ function buildHoldDrill(phases: string[] = ["hold", "rest"]): PortableDrill {
       minimumConfirmationFrames: 1,
       entryConfirmationFrames: 1,
       exitGraceFrames: 0,
-      minimumHoldDurationMs: 1
+      minimumHoldDurationMs: 1,
+      minimumRepDurationMs: 1,
+      cooldownMs: 0
     }
   };
 }

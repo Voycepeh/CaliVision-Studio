@@ -130,3 +130,38 @@ test("timestamp mode panel labels replay-relative primary metric detail", () => 
   assert.equal(panel.currentTimestampMs, 2200);
   assert.equal(panel.timelineDurationMs, 4000);
 });
+
+test("buildAnalysisPanelModel maps coaching body breakdown and mental model", () => {
+  const panel = buildAnalysisPanelModel(
+    buildAnalysisDomainModel({
+      drillLabel: "Wall handstand",
+      movementType: "hold",
+      phaseTimelineInteractive: false,
+      coachingFeedback: {
+        summaryLabel: "Coaching ready",
+        summaryDescription: "Line needs work.",
+        positives: [],
+        improvements: [],
+        bodyPartBreakdown: [{ bodyPart: "Hips", observation: "Drift", correction: "Stack over hands", visualGuides: [] }],
+        mentalModel: { thinkInstead: "Hips over hands." },
+        orderedFixSteps: [],
+        nextSteps: [],
+        visualGuides: []
+      }
+    })
+  );
+
+  assert.equal(panel.coachingFeedback?.bodyPartBreakdown[0]?.bodyPart, "Hips");
+  assert.equal(panel.coachingFeedback?.mentalModel?.thinkInstead, "Hips over hands.");
+});
+
+test("buildAnalysisPanelModel omits coaching feedback when not provided", () => {
+  const panel = buildAnalysisPanelModel(
+    buildAnalysisDomainModel({
+      drillLabel: "No analysis yet",
+      movementType: "freestyle",
+      phaseTimelineInteractive: false
+    })
+  );
+  assert.equal(panel.coachingFeedback, undefined);
+});

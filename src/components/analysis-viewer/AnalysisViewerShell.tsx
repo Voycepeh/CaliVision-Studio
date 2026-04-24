@@ -44,11 +44,62 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseT
           <AnalysisMetricGrid model={model} />
 
           <AnalysisStructuredList model={model} onPhaseTimelineSelect={onPhaseTimelineSelect} />
+          <AnalysisCoachSection model={model} />
 
           <AnalysisDownloads model={model} />
           <AnalysisAdvancedDetails model={model} />
         </aside>
       </div>
+    </section>
+  );
+}
+
+function AnalysisCoachSection({ model }: { model: AnalysisViewerModel }) {
+  const coaching = model.panel.coachingFeedback;
+  if (!coaching) return null;
+  const compactMode = model.panel.drillLabel === "Live Streaming" && model.state !== "ready";
+  return (
+    <section className="analysis-intervals" style={{ gap: "0.45rem" }}>
+      <strong>Coach</strong>
+      <p className="muted" style={{ margin: 0 }}>{coaching.summaryLabel} · {coaching.summaryDescription}</p>
+      {coaching.positives.length > 0 ? (
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>What is good here</strong>
+          <ul style={{ margin: "0.25rem 0 0.5rem 1rem" }}>
+            {coaching.positives.slice(0, 2).map((item) => <li key={item.id}>{item.title}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {coaching.primaryIssue ? (
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>What is limiting you</strong>
+          <p style={{ margin: "0.25rem 0" }}>{coaching.primaryIssue.description}</p>
+          <p className="muted" style={{ margin: 0 }}>Cue: {coaching.primaryIssue.cueText}</p>
+        </div>
+      ) : null}
+      {coaching.orderedFixSteps.length > 0 ? (
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>How to fix it</strong>
+          <ol style={{ margin: "0.25rem 0 0 1rem" }}>
+            {coaching.orderedFixSteps.slice(0, 3).map((step) => <li key={`${step.order}_${step.title}`}>{step.title}: {step.cueText}</li>)}
+          </ol>
+        </div>
+      ) : null}
+      {!compactMode && coaching.bodyPartBreakdown.length > 0 ? (
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>Biggest technical faults</strong>
+          <ul style={{ margin: "0.25rem 0 0 1rem" }}>
+            {coaching.bodyPartBreakdown.slice(0, 3).map((item) => <li key={item.bodyPart}><strong>{item.bodyPart}:</strong> {item.correction}</li>)}
+          </ul>
+        </div>
+      ) : null}
+      {!compactMode && coaching.mentalModel ? (
+        <div>
+          <strong style={{ fontSize: "0.9rem" }}>The real cue you need</strong>
+          {coaching.mentalModel.avoidThinking ? <p style={{ margin: "0.2rem 0" }}>Avoid: {coaching.mentalModel.avoidThinking}</p> : null}
+          <p className="muted" style={{ margin: 0 }}>Think: {coaching.mentalModel.thinkInstead}</p>
+        </div>
+      ) : null}
     </section>
   );
 }

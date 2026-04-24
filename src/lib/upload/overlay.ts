@@ -1,6 +1,8 @@
 import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, getPreviewJointRole } from "@/lib/pose/preview-overlay";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
+import type { CoachingFeedbackOutput, CoachingVisualGuide } from "@/lib/analysis/coaching-feedback";
+import { resolveCoachingArrowEndpoint } from "./coaching-overlay-geometry";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import type { PoseFrame } from "@/lib/upload/types";
@@ -366,4 +368,70 @@ export function buildAnalysisOverlayLines(
     }
   }
   return lines;
+}
+
+function resolveGuideAnchor(frame: PoseFrame | undefined, guide: CoachingVisualGuide, width: number, height: number, projection?: OverlayProjection): { x: number; y: number } | null {
+  const preferredJoint = guide.fromJoint ?? guide.targetJoints?.[0];
+  if (!frame || !preferredJoint) return null;
+  const joint = frame.joints[preferredJoint];
+  if (!joint) return null;
+  return toCanvasPoint(joint, width, height, projection);
+}
+
+export function drawCoachingOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  frame: PoseFrame | undefined,
+  coachingOutput?: CoachingFeedbackOutput | null,
+  options?: { projection?: OverlayProjection; includeSecondary?: boolean }
+): void {
+  if (!coachingOutput) return;
+  const guides = options?.includeSecondary ? coachingOutput.visualGuides : (coachingOutput.primaryIssue?.visualGuides ?? coachingOutput.visualGuides);
+  if (guides.length === 0) return;
+
+  ctx.save();
+  for (const guide of guides) {
+    if (guide.type === "stack_line") {
+      const base = resolveGuideAnchor(frame, guide, width, height, options?.projection) ?? { x: width / 2, y: height / 2 };
+      ctx.strokeStyle = guide.severity === "warning" ? "rgba(248,113,113,0.85)" : "rgba(34,211,238,0.85)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+      ctx.moveTo(base.x, Math.max(6, height * 0.08));
+      ctx.lineTo(base.x, height - Math.max(6, height * 0.08));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (guide.type === "correction_arrow") {
+      const from = resolveGuideAnchor(frame, guide, width, height, options?.projection);
+      if (!from) continue;
+      const to = guide.direction === "toward_line" && frame && options?.projection
+        ? (() => {
+            const lineJoints = (guide.targetJoints?.length ? guide.targetJoints : ["leftWrist", "rightWrist"] as const)
+              .map((jointName) => frame.joints[jointName])
+              .filter((joint): joint is { x: number; y: number; confidence?: number } => Boolean(joint));
+            if (lineJoints.length === 0) {
+              return resolveCoachingArrowEndpoint({ from, guide, frame, width });
+            }
+            const stackX = lineJoints.map((joint) => toCanvasPoint(joint, width, height, options.projection)).reduce((sum, point) => sum + point.x, 0) / lineJoints.length;
+            return { x: stackX, y: from.y };
+          })()
+        : resolveCoachingArrowEndpoint({ from, guide, frame, width });
+      ctx.strokeStyle = "rgba(251,146,60,0.92)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    } else if (guide.type === "highlight_region") {
+      const at = resolveGuideAnchor(frame, guide, width, height, options?.projection) ?? { x: width / 2, y: height / 2 };
+      ctx.fillStyle = "rgba(34,211,238,0.16)";
+      ctx.beginPath();
+      ctx.arc(at.x, at.y, Math.max(28, width * 0.04), 0, Math.PI * 2);
+      ctx.fill();
+    } else if (guide.type === "metric_badge" || guide.type === "support_indicator") {
+      drawStatusPill(ctx, Math.max(20, width - 20), Math.max(16, height * 0.1), guide.label ?? "Coach", "right");
+    }
+  }
+  ctx.restore();
 }

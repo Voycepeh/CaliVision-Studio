@@ -67,6 +67,17 @@ export type AnalysisViewerPanelModel = {
     }>;
     nextSteps: string[];
   };
+  coachingFeedback?: {
+    summaryLabel: string;
+    summaryDescription: string;
+    positives: Array<{ id: string; title: string; description: string; cueText: string }>;
+    primaryIssue?: { id: string; title: string; description: string; cueText: string };
+    improvements: Array<{ id: string; title: string; description: string; cueText: string }>;
+    bodyPartBreakdown: Array<{ bodyPart: string; observation: string; correction: string }>;
+    mentalModel?: { avoidThinking?: string; thinkInstead: string; explanation?: string };
+    orderedFixSteps: Array<{ order: number; title: string; instruction: string; cueText: string }>;
+    nextSteps: string[];
+  };
   phaseTimelineSegments: AnalysisViewerPhaseTimelineSegment[];
   currentTimestampMs?: number;
   timelineDurationMs?: number;

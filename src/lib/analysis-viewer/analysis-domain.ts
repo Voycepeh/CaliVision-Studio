@@ -1,6 +1,7 @@
 import type { AnalysisEvent } from "../schema/contracts.ts";
 import { formatDurationClock, toFiniteNonNegativeMs } from "../format/safe-duration.ts";
 import type { AnalysisViewerPanelModel } from "./types.ts";
+import type { CoachingFeedbackOutput } from "../analysis/coaching-feedback.ts";
 
 export type AnalysisMovementType = "rep" | "hold" | "freestyle";
 export type AnalysisMode = "latest" | "timestamp";
@@ -59,6 +60,7 @@ export type AnalysisDomainModel = {
     }>;
     nextSteps: string[];
   };
+  coachingFeedback?: CoachingFeedbackOutput;
 };
 
 function formatPercent(value?: number): string {
@@ -183,6 +185,7 @@ export function buildAnalysisDomainModel(input: {
   feedbackLines?: string[];
   summaryMetrics?: AnalysisSummaryMetricSlot[];
   benchmarkFeedback?: AnalysisDomainModel["benchmarkFeedback"];
+  coachingFeedback?: AnalysisDomainModel["coachingFeedback"];
   mode?: AnalysisMode;
   currentTimestampMs?: number;
   phaseTimelineInteractive: boolean;
@@ -245,6 +248,7 @@ export function buildAnalysisDomainModel(input: {
         ? input.feedbackLines.slice(0, 2)
         : ["Coach notes not available yet", "Run another analysis for more guidance."],
     benchmarkFeedback: input.benchmarkFeedback,
+    coachingFeedback: input.coachingFeedback,
     summaryMetricSlots: input.summaryMetrics ?? [
       { id: "quality", label: "Quality", value: "Coming soon", placeholder: true },
       { id: "stability", label: "Stability", value: "Coming soon", placeholder: true },
@@ -272,6 +276,45 @@ export function buildAnalysisPanelModel(domainModel: AnalysisDomainModel): Analy
     feedbackLines: domainModel.feedbackPreviewLines,
     summaryMetrics: domainModel.summaryMetricSlots,
     benchmarkFeedback: domainModel.benchmarkFeedback,
+    coachingFeedback: domainModel.coachingFeedback
+      ? {
+          summaryLabel: domainModel.coachingFeedback.summaryLabel,
+          summaryDescription: domainModel.coachingFeedback.summaryDescription,
+          positives: domainModel.coachingFeedback.positives.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            cueText: item.cueText
+          })),
+          primaryIssue: domainModel.coachingFeedback.primaryIssue
+            ? {
+                id: domainModel.coachingFeedback.primaryIssue.id,
+                title: domainModel.coachingFeedback.primaryIssue.title,
+                description: domainModel.coachingFeedback.primaryIssue.description,
+                cueText: domainModel.coachingFeedback.primaryIssue.cueText
+              }
+            : undefined,
+          improvements: domainModel.coachingFeedback.improvements.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            cueText: item.cueText
+          })),
+          bodyPartBreakdown: domainModel.coachingFeedback.bodyPartBreakdown.map((item) => ({
+            bodyPart: item.bodyPart,
+            observation: item.observation,
+            correction: item.correction
+          })),
+          mentalModel: domainModel.coachingFeedback.mentalModel,
+          orderedFixSteps: domainModel.coachingFeedback.orderedFixSteps.map((item) => ({
+            order: item.order,
+            title: item.title,
+            instruction: item.instruction,
+            cueText: item.cueText
+          })),
+          nextSteps: domainModel.coachingFeedback.nextSteps
+        }
+      : undefined,
     phaseTimelineSegments: sessionSnapshot.phaseTimelineSegments,
     currentTimestampMs: sessionSnapshot.currentTimestampMs,
     timelineDurationMs: sessionSnapshot.durationMs
