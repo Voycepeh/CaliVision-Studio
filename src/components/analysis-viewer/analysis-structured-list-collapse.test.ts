@@ -24,3 +24,7 @@ test("structured summary remains visible while details are collapsed", () => {
   assert.match(shellSource, /Current\/last phase:/, "expected phase summary line");
   assert.match(shellSource, /Analyzed duration:/, "expected analyzed duration summary line");
 });
+
+test("structured hold intervals can be inferred from hold events even when movement label is stale", () => {
+  assert.match(shellSource, /const hasHoldEvents = model\.timelineEvents\.some\(\(event\) => event\.kind === "hold"\);/);
+});

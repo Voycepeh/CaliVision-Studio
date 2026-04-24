@@ -229,3 +229,32 @@ test("arm-raise y deltas remain large after normalization", () => {
   const upDelta = result?.debug?.phaseComparisons.up?.perJointDelta.rightWrist ?? 1;
   assert.equal(downDelta > upDelta * 2, true);
 });
+
+test("hold target phase is rejected when hold threshold is not met", () => {
+  const upPhasePose = makePose("hold_up", 0.18);
+  const phases: PortablePhase[] = [
+    { phaseId: "hold_up", order: 1, name: "Up Hold", durationMs: 300, poseSequence: [upPhasePose], assetRefs: [] }
+  ];
+  const noisyLowConfidenceFrame = makeFrameFromPose(upPhasePose, { noise: 0.09, confidence: 0.35 });
+  const [result] = scoreFramesAgainstDrillPhases([noisyLowConfidenceFrame], phases, {
+    cameraView: "front",
+    holdTargetPhaseId: "hold_up",
+    minimumScoreThreshold: 0
+  });
+  assert.equal(result?.bestPhaseId, null);
+});
+
+test("hands-down pose does not classify as hands-up hold target", () => {
+  const upPose = makePose("up", 0.2);
+  const downPose = makePose("down", 0.88);
+  const phases: PortablePhase[] = [
+    { phaseId: "up", order: 1, name: "Hands Up Hold", durationMs: 300, poseSequence: [upPose], assetRefs: [] }
+  ];
+  const [result] = scoreFramesAgainstDrillPhases([makeFrameFromPose(downPose, { confidence: 0.92 })], phases, {
+    cameraView: "front",
+    holdTargetPhaseId: "up",
+    minimumScoreThreshold: 0
+  });
+  assert.equal(result?.bestPhaseId, null);
+  assert.equal(result?.debug?.holdGate?.reason, "wrist_below_shoulder");
+});

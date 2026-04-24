@@ -261,8 +261,9 @@ function AnalysisStructuredList({
 }
 
 function buildStructuredIntervals(model: AnalysisViewerModel): AnalysisInterval[] {
+  const hasHoldEvents = model.timelineEvents.some((event) => event.kind === "hold");
   const movementLabel = model.panel.movementTypeLabel.toLowerCase();
-  if (movementLabel.includes("hold")) {
+  if (hasHoldEvents || movementLabel.includes("hold")) {
     return buildHoldIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
   }
   return buildRepIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);

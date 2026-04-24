@@ -112,7 +112,14 @@ export function createLiveTraceAccumulator(input: {
     return Math.max(0, Math.round(state.completedHoldDurationMs + (clampedTimestampMs - state.activeHoldStartMs)));
   };
 
-  const closeActiveHold = (timestampMs: number, options?: { inferredSessionEnd?: boolean }) => {
+  const closeActiveHold = (
+    timestampMs: number,
+    options?: {
+      inferredSessionEnd?: boolean;
+      exitReason?: "phase_exit" | "phase_replaced" | "match_rejected" | "low_confidence" | "session_end";
+      qualified?: boolean;
+    }
+  ) => {
     if (state.activeHoldStartMs === null) {
       return;
     }
@@ -121,7 +128,11 @@ export function createLiveTraceAccumulator(input: {
     const durationMs = Math.max(0, endMs - state.activeHoldStartMs);
     state.completedHoldDurationMs += durationMs;
     if (targetHold) {
-      const details: NonNullable<AnalysisEvent["details"]> = { durationMs, qualified: true };
+      const details: NonNullable<AnalysisEvent["details"]> = {
+        durationMs,
+        qualified: options?.qualified ?? true,
+        exitReason: options?.exitReason ?? (options?.inferredSessionEnd ? "session_end" : "phase_replaced")
+      };
       if (options?.inferredSessionEnd) {
         details.inferredSessionEnd = true;
       }
@@ -147,7 +158,7 @@ export function createLiveTraceAccumulator(input: {
       }
       return;
     }
-    closeActiveHold(timestampMs);
+    closeActiveHold(timestampMs, { exitReason: "phase_replaced" });
   };
 
   const applyTransition = (drill: PortableDrill | undefined, nextPhaseId: string | null, timestampMs: number) => {
@@ -275,7 +286,8 @@ export function createLiveTraceAccumulator(input: {
     }
     const score = scoreFramesAgainstDrillPhases([frame], drill.phases, {
       includePerPhaseScores: true,
-      cameraView: input.drillSelection.cameraView
+      cameraView: input.drillSelection.cameraView,
+      holdTargetPhaseId: state.runtimeModel?.measurementMode === "hold" ? state.runtimeModel.holdPhaseId ?? undefined : undefined
     })[0];
     return {
       timestampMs: frame.timestampMs,
@@ -365,6 +377,10 @@ export function createLiveTraceAccumulator(input: {
         });
       }
       if (candidatePhaseId === state.currentPhaseId || candidatePhaseId === null) {
+        if (candidatePhaseId === null && state.currentPhaseId === state.runtimeModel?.holdPhaseId && state.activeHoldStartMs !== null) {
+          const rejectReason = frameSample.confidence < PHASE_CONFIDENCE_GATE_EXIT ? "low_confidence" : "match_rejected";
+          closeActiveHold(frame.timestampMs, { exitReason: rejectReason, qualified: true });
+        }
         state.pendingPhaseId = null;
         state.pendingPhaseFrameCount = 0;
         return;
@@ -419,7 +435,7 @@ export function createLiveTraceAccumulator(input: {
     ): LiveSessionTrace {
       if (state.activeHoldStartMs !== null) {
         const endMs = Math.max(video.durationMs, state.activeHoldStartMs);
-        closeActiveHold(endMs, { inferredSessionEnd: true });
+        closeActiveHold(endMs, { inferredSessionEnd: true, exitReason: "session_end" });
       }
 
       const normalized = normalizeTraceToVideoDuration(state.captures, state.events, video.durationMs);

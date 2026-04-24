@@ -7,6 +7,7 @@ import type { DrillCameraView } from "./camera-view.ts";
 import { getPoseAspectRatio, normalizePoseForScoring } from "./pose-normalization.ts";
 
 const DEFAULT_MIN_SCORE_THRESHOLD = 0.35;
+const DEFAULT_HOLD_MIN_SCORE_THRESHOLD = 0.55;
 const DEFAULT_DISTANCE_TOLERANCE = 0.8;
 const FRONT_VIEW_JOINTS: CanonicalJointName[] = CANONICAL_JOINT_NAMES;
 const SIDE_LEFT_PROFILE_JOINTS: CanonicalJointName[] = [
@@ -51,6 +52,7 @@ export function scoreFramesAgainstDrillPhases(
   options: ScorerOptions = {}
 ): FramePhaseScore[] {
   const minimumScoreThreshold = options.minimumScoreThreshold ?? DEFAULT_MIN_SCORE_THRESHOLD;
+  const holdMinimumScoreThreshold = options.holdMinimumScoreThreshold ?? DEFAULT_HOLD_MIN_SCORE_THRESHOLD;
   const tolerance = options.defaultTolerance ?? DEFAULT_DISTANCE_TOLERANCE;
 
   return sampledFrames.map((frame) => {
@@ -93,7 +95,26 @@ export function scoreFramesAgainstDrillPhases(
     }
 
     const adjustedBestPhaseScore = applyWinnerMarginSoftPenalty(bestPhaseScore, secondBestPhaseScore);
-    const chosenPhaseId = adjustedBestPhaseScore >= minimumScoreThreshold ? bestPhaseId : null;
+    let chosenPhaseId = adjustedBestPhaseScore >= minimumScoreThreshold ? bestPhaseId : null;
+    let holdGateDebug: NonNullable<FramePhaseScore["debug"]>["holdGate"] | undefined = undefined;
+    if (chosenPhaseId && options.holdTargetPhaseId && chosenPhaseId === options.holdTargetPhaseId) {
+      const holdGate = evaluateHoldTargetGate({
+        frame,
+        phase: phases.find((item) => item.phaseId === options.holdTargetPhaseId) ?? null,
+        score: adjustedBestPhaseScore,
+        threshold: holdMinimumScoreThreshold
+      });
+      holdGateDebug = {
+        targetPhaseId: options.holdTargetPhaseId,
+        passed: holdGate.passed,
+        threshold: holdMinimumScoreThreshold,
+        score: adjustedBestPhaseScore,
+        reason: holdGate.reason
+      };
+      if (!holdGate.passed) {
+        chosenPhaseId = null;
+      }
+    }
     const phaseForQuality = phases.find((phase) => phase.phaseId === chosenPhaseId);
     const quality = buildQualityFlags(frame, phaseForQuality);
 
@@ -108,11 +129,64 @@ export function scoreFramesAgainstDrillPhases(
         mirrorApplied: runtimeNormalized.debug.mirrorApplied,
         runtimeNormalization: runtimeNormalized.debug,
         sideOrientationModeByPhaseId: Object.keys(sideOrientationModeByPhaseId).length > 0 ? sideOrientationModeByPhaseId : undefined,
-        phaseComparisons
+        phaseComparisons,
+        ...(holdGateDebug ? { holdGate: holdGateDebug } : {})
       },
       quality
     };
   });
+}
+
+function evaluateHoldTargetGate(input: {
+  frame: PoseFrame;
+  phase: PortablePhase | null;
+  score: number;
+  threshold: number;
+}): { passed: boolean; reason?: "low_match_score" | "wrist_below_shoulder" | "elbow_below_shoulder" | "insufficient_confidence" } {
+  if (input.score < input.threshold) {
+    return { passed: false, reason: "low_match_score" };
+  }
+  const template = input.phase?.poseSequence?.[0];
+  if (!template) {
+    return { passed: true };
+  }
+
+  const authoredWristsRaised =
+    (template.joints.leftWrist && template.joints.leftShoulder && template.joints.leftWrist.y <= template.joints.leftShoulder.y)
+    || (template.joints.rightWrist && template.joints.rightShoulder && template.joints.rightWrist.y <= template.joints.rightShoulder.y);
+  if (!authoredWristsRaised) {
+    return { passed: true };
+  }
+
+  const leftShoulder = input.frame.joints.leftShoulder;
+  const rightShoulder = input.frame.joints.rightShoulder;
+  const leftWrist = input.frame.joints.leftWrist;
+  const rightWrist = input.frame.joints.rightWrist;
+  const leftElbow = input.frame.joints.leftElbow;
+  const rightElbow = input.frame.joints.rightElbow;
+
+  const confidenceTriplets: Array<[typeof leftWrist | undefined, typeof leftShoulder | undefined, typeof leftElbow | undefined]> = [
+    [leftWrist, leftShoulder, leftElbow],
+    [rightWrist, rightShoulder, rightElbow]
+  ];
+  const lowConfidenceSide = confidenceTriplets.some(([wrist, shoulder, elbow]) => {
+    const values = [wrist?.confidence ?? 1, shoulder?.confidence ?? 1, elbow?.confidence ?? 1];
+    return values.some((value) => typeof value === "number" && value < 0.2);
+  });
+  if (lowConfidenceSide) {
+    return { passed: false, reason: "insufficient_confidence" };
+  }
+
+  const wristBelowShoulder = confidenceTriplets.some(([wrist, shoulder]) => wrist && shoulder && wrist.y > shoulder.y + 0.02);
+  if (wristBelowShoulder) {
+    return { passed: false, reason: "wrist_below_shoulder" };
+  }
+  const elbowClearlyBelowShoulder = confidenceTriplets.some(([, shoulder, elbow]) => elbow && shoulder && elbow.y > shoulder.y + 0.08);
+  if (elbowClearlyBelowShoulder) {
+    return { passed: false, reason: "elbow_below_shoulder" };
+  }
+
+  return { passed: true };
 }
 
 function scoreFrameForPhase(

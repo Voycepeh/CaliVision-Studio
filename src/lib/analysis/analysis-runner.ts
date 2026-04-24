@@ -7,13 +7,14 @@ import type { AnalysisRunInput, AnalysisRunOutput } from "./types.ts";
 
 export function runDrillAnalysisPipeline(input: AnalysisRunInput): AnalysisRunOutput {
   const resolvedCameraView = input.cameraView ?? resolveDrillCameraView(input.drill);
-  const scoredFrames = scoreFramesAgainstDrillPhases(input.sampledFrames, input.drill.phases, {
-    includePerPhaseScores: true,
-    cameraView: resolvedCameraView
-  });
-
   const effectiveAnalysis = input.drill.analysis ?? createFallbackAnalysis();
   const runtimeModel = buildPhaseRuntimeModel(input.drill, effectiveAnalysis);
+  const scoredFrames = scoreFramesAgainstDrillPhases(input.sampledFrames, input.drill.phases, {
+    includePerPhaseScores: true,
+    cameraView: resolvedCameraView,
+    holdTargetPhaseId: runtimeModel.measurementMode === "hold" ? runtimeModel.holdPhaseId ?? undefined : undefined
+  });
+
   const smoothed = smoothPhaseTimeline(scoredFrames, effectiveAnalysis, {
     runtimeModel,
     entryConfirmationFrames: effectiveAnalysis.measurementType === "hold"
