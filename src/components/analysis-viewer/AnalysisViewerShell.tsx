@@ -184,55 +184,77 @@ function AnalysisStructuredList({
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
   const intervals = React.useMemo(() => buildStructuredIntervals(model), [model]);
+  const [showDetails, setShowDetails] = React.useState(false);
 
   if (!intervals.length) {
     return <p className="muted" style={{ margin: 0 }}>No structured intervals available for this analysis yet.</p>;
   }
 
+  const isHoldAnalysis = intervals[0]?.kind === "hold";
+  const sectionLabel = isHoldAnalysis ? "Hold analysis" : "Rep analysis";
+  const itemLabel = isHoldAnalysis ? "holds" : "reps";
+  const toggleLabel = showDetails
+    ? (isHoldAnalysis ? "Hide hold details" : "Hide rep details")
+    : (isHoldAnalysis ? "Show hold details" : "Show rep details");
+  const totalDurationMs = model.timelineDurationMs
+    ?? model.panel.timelineDurationMs
+    ?? Math.max(0, (intervals[intervals.length - 1]?.endMs ?? 0) - (intervals[0]?.startMs ?? 0));
+  const currentPhase = model.panel.currentPhaseLabel?.trim();
+  const lastPhase = intervals[intervals.length - 1]?.checkpoints[intervals[intervals.length - 1]?.checkpoints.length - 1]?.label;
+  const phaseSummary = currentPhase && currentPhase !== "—" && currentPhase !== "Unknown" ? currentPhase : lastPhase;
+
   return (
     <section className="analysis-intervals">
-      <strong>{intervals[0]?.kind === "hold" ? "Hold analysis" : "Rep analysis"}</strong>
-      <div className="analysis-intervals__list">
-        {intervals.map((interval) => {
-          const durationMs = Math.max(0, interval.endMs - interval.startMs);
-          return (
-            <article key={interval.id} className="analysis-interval-row">
-              <div className="analysis-interval-row__header">
-                <strong>{interval.kind === "hold" ? `Hold ${interval.index}` : `Rep ${interval.index}`}</strong>
-                <span className="analysis-interval-row__duration">{formatClockDuration(durationMs)}</span>
-              </div>
-              <div className="analysis-interval-row__meta muted">
-                <span>Start {formatClockDuration(interval.startMs)}</span>
-                <span>End {formatClockDuration(interval.endMs)}</span>
-              </div>
-              {interval.checkpoints.length > 0 ? (
-                <ol className="analysis-interval-checkpoints">
-                  {interval.checkpoints.map((checkpoint, checkpointIndex) => (
-                    <li key={checkpoint.id} className="analysis-interval-checkpoint">
-                      <span className="analysis-interval-checkpoint__index">Phase {checkpointIndex + 1}</span>
-                      <button
-                        type="button"
-                        className="analysis-interval-checkpoint__jump"
-                        onClick={() => {
-                          const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id);
-                          if (matchingSegment?.interactive) {
-                            onPhaseTimelineSelect(matchingSegment);
-                          }
-                        }}
-                        disabled={!model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id)?.interactive}
-                        title={checkpoint.label}
-                      >
-                        <span>{checkpoint.label}</span>
-                        <span>{formatClockDuration(checkpoint.timestampMs)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-            </article>
-          );
-        })}
+      <strong>{sectionLabel}</strong>
+      <div className="analysis-intervals__summary muted">
+        <span>{intervals.length} {itemLabel} detected</span>
+        {phaseSummary ? <span>{`Current/last phase: ${phaseSummary}`}</span> : null}
+        {totalDurationMs > 0 ? <span>{`Analyzed duration: ${formatClockDuration(totalDurationMs)}`}</span> : null}
       </div>
+      <button type="button" className="analysis-intervals__toggle" onClick={() => setShowDetails((value) => !value)}>{toggleLabel}</button>
+      {showDetails ? (
+        <div className="analysis-intervals__list">
+          {intervals.map((interval) => {
+            const durationMs = Math.max(0, interval.endMs - interval.startMs);
+            return (
+              <article key={interval.id} className="analysis-interval-row">
+                <div className="analysis-interval-row__header">
+                  <strong>{interval.kind === "hold" ? `Hold ${interval.index}` : `Rep ${interval.index}`}</strong>
+                  <span className="analysis-interval-row__duration">{formatClockDuration(durationMs)}</span>
+                </div>
+                <div className="analysis-interval-row__meta muted">
+                  <span>Start {formatClockDuration(interval.startMs)}</span>
+                  <span>End {formatClockDuration(interval.endMs)}</span>
+                </div>
+                {interval.checkpoints.length > 0 ? (
+                  <ol className="analysis-interval-checkpoints">
+                    {interval.checkpoints.map((checkpoint, checkpointIndex) => (
+                      <li key={checkpoint.id} className="analysis-interval-checkpoint">
+                        <span className="analysis-interval-checkpoint__index">Phase {checkpointIndex + 1}</span>
+                        <button
+                          type="button"
+                          className="analysis-interval-checkpoint__jump"
+                          onClick={() => {
+                            const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id);
+                            if (matchingSegment?.interactive) {
+                              onPhaseTimelineSelect(matchingSegment);
+                            }
+                          }}
+                          disabled={!model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id)?.interactive}
+                          title={checkpoint.label}
+                        >
+                          <span>{checkpoint.label}</span>
+                          <span>{formatClockDuration(checkpoint.timestampMs)}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }
