@@ -396,6 +396,7 @@ export function LiveStreamingWorkspace() {
     return null;
   }, [authoredPhases, liveHudState.phaseId, liveHudState.phaseLabel]);
   const liveCoachingCue = useMemo(() => buildCoachingCue(livePhaseDisplayLabel), [livePhaseDisplayLabel]);
+  const hasSelectedDrill = selection.mode === "drill";
   const requiredFramingJoints = useMemo(() => {
     if (!selection.drill?.phases.length) {
       return [];
@@ -2298,7 +2299,7 @@ export function LiveStreamingWorkspace() {
                 {shouldShowSessionToolbar ? (
                   <div className="live-streaming-session-toolbar">
                     <div className="pill">Drill: {selection.drillBindingLabel}</div>
-                    <span className="pill">Tracking: {trackingStatusLabel}</span>
+                    <span className="live-streaming-session-status">Tracking: {trackingStatusLabel}</span>
                   </div>
                 ) : null}
                 <div ref={mediaContainerRef} className={`live-streaming-media-container ${isSessionStageActive ? "live-streaming-media-container--session-active" : ""}`} style={{ aspectRatio: previewAspectRatio }}>
@@ -2388,9 +2389,13 @@ export function LiveStreamingWorkspace() {
               <aside className="live-cockpit-panel">
                 <article className="live-cockpit-card">
                   <h4>Current Phase</h4>
-                  <strong>{livePhaseDisplayLabel || "Waiting for movement"}</strong>
+                  <strong>{hasSelectedDrill ? (livePhaseDisplayLabel || "Waiting for movement") : "Select a drill to start live coaching"}</strong>
                   <p className="muted" style={{ margin: 0 }}>
-                    {authoredPhases.length > 0 && livePhaseIndex >= 0 ? `Phase ${livePhaseIndex + 1} of ${authoredPhases.length}` : "No drill selected"}
+                    {hasSelectedDrill
+                      ? authoredPhases.length > 0 && livePhaseIndex >= 0
+                        ? `Phase ${livePhaseIndex + 1} of ${authoredPhases.length}`
+                        : "Waiting for movement"
+                      : "Select a drill to start live coaching"}
                   </p>
                 </article>
                 <article className="live-cockpit-card">
