@@ -2404,7 +2404,7 @@ export function LiveStreamingWorkspace() {
                     Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
                   </button>
                   {isLiveAudioSupported ? (
-                    <button type="button" className="studio-button" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
+                    <button type="button" className="studio-button live-cockpit-desktop-only" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
                       Test sound
                     </button>
                   ) : null}
@@ -2423,6 +2423,11 @@ export function LiveStreamingWorkspace() {
                       )}
                     </div>
                     <div className="live-cockpit-controls-secondary">
+                      {isLiveAudioSupported ? (
+                        <button type="button" className="studio-button live-cockpit-mobile-only" onClick={() => void playTestSound()}>
+                          Test sound
+                        </button>
+                      ) : null}
                       <label className="live-cockpit-cue-select">
                         <span>Cue style</span>
                         <select value={liveAudioCueStyle} onChange={(event) => setLiveAudioCueStyle(event.target.value as LiveAudioCueStyle)} disabled={!isLiveAudioSupported}>
