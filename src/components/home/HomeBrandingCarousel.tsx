@@ -5,11 +5,10 @@ import type { HomepageBrandingImage } from "@/lib/media/types";
 
 type HomeBrandingCarouselProps = {
   items: HomepageBrandingImage[];
+  autoAdvanceMs: number;
 };
 
-const AUTO_ADVANCE_MS = 7000;
-
-export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
+export function HomeBrandingCarousel({ items, autoAdvanceMs }: HomeBrandingCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -37,10 +36,10 @@ export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
     if (total <= 1 || isPaused || prefersReducedMotion) return;
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % total);
-    }, AUTO_ADVANCE_MS);
+    }, autoAdvanceMs);
 
     return () => window.clearInterval(timer);
-  }, [isPaused, prefersReducedMotion, total]);
+  }, [autoAdvanceMs, isPaused, prefersReducedMotion, total]);
 
   if (total === 0) {
     return null;
@@ -60,11 +59,6 @@ export function HomeBrandingCarousel({ items }: HomeBrandingCarouselProps) {
 
   return (
     <section className="home-branding" aria-label="Homepage branding carousel">
-      <header className="home-branding-header">
-        <h2>See the workflow</h2>
-        <p>Create drills, analyze movement, and review progress across the web experience.</p>
-      </header>
-
       <div
         className="home-branding-stage"
         style={{ aspectRatio: activeAspectRatio }}
