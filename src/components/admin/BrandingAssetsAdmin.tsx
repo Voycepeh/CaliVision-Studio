@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import {
+  HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS,
+  HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS,
+  HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS,
+} from "@/lib/media/homepage-carousel-settings";
 
 type ImageDimensions = { width: number; height: number } | null;
 
@@ -25,6 +30,11 @@ export function BrandingAssetsAdmin() {
   const [file, setFile] = useState<File | null>(null);
   const [imageDimensions, setImageDimensions] = useState<ImageDimensions>(null);
   const [previewAsset, setPreviewAsset] = useState<BrandingAsset | null>(null);
+  const [carouselDurationSecondsInput, setCarouselDurationSecondsInput] = useState(String(HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS));
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
 
   async function resolveImageDimensions(selected: File): Promise<ImageDimensions> {
     const objectUrl = URL.createObjectURL(selected);
@@ -57,8 +67,22 @@ export function BrandingAssetsAdmin() {
     setLoading(false);
   }
 
+  async function loadCarouselSettings(): Promise<void> {
+    setLoadingSettings(true);
+    setSettingsError(null);
+    const response = await fetch("/api/admin/media/branding/settings", { cache: "no-store" });
+    const payload = (await response.json().catch(() => ({}))) as { seconds?: number; error?: string };
+    if (!response.ok) {
+      setSettingsError(payload.error ?? "Failed to load homepage carousel settings.");
+      setLoadingSettings(false);
+      return;
+    }
+    setCarouselDurationSecondsInput(String(payload.seconds ?? HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS));
+    setLoadingSettings(false);
+  }
+
   useEffect(() => {
-    void loadAssets();
+    void Promise.all([loadAssets(), loadCarouselSettings()]);
   }, []);
 
   async function onUpload(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -101,6 +125,39 @@ export function BrandingAssetsAdmin() {
     if (fileInput) fileInput.value = "";
     setUploading(false);
     await loadAssets();
+  }
+
+  async function onSaveCarouselSettings(): Promise<void> {
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    const parsed = Number.parseFloat(carouselDurationSecondsInput);
+    if (!Number.isFinite(parsed)) {
+      setSettingsError("Enter a valid number of seconds.");
+      return;
+    }
+    const rounded = Math.round(parsed);
+    if (rounded < HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS || rounded > HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS) {
+      setSettingsError(`Duration must be between ${HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS} and ${HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS} seconds.`);
+      return;
+    }
+
+    setSavingSettings(true);
+    const response = await fetch("/api/admin/media/branding/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seconds: rounded })
+    });
+    const payload = (await response.json().catch(() => ({}))) as { seconds?: number; error?: string };
+    setSavingSettings(false);
+
+    if (!response.ok) {
+      setSettingsError(payload.error ?? "Failed to save homepage carousel settings.");
+      return;
+    }
+
+    const savedSeconds = payload.seconds ?? rounded;
+    setCarouselDurationSecondsInput(String(savedSeconds));
+    setSettingsSuccess("Homepage carousel duration saved.");
   }
 
   async function onSaveAsset(asset: BrandingAsset): Promise<void> {
@@ -148,6 +205,33 @@ export function BrandingAssetsAdmin() {
           Upload, reorder, and manage Supabase-backed homepage carousel images.
         </p>
       </header>
+
+      <section style={statusPanelStyle}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
+          <strong style={{ fontSize: "0.95rem" }}>Homepage Carousel Settings</strong>
+          {loadingSettings ? <span className="muted">Loading settings…</span> : null}
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <label style={{ display: "grid", gap: "0.25rem", minWidth: "210px" }}>
+            <span className="muted" style={{ fontSize: "0.82rem" }}>Auto-advance duration (seconds)</span>
+            <input
+              value={carouselDurationSecondsInput}
+              onChange={(event) => setCarouselDurationSecondsInput(event.target.value)}
+              inputMode="numeric"
+              style={inputStyle}
+              disabled={loadingSettings || savingSettings}
+            />
+          </label>
+          <button type="button" className="pill" disabled={loadingSettings || savingSettings} onClick={() => void onSaveCarouselSettings()}>
+            {savingSettings ? "Saving…" : "Save"}
+          </button>
+        </div>
+        <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
+          Allowed range: {HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS} to {HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS} seconds.
+        </p>
+        {settingsError ? <p role="alert" style={{ margin: 0, color: "#f3b8b8" }}>{settingsError}</p> : null}
+        {settingsSuccess ? <p style={{ margin: 0, color: "#b9e7c8" }}>{settingsSuccess}</p> : null}
+      </section>
 
       <form onSubmit={onUpload} style={{ display: "grid", gap: "0.55rem", padding: "0.75rem", border: "1px solid var(--border)", borderRadius: "0.8rem" }}>
         <strong style={{ fontSize: "0.95rem" }}>Upload new branding image</strong>

@@ -3,6 +3,7 @@ import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { HomeBrandingCarousel } from "@/components/home/HomeBrandingCarousel";
 import { PrimaryNav } from "@/components/layout/PrimaryNav";
 import { getHomepageBrandingImages } from "@/lib/media/server";
+import { getHomepageCarouselDurationSeconds } from "@/lib/media/homepage-carousel-settings";
 
 type IconName = "upload" | "studio" | "live";
 
@@ -74,7 +75,10 @@ function HomeIcon({ name }: { name: IconName }) {
 }
 
 export async function HomeLandingPage() {
-  const brandingImages = await getHomepageBrandingImages();
+  const [brandingImages, carouselDurationSeconds] = await Promise.all([
+    getHomepageBrandingImages(),
+    getHomepageCarouselDurationSeconds()
+  ]);
 
   return (
     <>
@@ -90,7 +94,7 @@ export async function HomeLandingPage() {
           </p>
         </section>
 
-        <HomeBrandingCarousel items={brandingImages} />
+        <HomeBrandingCarousel items={brandingImages} autoAdvanceMs={carouselDurationSeconds * 1000} />
         <section className="home-feature-grid" aria-label="Core entry points">
           {cards.map((card) => (
             <Link
