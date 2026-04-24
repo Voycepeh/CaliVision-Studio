@@ -8,6 +8,13 @@ function parseDisplayOrder(value: FormDataEntryValue | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parsePositiveInt(value: FormDataEntryValue | null): number | null {
+  if (typeof value !== "string") return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
 export async function GET() {
   const access = await requireAdminAccess();
   if (!access.ok) {
@@ -43,7 +50,9 @@ export async function POST(request: Request) {
     ownerUserId: access.requesterId,
     title: typeof formData.get("title") === "string" ? formData.get("title")?.toString().trim() || null : null,
     altText: typeof formData.get("altText") === "string" ? formData.get("altText")?.toString().trim() || null : null,
-    displayOrder: parseDisplayOrder(formData.get("displayOrder"))
+    displayOrder: parseDisplayOrder(formData.get("displayOrder")),
+    width: parsePositiveInt(formData.get("width")),
+    height: parsePositiveInt(formData.get("height"))
   });
 
   if (!result.ok) {

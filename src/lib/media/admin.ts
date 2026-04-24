@@ -62,6 +62,8 @@ export async function uploadBrandingAsset(input: {
   altText: string | null;
   displayOrder: number;
   ownerUserId: string;
+  width: number | null;
+  height: number | null;
 }): Promise<{ ok: true; asset: BrandingAssetSummary } | { ok: false; error: string }> {
   const service = createServiceSupabaseClient();
   if (!service) return { ok: false, error: "Supabase service role key is not configured." };
@@ -89,6 +91,8 @@ export async function uploadBrandingAsset(input: {
       alt_text: input.altText,
       mime_type: input.file.type || null,
       file_size_bytes: input.file.size,
+      width: input.width,
+      height: input.height,
       display_order: input.displayOrder,
       is_public: true,
       is_active: true,

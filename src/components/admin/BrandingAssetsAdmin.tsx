@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 
+type ImageDimensions = { width: number; height: number } | null;
+
 type BrandingAsset = {
   id: string;
   title: string | null;
@@ -21,6 +23,22 @@ export function BrandingAssetsAdmin() {
   const [altText, setAltText] = useState("");
   const [displayOrder, setDisplayOrder] = useState("0");
   const [file, setFile] = useState<File | null>(null);
+  const [imageDimensions, setImageDimensions] = useState<ImageDimensions>(null);
+
+  async function resolveImageDimensions(selected: File): Promise<ImageDimensions> {
+    const objectUrl = URL.createObjectURL(selected);
+    try {
+      const dimensions = await new Promise<ImageDimensions>((resolve) => {
+        const image = new Image();
+        image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+        image.onerror = () => resolve(null);
+        image.src = objectUrl;
+      });
+      return dimensions;
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
 
   async function loadAssets(): Promise<void> {
     setLoading(true);
@@ -56,6 +74,10 @@ export function BrandingAssetsAdmin() {
     formData.append("title", title);
     formData.append("altText", altText);
     formData.append("displayOrder", displayOrder);
+    if (imageDimensions?.width && imageDimensions?.height) {
+      formData.append("width", String(imageDimensions.width));
+      formData.append("height", String(imageDimensions.height));
+    }
 
     const response = await fetch("/api/admin/media/branding", {
       method: "POST",
@@ -73,6 +95,7 @@ export function BrandingAssetsAdmin() {
     setTitle("");
     setAltText("");
     setDisplayOrder("0");
+    setImageDimensions(null);
     const fileInput = document.getElementById("branding-upload-file") as HTMLInputElement | null;
     if (fileInput) fileInput.value = "";
     setUploading(false);
@@ -130,10 +153,24 @@ export function BrandingAssetsAdmin() {
           id="branding-upload-file"
           type="file"
           accept="image/*"
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            const selected = event.target.files?.[0] ?? null;
+            setFile(selected);
+            if (!selected) {
+              setImageDimensions(null);
+              return;
+            }
+            void resolveImageDimensions(selected).then((dimensions) => setImageDimensions(dimensions));
+          }}
           style={inputStyle}
           disabled={uploading}
         />
+        {imageDimensions ? (
+          <p className="muted" style={{ margin: 0 }}>
+            Detected image size: {imageDimensions.width} × {imageDimensions.height}
+          </p>
+        ) : null}
+
         <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
           <input placeholder="Title (optional)" value={title} onChange={(event) => setTitle(event.target.value)} style={inputStyle} />
           <input placeholder="Alt text (optional)" value={altText} onChange={(event) => setAltText(event.target.value)} style={inputStyle} />

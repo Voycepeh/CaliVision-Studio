@@ -894,12 +894,12 @@ main {
 
 .home-branding {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
 }
 
 .home-branding-header {
   display: grid;
-  gap: 0.22rem;
+  gap: 0.25rem;
 }
 
 .home-branding-header h2 {
@@ -910,44 +910,106 @@ main {
 .home-branding-header p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
+}
+
+.home-branding-stage {
+  position: relative;
+  border: 1px solid rgba(145, 173, 204, 0.25);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(26, 38, 56, 0.82), rgba(11, 17, 26, 0.98));
+  min-height: 240px;
+}
+
+.home-branding-viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 .home-branding-track {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(76%, 1fr);
-  gap: 0.8rem;
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-  scroll-snap-type: x mandatory;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  transition: transform 260ms ease;
 }
 
 .home-branding-item {
   margin: 0;
-  border: 1px solid rgba(145, 173, 204, 0.25);
-  border-radius: 1rem;
-  overflow: hidden;
-  background: rgba(10, 16, 24, 0.9);
-  min-height: 180px;
-  scroll-snap-align: start;
+  min-width: 100%;
+  height: 100%;
   display: grid;
+  grid-template-rows: 1fr auto;
+  background: rgba(6, 10, 16, 0.86);
 }
 
 .home-branding-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
 .home-branding-item figcaption {
   margin: 0;
-  padding: 0.42rem 0.6rem;
+  padding: 0.45rem 0.65rem;
   font-size: 0.78rem;
   color: var(--muted);
   border-top: 1px solid rgba(145, 173, 204, 0.16);
   background: rgba(4, 8, 12, 0.62);
+}
+
+.home-branding-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid rgba(145, 173, 204, 0.48);
+  border-radius: 999px;
+  background: rgba(7, 12, 19, 0.72);
+  color: #d2e5ff;
+  display: grid;
+  place-items: center;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.home-branding-nav-prev {
+  left: 0.6rem;
+}
+
+.home-branding-nav-next {
+  right: 0.6rem;
+}
+
+.home-branding-nav:hover,
+.home-branding-nav:focus-visible {
+  border-color: rgba(114, 168, 255, 0.85);
+  background: rgba(12, 19, 30, 0.88);
+}
+
+.home-branding-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.42rem;
+}
+
+.home-branding-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(145, 173, 204, 0.52);
+  background: rgba(145, 173, 204, 0.25);
+  cursor: pointer;
+}
+
+.home-branding-dot.is-active {
+  border-color: rgba(114, 168, 255, 0.92);
+  background: rgba(114, 168, 255, 0.92);
 }
 
 .home-demo {
@@ -1079,8 +1141,8 @@ main {
 }
 
 @media (max-width: 980px) {
-  .home-branding-track {
-    grid-auto-columns: minmax(88%, 1fr);
+  .home-branding-stage {
+    min-height: 220px;
   }
 
   .home-feature-grid {
@@ -1089,8 +1151,21 @@ main {
 }
 
 @media (max-width: 760px) {
-  .home-branding-track {
-    grid-auto-columns: 100%;
+  .home-branding-stage {
+    min-height: 200px;
+  }
+
+  .home-branding-nav {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .home-branding-nav-prev {
+    left: 0.4rem;
+  }
+
+  .home-branding-nav-next {
+    right: 0.4rem;
   }
 
   .home-feature-grid {
