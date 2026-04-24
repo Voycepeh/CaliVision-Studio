@@ -53,6 +53,7 @@ import {
   type LiveSessionStatus,
   type ReplayTerminalState
 } from "@/lib/live";
+import { buildVisualCoachingFeedback } from "@/lib/analysis";
 import { buildAnalysisSessionFromLiveTrace } from "@/lib/live/session-compositor";
 import { clearActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
@@ -535,6 +536,15 @@ export function LiveStreamingWorkspace() {
       }),
     [liveAnalysisSession, phaseLabelMap, replayTimestampMs]
   );
+  const coachingFeedback = useMemo(
+    () => buildVisualCoachingFeedback({
+      session: liveAnalysisSession,
+      benchmarkFeedback,
+      drill: selection.drill,
+      replayState: replayAnalysisState
+    }),
+    [benchmarkFeedback, liveAnalysisSession, replayAnalysisState, selection.drill]
+  );
 
   useEffect(() => {
     setReplayTimestampMs(0);
@@ -621,6 +631,7 @@ export function LiveStreamingWorkspace() {
                 nextSteps: benchmarkFeedback.nextSteps
               }
             : undefined,
+          coachingFeedback,
           phaseTimelineInteractive: true
         })),
         primarySummaryChips: [
@@ -733,6 +744,7 @@ export function LiveStreamingWorkspace() {
       selection.drill?.phases,
       selection.cameraView,
       benchmarkFeedback,
+      coachingFeedback,
       replayAnalysisState.currentPhaseLabel,
       replayAnalysisState.currentHoldMsAtPlayhead,
       replayAnalysisState.detectedHoldMs,

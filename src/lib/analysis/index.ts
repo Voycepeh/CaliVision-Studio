@@ -27,6 +27,9 @@ export {
 } from "./benchmark-comparison.ts";
 export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./benchmark-comparison.ts";
 
+export { buildVisualCoachingFeedback } from "./coaching-feedback.ts";
+export type { CoachingFeedbackOutput, CoachingIssue, CoachingVisualGuide, CoachingBodyPartFinding, CoachingFixStep, CoachingMentalModel } from "./coaching-feedback.ts";
+
 export {
   buildBenchmarkCoachingFeedback,
   formatPhaseSequenceSummary,

@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
-import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
+import { drawAnalysisOverlay, drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import { buildAnalysisSummary, exportAnnotatedVideo, processVideoFile, readVideoMetadata } from "@/lib/upload/processing";
 import { fitVideoContainRect } from "@/lib/upload/video-layout";
@@ -16,6 +16,7 @@ import { createUploadJobDrillSelection } from "@/lib/upload/drill-selection";
 import { inspectUploadCompatibility, type UploadCompatibilityReport, type UploadPreflightDecision } from "@/lib/upload/compatibility";
 import {
   buildBenchmarkCoachingFeedback,
+  buildVisualCoachingFeedback,
   buildCompletedUploadAnalysisSession,
   buildPhaseRuntimeModel,
   buildReplayAnalysisState,
@@ -399,6 +400,27 @@ export function UploadVideoWorkspace() {
             ? buildPhaseRuntimeModel(activeJob.drillSelection.drill, activeJob.drillSelection.drill.analysis).phaseCount
             : activeJob.drillSelection.drill?.phases.length
         });
+        drawCoachingOverlay(
+          ctx,
+          videoRect.renderedWidth,
+          videoRect.renderedHeight,
+          frame,
+          buildVisualCoachingFeedback({
+            session: activeSession,
+            benchmarkFeedback: activeSession.benchmarkComparison
+              ? buildBenchmarkCoachingFeedback({ comparison: activeSession.benchmarkComparison })
+              : null,
+            drill: activeJob.drillSelection.drill,
+            replayState: buildReplayAnalysisState({
+              session: activeSession,
+              phaseLabelsById: buildPhaseLabelMap(activeJob.drillSelection.drill),
+              timestampMs: currentMs
+            }),
+            frame,
+            timestampMs: currentMs
+          }),
+          { projection }
+        );
       } else {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
           modeLabel: "No drill · Freestyle overlay",
@@ -748,6 +770,17 @@ export function UploadVideoWorkspace() {
     () => activeSession?.benchmarkComparison ? buildBenchmarkCoachingFeedback({ comparison: activeSession.benchmarkComparison }) : null,
     [activeSession?.benchmarkComparison]
   );
+  const coachingFeedback = useMemo(
+    () => buildVisualCoachingFeedback({
+      session: activeSession,
+      benchmarkFeedback,
+      drill: activeJob?.drillSelection.drill,
+      replayState: replayAnalysisState,
+      frame: getNearestPoseFrame(activeJob?.artefacts?.poseTimeline.frames ?? [], replayTimestampMs),
+      timestampMs: replayTimestampMs
+    }),
+    [activeJob?.artefacts?.poseTimeline.frames, activeJob?.drillSelection.drill, activeSession, benchmarkFeedback, replayAnalysisState, replayTimestampMs]
+  );
 
   useEffect(() => {
     setReplayTimestampMs(0);
@@ -864,6 +897,7 @@ export function UploadVideoWorkspace() {
                 nextSteps: benchmarkFeedback.nextSteps
               }
             : undefined,
+          coachingFeedback,
           phaseTimelineInteractive: true
         })),
         primarySummaryChips:
@@ -1010,6 +1044,7 @@ export function UploadVideoWorkspace() {
       replayAnalysisState,
       activeSession,
       benchmarkFeedback,
+      coachingFeedback,
       activeJob,
       activePhaseLabels,
       downloadTargets,

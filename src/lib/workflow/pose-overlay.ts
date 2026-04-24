@@ -1,1 +1,1 @@
-export { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";
+export { drawAnalysisOverlay, drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/upload/overlay";

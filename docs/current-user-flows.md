@@ -105,3 +105,10 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Android runtime responsibilities remain in https://github.com/Voycepeh/CaliVision.
 - Signed-in Library keeps one clean account-first Drafts/My drills experience and can offer one-time import of existing local drafts.
 - Sign-in local→hosted import is a **move**: each local draft is hosted first, then deleted locally only after hosted save succeeds (failed items remain local and can be retried).
+
+## Benchmark-driven coaching panel (April 24, 2026)
+
+- Upload and Live analysis now resolve benchmark findings into one shared coaching model instead of isolated UI copy.
+- Coaching issues carry visual guide metadata (`stack_line`, `highlight_region`, `correction_arrow`, `support_indicator`, `metric_badge`) so cue text and overlays stay connected.
+- Live mode keeps coaching compact around one primary cue + primary guide, while replay/upload mode can render richer positives, limiter context, and ordered fix steps.
+- Benchmark comparison and coaching now feed the same analysis panel so the user sees one consistent “what is good / what is limiting / what to do next” flow.
