@@ -213,13 +213,13 @@ export function BrandingAssetsAdmin() {
             key={asset.id}
             className="card"
             style={{
-              display: "grid",
+              display: "flex",
+              flexWrap: "wrap",
               gap: "0.65rem",
-              alignItems: "start",
-              gridTemplateColumns: "minmax(120px, 140px) minmax(220px, 1fr) auto"
+              alignItems: "flex-start"
             }}
           >
-            <div style={{ display: "grid", gap: "0.45rem" }}>
+            <div style={{ display: "grid", gap: "0.45rem", flex: "0 1 140px", minWidth: "120px" }}>
               <button
                 type="button"
                 onClick={() => setPreviewAsset(asset)}
@@ -244,7 +244,7 @@ export function BrandingAssetsAdmin() {
               <button type="button" className="pill" onClick={() => setPreviewAsset(asset)}>Preview</button>
             </div>
 
-            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <div style={{ display: "grid", gap: "0.5rem", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", flex: "1 1 320px", minWidth: "220px" }}>
               <label style={{ display: "grid", gap: "0.25rem" }}>
                 <span className="muted" style={{ fontSize: "0.8rem" }}>Title</span>
                 <input
@@ -277,7 +277,7 @@ export function BrandingAssetsAdmin() {
               </label>
             </div>
 
-            <div style={{ display: "grid", gap: "0.45rem", justifyItems: "start", minWidth: "130px" }}>
+            <div style={{ display: "grid", gap: "0.45rem", justifyItems: "start", flex: "1 1 180px", minWidth: "160px" }}>
               <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem" }}>
                 <input
                   type="checkbox"
