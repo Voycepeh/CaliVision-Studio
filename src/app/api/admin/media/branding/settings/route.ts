@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { requireAdminAccess } from "@/lib/admin/server";
 import {
   getHomepageCarouselDurationSecondsForAdmin,
-  HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS,
-  HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS,
   saveHomepageCarouselDurationSeconds,
 } from "@/lib/media/homepage-carousel-settings";
+import {
+  HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS,
+  HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS,
+} from "@/lib/media/homepage-carousel-constants";
 
 function parseDurationSeconds(value: unknown): number | null {
   const parsed = typeof value === "number" ? value : Number(value);

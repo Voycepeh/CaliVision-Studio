@@ -1,9 +1,10 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceSupabaseClient } from "@/lib/supabase/service";
-
-export const HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS = 7;
-export const HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS = 2;
-export const HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS = 30;
+import {
+  HOMEPAGE_CAROUSEL_DURATION_DEFAULT_SECONDS,
+  HOMEPAGE_CAROUSEL_DURATION_MAX_SECONDS,
+  HOMEPAGE_CAROUSEL_DURATION_MIN_SECONDS,
+} from "@/lib/media/homepage-carousel-constants";
 
 const SETTINGS_KEY = "homepage_branding_carousel_duration_seconds";
 
