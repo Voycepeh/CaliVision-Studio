@@ -266,7 +266,6 @@ export function LiveStreamingWorkspace() {
   const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
   const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
   const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
-  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
     phaseId: null,
     phaseLabel: null,
@@ -868,15 +867,6 @@ export function LiveStreamingWorkspace() {
       setErrorMessage("Live Streaming is unsupported in this browser. Use a browser with camera + MediaRecorder support.");
     }
   }, [updateFramingWarning, updateTrackingStatus]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const query = window.matchMedia("(max-width: 980px)");
-    const apply = () => setIsCompactViewport(query.matches);
-    apply();
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
-  }, []);
 
   useEffect(() => {
     lastAnnouncedRepRef.current = 0;
@@ -1690,7 +1680,7 @@ export function LiveStreamingWorkspace() {
 
       drawAnalysisOverlay(ctx, canvas.width / pixelRatio, canvas.height / pixelRatio, analyzedFrameState.overlay, {
         modeLabel: selection.drillBindingLabel,
-        showDrillMetrics: selection.mode === "drill" && !isCompactViewport,
+        showDrillMetrics: false,
         phaseLabels: phaseLabelMap
       });
 
@@ -1700,7 +1690,7 @@ export function LiveStreamingWorkspace() {
     };
 
     draw();
-  }, [annotatedReplayUrl, authoredPhases, buildStabilizedPoseFrame, cleanupSession, isCompactViewport, isRearCamera, isLiveAudioPrimed, liveAudioCueStyle, liveAudioEnabled, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
+  }, [annotatedReplayUrl, authoredPhases, buildStabilizedPoseFrame, cleanupSession, isRearCamera, isLiveAudioPrimed, liveAudioCueStyle, liveAudioEnabled, logOverlayDiagnostics, phaseLabelMap, rawReplayUrl, requiredFramingJoints, selection, status, syncOverlayCanvasSize, updateFramingWarning, updateTrackingStatus]);
 
   const updateHardwareZoom = useCallback(
     async (presetZoom: number) => {

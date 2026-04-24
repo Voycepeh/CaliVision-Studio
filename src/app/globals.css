@@ -1430,10 +1430,12 @@ main {
   inset: 0;
   z-index: 90;
   background: var(--surface);
+  height: 100dvh;
   min-height: 100dvh;
   border-radius: 0;
   padding: 0.65rem;
   margin: 0;
+  overflow: hidden;
 }
 
 .live-streaming-preview-shell {
@@ -1441,6 +1443,12 @@ main {
   justify-items: stretch;
   gap: 0.55rem;
   width: 100%;
+  min-height: 0;
+}
+
+.live-streaming-results-card--session-active .live-streaming-preview-shell,
+.live-streaming-results-card--session-active .live-cockpit-grid {
+  height: 100%;
 }
 
 .live-cockpit-grid {
@@ -1448,12 +1456,15 @@ main {
   gap: 0.7rem;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
   align-items: start;
+  min-height: 0;
 }
 
 .live-cockpit-main {
   display: grid;
   gap: 0.45rem;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   min-width: 0;
+  min-height: 0;
 }
 
 .live-cockpit-panel {
@@ -1608,7 +1619,8 @@ main {
 .live-streaming-media-container {
   position: relative;
   width: 100%;
-  max-height: min(52dvh, 460px);
+  max-height: min(42dvh, calc(100dvh - 320px));
+  min-height: min(34dvh, 260px);
   aspect-ratio: 9 / 16;
   border-radius: 0.8rem;
   overflow: hidden;
@@ -2144,7 +2156,8 @@ main {
   }
 
   .live-streaming-media-container {
-    max-height: min(56dvh, 520px);
+    max-height: min(44dvh, calc(100dvh - 290px));
+    min-height: min(32dvh, 230px);
   }
 
   .live-cockpit-mobile-summary {
@@ -2160,6 +2173,14 @@ main {
   .live-cockpit-controls-primary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .live-cockpit-controls {
+    order: 3;
+  }
+
+  .live-cockpit-timeline {
+    order: 4;
   }
 
   .live-cockpit-controls-secondary {
