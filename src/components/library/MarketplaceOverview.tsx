@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
@@ -38,7 +38,7 @@ export function MarketplaceOverview() {
     [persistenceMode, session]
   );
 
-  async function loadPublications(): Promise<void> {
+  const loadPublications = useCallback(async (): Promise<void> => {
     const result = await listExchangePublications({
       searchText,
       movementType,
@@ -55,11 +55,11 @@ export function MarketplaceOverview() {
 
     setError("");
     setEntries(result.value);
-  }
+  }, [category, difficulty, movementType, searchText, session]);
 
   useEffect(() => {
     void loadPublications();
-  }, [searchText, movementType, difficulty, category, session]);
+  }, [loadPublications]);
 
   useEffect(() => {
     async function loadAccess() {
