@@ -46,3 +46,21 @@ test("low-confidence joints fall back to visibility guidance", () => {
   assert.match(output.primaryIssue?.description ?? "", /full body in frame/i);
   assert.equal(output.primaryIssue?.severity, "info");
 });
+
+test("non-handstand side-view hold drill does not trigger handstand coaching", () => {
+  const output = resolveDrillSpecificCoaching({
+    drill: { ...handstand, title: "Wall Plank Hold" },
+    frame: {
+      timestampMs: 0,
+      joints: {
+        leftWrist: { x: 0.5, y: 0.8, confidence: 0.9 },
+        rightWrist: { x: 0.52, y: 0.8, confidence: 0.9 },
+        leftHip: { x: 0.3, y: 0.5, confidence: 0.9 },
+        rightHip: { x: 0.32, y: 0.5, confidence: 0.9 },
+        leftAnkle: { x: 0.25, y: 0.2, confidence: 0.9 },
+        rightAnkle: { x: 0.28, y: 0.2, confidence: 0.9 }
+      }
+    }
+  });
+  assert.deepEqual(output, {});
+});

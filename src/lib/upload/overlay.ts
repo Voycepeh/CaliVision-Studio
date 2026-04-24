@@ -2,6 +2,7 @@ import { PREVIEW_OVERLAY_STYLE, getPreviewConnections, getPreviewJointNames, get
 import type { CanonicalJointName } from "@/lib/schema/contracts";
 import type { ReplayOverlayState } from "@/lib/analysis/replay-state";
 import type { CoachingFeedbackOutput, CoachingVisualGuide } from "@/lib/analysis/coaching-feedback";
+import { resolveCoachingArrowEndpoint } from "./coaching-overlay-geometry";
 import { projectNormalizedPoint, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import { formatDurationStopwatch } from "@/lib/format/safe-duration";
 import type { PoseFrame } from "@/lib/upload/types";
@@ -404,8 +405,18 @@ export function drawCoachingOverlay(
     } else if (guide.type === "correction_arrow") {
       const from = resolveGuideAnchor(frame, guide, width, height, options?.projection);
       if (!from) continue;
-      const delta = guide.direction === "up" ? { x: 0, y: -36 } : guide.direction === "down" ? { x: 0, y: 36 } : guide.direction === "left" ? { x: -36, y: 0 } : { x: 36, y: 0 };
-      const to = { x: from.x + delta.x, y: from.y + delta.y };
+      const to = guide.direction === "toward_line" && frame && options?.projection
+        ? (() => {
+            const lineJoints = (guide.targetJoints?.length ? guide.targetJoints : ["leftWrist", "rightWrist"] as const)
+              .map((jointName) => frame.joints[jointName])
+              .filter((joint): joint is { x: number; y: number; confidence?: number } => Boolean(joint));
+            if (lineJoints.length === 0) {
+              return resolveCoachingArrowEndpoint({ from, guide, frame, width });
+            }
+            const stackX = lineJoints.map((joint) => toCanvasPoint(joint, width, height, options.projection)).reduce((sum, point) => sum + point.x, 0) / lineJoints.length;
+            return { x: stackX, y: from.y };
+          })()
+        : resolveCoachingArrowEndpoint({ from, guide, frame, width });
       ctx.strokeStyle = "rgba(251,146,60,0.92)";
       ctx.lineWidth = 3;
       ctx.beginPath();

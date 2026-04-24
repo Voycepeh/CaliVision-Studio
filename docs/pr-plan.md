@@ -106,3 +106,4 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Non-goal: multi-user collaboration workflows in this phase.
 - Non-goal: moving Android runtime/live coaching ownership into Studio; Android runtime remains in <https://github.com/Voycepeh/CaliVision>.
 - Reference roadmap document: `docs/product/single-user-first-roadmap.md`.
+- TODO (coaching metadata): add Drill Studio authoring controls for optional `coachingProfile` rule resolution metadata (movement family/ruleset/support) so rule selection can rely on authored metadata instead of title fallback.

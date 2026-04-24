@@ -389,21 +389,11 @@ export function UploadVideoWorkspace() {
         projection,
         centerOfGravityTracker: centerOfGravityTrackerRef.current
       });
-      ctx.save();
-      ctx.translate(videoRect.offsetX, videoRect.offsetY);
       if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
-        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
-          modeLabel: activeJob.drillSelection.drillBinding.drillName,
-          showDrillMetrics: true,
-          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill),
-          phaseCount: activeJob.drillSelection.drill?.analysis
-            ? buildPhaseRuntimeModel(activeJob.drillSelection.drill, activeJob.drillSelection.drill.analysis).phaseCount
-            : activeJob.drillSelection.drill?.phases.length
-        });
         drawCoachingOverlay(
           ctx,
-          videoRect.renderedWidth,
-          videoRect.renderedHeight,
+          containerWidth,
+          containerHeight,
           frame,
           buildVisualCoachingFeedback({
             session: activeSession,
@@ -421,6 +411,18 @@ export function UploadVideoWorkspace() {
           }),
           { projection }
         );
+      }
+      ctx.save();
+      ctx.translate(videoRect.offsetX, videoRect.offsetY);
+      if ((activeJob.drillSelection.mode ?? "drill") === "drill" && activeSession) {
+        drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, deriveReplayOverlayStateAtTime(activeSession, currentMs), {
+          modeLabel: activeJob.drillSelection.drillBinding.drillName,
+          showDrillMetrics: true,
+          phaseLabels: buildPhaseLabelMap(activeJob.drillSelection.drill),
+          phaseCount: activeJob.drillSelection.drill?.analysis
+            ? buildPhaseRuntimeModel(activeJob.drillSelection.drill, activeJob.drillSelection.drill.analysis).phaseCount
+            : activeJob.drillSelection.drill?.phases.length
+        });
       } else {
         drawAnalysisOverlay(ctx, videoRect.renderedWidth, videoRect.renderedHeight, null, {
           modeLabel: "No drill · Freestyle overlay",
@@ -771,14 +773,19 @@ export function UploadVideoWorkspace() {
     [activeSession?.benchmarkComparison]
   );
   const coachingFeedback = useMemo(
-    () => buildVisualCoachingFeedback({
-      session: activeSession,
-      benchmarkFeedback,
-      drill: activeJob?.drillSelection.drill,
-      replayState: replayAnalysisState,
-      frame: getNearestPoseFrame(activeJob?.artefacts?.poseTimeline.frames ?? [], replayTimestampMs),
-      timestampMs: replayTimestampMs
-    }),
+    () => {
+      if (!activeSession || activeSession.status !== "completed") {
+        return null;
+      }
+      return buildVisualCoachingFeedback({
+        session: activeSession,
+        benchmarkFeedback,
+        drill: activeJob?.drillSelection.drill,
+        replayState: replayAnalysisState,
+        frame: getNearestPoseFrame(activeJob?.artefacts?.poseTimeline.frames ?? [], replayTimestampMs),
+        timestampMs: replayTimestampMs
+      });
+    },
     [activeJob?.artefacts?.poseTimeline.frames, activeJob?.drillSelection.drill, activeSession, benchmarkFeedback, replayAnalysisState, replayTimestampMs]
   );
 
@@ -897,7 +904,7 @@ export function UploadVideoWorkspace() {
                 nextSteps: benchmarkFeedback.nextSteps
               }
             : undefined,
-          coachingFeedback,
+          coachingFeedback: activeSession?.status === "completed" ? coachingFeedback ?? undefined : undefined,
           phaseTimelineInteractive: true
         })),
         primarySummaryChips:

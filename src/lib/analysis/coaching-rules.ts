@@ -16,6 +16,14 @@ type BuildRuleInput = {
   replayState?: ReplayAnalysisState;
 };
 
+type DrillCoachingProfile = {
+  movementFamily?: "handstand" | "push_up" | "dip" | "squat" | "plank" | "pike_push_up" | "custom";
+  rulesetId?: string;
+  supportType?: "free" | "wall_assisted" | "floor" | "bars" | "custom";
+  primaryGoal?: "balance" | "strength" | "mobility" | "control" | "custom";
+  enabledVisualGuides?: Array<"stack_line" | "ghost_pose" | "highlight_region" | "correction_arrow" | "support_indicator" | "metric_badge">;
+};
+
 const REQUIRED_STACK_JOINTS: CanonicalJointName[] = ["leftWrist", "rightWrist", "leftHip", "rightHip", "leftAnkle", "rightAnkle"];
 
 function averageX(frame: PoseFrame, joints: CanonicalJointName[]): number | null {
@@ -35,11 +43,13 @@ function hasReliableJoint(frame: PoseFrame, joint: CanonicalJointName, min = 0.4
 function isLikelyHandstandSideHold(input: BuildRuleInput): boolean {
   const drill = input.drill;
   if (!drill) return false;
+  const coachingProfile = (drill as PortableDrill & { coachingProfile?: DrillCoachingProfile }).coachingProfile;
+  if (coachingProfile?.movementFamily) {
+    return coachingProfile.movementFamily === "handstand";
+  }
+  // TODO: expose Coaching Profile settings in Drill Studio so rules can resolve from authored metadata (instead of title fallback).
   const title = `${drill.title ?? ""}`.toLowerCase();
-  const byName = title.includes("handstand");
-  const byType = drill.drillType === "hold";
-  const byView = drill.primaryView === "side";
-  return (byName && byType) || (byType && byView);
+  return title.includes("handstand") && drill.drillType === "hold" && drill.primaryView === "side";
 }
 
 export function resolveDrillSpecificCoaching(input: BuildRuleInput): Partial<CoachingFeedbackOutput> {

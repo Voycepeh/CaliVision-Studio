@@ -43,3 +43,10 @@ test("workspace components do not hard-code handstand golden coaching copy", () 
   assert.equal(upload.includes("Bring my hips over my hands until the wall becomes unnecessary."), false);
   assert.equal(live.includes("Bring my hips over my hands until the wall becomes unnecessary."), false);
 });
+
+test("workspace wiring gates coaching feedback until analysis is available", () => {
+  const upload = readFileSync("src/components/upload/UploadVideoWorkspace.tsx", "utf8");
+  const live = readFileSync("src/components/live/LiveStreamingWorkspace.tsx", "utf8");
+  assert.equal(upload.includes("activeSession?.status === \"completed\" ? coachingFeedback ?? undefined : undefined"), true);
+  assert.equal(live.includes("liveAnalysisSession?.status === \"completed\" && replayUrl ? coachingFeedback ?? undefined : undefined"), true);
+});

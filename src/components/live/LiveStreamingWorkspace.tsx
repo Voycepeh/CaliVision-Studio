@@ -12,7 +12,7 @@ import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAn
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
 import { buildBenchmarkCoachingFeedback, buildPhaseRuntimeModel, formatCameraViewLabel, formatPhaseSequenceSummary, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
-import { drawAnalysisOverlay, drawPoseOverlay } from "@/lib/workflow/pose-overlay";
+import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
 import type { PreviewSurface } from "@/lib/results/preview-state";
 import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
@@ -537,13 +537,21 @@ export function LiveStreamingWorkspace() {
     [liveAnalysisSession, phaseLabelMap, replayTimestampMs]
   );
   const coachingFeedback = useMemo(
-    () => buildVisualCoachingFeedback({
-      session: liveAnalysisSession,
-      benchmarkFeedback,
-      drill: selection.drill,
-      replayState: replayAnalysisState
-    }),
-    [benchmarkFeedback, liveAnalysisSession, replayAnalysisState, selection.drill]
+    () => {
+      const hasReplayAnalysis = Boolean(liveAnalysisSession && replayUrl);
+      if (!hasReplayAnalysis || liveAnalysisSession?.status !== "completed") {
+        return null;
+      }
+      return buildVisualCoachingFeedback({
+        session: liveAnalysisSession,
+        benchmarkFeedback,
+        drill: selection.drill,
+        replayState: replayAnalysisState,
+        frame: getNearestPoseFrame(postAnalysisSnapshot?.poseTimeline.frames ?? [], replayTimestampMs),
+        timestampMs: replayTimestampMs
+      });
+    },
+    [benchmarkFeedback, liveAnalysisSession, postAnalysisSnapshot?.poseTimeline.frames, replayAnalysisState, replayTimestampMs, replayUrl, selection.drill]
   );
 
   useEffect(() => {
@@ -631,7 +639,7 @@ export function LiveStreamingWorkspace() {
                 nextSteps: benchmarkFeedback.nextSteps
               }
             : undefined,
-          coachingFeedback,
+          coachingFeedback: liveAnalysisSession?.status === "completed" && replayUrl ? coachingFeedback ?? undefined : undefined,
           phaseTimelineInteractive: true
         })),
         primarySummaryChips: [
