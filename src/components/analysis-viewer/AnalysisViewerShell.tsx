@@ -3,6 +3,10 @@
 import React, { type RefObject } from "react";
 import type { AnalysisViewerModel, AnalysisViewerEvent, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
+import {
+  buildHoldIntervals as buildHoldIntervalsFromEvents,
+  formatHoldExitReason
+} from "@/lib/analysis-viewer/hold-intervals";
 
 type Props = {
   model: AnalysisViewerModel;
@@ -174,6 +178,7 @@ type AnalysisInterval = {
   startMs: number;
   endMs: number;
   phaseLabel?: string;
+  exitReason?: string;
   checkpoints: Array<{ id: string; label: string; timestampMs: number }>;
 };
 
@@ -226,8 +231,10 @@ function AnalysisStructuredList({
                 <div className="analysis-interval-row__meta muted">
                   <span>Start {formatClockDuration(interval.startMs)}</span>
                   <span>End {formatClockDuration(interval.endMs)}</span>
+                  {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
+                  {interval.kind === "hold" && interval.exitReason ? <span>Ended: {formatHoldExitReason(interval.exitReason)}</span> : null}
                 </div>
-                {interval.checkpoints.length > 0 ? (
+                {interval.kind === "rep" && interval.checkpoints.length > 0 ? (
                   <ol className="analysis-interval-checkpoints">
                     {interval.checkpoints.map((checkpoint, checkpointIndex) => (
                       <li key={checkpoint.id} className="analysis-interval-checkpoint">
@@ -261,8 +268,9 @@ function AnalysisStructuredList({
 }
 
 function buildStructuredIntervals(model: AnalysisViewerModel): AnalysisInterval[] {
+  const hasHoldEvents = model.timelineEvents.some((event) => event.kind === "hold");
   const movementLabel = model.panel.movementTypeLabel.toLowerCase();
-  if (movementLabel.includes("hold")) {
+  if (hasHoldEvents || movementLabel.includes("hold")) {
     return buildHoldIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
   }
   return buildRepIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
@@ -294,36 +302,7 @@ function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisView
 }
 
 function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  const intervals: AnalysisInterval[] = [];
-  let activeStart: AnalysisViewerEvent | null = null;
-  let intervalIndex = 0;
-  for (const event of events.filter((item) => item.kind === "hold").sort((a, b) => a.timestampMs - b.timestampMs)) {
-    if (event.eventType === "hold_start") {
-      activeStart = event;
-      continue;
-    }
-    if (event.eventType !== "hold_end" || !activeStart) {
-      continue;
-    }
-    intervalIndex += 1;
-    const startMs = Math.max(0, Math.round(activeStart.timestampMs));
-    const endMs = Math.max(startMs, Math.round(event.timestampMs));
-    const checkpoints = segments
-      .filter((segment) => segment.startMs >= startMs && segment.startMs <= endMs)
-      .map((segment) => ({ id: segment.id, label: segment.label, timestampMs: segment.startMs }));
-    intervals.push({
-      id: `hold_${intervalIndex}_${startMs}_${endMs}`,
-      kind: "hold",
-      index: intervalIndex,
-      startMs,
-      endMs,
-      phaseLabel: activeStart.phaseId,
-      checkpoints
-    });
-    activeStart = null;
-  }
-
-  return intervals;
+  return buildHoldIntervalsFromEvents(events, segments);
 }
 
 function formatClockDuration(durationMs: number): string {

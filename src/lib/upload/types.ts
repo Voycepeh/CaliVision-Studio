@@ -73,12 +73,21 @@ export type UploadJobArtifacts = {
     sampledFrameCount: number;
     durationMs: number;
     exportDiagnostics?: {
+      sourceDurationMs?: number;
+      normalizedDurationMs?: number;
+      analyzedDurationMs?: number;
+      annotatedExportDurationMs?: number | null;
+      rawExportDurationMs?: number;
       sourceDurationSec: number;
       analyzedDurationSec: number;
       renderedFrameCount: number;
       renderFpsTarget: number;
       firstFrameTsMs: number | null;
       lastFrameTsMs: number | null;
+      firstPoseFrameTimestampMs?: number | null;
+      lastPoseFrameTimestampMs?: number | null;
+      droppedFrameCount?: number;
+      exportEndReason?: "source_ended" | "schedule_exhausted" | "error";
       expectedOutputDurationSec: number;
       actualOutputDurationSec: number | null;
       durationDriftSec: number | null;

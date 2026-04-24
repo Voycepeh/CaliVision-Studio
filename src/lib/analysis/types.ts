@@ -40,6 +40,13 @@ export type FramePhaseScoreDebug = {
     nativeAdjustedScore?: number;
     mirroredAdjustedScore?: number;
   }>;
+  holdGate?: {
+    targetPhaseId: string;
+    passed: boolean;
+    threshold: number;
+    score: number;
+    reason?: "low_match_score" | "wrist_below_shoulder" | "elbow_below_shoulder" | "insufficient_confidence";
+  };
 };
 
 export type SmoothedPhaseFrame = {
@@ -85,6 +92,8 @@ export type ScorerOptions = {
   includePerPhaseScores?: boolean;
   defaultTolerance?: number;
   cameraView?: DrillCameraView;
+  holdTargetPhaseId?: string;
+  holdMinimumScoreThreshold?: number;
 };
 
 export type PoseLike = PoseFrame | PortablePose;

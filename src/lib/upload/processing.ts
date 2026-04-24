@@ -669,12 +669,21 @@ export async function exportAnnotatedVideo(
   blob: Blob;
   mimeType: string;
   diagnostics: {
+    sourceDurationMs?: number;
+    normalizedDurationMs?: number;
+    analyzedDurationMs?: number;
+    annotatedExportDurationMs?: number | null;
+    rawExportDurationMs?: number;
     sourceDurationSec: number;
     analyzedDurationSec: number;
     renderedFrameCount: number;
     renderFpsTarget: number;
     firstFrameTsMs: number | null;
     lastFrameTsMs: number | null;
+    firstPoseFrameTimestampMs?: number | null;
+    lastPoseFrameTimestampMs?: number | null;
+    droppedFrameCount?: number;
+    exportEndReason?: "source_ended" | "schedule_exhausted" | "error";
     expectedOutputDurationSec: number;
     actualOutputDurationSec: number | null;
     durationDriftSec: number | null;
@@ -738,6 +747,7 @@ export async function exportAnnotatedVideo(
   let inferredSourceFps: number | null = null;
   let firstDecodedTimestampMs: number | null = null;
   let lastDecodedTimestampMs: number | null = null;
+  let exportEndReason: "source_ended" | "schedule_exhausted" | "error" = "source_ended";
   const phaseLabels = options?.phaseLabels;
   const phaseCount = options?.phaseCount;
   const sourceFrames = timeline.frames;
@@ -927,17 +937,22 @@ export async function exportAnnotatedVideo(
             );
           }
 
-          if (scheduleIndex >= expectedFrameScheduleMs.length) {
-            finish();
-          }
         };
 
         const onEnded = () => {
           processSourceMediaTime(durationMs);
+          if (scheduleIndex >= expectedFrameScheduleMs.length) {
+            exportEndReason = "schedule_exhausted";
+          } else {
+            exportEndReason = "source_ended";
+          }
           finish();
         };
 
-        const onError = () => fail(new Error("Annotated export failed while decoding source frames."));
+        const onError = () => {
+          exportEndReason = "error";
+          fail(new Error("Annotated export failed while decoding source frames."));
+        };
 
         const cleanup = () => {
           video.removeEventListener("ended", onEnded);
@@ -1075,12 +1090,21 @@ export async function exportAnnotatedVideo(
       blob,
       mimeType,
       diagnostics: {
+        sourceDurationMs: durationMs,
+        normalizedDurationMs: durationMs,
+        analyzedDurationMs: timeline.video.durationMs,
+        annotatedExportDurationMs: muxedDurationMs,
+        rawExportDurationMs: mediaDurationMs ?? timeline.video.durationMs,
         sourceDurationSec,
         analyzedDurationSec,
         renderedFrameCount: actualRenderedFrameCount,
         renderFpsTarget: exportFps,
         firstFrameTsMs: renderedTimestampsMs[0] ?? null,
         lastFrameTsMs: renderedTimestampsMs.at(-1) ?? null,
+        firstPoseFrameTimestampMs: timeline.frames[0]?.timestampMs ?? null,
+        lastPoseFrameTimestampMs: timeline.frames.at(-1)?.timestampMs ?? null,
+        droppedFrameCount: scheduledFrameDrops,
+        exportEndReason,
         expectedOutputDurationSec,
         actualOutputDurationSec,
         durationDriftSec,
@@ -1102,12 +1126,21 @@ export async function exportAnnotatedVideo(
 export function buildAnalysisSummary(
   timeline: PoseTimeline,
   exportDiagnostics?: {
+    sourceDurationMs?: number;
+    normalizedDurationMs?: number;
+    analyzedDurationMs?: number;
+    annotatedExportDurationMs?: number | null;
+    rawExportDurationMs?: number;
     sourceDurationSec: number;
     analyzedDurationSec: number;
     renderedFrameCount: number;
     renderFpsTarget: number;
     firstFrameTsMs: number | null;
     lastFrameTsMs: number | null;
+    firstPoseFrameTimestampMs?: number | null;
+    lastPoseFrameTimestampMs?: number | null;
+    droppedFrameCount?: number;
+    exportEndReason?: "source_ended" | "schedule_exhausted" | "error";
     expectedOutputDurationSec: number;
     actualOutputDurationSec: number | null;
     durationDriftSec: number | null;

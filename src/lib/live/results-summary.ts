@@ -15,6 +15,9 @@ export type LiveTimelineMarker = {
   timestampMs: number;
   kind: "rep" | "hold" | "phase";
   label: string;
+  eventType?: AnalysisEvent["type"];
+  phaseId?: string;
+  exitReason?: string;
 };
 
 export type LiveResultsSummary = {
@@ -75,7 +78,10 @@ export function mapLiveTraceToTimelineMarkers(trace: LiveSessionTrace, phaseLabe
         id: event.eventId,
         timestampMs: event.timestampMs,
         kind,
-        label: `${formatDurationClock(event.timestampMs)} · ${formatReplayTimelineEventLabel(event, phaseLabels)}`
+        label: `${formatDurationClock(event.timestampMs)} · ${formatReplayTimelineEventLabel(event, phaseLabels)}`,
+        eventType: event.type,
+        phaseId: event.phaseId,
+        ...(typeof event.details?.exitReason === "string" ? { exitReason: event.details.exitReason } : {})
       };
     })
     .sort((a, b) => a.timestampMs - b.timestampMs);

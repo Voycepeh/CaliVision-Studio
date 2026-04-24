@@ -16,6 +16,7 @@ export type AnalysisViewerEvent = {
   kind: "rep" | "hold" | "phase" | "other";
   eventType?: string;
   phaseId?: string;
+  exitReason?: string;
   seekable?: boolean;
 };
 

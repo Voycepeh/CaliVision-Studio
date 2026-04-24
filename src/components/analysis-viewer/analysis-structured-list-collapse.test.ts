@@ -24,3 +24,16 @@ test("structured summary remains visible while details are collapsed", () => {
   assert.match(shellSource, /Current\/last phase:/, "expected phase summary line");
   assert.match(shellSource, /Analyzed duration:/, "expected analyzed duration summary line");
 });
+
+test("structured hold intervals can be inferred from hold events even when movement label is stale", () => {
+  assert.match(shellSource, /const hasHoldEvents = model\.timelineEvents\.some\(\(event\) => event\.kind === "hold"\);/);
+});
+
+test("hold interval details include phase label and exit reason metadata", () => {
+  assert.match(shellSource, /Phase \{interval\.phaseLabel\}/);
+  assert.match(shellSource, /Ended: \{formatHoldExitReason\(interval\.exitReason\)\}/);
+});
+
+test("hold cards keep generated checkpoint rows focused on rep-only checkpoint list rendering", () => {
+  assert.match(shellSource, /interval\.kind === "rep" && interval\.checkpoints\.length > 0/);
+});

@@ -105,6 +105,20 @@ test("hold closes on non-target phase_enter when explicit phase_exit is missing"
   assert.equal(result.summary.holdDurationMs, 400);
 });
 
+test("hold close records low_confidence exit reason when target phase is rejected", () => {
+  const drill = buildHoldDrill(["hold", "rest"]);
+  const smoothedFrames = [frame(0, "hold"), frame(250, null), frame(400, "rest")];
+  const transitions: SmootherTransition[] = [
+    { timestampMs: 0, type: "phase_enter", phaseId: "hold" },
+    { timestampMs: 250, type: "phase_exit", phaseId: "hold", details: { reason: "low_confidence" } }
+  ];
+
+  const result = extractAnalysisEvents(drill, smoothedFrames, transitions);
+  const holdEnd = result.events.find((event) => event.type === "hold_end");
+  assert.equal(holdEnd?.details?.exitReason, "low_confidence");
+  assert.equal(result.summary.holdDurationMs, 250);
+});
+
 test("explicit mid-session phase_enter starts hold tracking", () => {
   const drill = buildHoldDrill();
   const smoothedFrames = [frame(0, "rest"), frame(100, "rest"), frame(200, "hold"), frame(300, "hold"), frame(400, "rest")];

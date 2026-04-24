@@ -80,6 +80,7 @@ test("hold metrics include completed windows plus open hold through clip end", (
   assert.equal(end.currentHoldMsAtPlayhead, 800);
   assert.equal(end.detectedHoldMs, 1300);
   assert.equal(end.maxHoldMs, 800);
+  assert.equal(end.holdCount, 1);
 });
 
 test("phase-only open-ended hold is counted through playhead and clip end", () => {
@@ -133,6 +134,7 @@ test("multiple phase-only hold segments resolve current active segment and max a
   assert.equal(done.currentHoldMsAtPlayhead, 0);
   assert.equal(done.detectedHoldMs, 3500);
   assert.equal(done.maxHoldMs, 2100);
+  assert.equal(done.holdCount, 2);
 });
 
 test("phase fallback is ignored for multi-phase hold drill transitions", () => {
@@ -191,6 +193,7 @@ test("buildReplayAnalysisState returns consistent replay-relative labels", () =>
   assert.equal(rewound.repCount, 0);
   assert.equal(late.currentHoldMsAtPlayhead, 0);
   assert.equal(late.detectedHoldMs, 500);
+  assert.equal(late.holdCount, 1);
   assert.equal(early.currentPhaseLabel, "2. Down");
   assert.equal(late.currentPhaseLabel, "3. Up");
   assert.equal(late.completedRepsLabel, "Completed reps so far: 2");

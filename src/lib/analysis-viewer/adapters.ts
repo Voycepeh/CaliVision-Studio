@@ -41,6 +41,7 @@ export function mapUploadAnalysisToViewerModel(input: {
     kind: kindFromEventType(event.type),
     eventType: event.type,
     phaseId: event.phaseId,
+    ...(typeof event.details?.exitReason === "string" ? { exitReason: event.details.exitReason } : {}),
     seekable: true
   }));
 

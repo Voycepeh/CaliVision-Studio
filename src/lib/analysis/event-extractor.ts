@@ -165,7 +165,10 @@ function extractHoldEvents(
     const clamped = Math.min(maxTimestampMs, safe);
     return { value: clamped, clamped: clamped !== safe };
   };
-  const closeHold = (endTimestampMs: number, exitReason: "phase_exit" | "phase_replaced" | "session_end") => {
+  const closeHold = (
+    endTimestampMs: number,
+    exitReason: "phase_exit" | "phase_replaced" | "match_rejected" | "low_confidence" | "session_end"
+  ) => {
     if (activeHoldStartMs === null) {
       return;
     }
@@ -228,7 +231,15 @@ function extractHoldEvents(
     }
 
     if (activeHoldStartMs !== null && transition.type === "phase_exit" && transition.phaseId === targetPhaseId) {
-      closeHold(transition.timestampMs, "phase_exit");
+      const transitionReason = transition.details?.reason;
+      closeHold(
+        transition.timestampMs,
+        transitionReason === "low_confidence"
+          ? "low_confidence"
+          : transitionReason === "match_rejected"
+            ? "match_rejected"
+            : "phase_exit"
+      );
       continue;
     }
 

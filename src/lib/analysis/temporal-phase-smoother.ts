@@ -50,11 +50,13 @@ export function smoothPhaseTimeline(
     } else if (rawPhaseId === null) {
       exitFrames += 1;
       if (stablePhaseId && exitFrames > exitGraceFrames) {
+        const rejectReason = frame.bestPhaseScore < 0.2 ? "low_confidence" : "match_rejected";
         transitions.push({
           timestampMs: frame.timestampMs,
           type: "phase_exit",
           phaseId: stablePhaseId,
-          fromPhaseId: stablePhaseId
+          fromPhaseId: stablePhaseId,
+          details: { reason: rejectReason }
         });
         stablePhaseId = null;
         transitionAccepted = true;
