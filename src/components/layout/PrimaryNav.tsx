@@ -29,6 +29,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
   const { isConfigured, userEmail, signInWithGoogle, signOut, session } = useAuth();
   const [showAdmin, setShowAdmin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const hasSecondaryMenu = showAdmin || Boolean(userEmail);
 
   useEffect(() => {
     if (!session) {
@@ -43,7 +44,7 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
 
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [active]);
+  }, [active, hasSecondaryMenu]);
 
   async function onAuthClick() {
     if (userEmail) {
@@ -76,16 +77,18 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
               <span className="site-download-cta-desktop">{!isConfigured ? "Local-only mode" : userEmail ? `Sign out (${userEmail})` : "Sign in with Google"}</span>
               <span className="site-download-cta-mobile">{!isConfigured ? "Local" : userEmail ? "Account" : "Google"}</span>
             </button>
-            <button
-              type="button"
-              className="site-overflow-button"
-              onClick={() => setMobileMenuOpen((current) => !current)}
-              aria-expanded={mobileMenuOpen}
-              aria-controls="site-mobile-menu"
-              aria-label="Open navigation menu"
-            >
-              ☰
-            </button>
+            {hasSecondaryMenu ? (
+              <button
+                type="button"
+                className="site-overflow-button"
+                onClick={() => setMobileMenuOpen((current) => !current)}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="site-mobile-menu"
+                aria-label={mobileMenuOpen ? "Close account menu" : "Open account menu"}
+              >
+                ☰
+              </button>
+            ) : null}
           </div>
         </div>
         <nav className="site-nav" aria-label="Primary">
@@ -103,14 +106,23 @@ export function PrimaryNav({ active }: PrimaryNavProps) {
             </Link>
           ) : null}
         </nav>
-        <div id="site-mobile-menu" className={mobileMenuOpen ? "site-mobile-menu is-open" : "site-mobile-menu"}>
-          {showAdmin ? (
-            <Link href="/admin" className={active === "admin" ? "site-mobile-menu-link active" : "site-mobile-menu-link"}>
-              Admin tools
-            </Link>
-          ) : null}
-          {userEmail ? <p className="site-mobile-menu-email">Signed in as {userEmail}</p> : null}
-        </div>
+        {hasSecondaryMenu ? (
+          <div id="site-mobile-menu" className={mobileMenuOpen ? "site-mobile-menu is-open" : "site-mobile-menu"} aria-label="Account">
+            {showAdmin ? (
+              <Link href="/admin" className={active === "admin" ? "site-mobile-menu-link active" : "site-mobile-menu-link"}>
+                Admin tools
+              </Link>
+            ) : null}
+            {userEmail ? (
+              <>
+                <p className="site-mobile-menu-email">Signed in as {userEmail}</p>
+                <button type="button" className="site-mobile-menu-action" onClick={() => void onAuthClick()}>
+                  Sign out
+                </button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </header>
   );
