@@ -2453,6 +2453,8 @@ export function LiveStreamingWorkspace() {
                       <button type="button" className="studio-button" onClick={() => void toggleAudioCues()} disabled={!isLiveAudioSupported}>
                         Audio cues: {!liveAudioEnabled ? "Off" : isLiveAudioPrimed ? "On" : "Ready: tap to enable"}
                       </button>
+                    </div>
+                    <div className="live-cockpit-controls-secondary live-cockpit-controls-secondary--desktop">
                       {isLiveAudioSupported ? (
                         <button type="button" className="studio-button live-cockpit-desktop-only" onClick={() => void playTestSound()} style={{ padding: "0.3rem 0.55rem", fontSize: "0.78rem" }}>
                           Test sound
