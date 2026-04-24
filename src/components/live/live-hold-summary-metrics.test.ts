@@ -8,5 +8,12 @@ const source = readFileSync(join(process.cwd(), "src/components/live/LiveStreami
 test("live hold summary cards include best/total/count metrics", () => {
   assert.equal(source.includes('label: "Best hold"'), true);
   assert.equal(source.includes('label: "Total hold time"'), true);
-  assert.equal(source.includes('label: "Hold count"'), true);
+  assert.equal(source.includes('label: "Completed holds"'), true);
+});
+
+test("live hold summary hides rep count chip for hold drills", () => {
+  assert.match(
+    source,
+    /\.\.\.\(selection\.drill\?\.drillType === "hold"\s*\?\s*\[\]\s*:\s*\[\{ id: "reps", label: "Completed reps so far"/
+  );
 });

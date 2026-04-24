@@ -8,5 +8,5 @@ const source = readFileSync(join(process.cwd(), "src/components/upload/UploadVid
 test("hold drill summary cards include best/total/count metrics", () => {
   assert.equal(source.includes('label: "Best hold"'), true);
   assert.equal(source.includes('label: "Total hold time"'), true);
-  assert.equal(source.includes('label: "Hold count"'), true);
+  assert.equal(source.includes('label: "Completed holds"'), true);
 });

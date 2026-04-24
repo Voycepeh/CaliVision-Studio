@@ -897,7 +897,7 @@ export function UploadVideoWorkspace() {
                       },
                       {
                         id: "hold_count",
-                        label: "Hold count",
+                        label: "Completed holds",
                         value: String(replayAnalysisState.holdCount)
                       }
                     ]

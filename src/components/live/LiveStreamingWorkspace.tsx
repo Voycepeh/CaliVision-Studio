@@ -559,7 +559,9 @@ export function LiveStreamingWorkspace() {
         primarySummaryChips: [
           { id: "drill", label: "Drill", value: summary?.drillLabel ?? "Freestyle" },
           { id: "duration", label: "Duration", value: summary?.durationLabel ?? "0s" },
-          { id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) },
+          ...(selection.drill?.drillType === "hold"
+            ? []
+            : [{ id: "reps", label: "Completed reps so far", value: String(replayAnalysisState.repCount) }]),
           ...(selection.drill?.drillType === "hold"
             ? [
                 {
@@ -579,7 +581,7 @@ export function LiveStreamingWorkspace() {
                 },
                 {
                   id: "hold_count",
-                  label: "Hold count",
+                  label: "Completed holds",
                   value: String(replayAnalysisState.holdCount)
                 }
               ]
