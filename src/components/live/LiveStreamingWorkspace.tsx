@@ -266,7 +266,7 @@ export function LiveStreamingWorkspace() {
   const [isLiveAudioPrimed, setIsLiveAudioPrimed] = useState(false);
   const [liveAudioCueStyle, setLiveAudioCueStyle] = useState<LiveAudioCueStyle>("beep");
   const [isLiveAudioSupported, setIsLiveAudioSupported] = useState(false);
-  const [hasLiveCueEventOccurred, setHasLiveCueEventOccurred] = useState(false);
+  const [, setHasLiveCueEventOccurred] = useState(false);
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
     phaseId: null,
     phaseLabel: null,
