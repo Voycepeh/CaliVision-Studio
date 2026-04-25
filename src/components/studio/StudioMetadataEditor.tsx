@@ -3,7 +3,6 @@
 import type { CSSProperties } from "react";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import {
-  HANDSTAND_DEFAULT_VISUAL_GUIDES,
   isCoachingProfileConfigured,
   type CoachingMovementFamily,
   type CoachingPrimaryGoal,
@@ -12,6 +11,7 @@ import {
   type CoachingVisualGuideType
 } from "@/lib/analysis/coaching-profile";
 import { useStudioState } from "@/components/studio/StudioState";
+import { deriveCoachingProfileFormState } from "@/components/studio/coaching-profile-form-state";
 
 const VISUAL_GUIDE_OPTIONS: CoachingVisualGuideType[] = [
   "stack_line",
@@ -53,6 +53,7 @@ export function StudioMetadataEditor() {
   const movementValue = draftSetup?.movementTypeConfigured ? drill.drillType : "";
   const cameraValue = draftSetup?.cameraViewConfigured ? drill.primaryView : "";
   const profile = drill.coachingProfile;
+  const profileFormState = deriveCoachingProfileFormState(profile);
   const hasProfile = isCoachingProfileConfigured(profile);
 
   return (
@@ -131,9 +132,9 @@ export function StudioMetadataEditor() {
 
         <div className="field-grid">
           <label style={labelStyle}>
-            <span>Movement family</span>
-            <select
-              value={profile?.movementFamily ?? ""}
+              <span>Movement family</span>
+              <select
+              value={profileFormState.movementFamily}
               onChange={(event) => setDrillCoachingProfile({ movementFamily: toOptionalValue<CoachingMovementFamily>(event.target.value) })}
               style={inputStyle}
             >
@@ -151,7 +152,7 @@ export function StudioMetadataEditor() {
           <label style={labelStyle}>
             <span>Coaching ruleset</span>
             <select
-              value={profile?.rulesetId ?? "none"}
+              value={profileFormState.rulesetId}
               onChange={(event) => setDrillCoachingProfile({ rulesetId: event.target.value as CoachingRulesetId })}
               style={inputStyle}
             >
@@ -166,7 +167,7 @@ export function StudioMetadataEditor() {
           <label style={labelStyle}>
             <span>Support type</span>
             <select
-              value={profile?.supportType ?? ""}
+              value={profileFormState.supportType}
               onChange={(event) => setDrillCoachingProfile({ supportType: toOptionalValue<CoachingSupportType>(event.target.value) })}
               style={inputStyle}
             >
@@ -182,7 +183,7 @@ export function StudioMetadataEditor() {
           <label style={labelStyle}>
             <span>Primary coaching goal</span>
             <select
-              value={profile?.primaryGoal ?? ""}
+              value={profileFormState.primaryGoal}
               onChange={(event) => setDrillCoachingProfile({ primaryGoal: toOptionalValue<CoachingPrimaryGoal>(event.target.value) })}
               style={inputStyle}
             >
@@ -198,7 +199,7 @@ export function StudioMetadataEditor() {
           <label style={labelStyle}>
             <span>Cue preference</span>
             <select
-              value={profile?.cuePreference ?? "visual_only"}
+              value={profileFormState.cuePreference}
               onChange={(event) => setDrillCoachingProfile({ cuePreference: event.target.value as NonNullable<typeof profile>["cuePreference"] })}
               style={inputStyle}
             >
@@ -213,8 +214,7 @@ export function StudioMetadataEditor() {
           <legend style={{ padding: "0 0.2rem" }}>Visual guides</legend>
           <div style={guideGridStyle}>
             {VISUAL_GUIDE_OPTIONS.map((guideType) => {
-              const selectedGuides = profile?.enabledVisualGuides
-                ?? (profile?.rulesetId === "handstand_wall_hold_v1" ? HANDSTAND_DEFAULT_VISUAL_GUIDES : []);
+              const selectedGuides = profileFormState.enabledVisualGuides;
               const checked = selectedGuides.includes(guideType);
               return (
                 <label key={guideType} style={checkboxLabelStyle}>
