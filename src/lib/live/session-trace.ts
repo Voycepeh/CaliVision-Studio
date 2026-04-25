@@ -31,8 +31,8 @@ const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
 const PHASE_CONFIDENCE_GATE_EXIT = 0.3;
 const REP_PHASE_ENTER_FLOOR = 0.32;
 const REP_NEAR_WINNER_SCORE_DELTA = 0.08;
-const ARM_DELTA_PROMOTION_MIN = 0.04;
-const ARM_DELTA_MEANINGFUL_DISTANCE = 0.12;
+const ARM_DELTA_PROMOTION_MIN = 0.01;
+const ARM_DELTA_MEANINGFUL_DISTANCE = 0.1;
 
 function shouldDebugRepSequence(): boolean {
   if (typeof window === "undefined") {
@@ -406,7 +406,11 @@ export function createLiveTraceAccumulator(input: {
       let rejectedTransitionReason: string | null = null;
       let repPromotionReason: string | null = null;
       if (
-        state.runtimeModel?.measurementMode === "rep"
+        state.confidenceGateOpen
+        && frameSample.confidence >= PHASE_CONFIDENCE_GATE_EXIT
+        && frameSample.confidence >= REP_PHASE_ENTER_FLOOR
+        && frameSample.perPhaseScores
+        && state.runtimeModel?.measurementMode === "rep"
         && state.currentPhaseId
         && expectedNextPhaseId
         && frameSample.scoringDebug?.phaseComparisons
@@ -462,6 +466,21 @@ export function createLiveTraceAccumulator(input: {
           matchedSequenceProgress: `${state.repProgress.expectedSequenceIndex}/${Math.max(0, (state.runtimeModel?.loopPhaseIds.length ?? 1) - 1)}`,
           repCount: state.repProgress.repCount
         });
+      }
+      const latestCapture = state.captures[state.captures.length - 1];
+      if (latestCapture?.frameSample.scoringDebug) {
+        latestCapture.frameSample.scoringDebug.liveDecision = {
+          currentPhaseId: state.currentPhaseId,
+          rawDetectedPhaseId: frameSample.classifiedPhaseId ?? null,
+          candidatePhaseId: runtimeCandidatePhaseId,
+          chosenPhaseId: candidatePhaseId,
+          expectedNextPhaseId,
+          confidenceGateOpen: state.confidenceGateOpen,
+          armDeltaCurrent: state.currentPhaseId ? averageArmDelta(frameSample.scoringDebug?.phaseComparisons ?? {}, state.currentPhaseId) : null,
+          armDeltaExpected: expectedNextPhaseId ? averageArmDelta(frameSample.scoringDebug?.phaseComparisons ?? {}, expectedNextPhaseId) : null,
+          promotionReason: repPromotionReason,
+          rejectionReason: rejectedTransitionReason
+        };
       }
       if (candidatePhaseId === state.currentPhaseId || candidatePhaseId === null) {
         if (candidatePhaseId === null && state.currentPhaseId === state.runtimeModel?.holdPhaseId && state.activeHoldStartMs !== null) {

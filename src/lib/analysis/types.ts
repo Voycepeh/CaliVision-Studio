@@ -51,6 +51,18 @@ export type FramePhaseScoreDebug = {
     score: number;
     reason?: "low_match_score" | "wrist_below_shoulder" | "elbow_below_shoulder" | "insufficient_confidence";
   };
+  liveDecision?: {
+    currentPhaseId: string | null;
+    rawDetectedPhaseId: string | null;
+    candidatePhaseId: string | null;
+    chosenPhaseId: string | null;
+    expectedNextPhaseId: string | null;
+    confidenceGateOpen: boolean;
+    armDeltaCurrent: number | null;
+    armDeltaExpected: number | null;
+    promotionReason: string | null;
+    rejectionReason: string | null;
+  };
 };
 
 export type SmoothedPhaseFrame = {
