@@ -27,6 +27,10 @@ export type FramePhaseScore = {
 
 export type FramePhaseScoreDebug = {
   cameraView: DrillCameraView;
+  rawBestPhaseId: string | null;
+  rawBestPhaseScore: number;
+  chosenPhaseId: string | null;
+  chosenPhaseScore: number;
   jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
   mirrorApplied: boolean;
   runtimeNormalization: PoseNormalizationDebug;
@@ -46,6 +50,18 @@ export type FramePhaseScoreDebug = {
     threshold: number;
     score: number;
     reason?: "low_match_score" | "wrist_below_shoulder" | "elbow_below_shoulder" | "insufficient_confidence";
+  };
+  liveDecision?: {
+    currentPhaseId: string | null;
+    rawDetectedPhaseId: string | null;
+    candidatePhaseId: string | null;
+    chosenPhaseId: string | null;
+    expectedNextPhaseId: string | null;
+    confidenceGateOpen: boolean;
+    armDeltaCurrent: number | null;
+    armDeltaExpected: number | null;
+    promotionReason: string | null;
+    rejectionReason: string | null;
   };
 };
 

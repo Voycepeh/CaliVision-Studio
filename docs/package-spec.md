@@ -124,6 +124,8 @@ To support future Upload Video and live-analysis flows, typed models are defined
 - `FramePhaseSample`
 - `AnalysisEvent`
 
+`FramePhaseSample.scoringDebug` is additive and may include scorer diagnostics (raw/chosen phase IDs/scores) plus live runtime decision context (current phase, expected next phase, per-phase comparison diagnostics, confidence-gate state, promotion/rejection reasons, and arm-delta hints) for troubleshooting live rep/hold detection.
+
 These are contract/types only in this phase (no runtime engine wiring yet).
 
 ## Versioning + provenance semantics

@@ -306,6 +306,10 @@ export type FramePhaseSample = {
   perPhaseScores?: Record<string, number>;
   scoringDebug?: {
     cameraView: "front" | "side";
+    rawBestPhaseId?: string | null;
+    rawBestPhaseScore?: number;
+    chosenPhaseId?: string | null;
+    chosenPhaseScore?: number;
     jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
     mirrorApplied: boolean;
     runtimeNormalization: {
@@ -325,6 +329,18 @@ export type FramePhaseSample = {
       rawScore: number;
       adjustedScore: number;
     }>;
+    liveDecision?: {
+      currentPhaseId: string | null;
+      rawDetectedPhaseId: string | null;
+      candidatePhaseId: string | null;
+      chosenPhaseId: string | null;
+      expectedNextPhaseId: string | null;
+      confidenceGateOpen: boolean;
+      armDeltaCurrent: number | null;
+      armDeltaExpected: number | null;
+      promotionReason: string | null;
+      rejectionReason: string | null;
+    };
   };
 };
 

@@ -29,6 +29,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
    - `matchHints` is typed but non-executing (no classifier runtime behavior added).
 4. **Session result models are additive types**
    - `AnalysisSession`, `FramePhaseSample`, and `AnalysisEvent` define future output structures only.
+   - `FramePhaseSample.scoringDebug` may now carry additional live troubleshooting metadata (raw/chosen phase diagnostics and live decision hints). Android runtime clients that do not consume these debug fields remain compatible (<https://github.com/Voycepeh/CaliVision>).
 5. **Legacy phase-id normalization remains backward-compatible**
    - Studio may normalize legacy generated IDs (`phase_top`, `phase_bottom`, `phase_new`) to stable opaque `phaseId` values during load.
    - Analysis wiring remains phase-id based, while semantic intent stays in explicit metadata such as `phase.analysis.semanticRole`.
