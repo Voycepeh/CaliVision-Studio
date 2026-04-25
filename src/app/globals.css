@@ -1595,7 +1595,7 @@ main {
   display: grid;
   gap: 0.55rem;
   grid-template-columns: minmax(0, 1fr) clamp(250px, 20vw, 300px);
-  align-items: stretch;
+  align-items: start;
   min-height: 0;
 }
 
@@ -2541,12 +2541,13 @@ main {
 
 @media (min-width: 981px) {
   .live-cockpit-shell {
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
   }
 
   .live-cockpit-video-pane {
-    grid-template-rows: minmax(0, 1fr) auto;
-    min-height: min(84dvh, calc(100dvh - 140px));
+    grid-template-rows: auto;
+    align-content: start;
+    min-height: 0;
   }
 
   .live-cockpit-panel {
