@@ -2,9 +2,10 @@
 
 import { useStudioState } from "@/components/studio/StudioState";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export function StudioActionBar() {
+  const router = useRouter();
   const {
     saveStatusLabel,
     draftVersionLabel,
@@ -15,7 +16,17 @@ export function StudioActionBar() {
     persistenceMode
   } = useStudioState();
   const { userEmail, isConfigured } = useAuth();
-  const isDirty = saveStatusLabel.startsWith("Unsaved");
+  const isDirty = selectedPackage?.isDirty === true;
+
+  function handleBackToLibrary(): void {
+    if (isDirty) {
+      const confirmed = window.confirm("You have unsaved changes. Leave Drill Studio without saving?");
+      if (!confirmed) {
+        return;
+      }
+    }
+    router.push("/library");
+  }
 
   return (
     <section className="card studio-action-bar" aria-label="Studio draft actions">
@@ -33,9 +44,9 @@ export function StudioActionBar() {
         <button type="button" onClick={() => void markSelectedVersionReady()} className="studio-button" disabled={!selectedPackage}>
           Mark Ready
         </button>
-        <Link href="/library" className="pill">
+        <button type="button" onClick={handleBackToLibrary} className="pill">
           Back to Library
-        </Link>
+        </button>
       </div>
 
       {selectedPackage && readinessChecklist && !readinessChecklist.isReady ? (

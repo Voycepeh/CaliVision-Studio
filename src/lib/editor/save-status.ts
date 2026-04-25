@@ -26,26 +26,26 @@ export function deriveEditorSaveStatus(state: EditorSaveStatusState): EditorSave
   if (state.hasError) {
     return {
       kind: "error",
-      label: "Save failed / retry needed"
+      label: "Failed to save"
     };
   }
 
   if (state.isDirty) {
     return {
       kind: "unsaved",
-      label: state.workspace === "cloud" ? "Unsaved cloud changes" : "Unsaved local changes"
+      label: "Unsaved changes"
     };
   }
 
   if (state.lastSavedAtIso) {
     return {
       kind: "saved",
-      label: `${state.workspace === "cloud" ? "Saved to account" : "Saved locally"} at ${new Date(state.lastSavedAtIso).toLocaleString()}`
+      label: `Saved at ${new Date(state.lastSavedAtIso).toLocaleString()}`
     };
   }
 
   return {
     kind: "saved",
-    label: state.workspace === "cloud" ? "Saved to account" : "Saved locally"
+    label: "Saved"
   };
 }

@@ -810,6 +810,22 @@ export function StudioStateProvider({
     ? `Editing draft for v${selectedPackage.workingPackage.manifest.versioning?.revision ?? 1}`
     : "No draft selected";
 
+  useEffect(() => {
+    if (!selectedPackage?.isDirty) {
+      return;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [selectedPackage?.isDirty]);
+
 
   async function saveSelectedDraft(): Promise<boolean> {
     if (!selectedPackage) {
