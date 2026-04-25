@@ -52,6 +52,7 @@ import { loadEditableVersionForDrill, loadVersionById, markVersionReady, validat
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import { normalizeBenchmarkPhases, normalizeDrillBenchmark, syncBenchmarkFromDrillPhases } from "@/lib/drills/benchmark";
+import { applyCoachingProfileSuggestions, type DrillCoachingProfile } from "@/lib/analysis/coaching-profile";
 import type {
   CanonicalJointName,
   DrillPackagePublishingMetadata,
@@ -146,6 +147,8 @@ type StudioStateValue = {
   setDrillType: (drillType: PortableDrill["drillType"]) => void;
   setDrillDifficulty: (difficulty: "beginner" | "intermediate" | "advanced") => void;
   setDrillDefaultView: (view: PortableViewType) => void;
+  setDrillCoachingProfile: (partial: Partial<DrillCoachingProfile>) => void;
+  clearDrillCoachingProfile: () => void;
   setBenchmarkEnabled: (enabled: boolean) => void;
   setBenchmarkSourceType: (sourceType: DrillBenchmark["sourceType"]) => void;
   setBenchmarkLabel: (label: string) => void;
@@ -1272,6 +1275,37 @@ export function StudioStateProvider({
     );
   }
 
+  function setDrillCoachingProfile(partial: Partial<DrillCoachingProfile>): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        const nextProfile = applyCoachingProfileSuggestions({
+          current: drill.coachingProfile,
+          partial,
+          drillType: drill.drillType
+        });
+        drill.coachingProfile = nextProfile;
+      })
+    );
+  }
+
+  function clearDrillCoachingProfile(): void {
+    updateSelectedPackage((entry) =>
+      updateWorkingPackage(entry, (draft) => {
+        const drill = getPrimaryDrill(draft);
+        if (!drill) {
+          return;
+        }
+
+        delete drill.coachingProfile;
+      })
+    );
+  }
+
   function setBenchmarkEnabled(enabled: boolean): void {
     updateSelectedPackage((entry) =>
       updateWorkingPackage(entry, (draft) => {
@@ -2097,6 +2131,8 @@ export function StudioStateProvider({
     setDrillType,
     setDrillDifficulty,
     setDrillDefaultView,
+    setDrillCoachingProfile,
+    clearDrillCoachingProfile,
     setBenchmarkEnabled,
     setBenchmarkSourceType,
     setBenchmarkLabel,

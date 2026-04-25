@@ -2,7 +2,25 @@
 
 import type { CSSProperties } from "react";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
+import {
+  HANDSTAND_DEFAULT_VISUAL_GUIDES,
+  isCoachingProfileConfigured,
+  type CoachingMovementFamily,
+  type CoachingPrimaryGoal,
+  type CoachingRulesetId,
+  type CoachingSupportType,
+  type CoachingVisualGuideType
+} from "@/lib/analysis/coaching-profile";
 import { useStudioState } from "@/components/studio/StudioState";
+
+const VISUAL_GUIDE_OPTIONS: CoachingVisualGuideType[] = [
+  "stack_line",
+  "ghost_pose",
+  "highlight_region",
+  "correction_arrow",
+  "support_indicator",
+  "metric_badge"
+];
 
 export function StudioMetadataEditor() {
   const {
@@ -11,7 +29,9 @@ export function StudioMetadataEditor() {
     setDrillDescription,
     setDrillType,
     setDrillDifficulty,
-    setDrillDefaultView
+    setDrillDefaultView,
+    setDrillCoachingProfile,
+    clearDrillCoachingProfile
   } = useStudioState();
 
   if (!selectedPackage) {
@@ -32,6 +52,8 @@ export function StudioMetadataEditor() {
   const draftSetup = (drill as typeof drill & { draftSetup?: { movementTypeConfigured?: boolean; cameraViewConfigured?: boolean } }).draftSetup;
   const movementValue = draftSetup?.movementTypeConfigured ? drill.drillType : "";
   const cameraValue = draftSetup?.cameraViewConfigured ? drill.primaryView : "";
+  const profile = drill.coachingProfile;
+  const hasProfile = isCoachingProfileConfigured(profile);
 
   return (
     <section style={{ display: "grid", gap: "0.55rem" }}>
@@ -95,8 +117,161 @@ export function StudioMetadataEditor() {
         </label>
       </div>
 
+      <section style={coachingSectionStyle}>
+        <div style={{ display: "grid", gap: "0.2rem" }}>
+          <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Coaching Profile</h4>
+          <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+            Coaching Profile tells CaliVision which coaching rules and visual guides to use for this drill. This prevents rule selection from relying on drill title.
+          </p>
+          <p style={{ margin: 0, fontSize: "0.76rem", color: "var(--muted)" }}>
+            {hasProfile ? "Coaching profile configured" : "Coaching profile not configured — fallback rules may be used"}
+            {profile?.rulesetId ? ` · Ruleset: ${formatRulesetLabel(profile.rulesetId)}` : ""}
+          </p>
+        </div>
+
+        <div className="field-grid">
+          <label style={labelStyle}>
+            <span>Movement family</span>
+            <select
+              value={profile?.movementFamily ?? ""}
+              onChange={(event) => setDrillCoachingProfile({ movementFamily: toOptionalValue<CoachingMovementFamily>(event.target.value) })}
+              style={inputStyle}
+            >
+              <option value="">Not configured</option>
+              <option value="handstand">Handstand</option>
+              <option value="push_up">Push-up</option>
+              <option value="dip">Dip</option>
+              <option value="squat">Squat</option>
+              <option value="plank">Plank</option>
+              <option value="pike_push_up">Pike push-up</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Coaching ruleset</span>
+            <select
+              value={profile?.rulesetId ?? "none"}
+              onChange={(event) => setDrillCoachingProfile({ rulesetId: event.target.value as CoachingRulesetId })}
+              style={inputStyle}
+            >
+              <option value="none">None</option>
+              <option value="handstand_wall_hold_v1">Handstand wall hold</option>
+              <option value="generic_hold_v1">Generic hold</option>
+              <option value="generic_rep_v1">Generic rep</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Support type</span>
+            <select
+              value={profile?.supportType ?? ""}
+              onChange={(event) => setDrillCoachingProfile({ supportType: toOptionalValue<CoachingSupportType>(event.target.value) })}
+              style={inputStyle}
+            >
+              <option value="">Not configured</option>
+              <option value="free">Free</option>
+              <option value="wall_assisted">Wall assisted</option>
+              <option value="floor">Floor</option>
+              <option value="bars">Bars</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Primary coaching goal</span>
+            <select
+              value={profile?.primaryGoal ?? ""}
+              onChange={(event) => setDrillCoachingProfile({ primaryGoal: toOptionalValue<CoachingPrimaryGoal>(event.target.value) })}
+              style={inputStyle}
+            >
+              <option value="">Not configured</option>
+              <option value="balance">Balance</option>
+              <option value="strength">Strength</option>
+              <option value="mobility">Mobility</option>
+              <option value="control">Control</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+
+          <label style={labelStyle}>
+            <span>Cue preference</span>
+            <select
+              value={profile?.cuePreference ?? "visual_only"}
+              onChange={(event) => setDrillCoachingProfile({ cuePreference: event.target.value as NonNullable<typeof profile>["cuePreference"] })}
+              style={inputStyle}
+            >
+              <option value="visual_only">Visual only</option>
+              <option value="audio_optional">Audio optional</option>
+              <option value="visual_and_audio">Visual + audio</option>
+            </select>
+          </label>
+        </div>
+
+        <fieldset style={fieldsetStyle}>
+          <legend style={{ padding: "0 0.2rem" }}>Visual guides</legend>
+          <div style={guideGridStyle}>
+            {VISUAL_GUIDE_OPTIONS.map((guideType) => {
+              const selectedGuides = profile?.enabledVisualGuides
+                ?? (profile?.rulesetId === "handstand_wall_hold_v1" ? HANDSTAND_DEFAULT_VISUAL_GUIDES : []);
+              const checked = selectedGuides.includes(guideType);
+              return (
+                <label key={guideType} style={checkboxLabelStyle}>
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(event) => {
+                      const next = new Set(selectedGuides);
+                      if (event.target.checked) {
+                        next.add(guideType);
+                      } else {
+                        next.delete(guideType);
+                      }
+                      setDrillCoachingProfile({ enabledVisualGuides: [...next] });
+                    }}
+                  />
+                  <span>{formatVisualGuideLabel(guideType)}</span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm("Clear this drill’s coaching profile?")) return;
+            clearDrillCoachingProfile();
+          }}
+          style={secondaryButtonStyle}
+        >
+          Clear coaching profile
+        </button>
+      </section>
     </section>
   );
+}
+
+function toOptionalValue<T extends string>(value: string): T | undefined {
+  return value ? (value as T) : undefined;
+}
+
+function formatVisualGuideLabel(guideType: CoachingVisualGuideType): string {
+  if (guideType === "stack_line") return "Stack line";
+  if (guideType === "ghost_pose") return "Ghost pose";
+  if (guideType === "highlight_region") return "Highlight region";
+  if (guideType === "correction_arrow") return "Correction arrow";
+  if (guideType === "support_indicator") return "Support indicator";
+  return "Metric badge";
+}
+
+function formatRulesetLabel(rulesetId: CoachingRulesetId): string {
+  if (rulesetId === "handstand_wall_hold_v1") return "Handstand wall hold";
+  if (rulesetId === "generic_hold_v1") return "Generic hold";
+  if (rulesetId === "generic_rep_v1") return "Generic rep";
+  if (rulesetId === "none") return "None";
+  return "Custom";
 }
 
 const labelStyle: CSSProperties = {
@@ -112,4 +287,44 @@ const inputStyle: CSSProperties = {
   background: "var(--panel-soft)",
   color: "var(--text)",
   padding: "0.45rem"
+};
+
+const coachingSectionStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
+  border: "1px solid var(--border)",
+  borderRadius: "0.6rem",
+  padding: "0.6rem",
+  background: "var(--panel-soft)"
+};
+
+const fieldsetStyle: CSSProperties = {
+  margin: 0,
+  border: "1px solid var(--border)",
+  borderRadius: "0.5rem",
+  padding: "0.45rem"
+};
+
+const guideGridStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gap: "0.35rem"
+};
+
+const checkboxLabelStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.35rem",
+  fontSize: "0.8rem",
+  color: "var(--muted)"
+};
+
+const secondaryButtonStyle: CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: "0.45rem",
+  background: "transparent",
+  color: "var(--muted)",
+  fontSize: "0.78rem",
+  padding: "0.35rem 0.5rem",
+  justifySelf: "start"
 };

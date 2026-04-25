@@ -40,6 +40,7 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 - `PortableDrill.title` remains the primary user-authored drill identity; legacy `slug` is tolerated on import but no longer required in Studio-authored payloads.
 - `PortableDrill.analysis.measurementType` supports `rep | hold | hybrid` when present.
 - `PortableDrill.benchmark` is optional/additive; legacy files without benchmark metadata continue to load.
+- `PortableDrill.coachingProfile` is optional/additive; Android runtime clients can ignore it until they adopt authored coaching metadata, while legacy title fallback remains for older drill files.
 - Drill-authored phase order remains the primary reference sequence in Studio; benchmark metadata remains compatibility/additive.
 - Sample payloads now include rep, hold, and hybrid analysis examples while remaining portable.
 

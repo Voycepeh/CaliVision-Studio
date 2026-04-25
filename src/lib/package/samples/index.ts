@@ -105,12 +105,20 @@ const SIMPLE_HOLD_VALIDATION_PACKAGE: DrillPackage = {
   drills: [
     {
       drillId: "drill_simple_hold_validation_001",
-      title: "Simple Hold Validation",
-      description: "Single-target hold drill for validating hold entry/exit timing in analysis.",
+      title: "Wall Handstand Hold Validation",
+      description: "Single-target wall-assisted handstand hold drill used to validate authored coaching profile metadata.",
       drillType: "hold",
       difficulty: "beginner",
-      tags: ["validation", "hold"],
-      primaryView: "front",
+      tags: ["validation", "hold", "handstand"],
+      primaryView: "side",
+      coachingProfile: {
+        movementFamily: "handstand",
+        rulesetId: "handstand_wall_hold_v1",
+        supportType: "wall_assisted",
+        primaryGoal: "balance",
+        enabledVisualGuides: ["stack_line", "highlight_region", "correction_arrow", "support_indicator"],
+        cuePreference: "audio_optional"
+      },
       analysis: {
         measurementType: "hold",
         orderedPhaseSequence: ["phase_entry", "phase_hold"],

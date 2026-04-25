@@ -9,6 +9,7 @@ import type {
   PortableDrillAnalysis,
   PortablePhase,
 } from "@/lib/schema/contracts";
+import { isCoachingProfileConfigured, type DrillCoachingProfile } from "../../analysis/coaching-profile.ts";
 
 const SUPPORTED_SCHEMA_VERSION = "0.1.0";
 
@@ -18,6 +19,13 @@ const ASSET_TYPE_SET = new Set<string>(["image", "video", "audio", "overlay"]);
 const ASSET_ROLE_SET = new Set<string>(["phase-source-image", "drill-thumbnail", "drill-preview"]);
 const ANALYSIS_MEASUREMENT_SET = new Set<string>(["rep", "hold", "hybrid"]);
 const PHASE_SEMANTIC_ROLE_SET = new Set<string>(["start", "bottom", "top", "lockout", "transition", "hold"]);
+const COACHING_MOVEMENT_FAMILY_SET = new Set<string>(["handstand", "push_up", "dip", "squat", "plank", "pike_push_up", "custom"]);
+const COACHING_RULESET_ID_SET = new Set<string>(["handstand_wall_hold_v1", "generic_hold_v1", "generic_rep_v1", "none", "custom"]);
+const COACHING_SUPPORT_TYPE_SET = new Set<string>(["free", "wall_assisted", "floor", "bars", "custom"]);
+const COACHING_PRIMARY_GOAL_SET = new Set<string>(["balance", "strength", "mobility", "control", "custom"]);
+const COACHING_VISUAL_GUIDE_SET = new Set<string>(["stack_line", "ghost_pose", "highlight_region", "correction_arrow", "support_indicator", "metric_badge"]);
+const COACHING_CUE_PREFERENCE_SET = new Set<string>(["visual_only", "audio_optional", "visual_and_audio"]);
+
 const BENCHMARK_SOURCE_TYPE_SET = new Set<string>([
   "none",
   "builtin",
@@ -180,6 +188,7 @@ export function normalizePortableDrill(drill: PortableDrill): PortableDrill {
     defaultView: undefined,
     analysis: normalizePortableDrillAnalysis(normalizedIdentity.analysis, normalizedIdentity.drillType),
     benchmark: normalizePortableDrillBenchmark(normalizedIdentity.benchmark, normalizedIdentity),
+    coachingProfile: isCoachingProfileConfigured(normalizedIdentity.coachingProfile) ? normalizedIdentity.coachingProfile : undefined,
     phases: normalizedIdentity.phases.map((phase) => normalizePortablePhase(phase, normalizedIdentity.primaryView))
   };
 }
@@ -477,6 +486,10 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
       validateDrillBenchmark(drill.benchmark, drill.phases, `${drillPath}.benchmark`, issues);
     }
 
+    if (drill.coachingProfile !== undefined) {
+      validateDrillCoachingProfile(drill.coachingProfile, `${drillPath}.coachingProfile`, issues);
+    }
+
     const seenOrder = new Set<number>();
 
     drill.phases.forEach((phase, phaseIndex) => {
@@ -486,6 +499,47 @@ function validateDrills(input: unknown, issues: PackageValidationIssue[]): void 
     validatePhaseOrderingAndNames(drill.phases, drillPath, issues);
     validateDrillTimingConsistency(drill.phases, drillPath, issues);
   });
+}
+
+function validateDrillCoachingProfile(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "coachingProfile must be an object when present.", "type"));
+    return;
+  }
+
+  const profile = input as DrillCoachingProfile;
+
+  if (profile.movementFamily !== undefined && !COACHING_MOVEMENT_FAMILY_SET.has(String(profile.movementFamily))) {
+    issues.push(makeIssue("error", `${path}.movementFamily`, "movementFamily is invalid.", "type"));
+  }
+
+  if (profile.rulesetId !== undefined && !COACHING_RULESET_ID_SET.has(String(profile.rulesetId))) {
+    issues.push(makeIssue("error", `${path}.rulesetId`, "rulesetId is invalid.", "type"));
+  }
+
+  if (profile.supportType !== undefined && !COACHING_SUPPORT_TYPE_SET.has(String(profile.supportType))) {
+    issues.push(makeIssue("error", `${path}.supportType`, "supportType is invalid.", "type"));
+  }
+
+  if (profile.primaryGoal !== undefined && !COACHING_PRIMARY_GOAL_SET.has(String(profile.primaryGoal))) {
+    issues.push(makeIssue("error", `${path}.primaryGoal`, "primaryGoal is invalid.", "type"));
+  }
+
+  if (profile.cuePreference !== undefined && !COACHING_CUE_PREFERENCE_SET.has(String(profile.cuePreference))) {
+    issues.push(makeIssue("error", `${path}.cuePreference`, "cuePreference is invalid.", "type"));
+  }
+
+  if (profile.enabledVisualGuides !== undefined) {
+    if (!Array.isArray(profile.enabledVisualGuides)) {
+      issues.push(makeIssue("error", `${path}.enabledVisualGuides`, "enabledVisualGuides must be an array.", "type"));
+    } else {
+      profile.enabledVisualGuides.forEach((guide, index) => {
+        if (!COACHING_VISUAL_GUIDE_SET.has(String(guide))) {
+          issues.push(makeIssue("error", `${path}.enabledVisualGuides[${index}]`, "Visual guide type is invalid.", "type"));
+        }
+      });
+    }
+  }
 }
 
 function validateDrillBenchmark(input: unknown, phases: unknown[], path: string, issues: PackageValidationIssue[]): void {
