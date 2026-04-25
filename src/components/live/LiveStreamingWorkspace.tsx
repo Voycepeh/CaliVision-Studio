@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { createOverlayProjectionFromLayout, isPreviewSurfaceReady, resolveOverlayCanvasSize, resolvePreviewContainerSize, type OverlayProjection } from "@/lib/live/overlay-geometry";
 import type { CanonicalJointName } from "@/lib/schema/contracts";
@@ -62,6 +62,7 @@ import type { AnalysisSessionRecord } from "@/lib/analysis";
 import type { PoseTimeline } from "@/lib/upload/types";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
 import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflow-setup/DrillOriginSelector";
+import { writeCompareHandoffPayload } from "@/lib/compare/compare-handoff";
 
 const LIVE_ANALYSIS_CADENCE_FPS = 18;
 const LIVE_OVERLAY_PRESENTATION_FPS = 45;
@@ -234,6 +235,7 @@ function buildLivePoseTimeline(trace: LiveSessionTrace): PoseTimeline {
 
 export function LiveStreamingWorkspace() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { session, isConfigured } = useAuth();
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -558,6 +560,14 @@ export function LiveStreamingWorkspace() {
       });
     },
     [benchmarkFeedback, liveAnalysisSession, postAnalysisSnapshot?.poseTimeline.frames, replayAnalysisState, replayTimestampMs, replayUrl, selection.drill]
+  );
+  const canOpenCompare = Boolean(
+    liveAnalysisSession
+      && selection.drill
+      && (
+        (selection.drill.benchmark && selection.drill.benchmark.sourceType !== "none")
+        || liveAnalysisSession.benchmarkComparison
+      )
   );
 
   useEffect(() => {
@@ -2673,6 +2683,34 @@ export function LiveStreamingWorkspace() {
 
         {isPostAnalysisPhase && liveTrace ? (
           <>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
+              {canOpenCompare ? (
+                <button
+                  type="button"
+                  className="pill"
+                  onClick={() => {
+                    if (!selection.drill || !liveAnalysisSession) {
+                      return;
+                    }
+                    writeCompareHandoffPayload({
+                      source: "live",
+                      fromPath: "/live",
+                      drill: selection.drill,
+                      analysisSession: liveAnalysisSession,
+                      benchmarkFeedback,
+                      coachingFeedback,
+                      attemptVideoUrl: replayUrl ?? undefined,
+                      benchmarkVideoUrl: selection.drill.benchmark?.media?.referenceVideoUri,
+                      benchmarkPoses: selection.drill.benchmark?.phaseSequence?.map((phase) => phase.pose).filter((pose): pose is NonNullable<typeof pose> => Boolean(pose)),
+                      attemptPoseFrames: postAnalysisSnapshot?.poseTimeline.frames ?? []
+                    });
+                    router.push("/compare");
+                  }}
+                >
+                  Compare with benchmark
+                </button>
+              ) : null}
+            </div>
             <AnalysisViewerShell
               model={liveViewerModel}
               videoRef={replayVideoRef}
