@@ -125,6 +125,10 @@ export function scoreFramesAgainstDrillPhases(
       perPhaseScores: options.includePerPhaseScores === false ? {} : perPhaseScores,
       debug: {
         cameraView: options.cameraView ?? "front",
+        rawBestPhaseId: bestPhaseId,
+        rawBestPhaseScore: bestPhaseScore,
+        chosenPhaseId,
+        chosenPhaseScore: adjustedBestPhaseScore,
         jointSubsetByPhaseId,
         mirrorApplied: runtimeNormalized.debug.mirrorApplied,
         runtimeNormalization: runtimeNormalized.debug,

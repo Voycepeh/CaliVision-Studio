@@ -2,6 +2,7 @@ import { scoreFramesAgainstDrillPhases } from "../analysis/frame-phase-scorer.ts
 import { buildPhaseRuntimeModel, resolveDrillMeasurementType, type PhaseRuntimeModel } from "../analysis/phase-runtime.ts";
 import { deriveReplayOverlayStateAtTime } from "../analysis/replay-state.ts";
 import { advanceRepSequence, createRepSequenceProgress, type RepSequenceProgress } from "../analysis/rep-sequence-engine.ts";
+import type { FramePhaseScoreDebug } from "../analysis/types.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { AnalysisEvent, PortableDrill } from "../schema/contracts.ts";
 import type { PoseFrame } from "../upload/types.ts";
@@ -28,6 +29,10 @@ type TraceState = {
 const PHASE_CONFIRMATION_FRAMES = 2;
 const PHASE_CONFIDENCE_GATE_ENTER = 0.42;
 const PHASE_CONFIDENCE_GATE_EXIT = 0.3;
+const REP_PHASE_ENTER_FLOOR = 0.32;
+const REP_NEAR_WINNER_SCORE_DELTA = 0.08;
+const ARM_DELTA_PROMOTION_MIN = 0.04;
+const ARM_DELTA_MEANINGFUL_DISTANCE = 0.12;
 
 function shouldDebugRepSequence(): boolean {
   if (typeof window === "undefined") {
@@ -38,6 +43,39 @@ function shouldDebugRepSequence(): boolean {
 
 function scaleTimestamp(timestampMs: number, scale: number, maxDurationMs: number): number {
   return Math.max(0, Math.min(maxDurationMs, Math.round(timestampMs * scale)));
+}
+
+const ARM_TRACKED_JOINTS = ["leftWrist", "rightWrist", "leftElbow", "rightElbow"] as const;
+
+function averageArmDelta(
+  phaseComparisons: FramePhaseScoreDebug["phaseComparisons"],
+  phaseId: string | null
+): number | null {
+  if (!phaseId) {
+    return null;
+  }
+  const perJoint = phaseComparisons[phaseId]?.perJointDelta;
+  if (!perJoint) {
+    return null;
+  }
+  const values = ARM_TRACKED_JOINTS
+    .map((jointName) => perJoint[jointName])
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (values.length === 0) {
+    return null;
+  }
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function resolveExpectedNextPhaseId(runtimeModel: PhaseRuntimeModel | null, currentPhaseId: string | null): string | null {
+  if (!runtimeModel || !currentPhaseId) {
+    return null;
+  }
+  const currentIndex = runtimeModel.loopPhaseIds.findIndex((phaseId) => phaseId === currentPhaseId);
+  if (currentIndex < 0 || currentIndex >= runtimeModel.loopPhaseIds.length - 1) {
+    return null;
+  }
+  return runtimeModel.loopPhaseIds[currentIndex + 1] ?? null;
 }
 
 export function normalizeTraceToVideoDuration(
@@ -287,6 +325,7 @@ export function createLiveTraceAccumulator(input: {
     const score = scoreFramesAgainstDrillPhases([frame], drill.phases, {
       includePerPhaseScores: true,
       cameraView: input.drillSelection.cameraView,
+      minimumScoreThreshold: state.runtimeModel?.measurementMode === "rep" ? REP_PHASE_ENTER_FLOOR : undefined,
       holdTargetPhaseId: state.runtimeModel?.measurementMode === "hold" ? state.runtimeModel.holdPhaseId ?? undefined : undefined
     })[0];
     return {
@@ -359,19 +398,67 @@ export function createLiveTraceAccumulator(input: {
       }
 
       const rawCandidatePhaseId = state.confidenceGateOpen ? (frameSample.classifiedPhaseId ?? null) : null;
-      const candidatePhaseId = rawCandidatePhaseId && state.runtimeModel && !state.runtimeModel.phaseById[rawCandidatePhaseId]
+      const runtimeCandidatePhaseId = rawCandidatePhaseId && state.runtimeModel && !state.runtimeModel.phaseById[rawCandidatePhaseId]
         ? null
         : rawCandidatePhaseId;
+      let candidatePhaseId = runtimeCandidatePhaseId;
+      const expectedNextPhaseId = resolveExpectedNextPhaseId(state.runtimeModel, state.currentPhaseId);
+      let rejectedTransitionReason: string | null = null;
+      let repPromotionReason: string | null = null;
+      if (
+        state.runtimeModel?.measurementMode === "rep"
+        && state.currentPhaseId
+        && expectedNextPhaseId
+        && frameSample.scoringDebug?.phaseComparisons
+      ) {
+        const perPhaseScores = frameSample.perPhaseScores ?? {};
+        const currentScore = perPhaseScores[state.currentPhaseId] ?? 0;
+        const expectedScore = perPhaseScores[expectedNextPhaseId] ?? 0;
+        const armDeltaCurrent = averageArmDelta(frameSample.scoringDebug.phaseComparisons, state.currentPhaseId);
+        const armDeltaExpected = averageArmDelta(frameSample.scoringDebug.phaseComparisons, expectedNextPhaseId);
+        const armShiftMeaningful = armDeltaCurrent !== null
+          && armDeltaExpected !== null
+          && armDeltaCurrent >= ARM_DELTA_MEANINGFUL_DISTANCE
+          && armDeltaCurrent - armDeltaExpected >= ARM_DELTA_PROMOTION_MIN;
+        const phaseScoresClose = expectedScore >= currentScore - REP_NEAR_WINNER_SCORE_DELTA;
+        const expectedAboveRepFloor = expectedScore >= REP_PHASE_ENTER_FLOOR;
+
+        if (armShiftMeaningful && phaseScoresClose && expectedAboveRepFloor) {
+          if (candidatePhaseId === null) {
+            repPromotionReason = "expected_next_promoted_from_null";
+          } else if (candidatePhaseId === state.currentPhaseId) {
+            repPromotionReason = "expected_next_promoted_from_current";
+          }
+          if (repPromotionReason) {
+            candidatePhaseId = expectedNextPhaseId;
+          }
+        }
+      }
+
+      if (!state.confidenceGateOpen) {
+        rejectedTransitionReason = "confidence_gate_closed";
+      } else if (!candidatePhaseId) {
+        rejectedTransitionReason = "no_candidate_phase";
+      } else if (candidatePhaseId === state.currentPhaseId) {
+        rejectedTransitionReason = "candidate_matches_current_phase";
+      }
       if (shouldDebugRepSequence()) {
         const expectedPhaseIndex = state.repProgress.expectedSequenceIndex;
-        const expectedPhaseId = state.runtimeModel?.loopPhaseIds[expectedPhaseIndex] ?? null;
+        const sequenceExpectedPhaseId = state.runtimeModel?.loopPhaseIds[expectedPhaseIndex] ?? null;
         console.debug("[rep-sequence] frame", {
           timestampMs: frame.timestampMs,
           rawDetectedPhaseId: frameSample.classifiedPhaseId ?? null,
+          rawBestPhaseId: frameSample.scoringDebug?.rawBestPhaseId ?? null,
           stabilizedPhaseId: state.currentPhaseId,
-          candidatePhaseId,
+          candidatePhaseId: runtimeCandidatePhaseId,
+          chosenPhaseId: candidatePhaseId,
+          expectedNextPhaseId,
+          rejectedTransitionReason,
+          repPromotionReason,
+          confidenceGateOpen: state.confidenceGateOpen,
+          perPhaseScores: frameSample.perPhaseScores ?? {},
           expectedPhaseIndex,
-          expectedPhaseId,
+          expectedPhaseId: sequenceExpectedPhaseId,
           matchedSequenceProgress: `${state.repProgress.expectedSequenceIndex}/${Math.max(0, (state.runtimeModel?.loopPhaseIds.length ?? 1) - 1)}`,
           repCount: state.repProgress.repCount
         });

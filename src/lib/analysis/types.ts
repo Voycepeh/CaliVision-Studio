@@ -27,6 +27,10 @@ export type FramePhaseScore = {
 
 export type FramePhaseScoreDebug = {
   cameraView: DrillCameraView;
+  rawBestPhaseId: string | null;
+  rawBestPhaseScore: number;
+  chosenPhaseId: string | null;
+  chosenPhaseScore: number;
   jointSubsetByPhaseId: Record<string, CanonicalJointName[]>;
   mirrorApplied: boolean;
   runtimeNormalization: PoseNormalizationDebug;
