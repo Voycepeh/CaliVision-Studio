@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { buildCompareWorkspaceModel } from "@/lib/compare/compare-model";
 import { readCompareHandoffPayload } from "@/lib/compare/compare-handoff";
+import { resolveCompareVisualAvailability } from "@/lib/compare/visual-sources";
 import type { PoseFrame } from "@/lib/upload/types";
 import type { PortablePose } from "@/lib/schema/contracts";
 
@@ -33,6 +34,8 @@ export function CompareWorkspace() {
   const [currentMs, setCurrentMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [attemptVideoFailed, setAttemptVideoFailed] = useState(false);
+  const [benchmarkVideoFailed, setBenchmarkVideoFailed] = useState(false);
 
   const attemptVideoRef = useRef<HTMLVideoElement | null>(null);
   const benchmarkVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -42,6 +45,11 @@ export function CompareWorkspace() {
   useEffect(() => {
     setHandoff(readCompareHandoffPayload());
   }, []);
+
+  useEffect(() => {
+    setAttemptVideoFailed(false);
+    setBenchmarkVideoFailed(false);
+  }, [handoff?.attemptVideoUrl, handoff?.benchmarkVideoUrl]);
 
   const model = useMemo(() => buildCompareWorkspaceModel({
     drill: handoff?.drill,
@@ -58,6 +66,15 @@ export function CompareWorkspace() {
   }, [handoff?.benchmarkPoses]);
 
   const attemptFrames = useMemo(() => handoff?.attemptPoseFrames ?? [], [handoff?.attemptPoseFrames]);
+  const visualAvailability = useMemo(
+    () => resolveCompareVisualAvailability({
+      attemptVideoUrl: handoff?.attemptVideoUrl,
+      attemptPoseFrames: attemptFrames,
+      benchmarkVideoUrl: handoff?.benchmarkVideoUrl,
+      benchmarkPoseFrames: benchmarkFrames
+    }),
+    [attemptFrames, benchmarkFrames, handoff?.attemptVideoUrl, handoff?.benchmarkVideoUrl]
+  );
 
   const durationMs = useMemo(() => {
     const fromSession = handoff?.analysisSession?.summary.analyzedDurationMs ?? 0;
@@ -143,6 +160,17 @@ export function CompareWorkspace() {
   };
 
   const showNoAttemptVisual = !handoff?.attemptVideoUrl && attemptFrames.length === 0;
+  const showAttemptVideo = visualAvailability.attemptHasVideo && !attemptVideoFailed;
+  const showBenchmarkVideo = visualAvailability.benchmarkHasVideo && !benchmarkVideoFailed;
+  const isSkeletonOnly = (!showAttemptVideo && visualAvailability.attemptHasPoseReplay)
+    || (!showBenchmarkVideo && visualAvailability.benchmarkHasPoseReplay);
+  const shouldShowDetailedPanels = !model.emptyState
+    || model.emptyState.kind === "insufficient_data"
+    || visualAvailability.attemptHasPoseReplay
+    || visualAvailability.benchmarkHasPoseReplay
+    || model.metricRows.length > 0;
+  const shouldShowControls = shouldShowDetailedPanels && !showNoAttemptVisual;
+  const shouldShowMetrics = shouldShowDetailedPanels && (model.metricRows.length > 0 || model.emptyState?.kind === "insufficient_data");
 
   return (
     <section style={{ display: "grid", gap: "0.8rem" }}>
@@ -163,13 +191,26 @@ export function CompareWorkspace() {
         </article>
       ) : null}
 
+      {isSkeletonOnly ? (
+        <p className="muted" style={{ margin: 0 }}>
+          Video is not stored. Showing pose replay from analysis data.
+        </p>
+      ) : null}
+
+      {shouldShowDetailedPanels ? (
       <section style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: "0.7rem" }}>
         <div style={{ display: "grid", gap: "0.7rem", gridTemplateColumns: "repeat(auto-fit,minmax(260px,1fr))" }}>
           <article className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>{model.benchmarkLabel}</h3>
-            {handoff?.benchmarkVideoUrl ? (
+            {showBenchmarkVideo ? (
               <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617" }}>
-                <video ref={benchmarkVideoRef} src={handoff.benchmarkVideoUrl} controls={false} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <video
+                  ref={benchmarkVideoRef}
+                  src={handoff?.benchmarkVideoUrl}
+                  controls={false}
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  onError={() => setBenchmarkVideoFailed(true)}
+                />
                 {benchmarkFrames.length > 0 ? <canvas ref={benchmarkCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : null}
               </div>
             ) : benchmarkFrames.length > 0 ? (
@@ -186,9 +227,15 @@ export function CompareWorkspace() {
 
           <article className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>{model.attemptLabel}</h3>
-            {handoff?.attemptVideoUrl ? (
+            {showAttemptVideo ? (
               <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617" }}>
-                <video ref={attemptVideoRef} src={handoff.attemptVideoUrl} controls={false} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                <video
+                  ref={attemptVideoRef}
+                  src={handoff?.attemptVideoUrl}
+                  controls={false}
+                  style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  onError={() => setAttemptVideoFailed(true)}
+                />
                 {attemptFrames.length > 0 ? <canvas ref={attemptCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : null}
               </div>
             ) : attemptFrames.length > 0 ? (
@@ -214,7 +261,7 @@ export function CompareWorkspace() {
           </aside>
         </div>
 
-        {!showNoAttemptVisual ? (
+        {shouldShowControls ? (
           <article className="card" style={{ margin: 0, display: "grid", gap: "0.45rem" }}>
             <strong>Shared replay controls</strong>
             <div style={{ display: "flex", gap: "0.45rem", flexWrap: "wrap", alignItems: "center" }}>
@@ -247,8 +294,9 @@ export function CompareWorkspace() {
             </div>
           </article>
         ) : null}
-      </section>
+      </section>) : null}
 
+      {shouldShowMetrics ? (
       <section className="card" style={{ margin: 0 }}>
         <h3 style={{ marginTop: 0 }}>Metric breakdown</h3>
         {model.metricRows.length > 0 ? (
@@ -277,7 +325,7 @@ export function CompareWorkspace() {
         ) : (
           <p className="muted" style={{ marginBottom: 0 }}>No computed metrics available for this attempt yet.</p>
         )}
-      </section>
+      </section>) : null}
     </section>
   );
 }

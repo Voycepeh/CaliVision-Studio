@@ -14,6 +14,7 @@ export type CompareMetricRow = {
 };
 
 export type CompareEmptyState = {
+  kind: "no_benchmark" | "no_attempt" | "insufficient_data";
   title: string;
   description: string;
   actionLabel?: string;
@@ -55,6 +56,7 @@ export function buildCompareWorkspaceModel(input: {
       focusAreas: ["Benchmark"],
       metricRows: [],
       emptyState: {
+        kind: "no_benchmark",
         title: "No benchmark configured",
         description: "Add benchmark timing or reference phases in Drill Studio to compare attempts.",
         actionLabel: "Open Drill Studio"
@@ -72,6 +74,7 @@ export function buildCompareWorkspaceModel(input: {
       focusAreas: ["Visibility"],
       metricRows: [],
       emptyState: {
+        kind: "no_attempt",
         title: "No analyzed attempt selected",
         description: "Run upload or live analysis, then open Compare from the result."
       }
@@ -103,6 +106,7 @@ export function buildCompareWorkspaceModel(input: {
       focusAreas: deriveFocusAreas(input.coachingFeedback, input.benchmarkFeedback),
       metricRows: buildMetricRows(analysisSession, input.benchmarkFeedback),
       emptyState: {
+        kind: "insufficient_data",
         title: "Not enough comparison data",
         description: "Keep the full body in frame and complete a full rep or hold to unlock comparison."
       }

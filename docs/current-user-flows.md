@@ -117,6 +117,7 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 
 - Upload and Live analysis results now expose **Compare with benchmark** when a drill benchmark and analyzed session are available.
 - Compare opens a side-by-side workspace (Benchmark vs Your Attempt) with synchronized replay controls and timeline scrubbing across available visual sources.
+- Compare is pose-first for durability in local/session workflows: if replay video is unavailable or fails to load, Compare falls back to skeleton/pose replay from analysis data.
 - Metric rows are shown only when computed from real benchmark/attempt data (for example sequence status, timing status, duration deltas, phase timing rows, completed reps/holds, confidence).
 - Top takeaway and focus areas are sourced from benchmark/coaching outputs (not hard-coded mockup text).
 - Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.

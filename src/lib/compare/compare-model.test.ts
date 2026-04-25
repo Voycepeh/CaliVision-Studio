@@ -124,6 +124,7 @@ test("missing benchmark returns empty state", () => {
   });
 
   assert.equal(model.emptyState?.title, "No benchmark configured");
+  assert.equal(model.emptyState?.kind, "no_benchmark");
 });
 
 test("no attempt returns empty state", () => {
@@ -132,6 +133,7 @@ test("no attempt returns empty state", () => {
   });
 
   assert.equal(model.emptyState?.title, "No analyzed attempt selected");
+  assert.equal(model.emptyState?.kind, "no_attempt");
 });
 
 test("matched benchmark produces status summary", () => {
