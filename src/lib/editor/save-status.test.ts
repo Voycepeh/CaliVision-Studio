@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { deriveEditorSaveStatus } from "./save-status.ts";
 
-test("clean cloud draft after save reports only saved to account", () => {
+test("clean cloud draft after save reports saved timestamp", () => {
   const status = deriveEditorSaveStatus({
     workspace: "cloud",
     isDirty: false,
@@ -12,11 +12,11 @@ test("clean cloud draft after save reports only saved to account", () => {
   });
 
   assert.equal(status.kind, "saved");
-  assert.match(status.label, /^Saved to account at /);
+  assert.match(status.label, /^Saved at /);
   assert.doesNotMatch(status.label, /Unsaved/);
 });
 
-test("edited cloud draft reports only unsaved cloud changes", () => {
+test("edited cloud draft reports unsaved changes", () => {
   const status = deriveEditorSaveStatus({
     workspace: "cloud",
     isDirty: true,
@@ -26,11 +26,11 @@ test("edited cloud draft reports only unsaved cloud changes", () => {
   });
 
   assert.equal(status.kind, "unsaved");
-  assert.equal(status.label, "Unsaved cloud changes");
-  assert.doesNotMatch(status.label, /Saved to account/);
+  assert.equal(status.label, "Unsaved changes");
+  assert.doesNotMatch(status.label, /Saved at/);
 });
 
-test("clean local draft reports saved locally wording", () => {
+test("clean local draft reports saved timestamp wording", () => {
   const status = deriveEditorSaveStatus({
     workspace: "local",
     isDirty: false,
@@ -40,8 +40,7 @@ test("clean local draft reports saved locally wording", () => {
   });
 
   assert.equal(status.kind, "saved");
-  assert.match(status.label, /^Saved locally at /);
-  assert.doesNotMatch(status.label, /Saved to account/);
+  assert.match(status.label, /^Saved at /);
 });
 
 test("hydration of unchanged draft does not show unsaved", () => {
@@ -54,7 +53,7 @@ test("hydration of unchanged draft does not show unsaved", () => {
   });
 
   assert.doesNotMatch(status.label, /Unsaved/);
-  assert.match(status.label, /^Saved locally at /);
+  assert.match(status.label, /^Saved at /);
 });
 
 test("successful save clears unsaved state", () => {
@@ -65,7 +64,7 @@ test("successful save clears unsaved state", () => {
     hasError: false,
     lastSavedAtIso: "2026-04-10T10:20:30.000Z"
   });
-  assert.equal(beforeSave.label, "Unsaved cloud changes");
+  assert.equal(beforeSave.label, "Unsaved changes");
 
   const afterSave = deriveEditorSaveStatus({
     workspace: "cloud",
@@ -74,7 +73,7 @@ test("successful save clears unsaved state", () => {
     hasError: false,
     lastSavedAtIso: "2026-04-10T11:20:30.000Z"
   });
-  assert.match(afterSave.label, /^Saved to account at /);
+  assert.match(afterSave.label, /^Saved at /);
 });
 
 test("saving and error states stay mutually exclusive and primary", () => {
@@ -96,5 +95,5 @@ test("saving and error states stay mutually exclusive and primary", () => {
     lastSavedAtIso: "2026-04-10T10:20:30.000Z"
   });
 
-  assert.equal(failed.label, "Save failed / retry needed");
+  assert.equal(failed.label, "Failed to save");
 });
