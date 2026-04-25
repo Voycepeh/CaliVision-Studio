@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { resolveDrillSpecificCoaching } from "./coaching-rules.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 
-const handstand: PortableDrill = {
+const baseHandstand: PortableDrill = {
   drillId: "d1",
   title: "Wall Handstand Hold",
   drillType: "hold",
@@ -13,29 +13,37 @@ const handstand: PortableDrill = {
   phases: []
 };
 
-test("handstand side-view rule returns stack-line visual guide with reliable joints", () => {
+const reliableFrame = {
+  timestampMs: 0,
+  joints: {
+    leftWrist: { x: 0.5, y: 0.8, confidence: 0.9 },
+    rightWrist: { x: 0.52, y: 0.8, confidence: 0.9 },
+    leftHip: { x: 0.3, y: 0.5, confidence: 0.9 },
+    rightHip: { x: 0.32, y: 0.5, confidence: 0.9 },
+    leftAnkle: { x: 0.25, y: 0.2, confidence: 0.9 },
+    rightAnkle: { x: 0.28, y: 0.2, confidence: 0.9 }
+  }
+};
+
+test("coaching-rules prefers explicit rulesetId over title fallback", () => {
   const output = resolveDrillSpecificCoaching({
-    drill: handstand,
-    replayState: { maxHoldMs: 2000 } as never,
-    frame: {
-      timestampMs: 0,
-      joints: {
-        leftWrist: { x: 0.5, y: 0.8, confidence: 0.9 },
-        rightWrist: { x: 0.52, y: 0.8, confidence: 0.9 },
-        leftHip: { x: 0.3, y: 0.5, confidence: 0.9 },
-        rightHip: { x: 0.32, y: 0.5, confidence: 0.9 },
-        leftAnkle: { x: 0.25, y: 0.2, confidence: 0.9 },
-        rightAnkle: { x: 0.28, y: 0.2, confidence: 0.9 }
+    drill: {
+      ...baseHandstand,
+      title: "Plank Hold",
+      coachingProfile: {
+        rulesetId: "handstand_wall_hold_v1"
       }
-    }
+    },
+    frame: reliableFrame,
+    replayState: { maxHoldMs: 2000 } as never
   });
+
   assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "stack_line"), true);
-  assert.equal((output.primaryIssue ? 1 : 0) <= 1, true);
 });
 
 test("low-confidence joints fall back to visibility guidance", () => {
   const output = resolveDrillSpecificCoaching({
-    drill: handstand,
+    drill: baseHandstand,
     frame: {
       timestampMs: 0,
       joints: {
@@ -49,18 +57,57 @@ test("low-confidence joints fall back to visibility guidance", () => {
 
 test("non-handstand side-view hold drill does not trigger handstand coaching", () => {
   const output = resolveDrillSpecificCoaching({
-    drill: { ...handstand, title: "Wall Plank Hold" },
-    frame: {
-      timestampMs: 0,
-      joints: {
-        leftWrist: { x: 0.5, y: 0.8, confidence: 0.9 },
-        rightWrist: { x: 0.52, y: 0.8, confidence: 0.9 },
-        leftHip: { x: 0.3, y: 0.5, confidence: 0.9 },
-        rightHip: { x: 0.32, y: 0.5, confidence: 0.9 },
-        leftAnkle: { x: 0.25, y: 0.2, confidence: 0.9 },
-        rightAnkle: { x: 0.28, y: 0.2, confidence: 0.9 }
-      }
-    }
+    drill: { ...baseHandstand, title: "Wall Plank Hold" },
+    frame: reliableFrame
   });
   assert.deepEqual(output, {});
+});
+
+test("handstand movementFamily requires hold and side view unless explicit ruleset exists", () => {
+  const output = resolveDrillSpecificCoaching({
+    drill: {
+      ...baseHandstand,
+      title: "Handstand Press",
+      drillType: "rep",
+      coachingProfile: {
+        movementFamily: "handstand"
+      }
+    },
+    frame: reliableFrame
+  });
+
+  assert.deepEqual(output, {});
+});
+
+test("handstand coaching can run with authored profile even when title does not mention handstand", () => {
+  const output = resolveDrillSpecificCoaching({
+    drill: {
+      ...baseHandstand,
+      title: "Wall Line Hold",
+      coachingProfile: {
+        movementFamily: "handstand",
+        rulesetId: "handstand_wall_hold_v1",
+        enabledVisualGuides: ["stack_line", "highlight_region"]
+      }
+    },
+    frame: reliableFrame
+  });
+
+  assert.equal((output.visualGuides ?? []).every((guide) => ["stack_line", "highlight_region"].includes(guide.type)), true);
+});
+
+test("enabledVisualGuides filters output visual guides", () => {
+  const output = resolveDrillSpecificCoaching({
+    drill: {
+      ...baseHandstand,
+      coachingProfile: {
+        rulesetId: "handstand_wall_hold_v1",
+        enabledVisualGuides: ["stack_line"]
+      }
+    },
+    frame: reliableFrame
+  });
+
+  assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "correction_arrow"), false);
+  assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "stack_line"), true);
 });

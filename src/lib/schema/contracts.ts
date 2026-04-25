@@ -1,3 +1,5 @@
+import type { DrillCoachingProfile } from "../analysis/coaching-profile.ts";
+
 export type SchemaVersion = "0.1.0";
 
 export type PortableViewType = "front" | "side" | "rear";
@@ -189,6 +191,7 @@ export type PortableDrill = {
   phases: PortablePhase[];
   analysis?: PortableDrillAnalysis;
   benchmark?: DrillBenchmark | null;
+  coachingProfile?: DrillCoachingProfile;
 };
 
 export type DrillPackagePublishingMetadata = {

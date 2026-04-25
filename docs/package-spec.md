@@ -22,6 +22,7 @@ Validation/parsing flows live in:
 - `PortableDrill`, `PortablePhase`, `PortablePose`, `PortableAssetRef`
 - `PortableDrillAnalysis`, `PortablePhaseAnalysis`, `PortablePhaseMatchHints`
 - `DrillBenchmark`, `DrillBenchmarkPhase` (optional benchmark/reference metadata)
+- `PortableDrill.coachingProfile` (optional authored coaching rule/guide metadata)
 - `AnalysisSession`, `FramePhaseSample`, `AnalysisEvent` (typed analysis output models)
 
 ### `PortableDrill` required field note
@@ -110,7 +111,7 @@ Studio now treats authored drill phase order + per-phase rules as the primary re
 
 ## Field ownership (final cleanup baseline)
 
-- **Drill-level persisted fields**: `drillId`, `title`, optional legacy `slug` (import-compatible), `drillType`, `description`, `difficulty`, `primaryView`, tags, optional `benchmark`, analysis, and publication/version metadata where applicable.
+- **Drill-level persisted fields**: `drillId`, `title`, optional legacy `slug` (import-compatible), `drillType`, `description`, `difficulty`, `primaryView`, tags, optional `coachingProfile`, optional `benchmark`, analysis, and publication/version metadata where applicable.
 - **Phase-level persisted fields**: `phaseId`, `name`, `order`, timing (`durationMs`/`startOffsetMs`), authored pose sequence, optional analysis metadata, and explicit asset references when they are truly part of saved phase data.
 - **Editor-only non-persisted fields**: transient authoring UI state (`selectedJoint`, `focusRegion`, `canvasSize`, `focusCanvas`, temporary view controls) must not be exported or treated as canonical schema fields.
 
@@ -179,3 +180,13 @@ Keep these aligned whenever contract semantics change.
 - no backend conflict-resolution graph semantics,
 - no cloud storage references in core package schema,
 - no analysis classifier/scorer implementation in package contract layer.
+
+## Coaching profile metadata (additive)
+
+`PortableDrill.coachingProfile` is an optional authored metadata block that lets Drill Studio declare coaching intent directly in the drill definition instead of depending on title keyword fallback.
+
+- optional `movementFamily` (`handstand`, `push_up`, `dip`, `squat`, `plank`, `pike_push_up`, `custom`)
+- optional `rulesetId` (`handstand_wall_hold_v1`, `generic_hold_v1`, `generic_rep_v1`, `none`, `custom`)
+- optional `supportType`, `primaryGoal`, `enabledVisualGuides`, and `cuePreference`
+- legacy drill files without `coachingProfile` remain valid and should continue to load
+- export includes `coachingProfile` only when configured

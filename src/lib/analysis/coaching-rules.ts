@@ -9,6 +9,7 @@ import type {
   CoachingMentalModel,
   CoachingVisualGuide
 } from "./coaching-feedback.ts";
+import { filterVisualGuidesByProfile, type DrillCoachingProfile } from "./coaching-profile.ts";
 
 type BuildRuleInput = {
   drill?: PortableDrill | null;
@@ -16,13 +17,7 @@ type BuildRuleInput = {
   replayState?: ReplayAnalysisState;
 };
 
-type DrillCoachingProfile = {
-  movementFamily?: "handstand" | "push_up" | "dip" | "squat" | "plank" | "pike_push_up" | "custom";
-  rulesetId?: string;
-  supportType?: "free" | "wall_assisted" | "floor" | "bars" | "custom";
-  primaryGoal?: "balance" | "strength" | "mobility" | "control" | "custom";
-  enabledVisualGuides?: Array<"stack_line" | "ghost_pose" | "highlight_region" | "correction_arrow" | "support_indicator" | "metric_badge">;
-};
+type CoachingRulesetResolution = "handstand_wall_hold_v1" | "generic_hold_v1" | "generic_rep_v1" | "none" | null;
 
 const REQUIRED_STACK_JOINTS: CanonicalJointName[] = ["leftWrist", "rightWrist", "leftHip", "rightHip", "leftAnkle", "rightAnkle"];
 
@@ -40,20 +35,72 @@ function hasReliableJoint(frame: PoseFrame, joint: CanonicalJointName, min = 0.4
   return Boolean(value && (value.confidence ?? 1) >= min);
 }
 
-function isLikelyHandstandSideHold(input: BuildRuleInput): boolean {
-  const drill = input.drill;
-  if (!drill) return false;
-  const coachingProfile = (drill as PortableDrill & { coachingProfile?: DrillCoachingProfile }).coachingProfile;
-  if (coachingProfile?.movementFamily) {
-    return coachingProfile.movementFamily === "handstand";
-  }
-  // TODO: expose Coaching Profile settings in Drill Studio so rules can resolve from authored metadata (instead of title fallback).
-  const title = `${drill.title ?? ""}`.toLowerCase();
-  return title.includes("handstand") && drill.drillType === "hold" && drill.primaryView === "side";
+function getCoachingProfile(drill?: PortableDrill | null): DrillCoachingProfile | undefined {
+  return drill?.coachingProfile;
 }
 
-export function resolveDrillSpecificCoaching(input: BuildRuleInput): Partial<CoachingFeedbackOutput> {
-  if (!isLikelyHandstandSideHold(input) || !input.frame) {
+function resolveRuleset(input: BuildRuleInput): CoachingRulesetResolution {
+  const drill = input.drill;
+  if (!drill) return null;
+  const profile = getCoachingProfile(drill);
+
+  if (profile?.rulesetId === "handstand_wall_hold_v1") {
+    return "handstand_wall_hold_v1";
+  }
+  if (profile?.rulesetId === "generic_hold_v1") {
+    return "generic_hold_v1";
+  }
+  if (profile?.rulesetId === "generic_rep_v1") {
+    return "generic_rep_v1";
+  }
+  if (profile?.rulesetId === "none") {
+    return "none";
+  }
+
+  const isAuthoredHandstandHold = profile?.movementFamily === "handstand" && drill.drillType === "hold" && drill.primaryView === "side";
+  if (isAuthoredHandstandHold) {
+    return "handstand_wall_hold_v1";
+  }
+
+  const title = `${drill.title ?? ""}`.toLowerCase();
+  if (title.includes("handstand") && drill.drillType === "hold" && drill.primaryView === "side") {
+    return "handstand_wall_hold_v1";
+  }
+
+  return null;
+}
+
+function applyVisualGuidePreferences(output: Partial<CoachingFeedbackOutput>, profile: DrillCoachingProfile | undefined): Partial<CoachingFeedbackOutput> {
+  if (!profile?.enabledVisualGuides?.length) {
+    return output;
+  }
+
+  const filterGuides = (guides: CoachingVisualGuide[] | undefined): CoachingVisualGuide[] | undefined => {
+    if (!guides) return guides;
+    return filterVisualGuidesByProfile(profile, guides);
+  };
+
+  const nextPositives = output.positives?.map((issue) => ({ ...issue, visualGuides: filterGuides(issue.visualGuides) ?? [] }));
+  const nextImprovements = output.improvements?.map((issue) => ({ ...issue, visualGuides: filterGuides(issue.visualGuides) ?? [] }));
+
+  return {
+    ...output,
+    positives: nextPositives,
+    improvements: nextImprovements,
+    primaryIssue: output.primaryIssue
+      ? {
+          ...output.primaryIssue,
+          visualGuides: filterGuides(output.primaryIssue.visualGuides) ?? []
+        }
+      : undefined,
+    bodyPartBreakdown: output.bodyPartBreakdown?.map((finding) => ({ ...finding, visualGuides: filterGuides(finding.visualGuides) ?? [] })),
+    orderedFixSteps: output.orderedFixSteps?.map((step) => ({ ...step, visualGuides: filterGuides(step.visualGuides) ?? [] })),
+    visualGuides: filterGuides(output.visualGuides) ?? []
+  };
+}
+
+function buildHandstandWallHoldRule(input: BuildRuleInput): Partial<CoachingFeedbackOutput> {
+  if (!input.frame) {
     return {};
   }
 
@@ -177,4 +224,13 @@ export function resolveDrillSpecificCoaching(input: BuildRuleInput): Partial<Coa
     orderedFixSteps,
     visualGuides: primaryIssue.visualGuides
   };
+}
+
+export function resolveDrillSpecificCoaching(input: BuildRuleInput): Partial<CoachingFeedbackOutput> {
+  const ruleset = resolveRuleset(input);
+  if (ruleset !== "handstand_wall_hold_v1") {
+    return {};
+  }
+
+  return applyVisualGuidePreferences(buildHandstandWallHoldRule(input), getCoachingProfile(input.drill));
 }

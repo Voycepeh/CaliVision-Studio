@@ -27,6 +27,9 @@ export {
 } from "./benchmark-comparison.ts";
 export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./benchmark-comparison.ts";
 
+export { applyCoachingProfileSuggestions, filterVisualGuidesByProfile, isCoachingProfileConfigured, HANDSTAND_DEFAULT_VISUAL_GUIDES } from "./coaching-profile.ts";
+export type { DrillCoachingProfile, CoachingMovementFamily, CoachingRulesetId, CoachingSupportType, CoachingPrimaryGoal, CoachingVisualGuideType } from "./coaching-profile.ts";
+
 export { buildVisualCoachingFeedback } from "./coaching-feedback.ts";
 export type { CoachingFeedbackOutput, CoachingIssue, CoachingVisualGuide, CoachingBodyPartFinding, CoachingFixStep, CoachingMentalModel } from "./coaching-feedback.ts";
 
