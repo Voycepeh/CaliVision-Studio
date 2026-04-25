@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { buildCompareWorkspaceModel } from "@/lib/compare/compare-model";
 import { readCompareHandoffPayload } from "@/lib/compare/compare-handoff";
-import { resolveCompareVisualAvailability } from "@/lib/compare/visual-sources";
+import { resolveCompareVisualAvailability, resolveUsableCompareVisualState } from "@/lib/compare/visual-sources";
 import type { PoseFrame } from "@/lib/upload/types";
 import type { PortablePose } from "@/lib/schema/contracts";
 
@@ -74,6 +74,14 @@ export function CompareWorkspace() {
       benchmarkPoseFrames: benchmarkFrames
     }),
     [attemptFrames, benchmarkFrames, handoff?.attemptVideoUrl, handoff?.benchmarkVideoUrl]
+  );
+  const usableVisualState = useMemo(
+    () => resolveUsableCompareVisualState({
+      availability: visualAvailability,
+      attemptVideoFailed,
+      benchmarkVideoFailed
+    }),
+    [attemptVideoFailed, benchmarkVideoFailed, visualAvailability]
   );
 
   const durationMs = useMemo(() => {
@@ -159,15 +167,15 @@ export function CompareWorkspace() {
     setIsPlaying(true);
   };
 
-  const showNoAttemptVisual = !handoff?.attemptVideoUrl && attemptFrames.length === 0;
   const showAttemptVideo = visualAvailability.attemptHasVideo && !attemptVideoFailed;
   const showBenchmarkVideo = visualAvailability.benchmarkHasVideo && !benchmarkVideoFailed;
+  const showNoAttemptVisual = !usableVisualState.hasUsableAttemptVisual;
   const isSkeletonOnly = (!showAttemptVideo && visualAvailability.attemptHasPoseReplay)
     || (!showBenchmarkVideo && visualAvailability.benchmarkHasPoseReplay);
   const shouldShowDetailedPanels = !model.emptyState
     || model.emptyState.kind === "insufficient_data"
-    || visualAvailability.attemptHasPoseReplay
-    || visualAvailability.benchmarkHasPoseReplay
+    || usableVisualState.hasUsableAttemptVisual
+    || usableVisualState.hasUsableBenchmarkVisual
     || model.metricRows.length > 0;
   const shouldShowControls = shouldShowDetailedPanels && !showNoAttemptVisual;
   const shouldShowMetrics = shouldShowDetailedPanels && (model.metricRows.length > 0 || model.emptyState?.kind === "insufficient_data");
@@ -194,6 +202,11 @@ export function CompareWorkspace() {
       {isSkeletonOnly ? (
         <p className="muted" style={{ margin: 0 }}>
           Video is not stored. Showing pose replay from analysis data.
+        </p>
+      ) : null}
+      {attemptVideoFailed && !visualAvailability.attemptHasPoseReplay ? (
+        <p className="muted" style={{ margin: 0 }}>
+          Attempt video could not load and no pose replay is available.
         </p>
       ) : null}
 

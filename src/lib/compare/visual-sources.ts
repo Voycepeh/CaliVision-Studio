@@ -7,6 +7,11 @@ export type CompareVisualAvailability = {
   benchmarkHasPoseReplay: boolean;
 };
 
+export type CompareUsableVisualState = {
+  hasUsableAttemptVisual: boolean;
+  hasUsableBenchmarkVisual: boolean;
+};
+
 export function resolveCompareVisualAvailability(input: {
   attemptVideoUrl?: string;
   attemptPoseFrames?: PoseFrame[];
@@ -18,5 +23,18 @@ export function resolveCompareVisualAvailability(input: {
     attemptHasPoseReplay: Boolean(input.attemptPoseFrames?.length),
     benchmarkHasVideo: Boolean(input.benchmarkVideoUrl),
     benchmarkHasPoseReplay: Boolean(input.benchmarkPoseFrames?.length)
+  };
+}
+
+export function resolveUsableCompareVisualState(input: {
+  availability: CompareVisualAvailability;
+  attemptVideoFailed?: boolean;
+  benchmarkVideoFailed?: boolean;
+}): CompareUsableVisualState {
+  const showAttemptVideo = input.availability.attemptHasVideo && !input.attemptVideoFailed;
+  const showBenchmarkVideo = input.availability.benchmarkHasVideo && !input.benchmarkVideoFailed;
+  return {
+    hasUsableAttemptVisual: showAttemptVideo || input.availability.attemptHasPoseReplay,
+    hasUsableBenchmarkVisual: showBenchmarkVideo || input.availability.benchmarkHasPoseReplay
   };
 }
