@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { deriveReplayOverlayStateAtTime } from "@/lib/analysis/replay-state";
 import { resolvePhaseLabel } from "@/lib/analysis/event-labels";
@@ -44,6 +44,7 @@ import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflo
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
+import { writeCompareHandoffPayload } from "@/lib/compare/compare-handoff";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -215,6 +216,7 @@ function formatDiagnosticEvent(event: AnalysisSessionRecord["events"][number], p
 
 export function UploadVideoWorkspace() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { session, isConfigured, persistenceMode } = useAuth();
   const [uploadJobs, setUploadJobs] = useState<UploadJob[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -788,6 +790,14 @@ export function UploadVideoWorkspace() {
     },
     [activeJob?.artefacts?.poseTimeline.frames, activeJob?.drillSelection.drill, activeSession, benchmarkFeedback, replayAnalysisState, replayTimestampMs]
   );
+  const canOpenCompare = Boolean(
+    activeSession
+      && activeJob?.drillSelection.drill
+      && (
+        (activeJob.drillSelection.drill.benchmark && activeJob.drillSelection.drill.benchmark.sourceType !== "none")
+        || activeSession.benchmarkComparison
+      )
+  );
 
   useEffect(() => {
     setReplayTimestampMs(0);
@@ -1331,7 +1341,36 @@ export function UploadVideoWorkspace() {
 
           {activeJob ? (
             <section className="card" style={{ margin: 0 }}>
-              <h3 style={{ marginTop: 0 }}>Analysis result</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                <h3 style={{ marginTop: 0, marginBottom: 0 }}>Analysis result</h3>
+                {canOpenCompare ? (
+                  <button
+                    type="button"
+                    className="pill"
+                    onClick={() => {
+                      const drill = activeJob.drillSelection.drill;
+                      if (!drill || !activeSession) {
+                        return;
+                      }
+                      writeCompareHandoffPayload({
+                        source: "upload",
+                        fromPath: "/upload",
+                        drill,
+                        analysisSession: activeSession,
+                        benchmarkFeedback,
+                        coachingFeedback,
+                        attemptVideoUrl: previewUrl ?? undefined,
+                        benchmarkVideoUrl: drill.benchmark?.media?.referenceVideoUri,
+                        benchmarkPoses: drill.benchmark?.phaseSequence?.map((phase) => phase.pose).filter((pose): pose is NonNullable<typeof pose> => Boolean(pose)),
+                        attemptPoseFrames: activeJob.artefacts?.poseTimeline.frames ?? []
+                      });
+                      router.push("/compare");
+                    }}
+                  >
+                    Compare with benchmark
+                  </button>
+                ) : null}
+              </div>
               <div ref={fullscreenContainerRef}>
                 <AnalysisViewerShell
                   model={{ ...uploadViewerModel, progress: uploadPreviewState === "processing_annotated" ? activeJob.progress : undefined }}

@@ -112,3 +112,12 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Coaching issues carry visual guide metadata (`stack_line`, `highlight_region`, `correction_arrow`, `support_indicator`, `metric_badge`) so cue text and overlays stay connected.
 - Live mode keeps coaching compact around one primary cue + primary guide, while replay/upload mode can render richer positives, limiter context, and ordered fix steps.
 - Benchmark comparison and coaching now feed the same analysis panel so the user sees one consistent “what is good / what is limiting / what to do next” flow.
+
+## Compare workspace (April 25, 2026)
+
+- Upload and Live analysis results now expose **Compare with benchmark** when a drill benchmark and analyzed session are available.
+- Compare opens a side-by-side workspace (Benchmark vs Your Attempt) with synchronized replay controls and timeline scrubbing across available visual sources.
+- Compare is pose-first for durability in local/session workflows: if replay video is unavailable or fails to load, Compare falls back to skeleton/pose replay from analysis data.
+- Metric rows are shown only when computed from real benchmark/attempt data (for example sequence status, timing status, duration deltas, phase timing rows, completed reps/holds, confidence).
+- Top takeaway and focus areas are sourced from benchmark/coaching outputs (not hard-coded mockup text).
+- Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.
