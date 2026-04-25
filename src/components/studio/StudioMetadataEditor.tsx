@@ -138,13 +138,13 @@ export function StudioMetadataEditor() {
               style={inputStyle}
             >
               <option value="">Not configured</option>
-              <option value="handstand">handstand</option>
-              <option value="push_up">push_up</option>
-              <option value="dip">dip</option>
-              <option value="squat">squat</option>
-              <option value="plank">plank</option>
-              <option value="pike_push_up">pike_push_up</option>
-              <option value="custom">custom</option>
+              <option value="handstand">Handstand</option>
+              <option value="push_up">Push-up</option>
+              <option value="dip">Dip</option>
+              <option value="squat">Squat</option>
+              <option value="plank">Plank</option>
+              <option value="pike_push_up">Pike push-up</option>
+              <option value="custom">Custom</option>
             </select>
           </label>
 
@@ -155,11 +155,11 @@ export function StudioMetadataEditor() {
               onChange={(event) => setDrillCoachingProfile({ rulesetId: event.target.value as CoachingRulesetId })}
               style={inputStyle}
             >
-              <option value="none">none</option>
-              <option value="handstand_wall_hold_v1">handstand_wall_hold_v1</option>
-              <option value="generic_hold_v1">generic_hold_v1</option>
-              <option value="generic_rep_v1">generic_rep_v1</option>
-              <option value="custom">custom</option>
+              <option value="none">None</option>
+              <option value="handstand_wall_hold_v1">Handstand wall hold</option>
+              <option value="generic_hold_v1">Generic hold</option>
+              <option value="generic_rep_v1">Generic rep</option>
+              <option value="custom">Custom</option>
             </select>
           </label>
 
@@ -171,11 +171,11 @@ export function StudioMetadataEditor() {
               style={inputStyle}
             >
               <option value="">Not configured</option>
-              <option value="free">free</option>
-              <option value="wall_assisted">wall_assisted</option>
-              <option value="floor">floor</option>
-              <option value="bars">bars</option>
-              <option value="custom">custom</option>
+              <option value="free">Free</option>
+              <option value="wall_assisted">Wall assisted</option>
+              <option value="floor">Floor</option>
+              <option value="bars">Bars</option>
+              <option value="custom">Custom</option>
             </select>
           </label>
 
@@ -187,11 +187,11 @@ export function StudioMetadataEditor() {
               style={inputStyle}
             >
               <option value="">Not configured</option>
-              <option value="balance">balance</option>
-              <option value="strength">strength</option>
-              <option value="mobility">mobility</option>
-              <option value="control">control</option>
-              <option value="custom">custom</option>
+              <option value="balance">Balance</option>
+              <option value="strength">Strength</option>
+              <option value="mobility">Mobility</option>
+              <option value="control">Control</option>
+              <option value="custom">Custom</option>
             </select>
           </label>
 
@@ -202,9 +202,9 @@ export function StudioMetadataEditor() {
               onChange={(event) => setDrillCoachingProfile({ cuePreference: event.target.value as NonNullable<typeof profile>["cuePreference"] })}
               style={inputStyle}
             >
-              <option value="visual_only">visual_only</option>
-              <option value="audio_optional">audio_optional</option>
-              <option value="visual_and_audio">visual_and_audio</option>
+              <option value="visual_only">Visual only</option>
+              <option value="audio_optional">Audio optional</option>
+              <option value="visual_and_audio">Visual + audio</option>
             </select>
           </label>
         </div>
@@ -231,14 +231,23 @@ export function StudioMetadataEditor() {
                       setDrillCoachingProfile({ enabledVisualGuides: [...next] });
                     }}
                   />
-                  <span>{guideType}</span>
+                  <span>{formatVisualGuideLabel(guideType)}</span>
                 </label>
               );
             })}
           </div>
         </fieldset>
 
-        <button type="button" onClick={clearDrillCoachingProfile} style={secondaryButtonStyle}>Clear coaching profile</button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!window.confirm("Clear this drill’s coaching profile?")) return;
+            clearDrillCoachingProfile();
+          }}
+          style={secondaryButtonStyle}
+        >
+          Clear coaching profile
+        </button>
       </section>
     </section>
   );
@@ -248,10 +257,19 @@ function toOptionalValue<T extends string>(value: string): T | undefined {
   return value ? (value as T) : undefined;
 }
 
+function formatVisualGuideLabel(guideType: CoachingVisualGuideType): string {
+  if (guideType === "stack_line") return "Stack line";
+  if (guideType === "ghost_pose") return "Ghost pose";
+  if (guideType === "highlight_region") return "Highlight region";
+  if (guideType === "correction_arrow") return "Correction arrow";
+  if (guideType === "support_indicator") return "Support indicator";
+  return "Metric badge";
+}
+
 function formatRulesetLabel(rulesetId: CoachingRulesetId): string {
-  if (rulesetId === "handstand_wall_hold_v1") return "Handstand wall hold v1";
-  if (rulesetId === "generic_hold_v1") return "Generic hold v1";
-  if (rulesetId === "generic_rep_v1") return "Generic rep v1";
+  if (rulesetId === "handstand_wall_hold_v1") return "Handstand wall hold";
+  if (rulesetId === "generic_hold_v1") return "Generic hold";
+  if (rulesetId === "generic_rep_v1") return "Generic rep";
   if (rulesetId === "none") return "None";
   return "Custom";
 }
