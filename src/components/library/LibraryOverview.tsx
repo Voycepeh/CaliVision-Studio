@@ -486,19 +486,42 @@ export function LibraryOverview() {
                   onClick={() => setSelectedDrillId(drill.drillId)}
                 >
                   <div style={rowTitleWrapStyle}>
-                    {previewDrill ? (
-                      <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} variant="compact" width={152} height={86} />
-                    ) : null}
+                    <div style={thumbnailShellStyle}>
+                      {previewDrill ? (
+                        <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} variant="compact" width={152} height={86} />
+                      ) : (
+                        <div style={thumbnailFallbackStyle}>
+                          <span className="muted">No thumbnail</span>
+                        </div>
+                      )}
+                    </div>
                     <div style={rowTitleMetaStyle}>
-                      <strong>{drill.title}</strong>
-                      <p className="muted" style={{ margin: 0 }}>
-                        Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
-                        {drill.activeReadyVersion?.isPublished ? " • Published" : ""}
+                      <strong style={{ fontSize: "1rem" }}>{drill.title}</strong>
+                      <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+                        Source: {signedInMode ? "Cloud workspace" : "Browser workspace"}
                       </p>
+                      <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+                        Updated {new Date(drill.updatedAtIso).toLocaleString()}
+                      </p>
+                      <div style={statusChipRowStyle}>
+                        <span style={statusChipStyle(drill.activeReadyVersion ? "ready" : "neutral")}>
+                          Ready {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "none"}
+                        </span>
+                        <span style={statusChipStyle(drill.activeReadyVersion?.isPublished ? "published" : "neutral")}>
+                          {drill.activeReadyVersion?.isPublished ? "Published" : "Not published"}
+                        </span>
+                        {drill.openDraftVersion ? (
+                          <span style={statusChipStyle("draft")}>Open draft v{drill.openDraftVersion.versionNumber}</span>
+                        ) : null}
+                        {exchangePublication ? (
+                          <span style={statusChipStyle(exchangePublication.visibilityStatus === "published" ? "exchange" : "neutral")}>
+                            Exchange: {formatVisibilityStatus(exchangePublication.visibilityStatus)}
+                          </span>
+                        ) : null}
+                      </div>
                       {exchangePublication ? (
-                        <p className="muted" style={{ margin: 0 }}>
-                          Drill Exchange status: {formatVisibilityStatus(exchangePublication.visibilityStatus)}
-                          {" "}• Published version ID: {exchangePublication.sourceVersionId}
+                        <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
+                          Exchange version ID: {exchangePublication.sourceVersionId}
                           {exchangePublication.visibilityStatus === "published" ? (
                             <>
                               {" "}• <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
@@ -506,33 +529,23 @@ export function LibraryOverview() {
                           ) : null}
                         </p>
                       ) : null}
-                      {drill.openDraftVersion ? <p className="muted" style={{ margin: 0 }}>Open draft for v{drill.openDraftVersion.versionNumber}</p> : null}
                     </div>
                   </div>
-                  <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
-                  <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
-                    Source: {signedInMode ? "Cloud workspace" : "Browser workspace"}
-                  </p>
 
-                  <div style={compactActionRowStyle}>
-                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
-                      Upload Video
-                    </button>
-                    <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Streaming…", () => onOpenWorkflow(drill, "live"))}>
-                      Live Streaming
-                    </button>
-                    <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
-                      Edit in Studio
-                    </button>
-                    <button
-                      type="button"
-                      style={chipStyle(false)}
-                      aria-expanded={previewDrillId === drill.drillId}
-                      onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
-                    >
-                      {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
-                    </button>
-                  </div>
+                  <section style={actionGroupStyle}>
+                    <p style={actionGroupLabelStyle}>Primary actions</p>
+                    <div style={compactActionRowStyle}>
+                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
+                        Upload Video
+                      </button>
+                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Streaming…", () => onOpenWorkflow(drill, "live"))}>
+                        Live Streaming
+                      </button>
+                      <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
+                        Edit in Studio
+                      </button>
+                    </div>
+                  </section>
                   {previewDrillId === drill.drillId && previewDrill ? (
                     <section style={previewPanelStyle}>
                       <DrillSelectionPreviewPanel
@@ -546,36 +559,47 @@ export function LibraryOverview() {
                     </section>
                   ) : null}
 
-                  <div style={compactActionRowStyle}>
-                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
-                      Mark Ready
-                    </button>
-                    <button
-                      type="button"
-                      style={chipStyle(false)}
-                      onClick={() => {
-                        setPublishDraftByDrillId((current) => current[drill.drillId] ? current : { ...current, [drill.drillId]: buildPublishDraftFromDrill(drill) });
-                        setPublishTargetDrillId((current) => (current === drill.drillId ? null : drill.drillId));
-                      }}
-                    >
-                      {publishTargetDrillId === drill.drillId ? "Hide Publish Details" : "Publish"}
-                    </button>
-                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
-                      Export drill file
-                    </button>
-                    <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`delete:${drill.drillId}`, "Deleting drill…", () => onDeleteDrill(drill))}>
-                      Delete
-                    </button>
-                    {exchangePublication?.visibilityStatus === "published" ? (
+                  <section style={manageGroupStyle}>
+                    <p style={actionGroupLabelStyle}>Manage drill</p>
+                    <div style={compactActionRowStyle}>
                       <button
                         type="button"
                         style={chipStyle(false)}
-                        onClick={() => void runItemAction(`exchange-remove:${drill.drillId}`, "Removing from public…", () => onRemoveFromPublic(exchangePublication))}
+                        aria-expanded={previewDrillId === drill.drillId}
+                        onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
                       >
-                        Remove from Public
+                        {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
                       </button>
-                    ) : null}
-                  </div>
+                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
+                        Mark Ready
+                      </button>
+                      <button
+                        type="button"
+                        style={chipStyle(false)}
+                        onClick={() => {
+                          setPublishDraftByDrillId((current) => current[drill.drillId] ? current : { ...current, [drill.drillId]: buildPublishDraftFromDrill(drill) });
+                          setPublishTargetDrillId((current) => (current === drill.drillId ? null : drill.drillId));
+                        }}
+                      >
+                        {publishTargetDrillId === drill.drillId ? "Hide Publish Details" : "Publish"}
+                      </button>
+                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
+                        Export drill file
+                      </button>
+                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`delete:${drill.drillId}`, "Deleting drill…", () => onDeleteDrill(drill))}>
+                        Delete
+                      </button>
+                      {exchangePublication?.visibilityStatus === "published" ? (
+                        <button
+                          type="button"
+                          style={chipStyle(false)}
+                          onClick={() => void runItemAction(`exchange-remove:${drill.drillId}`, "Removing from public…", () => onRemoveFromPublic(exchangePublication))}
+                        >
+                          Remove from Public
+                        </button>
+                      ) : null}
+                    </div>
+                  </section>
                   {publishTargetDrillId === drill.drillId ? (
                     <section className="card" style={{ margin: 0, display: "grid", gap: "0.35rem" }}>
                       <strong>Publish metadata</strong>
@@ -710,12 +734,18 @@ function InlineItemFeedback({ itemId, pending, success, error }: { itemId: strin
 }
 
 const listStackStyle: CSSProperties = { display: "grid", gap: "0.35rem" };
-const listCardStyle: CSSProperties = { margin: 0, padding: "0.55rem", display: "grid", gap: "0.32rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
-const rowTitleWrapStyle: CSSProperties = { display: "flex", gap: "0.55rem", flexWrap: "wrap", alignItems: "flex-start" };
-const rowTitleMetaStyle: CSSProperties = { display: "grid", gap: "0.15rem", flex: "1 1 260px", minWidth: "min(100%, 240px)" };
+const listCardStyle: CSSProperties = { margin: 0, padding: "0.62rem", display: "grid", gap: "0.4rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
+const rowTitleWrapStyle: CSSProperties = { display: "flex", gap: "0.65rem", flexWrap: "wrap", alignItems: "flex-start" };
+const rowTitleMetaStyle: CSSProperties = { display: "grid", gap: "0.2rem", flex: "1 1 280px", minWidth: "min(100%, 260px)" };
+const thumbnailShellStyle: CSSProperties = { flex: "0 0 auto", width: "min(100%, 152px)" };
+const thumbnailFallbackStyle: CSSProperties = { width: "152px", height: "86px", borderRadius: "0.55rem", border: "1px dashed var(--border)", display: "grid", placeItems: "center", background: "var(--panel-soft)", fontSize: "0.72rem" };
+const statusChipRowStyle: CSSProperties = { display: "flex", gap: "0.28rem", flexWrap: "wrap", marginTop: "0.08rem" };
 const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.55rem", background: "rgba(19, 28, 42, 0.45)" };
 const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" };
 const previewPanelStyle: CSSProperties = { marginTop: "0.15rem", width: "min(100%, 460px)" };
+const actionGroupStyle: CSSProperties = { display: "grid", gap: "0.28rem", marginTop: "0.08rem" };
+const manageGroupStyle: CSSProperties = { display: "grid", gap: "0.28rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "0.42rem" };
+const actionGroupLabelStyle: CSSProperties = { margin: 0, fontSize: "0.72rem", letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--muted)" };
 const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.45rem", alignItems: "end", flexWrap: "wrap" };
 const labelStyle: CSSProperties = { display: "grid", gap: "0.18rem", color: "var(--muted)", fontSize: "0.8rem" };
 const inputStyle: CSSProperties = { border: "1px solid var(--border)", borderRadius: "0.52rem", padding: "0.38rem 0.5rem", background: "var(--panel-soft)", color: "var(--text)", width: "100%" };
@@ -725,6 +755,27 @@ const noticeBaseStyle: CSSProperties = { margin: 0, fontSize: "0.76rem", borderR
 const errorNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#f6cbcb", borderColor: "rgba(255, 120, 120, 0.55)", background: "rgba(120, 23, 23, 0.3)" };
 const successNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#d2f5da", borderColor: "rgba(100, 198, 132, 0.55)", background: "rgba(28, 72, 36, 0.33)" };
 const primaryActionChipStyle: CSSProperties = { ...chipStyle(true), fontWeight: 600, borderColor: "rgba(114, 168, 255, 0.75)" };
+type StatusTone = "neutral" | "draft" | "ready" | "published" | "exchange";
+function statusChipStyle(tone: StatusTone): CSSProperties {
+  const toneByStatus: Record<StatusTone, { border: string; background: string; color: string }> = {
+    neutral: { border: "var(--border)", background: "var(--panel-soft)", color: "var(--muted)" },
+    draft: { border: "rgba(227, 172, 88, 0.55)", background: "rgba(153, 106, 33, 0.16)", color: "#f0d2a7" },
+    ready: { border: "rgba(118, 179, 246, 0.55)", background: "rgba(46, 89, 154, 0.2)", color: "#cde5ff" },
+    published: { border: "rgba(109, 204, 144, 0.55)", background: "rgba(36, 89, 52, 0.23)", color: "#d6f5df" },
+    exchange: { border: "rgba(175, 137, 239, 0.58)", background: "rgba(98, 70, 139, 0.23)", color: "#e5d8ff" }
+  };
+  const palette = toneByStatus[tone];
+  return {
+    margin: 0,
+    padding: "0.16rem 0.45rem",
+    borderRadius: "999px",
+    border: `1px solid ${palette.border}`,
+    background: palette.background,
+    color: palette.color,
+    fontSize: "0.7rem",
+    lineHeight: 1.25
+  };
+}
 function chipStyle(active: boolean): CSSProperties {
   return { border: `1px solid ${active ? "rgba(114, 168, 255, 0.55)" : "var(--border)"}`, borderRadius: "999px", padding: "0.24rem 0.55rem", fontSize: "0.76rem", color: active ? "var(--text)" : "var(--muted)", background: active ? "rgba(114, 168, 255, 0.12)" : "var(--panel-soft)", cursor: "pointer" };
 }
