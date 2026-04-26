@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildBenchmarkCoachingFeedback, formatPhaseSequenceSummary, getComparisonSeverity, getTopComparisonFindings, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
+import { buildBenchmarkCoachingFeedback, formatPhaseSequenceSummary, getComparisonSeverity, getTopComparisonFindings, isFullOrderedPhaseMatch, summarizeBenchmarkComparison } from "./benchmark-feedback.ts";
 import type { BenchmarkComparisonResult } from "./benchmark-comparison.ts";
 
 function buildComparison(partial?: Partial<BenchmarkComparisonResult>): BenchmarkComparisonResult {
@@ -159,8 +159,8 @@ test("sequence wording does not claim full in-order match when extras/mismatch e
   const summary = formatPhaseSequenceSummary(comparison);
   const feedback = buildBenchmarkCoachingFeedback({ comparison });
 
-  assert.equal(summary, "Matched 3 of 3 benchmark phases in order.");
-  assert.match(feedback.findings[0]?.description ?? "", /additional sequence differences/i);
+  assert.equal(summary, "Phase sequence matched.");
+  assert.equal(feedback.findings[0]?.title, "Phase sequence matched");
 });
 
 test("partial summary can explicitly report sequence matched with timing missed", () => {
@@ -214,4 +214,86 @@ test("timing mismatch summary remains consistent when sequence still matches", (
   const feedback = buildBenchmarkCoachingFeedback({ comparison });
   assert.equal(formatPhaseSequenceSummary(comparison), "Phase sequence matched.");
   assert.match(feedback.summary.label, /Timing needs work/i);
+});
+
+test("full ordered phase match helper treats matchedCount as source of truth even when matched flag is false", () => {
+  const phaseMatch = {
+    expectedPhaseKeys: ["a", "b", "c"],
+    actualPhaseKeys: ["a", "b", "c"],
+    matched: false,
+    matchedCount: 3,
+    missingPhases: [],
+    extraPhases: []
+  };
+  assert.equal(isFullOrderedPhaseMatch(phaseMatch), true);
+});
+
+test("timing mismatch guidance is used when full ordered match is true and matched flag is false", () => {
+  const comparison = buildComparison({
+    status: "phase_mismatch",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b", "c"],
+      matched: false,
+      matchedCount: 3,
+      missingPhases: [],
+      extraPhases: []
+    },
+    timing: { present: true, matched: false, expectedRepDurationMs: 1200, actualRepDurationMs: 1800, phaseTimingCompared: [] }
+  });
+  const feedback = buildBenchmarkCoachingFeedback({ comparison });
+  assert.match(feedback.summary.label, /Timing needs work/i);
+  assert.equal(feedback.findings[0]?.title, "Phase sequence matched");
+  assert.equal(feedback.findings[0]?.description, "Matched 3 of 3 benchmark phases in order.");
+  assert.match(feedback.findings[0]?.recommendedAction ?? "", /Adjust rep speed/i);
+  assert.equal(feedback.topFindings[0]?.category, "duration");
+});
+
+test("timing mismatch guidance remains correct when matched flag is true", () => {
+  const comparison = buildComparison({
+    status: "timing_mismatch",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b", "c"],
+      matched: true,
+      matchedCount: 3,
+      missingPhases: [],
+      extraPhases: []
+    },
+    timing: { present: true, matched: false, expectedRepDurationMs: 1200, actualRepDurationMs: 1800, phaseTimingCompared: [] }
+  });
+  const feedback = buildBenchmarkCoachingFeedback({ comparison });
+  assert.equal(feedback.findings[0]?.title, "Phase sequence matched");
+  assert.match(feedback.summary.label, /Timing needs work/i);
+});
+
+test("missing phases force sequence mismatch wording", () => {
+  const comparison = buildComparison({
+    status: "partial",
+    phaseMatch: {
+      expectedPhaseKeys: ["a", "b", "c"],
+      actualPhaseKeys: ["a", "b"],
+      matched: false,
+      matchedCount: 2,
+      missingPhases: ["c"],
+      extraPhases: []
+    },
+    timing: { present: true, matched: false, expectedRepDurationMs: 1200, actualRepDurationMs: 1700, phaseTimingCompared: [] }
+  });
+  const feedback = buildBenchmarkCoachingFeedback({ comparison });
+  assert.equal(isFullOrderedPhaseMatch(comparison.phaseMatch), false);
+  assert.equal(feedback.findings[0]?.title, "Phase sequence mismatch");
+});
+
+test("explicit out-of-order flag forces sequence mismatch when supported", () => {
+  const phaseMatch = {
+    expectedPhaseKeys: ["a", "b", "c"],
+    actualPhaseKeys: ["a", "b", "c"],
+    matched: true,
+    matchedCount: 3,
+    missingPhases: [],
+    extraPhases: [],
+    outOfOrder: true
+  };
+  assert.equal(isFullOrderedPhaseMatch(phaseMatch), false);
 });

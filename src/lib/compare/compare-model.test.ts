@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCompareWorkspaceModel } from "./compare-model.ts";
+import { buildCompareWorkspaceModel, deriveComparisonStatusView } from "./compare-model.ts";
 import type { AnalysisSessionRecord } from "../analysis/session-repository.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 import type { BenchmarkCoachingFeedback } from "../analysis/benchmark-feedback.ts";
@@ -186,6 +186,8 @@ test("hold duration mismatch produces hold duration row", () => {
   });
 
   assert.ok(model.metricRows.some((row) => row.id === "hold_duration_diff"));
+  assert.equal(model.metricRows.some((row) => row.id === "completed_reps"), false);
+  assert.ok(model.metricRows.some((row) => row.id === "hold_detected"));
 });
 
 test("phase timing compared produces phase rows", () => {
@@ -211,7 +213,90 @@ test("phase timing compared produces phase rows", () => {
     })
   });
 
-  assert.ok(model.metricRows.some((row) => row.id === "phase_timing_bottom"));
+  assert.ok(model.metricRows.some((row) => row.id === "phase_timing_bottom" && row.label === "Phase timing: bottom"));
+});
+
+test("generated phase ids are shown as readable phase labels", () => {
+  const model = buildCompareWorkspaceModel({
+    drill: buildDrill(true),
+    analysisSession: buildSession({
+      benchmarkComparison: {
+        ...buildSession().benchmarkComparison!,
+        phaseMatch: {
+          ...buildSession().benchmarkComparison!.phaseMatch,
+          expectedPhaseKeys: ["phase_002"]
+        },
+        timing: {
+          present: true,
+          matched: false,
+          phaseTimingCompared: [
+            {
+              phaseKey: "phase_002",
+              expectedDurationMs: 300,
+              actualDurationMs: 550,
+              withinTolerance: false,
+              toleranceMs: 120
+            }
+          ]
+        }
+      }
+    })
+  });
+
+  assert.ok(model.metricRows.some((row) => row.id === "phase_timing_phase_002" && row.label === "Phase timing: Phase 1"));
+});
+
+test("hold status uses hold-specific wording", () => {
+  const status = deriveComparisonStatusView({
+    analysisSession: buildSession({
+      benchmarkComparison: {
+        ...buildSession().benchmarkComparison!,
+        movementType: "hold",
+        phaseMatch: {
+          ...buildSession().benchmarkComparison!.phaseMatch,
+          matched: true
+        },
+        timing: {
+          present: true,
+          matched: false,
+          expectedHoldDurationMs: 1500,
+          actualHoldDurationMs: 800,
+          phaseTimingCompared: []
+        }
+      }
+    })
+  });
+
+  assert.equal(status.label, "Hold aligned, duration outside target");
+  assert.equal(status.timingLabel, "Benchmark duration target available");
+});
+
+test("deriveComparisonStatusView treats full ordered phase match as sequence matched even when matched flag is false", () => {
+  const status = deriveComparisonStatusView({
+    analysisSession: buildSession({
+      benchmarkComparison: {
+        ...buildSession().benchmarkComparison!,
+        status: "partial",
+        phaseMatch: {
+          expectedPhaseKeys: ["start", "bottom", "finish"],
+          actualPhaseKeys: ["start", "bottom", "finish"],
+          matched: false,
+          matchedCount: 3,
+          missingPhases: [],
+          extraPhases: []
+        },
+        timing: {
+          present: true,
+          matched: false,
+          expectedRepDurationMs: 1000,
+          actualRepDurationMs: 1600,
+          phaseTimingCompared: []
+        }
+      }
+    })
+  });
+
+  assert.equal(status.label, "Sequence matched, timing outside tolerance");
 });
 
 test("no fake overall score when no numeric score exists", () => {

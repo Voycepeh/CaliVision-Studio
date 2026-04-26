@@ -45,6 +45,8 @@ import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/dr
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
 import { writeCompareHandoffPayload } from "@/lib/compare/compare-handoff";
+import { deriveComparisonStatusView } from "@/lib/compare/compare-model";
+import { isFullOrderedPhaseMatch } from "@/lib/analysis/benchmark-feedback";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -774,6 +776,10 @@ export function UploadVideoWorkspace() {
     () => activeSession?.benchmarkComparison ? buildBenchmarkCoachingFeedback({ comparison: activeSession.benchmarkComparison }) : null,
     [activeSession?.benchmarkComparison]
   );
+  const compareStatusView = useMemo(
+    () => deriveComparisonStatusView({ analysisSession: activeSession, benchmarkFeedback }),
+    [activeSession, benchmarkFeedback]
+  );
   const coachingFeedback = useMemo(
     () => {
       if (!activeSession || activeSession.status !== "completed") {
@@ -880,7 +886,7 @@ export function UploadVideoWorkspace() {
                 {
                   id: "phase_match",
                   label: "Phase sequence",
-                  value: activeSession.benchmarkComparison.phaseMatch.matched
+                  value: isFullOrderedPhaseMatch(activeSession.benchmarkComparison.phaseMatch)
                     ? "Phase sequence matched."
                     : formatPhaseSequenceSummary(activeSession.benchmarkComparison)
                 },
@@ -1343,34 +1349,46 @@ export function UploadVideoWorkspace() {
             <section className="card" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                 <h3 style={{ marginTop: 0, marginBottom: 0 }}>Analysis result</h3>
-                {canOpenCompare ? (
-                  <button
-                    type="button"
-                    className="pill"
-                    onClick={() => {
-                      const drill = activeJob.drillSelection.drill;
-                      if (!drill || !activeSession) {
-                        return;
-                      }
-                      writeCompareHandoffPayload({
-                        source: "upload",
-                        fromPath: "/upload",
-                        drill,
-                        analysisSession: activeSession,
-                        benchmarkFeedback,
-                        coachingFeedback,
-                        attemptVideoUrl: previewUrl ?? undefined,
-                        benchmarkVideoUrl: drill.benchmark?.media?.referenceVideoUri,
-                        benchmarkPoses: drill.benchmark?.phaseSequence?.map((phase) => phase.pose).filter((pose): pose is NonNullable<typeof pose> => Boolean(pose)),
-                        attemptPoseFrames: activeJob.artefacts?.poseTimeline.frames ?? []
-                      });
-                      router.push("/compare");
-                    }}
-                  >
-                    Compare with benchmark
-                  </button>
-                ) : null}
               </div>
+              {canOpenCompare ? (
+                <article className="card" style={{ margin: "0 0 0.75rem", border: "1px solid #334155", display: "grid", gap: "0.45rem" }}>
+                  <h4 style={{ margin: 0 }}>Benchmark comparison</h4>
+                  <p className="muted" style={{ margin: 0 }}>
+                    Compare this attempt against the benchmark pose, timing, and drill expectations.
+                  </p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.45rem" }}>
+                    <span className="muted"><strong>Status:</strong> {compareStatusView.label}</span>
+                    <span className="muted"><strong>Confidence:</strong> {activeSession?.summary.confidenceAvg !== undefined ? `${Math.round(activeSession.summary.confidenceAvg * 100)}%` : "—"}</span>
+                    <span className="muted"><strong>Target:</strong> {compareStatusView.timingLabel}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const drill = activeJob.drillSelection.drill;
+                        if (!drill || !activeSession) {
+                          return;
+                        }
+                        writeCompareHandoffPayload({
+                          source: "upload",
+                          fromPath: "/upload",
+                          drill,
+                          analysisSession: activeSession,
+                          benchmarkFeedback,
+                          coachingFeedback,
+                          attemptVideoUrl: previewUrl ?? undefined,
+                          benchmarkVideoUrl: drill.benchmark?.media?.referenceVideoUri,
+                          benchmarkPoses: drill.benchmark?.phaseSequence?.map((phase) => phase.pose).filter((pose): pose is NonNullable<typeof pose> => Boolean(pose)),
+                          attemptPoseFrames: activeJob.artefacts?.poseTimeline.frames ?? []
+                        });
+                        router.push("/compare");
+                      }}
+                    >
+                      Review benchmark comparison
+                    </button>
+                  </div>
+                </article>
+              ) : null}
               <div ref={fullscreenContainerRef}>
                 <AnalysisViewerShell
                   model={{ ...uploadViewerModel, progress: uploadPreviewState === "processing_annotated" ? activeJob.progress : undefined }}
