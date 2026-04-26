@@ -1,4 +1,5 @@
 import type { BenchmarkCoachingFeedback } from "@/lib/analysis/benchmark-feedback";
+import { isFullOrderedPhaseMatch } from "../analysis/benchmark-feedback.ts";
 import type { CoachingFeedbackOutput } from "@/lib/analysis/coaching-feedback";
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import type { PortableDrill } from "@/lib/schema/contracts";
@@ -151,7 +152,7 @@ export function deriveComparisonStatusView(input: {
   }
 
   const movementType = comparison.movementType;
-  const phaseMatched = comparison.phaseMatch.matched;
+  const phaseMatched = isFullOrderedPhaseMatch(comparison.phaseMatch);
   const timingPresent = comparison.timing.present;
   const timingMatched = comparison.timing.matched;
   const confidence = input.analysisSession?.summary.confidenceAvg;
@@ -244,15 +245,16 @@ function buildMetricRows(session: AnalysisSessionRecord, benchmarkFeedback?: Ben
   }
 
   const isHold = comparison.movementType === "hold";
+  const phaseMatched = isFullOrderedPhaseMatch(comparison.phaseMatch);
 
   rows.push({
     id: "phase_sequence_status",
     label: isHold ? "Hold target alignment" : "Phase sequence",
     benchmarkValue: isHold ? "Benchmark hold target" : "Benchmark order",
-    attemptValue: comparison.phaseMatch.matched
+    attemptValue: phaseMatched
       ? "Matched"
       : `${Math.min(comparison.phaseMatch.matchedCount, comparison.phaseMatch.expectedPhaseKeys.length)} / ${comparison.phaseMatch.expectedPhaseKeys.length} matched`,
-    severity: comparison.phaseMatch.matched ? "success" : "warning",
+    severity: phaseMatched ? "success" : "warning",
     available: true
   });
 

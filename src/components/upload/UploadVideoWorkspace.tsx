@@ -46,6 +46,7 @@ import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
 import { AnalysisViewerShell } from "@/components/analysis-viewer/AnalysisViewerShell";
 import { writeCompareHandoffPayload } from "@/lib/compare/compare-handoff";
 import { deriveComparisonStatusView } from "@/lib/compare/compare-model";
+import { isFullOrderedPhaseMatch } from "@/lib/analysis/benchmark-feedback";
 
 const DEFAULT_CADENCE_FPS = 12;
 const SELECTED_DRILL_STORAGE_KEY = "upload.selected-drill";
@@ -885,7 +886,7 @@ export function UploadVideoWorkspace() {
                 {
                   id: "phase_match",
                   label: "Phase sequence",
-                  value: activeSession.benchmarkComparison.phaseMatch.matched
+                  value: isFullOrderedPhaseMatch(activeSession.benchmarkComparison.phaseMatch)
                     ? "Phase sequence matched."
                     : formatPhaseSequenceSummary(activeSession.benchmarkComparison)
                 },

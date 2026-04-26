@@ -34,12 +34,25 @@ export type BenchmarkCoachingFeedback = {
 
 const DEFAULT_MAX_TOP_FINDINGS = 3;
 
+export function isFullOrderedPhaseMatch(
+  phaseMatch?: Partial<NonNullable<BenchmarkComparisonResult["phaseMatch"]>> | null
+): boolean {
+  if (!phaseMatch) return false;
+  const expectedCount = phaseMatch.expectedPhaseKeys?.length ?? 0;
+  if (expectedCount <= 0) return false;
+  const matchedCount = phaseMatch.matchedCount ?? 0;
+  const missingCount = phaseMatch.missingPhases?.length ?? 0;
+  const hasExplicitOutOfOrder = (phaseMatch as { outOfOrder?: boolean; orderMatched?: boolean }).outOfOrder === true
+    || (phaseMatch as { outOfOrder?: boolean; orderMatched?: boolean }).orderMatched === false;
+  return matchedCount >= expectedCount && missingCount === 0 && !hasExplicitOutOfOrder;
+}
+
 export function formatPhaseSequenceSummary(
   comparison?: Partial<BenchmarkComparisonResult> | null
 ): string {
   const expectedCount = comparison?.phaseMatch?.expectedPhaseKeys?.length ?? 0;
   const matchedCount = comparison?.phaseMatch?.matchedCount ?? 0;
-  const exactMatch = comparison?.phaseMatch?.matched === true;
+  const exactMatch = isFullOrderedPhaseMatch(comparison?.phaseMatch);
   if (exactMatch) {
     return "Phase sequence matched.";
   }
@@ -102,6 +115,15 @@ export function summarizeBenchmarkComparison(
   }
 
   if (status === "phase_mismatch") {
+    if (isFullOrderedPhaseMatch(comparison?.phaseMatch) && comparison?.timing?.present && comparison.timing.matched === false) {
+      return {
+        label: "Timing needs work",
+        description: movementType === "hold"
+          ? "Hold duration was outside benchmark tolerance."
+          : "Rep timing was outside benchmark tolerance.",
+        severity
+      };
+    }
     return {
       label: "Sequence needs work",
       description: "Phase sequence did not match the benchmark order.",
@@ -120,7 +142,7 @@ export function summarizeBenchmarkComparison(
   }
 
   if (status === "partial") {
-    const sequenceMatched = comparison?.phaseMatch?.matched === true;
+    const sequenceMatched = isFullOrderedPhaseMatch(comparison?.phaseMatch);
     const timingMissed = comparison?.timing?.present && comparison?.timing?.matched === false;
     return {
       label: "Partial benchmark match",
@@ -207,7 +229,9 @@ function buildFindings(comparison?: Partial<BenchmarkComparisonResult> | null): 
     return findings;
   }
 
-  if (comparison.phaseMatch && comparison.phaseMatch.matched === false) {
+  const fullOrderedMatch = isFullOrderedPhaseMatch(comparison.phaseMatch);
+
+  if (comparison.phaseMatch && !fullOrderedMatch) {
     const expectedCount = comparison.phaseMatch.expectedPhaseKeys?.length ?? 0;
     const matchedCount = Math.min(comparison.phaseMatch.matchedCount ?? 0, expectedCount);
     const hasExtraOrMissing = (comparison.phaseMatch.extraPhases?.length ?? 0) > 0 || (comparison.phaseMatch.missingPhases?.length ?? 0) > 0;
@@ -221,13 +245,15 @@ function buildFindings(comparison?: Partial<BenchmarkComparisonResult> | null): 
       description: sequenceDescription,
       recommendedAction: "Focus on matching phase order before optimizing timing."
     });
-  } else if (comparison.phaseMatch && comparison.phaseMatch.matched === true) {
+  } else if (comparison.phaseMatch && fullOrderedMatch) {
     findings.push({
       category: "sequence",
       severity: "success",
       title: "Phase sequence matched",
-      description: "Phase sequence matched the benchmark.",
-      recommendedAction: "Keep this sequence consistency while refining timing."
+      description: `Matched ${comparison.phaseMatch.expectedPhaseKeys.length} of ${comparison.phaseMatch.expectedPhaseKeys.length} benchmark phases in order.`,
+      recommendedAction: movementType === "hold"
+        ? "Phase order matched. Adjust hold duration to better match the benchmark target."
+        : "Phase order matched. Adjust rep speed to better match the benchmark timing."
     });
   }
 

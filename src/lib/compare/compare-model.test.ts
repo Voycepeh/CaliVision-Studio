@@ -271,6 +271,34 @@ test("hold status uses hold-specific wording", () => {
   assert.equal(status.timingLabel, "Benchmark duration target available");
 });
 
+test("deriveComparisonStatusView treats full ordered phase match as sequence matched even when matched flag is false", () => {
+  const status = deriveComparisonStatusView({
+    analysisSession: buildSession({
+      benchmarkComparison: {
+        ...buildSession().benchmarkComparison!,
+        status: "partial",
+        phaseMatch: {
+          expectedPhaseKeys: ["start", "bottom", "finish"],
+          actualPhaseKeys: ["start", "bottom", "finish"],
+          matched: false,
+          matchedCount: 3,
+          missingPhases: [],
+          extraPhases: []
+        },
+        timing: {
+          present: true,
+          matched: false,
+          expectedRepDurationMs: 1000,
+          actualRepDurationMs: 1600,
+          phaseTimingCompared: []
+        }
+      }
+    })
+  });
+
+  assert.equal(status.label, "Sequence matched, timing outside tolerance");
+});
+
 test("no fake overall score when no numeric score exists", () => {
   const model = buildCompareWorkspaceModel({
     drill: buildDrill(true),
