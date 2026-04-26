@@ -1,4 +1,5 @@
-import type { SavedAttemptSummary } from "./types.ts";
+import { SupabaseAttemptHistoryRepository } from "./hosted-repository.ts";
+import type { SavedAttemptSummary } from "./types";
 
 export interface AttemptHistoryRepository {
   saveAttempt(attempt: SavedAttemptSummary): Promise<void>;
@@ -7,6 +8,16 @@ export interface AttemptHistoryRepository {
   deleteAttempt(attemptId: string): Promise<boolean>;
   clearAttempts(): Promise<void>;
 }
+
+export type AttemptHistorySession = {
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: number | null;
+  user: {
+    id: string;
+    email: string | null;
+  };
+};
 
 type RepositoryOptions = {
   storageKey?: string;
@@ -78,14 +89,32 @@ export class LocalStorageAttemptHistoryRepository implements AttemptHistoryRepos
   }
 }
 
-let browserRepository: AttemptHistoryRepository | null = null;
+let localBrowserRepository: AttemptHistoryRepository | null = null;
 
-export function getBrowserAttemptHistoryRepository(): AttemptHistoryRepository {
+function getLocalBrowserAttemptHistoryRepository(): AttemptHistoryRepository {
+  if (!localBrowserRepository) {
+    localBrowserRepository = new LocalStorageAttemptHistoryRepository();
+  }
+  return localBrowserRepository;
+}
+
+export function resolveAttemptHistoryRepositoryForSession(session: AttemptHistorySession | null): AttemptHistoryRepository {
+  if (!session) {
+    return getLocalBrowserAttemptHistoryRepository();
+  }
+  return new SupabaseAttemptHistoryRepository(session);
+}
+
+async function loadActiveSessionFromSupabaseAuth(): Promise<AttemptHistorySession | null> {
+  const authModule = await import("../auth/supabase-auth.ts");
+  return authModule.getActiveAuthSession();
+}
+
+export async function resolveBrowserAttemptHistoryRepository(session?: AttemptHistorySession | null): Promise<AttemptHistoryRepository> {
   if (typeof window === "undefined") {
     throw new Error("Attempt history is only available in the browser.");
   }
-  if (!browserRepository) {
-    browserRepository = new LocalStorageAttemptHistoryRepository();
-  }
-  return browserRepository;
+
+  const resolvedSession = typeof session === "undefined" ? await loadActiveSessionFromSupabaseAuth() : session;
+  return resolveAttemptHistoryRepositoryForSession(resolvedSession);
 }

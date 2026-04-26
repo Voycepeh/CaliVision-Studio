@@ -123,10 +123,14 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.
 
 
-## Current local-first History flow (MVP)
+## Current History flow (local + hosted)
 
 1. Open **History** (`/history`) from primary navigation.
-2. Studio shows recent private attempt summaries saved from completed **Upload Video** and **Live Streaming** analysis runs.
-3. Each entry shows drill, source, timestamp, key metric (reps or hold), status, and top finding/failure reason when available.
-4. Studio computes simple per-drill personal best indicators (best reps, longest hold, latest attempt) from saved summaries.
-5. History stays local-first and lightweight: no raw videos, annotated video files, or heavy frame traces are persisted in this surface by default.
+2. Signed-out users read/write attempt summaries from browser-local storage (copy: “Saved on this browser/device.”).
+3. Signed-in users read/write attempt summaries from hosted Supabase storage (copy: “Saved to your account.”).
+4. Each entry shows drill, source, timestamp, key metric (reps or hold), status, and top finding/failure reason when available.
+5. Studio computes simple per-drill personal best indicators (best reps, longest hold, latest attempt) from saved summaries.
+6. If signed in and local history exists, History shows optional **Import local history to account**. Import is duplicate-safe (`client_attempt_id`) and does not silently delete local data.
+7. History stays lightweight: no raw videos, annotated video files, or heavy frame-level pose traces are persisted in this surface.
+
+See `docs/attempt-history-storage.md` for storage details and privacy posture.

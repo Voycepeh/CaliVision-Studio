@@ -33,7 +33,7 @@ import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { buildAnalysisReviewModel } from "@/lib/analysis-viewer/review-model";
 import { buildSavedAttemptSummary } from "@/lib/history/attempt-summary";
-import { getBrowserAttemptHistoryRepository } from "@/lib/history/repository";
+import { resolveBrowserAttemptHistoryRepository } from "@/lib/history/repository";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
@@ -1138,13 +1138,13 @@ export function UploadVideoWorkspace() {
       createdAt: activeJob.completedAtIso ?? new Date().toISOString()
     });
 
-    void getBrowserAttemptHistoryRepository().saveAttempt(attempt)
+    void resolveBrowserAttemptHistoryRepository(session).then((repository) => repository.saveAttempt(attempt))
       .then(() => setAttemptSaveState("saved"))
       .catch(() => {
         setAttemptSaveState("error");
         savedAttemptJobIdsRef.current.delete(activeJob.id);
       });
-  }, [activeJob, activeSession, uploadReviewModel]);
+  }, [activeJob, activeSession, session, uploadReviewModel]);
 
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>

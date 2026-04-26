@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { computeDrillPersonalBests } from "@/lib/history/personal-bests";
-import { getBrowserAttemptHistoryRepository } from "@/lib/history/repository";
+import {
+  LocalStorageAttemptHistoryRepository,
+  resolveAttemptHistoryRepositoryForSession,
+  resolveBrowserAttemptHistoryRepository
+} from "@/lib/history/repository";
 import type { SavedAttemptSummary } from "@/lib/history/types";
 
 function formatAttemptDate(iso: string): string {
@@ -21,29 +26,68 @@ function formatPrimaryMetric(attempt: SavedAttemptSummary): string {
 }
 
 export function HistoryWorkspace() {
+  const { session } = useAuth();
   const [attempts, setAttempts] = useState<SavedAttemptSummary[]>([]);
+  const [localAttempts, setLocalAttempts] = useState<SavedAttemptSummary[]>([]);
+  const [importState, setImportState] = useState<"idle" | "importing" | "success" | "error">("idle");
 
   useEffect(() => {
     let cancelled = false;
-    getBrowserAttemptHistoryRepository()
-      .listRecentAttempts(100)
+
+    resolveBrowserAttemptHistoryRepository(session)
+      .then((repository) => repository.listRecentAttempts(100))
       .then((value) => {
         if (!cancelled) setAttempts(value);
       })
       .catch(() => {
         if (!cancelled) setAttempts([]);
       });
+
+    const localRepository = new LocalStorageAttemptHistoryRepository();
+    localRepository
+      .listRecentAttempts(100)
+      .then((value) => {
+        if (!cancelled) setLocalAttempts(value);
+      })
+      .catch(() => {
+        if (!cancelled) setLocalAttempts([]);
+      });
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session]);
 
   async function onClearHistory() {
-    await getBrowserAttemptHistoryRepository().clearAttempts();
+    const repository = await resolveBrowserAttemptHistoryRepository(session);
+    await repository.clearAttempts();
     setAttempts([]);
+    if (!session) {
+      setLocalAttempts([]);
+    }
+  }
+
+  async function onImportLocalHistory() {
+    if (!session || localAttempts.length === 0) {
+      return;
+    }
+    setImportState("importing");
+
+    try {
+      const hostedRepository = resolveAttemptHistoryRepositoryForSession(session);
+      await Promise.all(localAttempts.map(async (attempt) => hostedRepository.saveAttempt(attempt)));
+      const refreshed = await hostedRepository.listRecentAttempts(100);
+      setAttempts(refreshed);
+      setImportState("success");
+    } catch {
+      setImportState("error");
+    }
   }
 
   const personalBests = useMemo(() => computeDrillPersonalBests(attempts), [attempts]);
+  const isSignedIn = Boolean(session);
+  const storageCopy = isSignedIn ? "Saved to your account." : "Saved on this browser/device.";
+  const canImportLocalHistory = isSignedIn && localAttempts.length > 0;
 
   return (
     <section className="card" style={{ margin: 0, display: "grid", gap: "1rem" }}>
@@ -51,11 +95,27 @@ export function HistoryWorkspace() {
         <div>
           <h3 style={{ margin: 0 }}>Recent Attempts</h3>
           <p className="muted" style={{ margin: "0.35rem 0 0" }}>
-            Local-first MVP: history is private to this browser/device. Raw videos, annotated videos, and heavy pose traces are not stored.
+            {storageCopy} Raw videos, annotated videos, and heavy pose/frame traces are not stored.
           </p>
         </div>
-        {attempts.length > 0 ? <button type="button" className="pill" onClick={() => void onClearHistory()}>Clear local history</button> : null}
+        {attempts.length > 0 ? <button type="button" className="pill" onClick={() => void onClearHistory()}>{isSignedIn ? "Clear account history" : "Clear local history"}</button> : null}
       </div>
+
+      {canImportLocalHistory ? (
+        <div className="card" style={{ margin: 0, border: "1px solid #334155", display: "grid", gap: "0.5rem" }}>
+          <strong>Local history available</strong>
+          <p className="muted" style={{ margin: 0 }}>
+            You have {localAttempts.length} local attempt{localAttempts.length === 1 ? "" : "s"} on this browser/device. Import is optional and does not delete local data.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <button type="button" className="pill" onClick={() => void onImportLocalHistory()} disabled={importState === "importing"}>
+              {importState === "importing" ? "Importing…" : "Import local history to account"}
+            </button>
+            {importState === "success" ? <span className="muted">Import complete.</span> : null}
+            {importState === "error" ? <span className="muted">Import failed. Try again.</span> : null}
+          </div>
+        </div>
+      ) : null}
 
       {attempts.length === 0 ? <p className="muted">No saved attempts yet. Run Upload Video or Live Streaming to start building history.</p> : null}
 
