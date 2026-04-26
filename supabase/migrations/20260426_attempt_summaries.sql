@@ -26,8 +26,7 @@ create table if not exists public.attempt_summaries (
 create index if not exists attempt_summaries_owner_created_idx on public.attempt_summaries (owner_user_id, created_at desc);
 create index if not exists attempt_summaries_owner_drill_created_idx on public.attempt_summaries (owner_user_id, drill_id, created_at desc);
 create unique index if not exists attempt_summaries_owner_client_attempt_idx
-  on public.attempt_summaries (owner_user_id, client_attempt_id)
-  where client_attempt_id is not null;
+  on public.attempt_summaries (owner_user_id, client_attempt_id);
 
 alter table public.attempt_summaries enable row level security;
 

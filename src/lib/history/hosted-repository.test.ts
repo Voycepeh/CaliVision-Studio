@@ -109,3 +109,55 @@ test("SupabaseAttemptHistoryRepository saveAttempt uses client_attempt_id upsert
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   }
 });
+
+
+test("deleteAttempt with non-UUID attempt id only targets client_attempt_id", async () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "publishable-key";
+
+  const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    fetchCalls.push({ url: String(url), init });
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const repository = new SupabaseAttemptHistoryRepository(makeSession());
+    await repository.deleteAttempt("attempt_local_123");
+
+    assert.equal(fetchCalls.length, 1);
+    const url = fetchCalls[0]?.url ?? "";
+    assert.match(url, /attempt_summaries\?client_attempt_id=eq\.attempt_local_123/);
+    assert.equal(url.includes("id.eq."), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+});
+
+test("deleteAttempt with UUID attempt id targets client_attempt_id and id", async () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "publishable-key";
+
+  const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    fetchCalls.push({ url: String(url), init });
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const repository = new SupabaseAttemptHistoryRepository(makeSession());
+    await repository.deleteAttempt("550e8400-e29b-41d4-a716-446655440000");
+
+    assert.equal(fetchCalls.length, 1);
+    const url = fetchCalls[0]?.url ?? "";
+    assert.match(url, /attempt_summaries\?or=\(client_attempt_id\.eq\.550e8400-e29b-41d4-a716-446655440000,id\.eq\.550e8400-e29b-41d4-a716-446655440000\)/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+});

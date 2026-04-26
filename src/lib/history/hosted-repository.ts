@@ -69,6 +69,10 @@ function logHostedHistoryFailure(operation: string, detail: string): void {
   }
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export function mapAttemptSummaryToInsertRow(attempt: SavedAttemptSummary, ownerUserId: string): AttemptSummaryInsertRow {
   return {
     owner_user_id: ownerUserId,
@@ -187,16 +191,18 @@ export class SupabaseAttemptHistoryRepository implements AttemptHistoryRepositor
     const env = this.env;
     if (!env) throw new Error("Supabase is not configured.");
 
-    const response = await fetch(
-      `${env.url}/rest/v1/attempt_summaries?or=(client_attempt_id.eq.${encodeURIComponent(attemptId)},id.eq.${encodeURIComponent(attemptId)})`,
-      {
-        method: "DELETE",
-        headers: {
-          ...headers(this.session),
-          Prefer: "return=representation"
-        }
+    const encodedAttemptId = encodeURIComponent(attemptId);
+    const deleteFilter = isUuid(attemptId)
+      ? `or=(client_attempt_id.eq.${encodedAttemptId},id.eq.${encodedAttemptId})`
+      : `client_attempt_id=eq.${encodedAttemptId}`;
+
+    const response = await fetch(`${env.url}/rest/v1/attempt_summaries?${deleteFilter}`, {
+      method: "DELETE",
+      headers: {
+        ...headers(this.session),
+        Prefer: "return=representation"
       }
-    );
+    });
 
     if (!response.ok) {
       const backendError = await readBackendError(response);
