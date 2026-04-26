@@ -3,6 +3,7 @@
 import React, { type RefObject } from "react";
 import type { AnalysisViewerModel, AnalysisViewerEvent, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
+import { buildAnalysisReviewModel, formatAnalysisReviewTime, type AnalysisReviewSource } from "@/lib/analysis-viewer/review-model";
 import {
   buildHoldIntervals as buildHoldIntervalsFromEvents,
   formatHoldExitReason
@@ -13,6 +14,7 @@ type Props = {
   videoRef: RefObject<HTMLVideoElement | null>;
   onSurfaceChange: (surface: ViewerSurface) => void;
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
+  reviewSource: AnalysisReviewSource;
   overlayCanvas?: React.ReactNode;
 };
 
@@ -24,7 +26,8 @@ function toneColor(tone?: "neutral" | "success" | "warning" | "danger" | "info")
   return undefined;
 }
 
-export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, overlayCanvas }: Props) {
+export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, reviewSource, overlayCanvas }: Props) {
+  const review = React.useMemo(() => buildAnalysisReviewModel(model, reviewSource), [model, reviewSource]);
   return (
     <section className="analysis-viewer-shell">
       <div className="analysis-viewer-layout">
@@ -41,9 +44,9 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseT
             <h4>{model.panel.drillLabel}</h4>
           </header>
 
-          <AnalysisMetricGrid model={model} />
+          <AnalysisMetricGrid model={model} review={review} />
 
-          <AnalysisStructuredList model={model} onPhaseTimelineSelect={onPhaseTimelineSelect} />
+          <AnalysisStructuredList model={model} review={review} onPhaseTimelineSelect={onPhaseTimelineSelect} />
           <AnalysisCoachSection model={model} />
 
           <AnalysisDownloads model={model} />
@@ -104,12 +107,9 @@ function AnalysisCoachSection({ model }: { model: AnalysisViewerModel }) {
   );
 }
 
-function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
-  const benchmark = model.panel.summaryMetrics.find((metric) => metric.id === "benchmark_status");
+function AnalysisMetricGrid({ model, review }: { model: AnalysisViewerModel; review: ReturnType<typeof buildAnalysisReviewModel> }) {
   const summaryLine = model.panel.feedbackLines[0] ?? "Coach notes not available yet.";
   const detailLine = model.panel.feedbackLines[1] ?? model.panel.benchmarkFeedback?.summaryDescription ?? "Run another analysis for more guidance.";
-  const overallMatchValue = benchmark?.value ?? model.panel.benchmarkFeedback?.summaryLabel;
-  const hasOverallMatch = Boolean(overallMatchValue);
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
@@ -120,24 +120,24 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">Current phase</p>
-        <p className="analysis-card__body">{model.panel.currentPhaseLabel}</p>
+        <p className="analysis-card__label">Review</p>
+        <p className="analysis-card__body">{review.summaryLabel}</p>
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">{hasOverallMatch ? "Overall match" : "Confidence"}</p>
-        <p className="analysis-card__body">{hasOverallMatch ? overallMatchValue : model.panel.confidenceLabel}</p>
-        {hasOverallMatch ? <p className="analysis-card__meta">Confidence: {model.panel.confidenceLabel}</p> : null}
+        <p className="analysis-card__label">Duration</p>
+        <p className="analysis-card__body">{formatAnalysisReviewTime(review.totalAnalyzedDurationMs)}</p>
+        <p className="analysis-card__meta">{review.statusLabel}</p>
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">Drill mode</p>
-        <p className="analysis-card__body">{model.panel.movementTypeLabel}</p>
+        <p className="analysis-card__label">Drill</p>
+        <p className="analysis-card__body">{review.drillLabel}</p>
       </article>
 
       <article className="analysis-card analysis-card--summary">
         <p className="analysis-card__label">Analysis summary</p>
-        <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{summaryLine}</p>
+        <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{review.mainCoachingFinding ?? summaryLine}</p>
         <p className="analysis-card__meta">{detailLine}</p>
       </article>
 
@@ -235,16 +235,24 @@ type AnalysisInterval = {
 
 function AnalysisStructuredList({
   model,
+  review,
   onPhaseTimelineSelect
 }: {
   model: AnalysisViewerModel;
+  review: ReturnType<typeof buildAnalysisReviewModel>;
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
   const intervals = React.useMemo(() => buildStructuredIntervals(model), [model]);
   const [showDetails, setShowDetails] = React.useState(false);
 
-  if (!intervals.length) {
-    return <p className="muted" style={{ margin: 0 }}>No structured intervals available for this analysis yet.</p>;
+  if (review.movementType === "unknown") {
+    return <p className="muted" style={{ margin: 0 }}>Freestyle analysis is available, but drill-specific rep/hold review needs a selected drill.</p>;
+  }
+  if (!intervals.length && review.movementType === "REP") {
+    return <p className="muted" style={{ margin: 0 }}>No complete reps were confirmed. Review the phase sequence or try a clearer camera angle.</p>;
+  }
+  if (!intervals.length && review.movementType === "HOLD") {
+    return <p className="muted" style={{ margin: 0 }}>No stable hold was confirmed. Try staying in the target position longer.</p>;
   }
 
   const isHoldAnalysis = intervals[0]?.kind === "hold";
@@ -262,11 +270,11 @@ function AnalysisStructuredList({
 
   return (
     <section className="analysis-intervals">
-      <strong>{sectionLabel}</strong>
+      <strong>{sectionLabel} · {review.source === "upload" ? "Upload Video" : "Live Coaching"}</strong>
       <div className="analysis-intervals__summary muted">
         <span>{intervals.length} {itemLabel} detected</span>
         {phaseSummary ? <span>{`Current/last phase: ${phaseSummary}`}</span> : null}
-        {totalDurationMs > 0 ? <span>{`Analyzed duration: ${formatClockDuration(totalDurationMs)}`}</span> : null}
+        {totalDurationMs > 0 ? <span>{`Analyzed duration: ${formatAnalysisReviewTime(totalDurationMs)}`}</span> : null}
       </div>
       <button type="button" className="analysis-intervals__toggle" onClick={() => setShowDetails((value) => !value)}>{toggleLabel}</button>
       {showDetails ? (
@@ -277,11 +285,11 @@ function AnalysisStructuredList({
               <article key={interval.id} className="analysis-interval-row">
                 <div className="analysis-interval-row__header">
                   <strong>{interval.kind === "hold" ? `Hold ${interval.index}` : `Rep ${interval.index}`}</strong>
-                  <span className="analysis-interval-row__duration">{formatClockDuration(durationMs)}</span>
+                  <span className="analysis-interval-row__duration">{formatAnalysisReviewTime(durationMs)}</span>
                 </div>
                 <div className="analysis-interval-row__meta muted">
-                  <span>Start {formatClockDuration(interval.startMs)}</span>
-                  <span>End {formatClockDuration(interval.endMs)}</span>
+                  <span>Start {formatAnalysisReviewTime(interval.startMs)}</span>
+                  <span>End {formatAnalysisReviewTime(interval.endMs)}</span>
                   {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
                   {interval.kind === "hold" && interval.exitReason ? <span>Ended: {formatHoldExitReason(interval.exitReason)}</span> : null}
                 </div>
@@ -303,7 +311,7 @@ function AnalysisStructuredList({
                           title={checkpoint.label}
                         >
                           <span>{checkpoint.label}</span>
-                          <span>{formatClockDuration(checkpoint.timestampMs)}</span>
+                          <span>{formatAnalysisReviewTime(checkpoint.timestampMs)}</span>
                         </button>
                       </li>
                     ))}
@@ -354,10 +362,6 @@ function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisView
 
 function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
   return buildHoldIntervalsFromEvents(events, segments);
-}
-
-function formatClockDuration(durationMs: number): string {
-  return new Date(Math.max(0, durationMs)).toISOString().slice(11, 19);
 }
 
 function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {
