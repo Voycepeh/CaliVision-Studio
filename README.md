@@ -128,8 +128,10 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-## Links
-
-- Studio app: <https://cali-vision-studio.vercel.app>
-- Android legacy POC (archived direction): <https://github.com/Voycepeh/CaliVision>
-- Single-user-first roadmap: `docs/product/single-user-first-roadmap.md`
+## Concise technical notes
+- Next.js + React web app.
+- MediaPipe-based pose workflows for browser analysis.
+- Local-first persistence with hosted Supabase foundations where configured.
+- Product page ownership and flow map: `docs/product/page-flow.md`.
+- Single-user-first implementation roadmap: `docs/product/single-user-first-roadmap.md`.
+- Keep README focused on product flow and ownership; put low-level contracts and compatibility details in `docs/`.
