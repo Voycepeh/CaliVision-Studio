@@ -31,6 +31,9 @@ import { resolveResultDownloadTargets } from "@/lib/results/download-actions";
 import { extensionFromMimeType, resolveSafeDelivery, selectPreferredDeliverySource, selectPreviewSource } from "@/lib/media/media-capabilities";
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { mapUploadAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildAnalysisReviewModel } from "@/lib/analysis-viewer/review-model";
+import { buildSavedAttemptSummary } from "@/lib/history/attempt-summary";
+import { getBrowserAttemptHistoryRepository } from "@/lib/history/repository";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { formatAnnotatedRenderProgressLabel, parseFrameProgress } from "@/lib/analysis-viewer/progress-status";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
@@ -240,7 +243,9 @@ export function UploadVideoWorkspace() {
   const [isReferencePanelVisible, setIsReferencePanelVisible] = useState(true);
   const [workflowResetKey, setWorkflowResetKey] = useState(0);
   const [preflightPrompt, setPreflightPrompt] = useState<{ file: File; report: UploadCompatibilityReport } | null>(null);
+  const [attemptSaveState, setAttemptSaveState] = useState<"idle" | "saved" | "error">("idle");
   const preflightResolverRef = useRef<((choice: UploadPreflightDecision) => void) | null>(null);
+  const savedAttemptJobIdsRef = useRef<Set<string>>(new Set());
   const activeJob = useMemo(
     () => (selectedJobId ? uploadJobs.find((job) => job.id === selectedJobId) ?? null : uploadJobs[0] ?? null),
     [selectedJobId, uploadJobs]
@@ -1098,6 +1103,49 @@ export function UploadVideoWorkspace() {
     });
   }, [activeJob, uploadPreviewState, previewSelection.source?.id, previewSelection.source?.mimeType, previewSelection.blockedByCompatibility, downloadSafety.annotated?.downloadable, downloadSafety.raw?.downloadable]);
 
+  const uploadReviewModel = useMemo(
+    () => buildAnalysisReviewModel(uploadViewerModel, "upload"),
+    [uploadViewerModel]
+  );
+
+  useEffect(() => {
+    setAttemptSaveState("idle");
+  }, [activeJob?.id]);
+
+  const activeJobStatus = activeJob?.status;
+
+  useEffect(() => {
+    if (activeJobStatus && activeJobStatus !== "completed") {
+      setAttemptSaveState("idle");
+    }
+  }, [activeJobStatus]);
+
+  useEffect(() => {
+    const canSave = Boolean(activeJob && activeSession && activeSession.status === "completed" && activeJob.status === "completed");
+    if (!canSave || !activeJob) {
+      return;
+    }
+    if (savedAttemptJobIdsRef.current.has(activeJob.id)) {
+      return;
+    }
+    savedAttemptJobIdsRef.current.add(activeJob.id);
+
+    const attempt = buildSavedAttemptSummary({
+      review: uploadReviewModel,
+      source: "upload",
+      drillId: activeJob.drillSelection.drillBinding.drillId,
+      drillVersion: activeJob.drillSelection.drillBinding.drillVersion,
+      createdAt: activeJob.completedAtIso ?? new Date().toISOString()
+    });
+
+    void getBrowserAttemptHistoryRepository().saveAttempt(attempt)
+      .then(() => setAttemptSaveState("saved"))
+      .catch(() => {
+        setAttemptSaveState("error");
+        savedAttemptJobIdsRef.current.delete(activeJob.id);
+      });
+  }, [activeJob, activeSession, uploadReviewModel]);
+
   return (
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.85rem" }}>
       <div className="card" style={{ margin: 0, background: "rgba(114,168,255,0.1)" }}>
@@ -1348,7 +1396,11 @@ export function UploadVideoWorkspace() {
           {activeJob ? (
             <section className="card" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                <h3 style={{ marginTop: 0, marginBottom: 0 }}>Analysis result</h3>
+                <div>
+                  <h3 style={{ marginTop: 0, marginBottom: 0 }}>Analysis result</h3>
+                  {attemptSaveState === "saved" ? <p className="muted" style={{ margin: "0.2rem 0 0" }}>Attempt saved to history.</p> : null}
+                  {attemptSaveState === "error" ? <p className="muted" style={{ margin: "0.2rem 0 0" }}>Attempt could not be saved to history.</p> : null}
+                </div>
               </div>
               {canOpenCompare ? (
                 <article className="card" style={{ margin: "0 0 0.75rem", border: "1px solid #334155", display: "grid", gap: "0.45rem" }}>
@@ -1412,3 +1464,4 @@ export function UploadVideoWorkspace() {
     </section>
   );
 }
+

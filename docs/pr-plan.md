@@ -109,3 +109,12 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Current state (April 24, 2026): Drill Studio now authors optional `coachingProfile` drill metadata (movement family, ruleset, support type, primary goal, visual guides, cue preference) and persists it in portable drill definitions.
 - Current state (April 24, 2026): coaching rule resolution now prioritizes authored `coachingProfile` metadata first, while title fallback remains in place only for legacy drills that do not yet have authored coaching metadata.
 - Future work: advanced custom cue authoring and per-body-part rule authoring remain explicitly deferred.
+
+
+## Assumptions / non-goals for attempt history foundation (April 26, 2026)
+
+- Current state (April 26, 2026): Upload Video and Live Streaming now persist one lightweight saved-attempt summary per completed run into local browser history (`/history`) for the local-first MVP foundation.
+- Current state (April 26, 2026): attempt history stores compact summary metrics only (drill/source/time/status/reps/hold/finding), not raw media blobs or full frame traces.
+- Assumption: this first history surface is private-by-default and local-first while hosted history tables remain future work.
+- Non-goal: social/public sharing, leaderboard behavior, or charts-heavy analytics dashboards in this phase.
+- Non-goal: moving Android runtime/live coaching ownership into Studio; runtime remains in Android: <https://github.com/Voycepeh/CaliVision>.
