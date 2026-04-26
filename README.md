@@ -1,42 +1,54 @@
 # CaliVision Studio
 
-CaliVision Studio is the **main browser-first workspace** for calisthenics motion analysis.
+CaliVision Studio is a browser-first calisthenics motion analysis workspace. It helps athletes and coaches create drill definitions, run upload or live camera analysis, review skeletal overlays, count reps or holds, and turn training videos into clearer feedback.
+
+It is built for athletes training solo, coaches programming drill progressions, and anyone who wants faster movement feedback without stitching together separate tools.
+
+Today, Studio supports the full browser workflow: pick or author drills, upload training footage or run live sessions, and review drill-aware analysis. Next, the roadmap focuses on stronger session history, faster drill access, and tighter analysis review loops.
 
 Live app: <https://cali-vision-studio.vercel.app>
 
+## What the product does
+
+- Create and refine drills in **Drill Studio**.
+- Use built-in drills or import from **Drill Exchange**.
+- Upload training videos for pose overlay and rep/hold analysis.
+- Run live coaching in the browser.
+- Review drill-aware feedback after a session.
+- Store drills locally when signed out or in Supabase when signed in.
+- Use admin-managed media for homepage/product storytelling assets.
+
 ## Why I built CaliVision
 
-I built CaliVision because I wanted help visualizing my handstand stack.
+I built CaliVision because I wanted better feedback on my own handstand stack.
 
-I was already recording training videos and manually replaying them, but I wanted faster and more structured feedback so I could adjust in the next set instead of guessing.
+I was already recording training videos and replaying them manually, but I wanted faster, more structured feedback so I could adjust in the next set instead of guessing.
 
-CaliVision also became a practical experiment in AI-assisted building. I come from a data architecture / BI background rather than traditional app development, and I wanted to push an idea into a real product while learning where AI accelerates delivery, where human judgment still matters, and where the limits of AI-assisted development actually are.
+CaliVision also became a practical experiment in AI-assisted building. I come from a data architecture / BI background rather than traditional app development, and I wanted to test where AI accelerates delivery, where human judgment still matters, and where AI-assisted development reaches its limits.
 
 ## Product anchor
 
-Studio (this repo) is the product home for cross-platform browser workflows: create or choose drills, run upload analysis, run live coaching, review drill-aware feedback, and (roadmap) retain progress over time.
+Studio (this repo) is the active product home for cross-platform browser workflows: create or choose drills, run upload analysis, run live coaching, review drill-aware feedback, and (roadmap) retain progress over time.
 
-The Android app is a **legacy POC** and is no longer maintained as an active product surface. The cross-platform web app is now the single maintained home of authoring, analysis, and coaching workflows. Legacy repo: <https://github.com/Voycepeh/CaliVision>.
+The Android app is now legacy/optional runtime context rather than the main maintained product surface. Studio is the primary maintained product. Android repo reference: <https://github.com/Voycepeh/CaliVision>.
 
 ## Current product surfaces
 
-- **Home** (`/`): product entry and storytelling.
-- **Library** (`/library`): default workspace start for selecting/organizing drills.
-- **Drill Studio** (`/studio`): author and refine drill drafts.
-- **Upload Video** (`/upload`): upload-first analysis workflow.
-- **Live Coaching** (`/upload?mode=live`): camera/live feedback workflow.
-- **Analysis Review**: drill-aware review for overlays, reps/holds, and session interpretation.
-- **History** (planned): progress and attempt history over time.
-- **Drill Exchange** (`/marketplace`): discovery/import/publish surface.
-- **Admin Media** (`/admin/media`): managed branding/media assets (including homepage storytelling assets).
+- **Home** — `/`: product entry and storytelling.
+- **Library** — `/library`: default workspace start for selecting/organizing drills.
+- **Drill Studio** — `/studio`: author and refine drill drafts.
+- **Upload Video** — `/upload`: upload-first analysis workflow.
+- **Live Coaching** — `/upload?mode=live`: camera/live feedback workflow.
+- **Analysis Review** — (post-session): drill-aware review for overlays, reps/holds, and session interpretation.
+- **History** — planned: progress and attempt history over time.
+- **Drill Exchange** — `/marketplace`: discovery/import/publish surface.
+- **Admin Media** — `/admin/media`: managed storytelling and branding assets.
 
-## Homepage story and 7 image carousel
+### Home storytelling assets (within Home surface)
 
-The homepage carousel is a **product storytelling surface**, not just decoration. It explains the end-to-end user journey in one glance.
+For consistency with the other surfaces, homepage storytelling is documented as part of **Home** rather than as a standalone product surface.
 
-Carousel images are **admin-managed branding/media assets** so the story can evolve without changing code.
-
-Intended 7 story beats:
+The homepage carousel uses 7 **Admin Media-managed** storytelling images to summarize the user journey:
 
 1. Create drills.
 2. Use built-ins or Drill Exchange.
@@ -46,14 +58,14 @@ Intended 7 story beats:
 6. Rep or hold review.
 7. Progress over time.
 
-## Storage and media model
+## Storage and media model (summary)
 
-- **Local-only mode (signed out):** drafts and workflow state stay in-browser (IndexedDB/local-first baseline).
+- **Local-first mode (signed out):** drafts and workflow state stay in-browser (IndexedDB baseline).
 - **Hosted mode (signed in):** Google sign-in + Supabase-backed hosted draft/account flows where configured.
-- **Media foundations:** Supabase Storage + `media_assets` first for homepage/admin branding assets.
-- **Site settings:** `app_settings` for runtime-configurable site settings (for example carousel duration).
-- **Extension path:** same model can later cover drill reference media, benchmark media, session recordings, generated media, and overlay artifacts.
-- **Security posture:** secrets (including elevated Supabase keys) must remain server-side only.
+- **Admin media boundary:** homepage/storytelling assets are admin-managed and separate from user-owned training data.
+- **Security posture:** secrets (including elevated Supabase keys) remain server-side only.
+
+See [Storage and Media Model](docs/product/storage-media-model.md) for detailed boundaries.
 
 ## User journey
 
@@ -128,11 +140,15 @@ npm run dev
 
 Open <http://localhost:3000>.
 
+## Product docs
+
+- [Page Flow and Ownership](docs/product/page-flow.md): page responsibility map and target user journey.
+- [Single-User-First Roadmap](docs/product/single-user-first-roadmap.md): near-term product roadmap focused on the solo training loop.
+- [Storage and Media Model](docs/product/storage-media-model.md): local, hosted, admin media, and future session history storage boundaries.
+
 ## Concise technical notes
+
 - Next.js + React web app.
 - MediaPipe-based pose workflows for browser analysis.
 - Local-first persistence with hosted Supabase foundations where configured.
-- Product page ownership and flow map: `docs/product/page-flow.md`.
-- Single-user-first implementation roadmap: `docs/product/single-user-first-roadmap.md`.
-- Storage and media ownership architecture: `docs/product/storage-media-model.md`.
 - Keep README focused on product flow and ownership; put low-level contracts and compatibility details in `docs/`.
