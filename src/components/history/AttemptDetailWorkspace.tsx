@@ -6,15 +6,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { resolveBrowserAttemptHistoryRepository } from "@/lib/history/repository";
 import type { SavedAttemptSummary } from "@/lib/history/types";
+import { formatAttemptKeyMetric, formatSecondsRounded } from "@/lib/history/attempt-metrics";
 
 function formatAttemptDate(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 }
 
-function formatSeconds(value?: number): string {
-  return `${Math.round(value ?? 0)}s`;
-}
 
 export function AttemptDetailWorkspace({ attemptId }: { attemptId: string }) {
   const { session } = useAuth();
@@ -86,10 +84,10 @@ export function AttemptDetailWorkspace({ attemptId }: { attemptId: string }) {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: "0.5rem" }}>
           <p style={{ margin: 0 }}><strong>Movement type:</strong> {attempt.movementType}</p>
-          <p style={{ margin: 0 }}><strong>Key metric:</strong> {attempt.movementType === "HOLD" ? `${formatSeconds(attempt.longestHoldSeconds)} longest hold` : `${attempt.repsCounted ?? 0} reps`}</p>
+          <p style={{ margin: 0 }}><strong>Key metric:</strong> {formatAttemptKeyMetric(attempt)}</p>
           {attempt.movementType === "REP" ? <p style={{ margin: 0 }}><strong>Reps:</strong> {attempt.repsCounted ?? 0} counted / {attempt.repsIncomplete ?? 0} incomplete</p> : null}
-          {attempt.movementType === "HOLD" ? <p style={{ margin: 0 }}><strong>Hold:</strong> {formatSeconds(attempt.longestHoldSeconds)} longest / {formatSeconds(attempt.totalHoldSeconds)} total</p> : null}
-          <p style={{ margin: 0 }}><strong>Duration analyzed:</strong> {formatSeconds(attempt.durationSeconds)}</p>
+          {attempt.movementType === "HOLD" ? <p style={{ margin: 0 }}><strong>Hold:</strong> {formatSecondsRounded(attempt.longestHoldSeconds)} longest / {formatSecondsRounded(attempt.totalHoldSeconds)} total</p> : null}
+          <p style={{ margin: 0 }}><strong>Duration analyzed:</strong> {formatSecondsRounded(attempt.durationSeconds)}</p>
           <p style={{ margin: 0 }}><strong>Model version:</strong> {attempt.analysisModelVersion}</p>
         </div>
 
