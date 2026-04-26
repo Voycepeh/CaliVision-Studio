@@ -18,6 +18,7 @@ import {
   buildBenchmarkCoachingFeedback,
   buildVisualCoachingFeedback,
   buildCompletedUploadAnalysisSession,
+  buildRuntimePhaseLabelMap,
   buildPhaseRuntimeModel,
   buildReplayAnalysisState,
   formatCameraViewLabel,
@@ -111,14 +112,7 @@ function buildPhaseLabelMap(drill?: PortableDrill | null): Record<string, string
   if (!drill) {
     return {};
   }
-  if (drill.analysis) {
-    return buildPhaseRuntimeModel(drill, drill.analysis).phaseLabelById;
-  }
-  return drill.phases.reduce<Record<string, string>>((acc, phase, index) => {
-    const label = (phase.name || phase.title || "").trim() || phase.phaseId;
-    acc[phase.phaseId] = `${index + 1}. ${label}`;
-    return acc;
-  }, {});
+  return buildRuntimePhaseLabelMap(drill);
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -1464,4 +1458,3 @@ export function UploadVideoWorkspace() {
     </section>
   );
 }
-

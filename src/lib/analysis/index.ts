@@ -76,8 +76,11 @@ export {
 export type { CompositeRepState, PhaseRule } from "./composite-rep.ts";
 
 export {
+  buildRuntimePhaseLabelMap,
   buildPhaseRuntimeModel,
   buildPhaseSimilarityWarnings,
   filterPhaseIdsToRuntime,
+  getOrderedRuntimePhases,
+  getRuntimePreviewPhases,
   resolveAuthoredPhaseLabel
 } from "./phase-runtime.ts";
