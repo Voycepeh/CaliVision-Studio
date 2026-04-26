@@ -22,7 +22,7 @@ const DEFAULT_OPEN_SECTIONS: Record<number, boolean> = {
   [WORKFLOW_SECTION_IDS.drillSetup]: true,
   [WORKFLOW_SECTION_IDS.phaseSequence]: true,
   [WORKFLOW_SECTION_IDS.review]: false,
-  [WORKFLOW_SECTION_IDS.versionActions]: false
+  [WORKFLOW_SECTION_IDS.versionActions]: true
 };
 
 type ExpandIntent = "pose" | "upload";

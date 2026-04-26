@@ -19,6 +19,19 @@ import { setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const ALL_FILTER = "all";
 
+type CardMetaItem = {
+  label: string;
+  value: string;
+};
+
+function toTitleLabel(value: string): string {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
 export function MarketplaceOverview() {
   const router = useRouter();
   const { session, persistenceMode } = useAuth();
@@ -153,11 +166,16 @@ export function MarketplaceOverview() {
   }
 
   return (
-    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.7rem" }}>
+    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.9rem" }}>
       <h2 style={{ margin: 0 }}>Drill Exchange</h2>
       <p className="muted" style={{ margin: 0 }}>
         Browse published drills from creators, preview details, then add what you want into My Library.
       </p>
+      {!session ? (
+        <p className="muted" style={{ margin: 0 }}>
+          You can browse and preview every listing while signed out. Add to My Library requires sign-in.
+        </p>
+      ) : null}
 
       <div style={filtersRowStyle}>
         <label style={{ ...labelStyle, flex: "1 1 280px", minWidth: "min(100%, 280px)" }}>
@@ -199,45 +217,80 @@ export function MarketplaceOverview() {
         </label>
       </div>
 
-      <div style={{ display: "grid", gap: "0.45rem" }}>
-        {entries.length === 0 ? (
+      {entries.length === 0 ? (
+        <div className="card" style={{ margin: 0, background: "var(--panel-soft)" }}>
           <p className="muted" style={{ margin: 0 }}>
-            No published drills match these filters yet.
+            No published drills match your current search and filters. Try clearing one filter or using broader terms.
           </p>
-        ) : (
-          entries.map((entry) => (
-            <article key={entry.id} className="card" style={{ margin: 0 }}>
-              {entry.snapshotPackage.drills[0] ? (
-                <DrillThumbnailImage drill={entry.snapshotPackage.drills[0]} assets={entry.snapshotPackage.assets} height={150} />
-              ) : null}
-              <strong>{entry.title}</strong>
-              <p className="muted" style={{ margin: "0.3rem 0" }}>
-                {entry.creatorDisplayName} • {entry.movementType} • {entry.difficultyLevel} • {entry.category}
-              </p>
-              <p className="muted" style={{ margin: 0 }}>{entry.shortDescription}</p>
-              <p className="muted" style={{ margin: "0.25rem 0 0" }}>Tags: {entry.tags.join(", ") || "None"}</p>
-              <div style={{ marginTop: "0.45rem", display: "flex", gap: "0.45rem", flexWrap: "wrap" }}>
-                <Link className="pill" href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
-                  Preview details
-                </Link>
-                <button type="button" className="pill" disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
-                  {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
-                </button>
-                {isModerator ? (
-                  <button
-                    type="button"
-                    className="pill"
-                    disabled={pendingModerationPublicationId === entry.id}
-                    onClick={() => void onModeratorRemove(entry)}
-                  >
-                    {pendingModerationPublicationId === entry.id ? "Removing…" : "Remove from Exchange"}
-                  </button>
-                ) : null}
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+        </div>
+      ) : (
+        <div style={gridStyle}>
+          {entries.map((entry) => {
+            const leadDrill = entry.snapshotPackage.drills[0];
+            const metadata: CardMetaItem[] = [
+              { label: "Movement", value: toTitleLabel(entry.movementType) },
+              { label: "Difficulty", value: toTitleLabel(entry.difficultyLevel) },
+              { label: "Category", value: toTitleLabel(entry.category) }
+            ];
+
+            if (leadDrill?.phases?.length) {
+              metadata.push({ label: "Phases", value: String(leadDrill.phases.length) });
+            }
+            if (entry.cameraView && entry.cameraView !== "unknown") {
+              metadata.push({ label: "View", value: toTitleLabel(entry.cameraView) });
+            }
+
+            return (
+              <article key={entry.id} className="card" style={cardStyle}>
+                {leadDrill ? <DrillThumbnailImage drill={leadDrill} assets={entry.snapshotPackage.assets} height={140} /> : null}
+                <div style={cardBodyStyle}>
+                  <h3 style={{ margin: 0, fontSize: "1rem", lineHeight: 1.3 }}>{entry.title}</h3>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>By {entry.creatorDisplayName}</p>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>{entry.shortDescription}</p>
+
+                  <div style={metadataGridStyle}>
+                    {metadata.map((item) => (
+                      <span key={`${entry.id}-${item.label}`} style={metadataPillStyle}>
+                        <strong style={{ fontWeight: 600 }}>{item.label}:</strong> {item.value}
+                      </span>
+                    ))}
+                  </div>
+
+                  {entry.tags.length > 0 ? (
+                    <div style={tagRowStyle} aria-label="Drill tags">
+                      {entry.tags.map((tag) => (
+                        <span key={`${entry.id}-${tag}`} className="pill" style={tagChipStyle}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div style={actionRowStyle}>
+                    <button type="button" className="pill" style={primaryActionStyle} disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
+                      {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
+                    </button>
+                    <Link className="pill" style={secondaryActionStyle} href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
+                      Preview details
+                    </Link>
+                    {isModerator ? (
+                      <button
+                        type="button"
+                        className="pill"
+                        style={moderatorActionStyle}
+                        disabled={pendingModerationPublicationId === entry.id}
+                        onClick={() => void onModeratorRemove(entry)}
+                      >
+                        {pendingModerationPublicationId === entry.id ? "Removing…" : "Remove from Exchange"}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
       {feedback ? <p className="muted" style={{ margin: 0 }}>{feedback}</p> : null}
       {warning ? <p className="muted" style={{ margin: 0, color: "#f3d59b" }}>{warning}</p> : null}
       {error ? <p role="alert" style={{ margin: 0, color: "#f6cbcb" }}>{error}</p> : null}
@@ -254,4 +307,73 @@ const inputStyle: CSSProperties = {
   background: "var(--panel-soft)",
   color: "var(--text)",
   width: "100%"
+};
+
+const gridStyle: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))"
+};
+
+const cardStyle: CSSProperties = {
+  margin: 0,
+  padding: 0,
+  overflow: "hidden",
+  display: "grid",
+  gridTemplateRows: "auto 1fr"
+};
+
+const cardBodyStyle: CSSProperties = {
+  padding: "0.75rem",
+  display: "grid",
+  gap: "0.5rem",
+  alignContent: "start"
+};
+
+const metadataGridStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.35rem"
+};
+
+const metadataPillStyle: CSSProperties = {
+  border: "1px solid var(--border)",
+  borderRadius: "999px",
+  padding: "0.18rem 0.52rem",
+  fontSize: "0.74rem",
+  color: "var(--muted)",
+  background: "var(--panel-soft)"
+};
+
+const tagRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.35rem"
+};
+
+const tagChipStyle: CSSProperties = {
+  fontSize: "0.72rem",
+  padding: "0.16rem 0.48rem"
+};
+
+const actionRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.42rem",
+  marginTop: "0.2rem"
+};
+
+const primaryActionStyle: CSSProperties = {
+  background: "var(--accent-soft)",
+  borderColor: "rgba(114, 168, 255, 0.6)"
+};
+
+const secondaryActionStyle: CSSProperties = {
+  background: "var(--panel)"
+};
+
+const moderatorActionStyle: CSSProperties = {
+  marginLeft: "auto",
+  opacity: 0.8,
+  fontSize: "0.74rem"
 };
