@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import {
   findExistingExchangeFork,
   getExchangeModerationAccess,
@@ -141,10 +141,10 @@ export function MarketplaceOverview() {
       }
 
       setActiveDrillContext({ drillId: forked.drillId, sourceKind: persistenceMode === "cloud" ? "hosted" : "local", sourceId: forked.draftVersionId });
-      setFeedback(`Added "${entry.title}" to My Library.`);
+      setFeedback(`Added "${entry.title}" to My Drills.`);
       router.push(`/library?exchangeAdded=1&title=${encodeURIComponent(entry.title)}&drillId=${encodeURIComponent(forked.drillId)}`);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to add drill to My Library.");
+      setError(nextError instanceof Error ? nextError.message : "Failed to add drill to My Drills.");
     } finally {
       setPendingAddId(null);
     }
@@ -169,11 +169,11 @@ export function MarketplaceOverview() {
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.9rem" }}>
       <h2 style={{ margin: 0 }}>Drill Exchange</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Browse published drills from creators, preview details, then add what you want into My Library.
+        Browse published drills from creators, preview details, then add what you want into My Drills.
       </p>
       {!session ? (
         <p className="muted" style={{ margin: 0 }}>
-          You can browse and preview every listing while signed out. Add to My Library requires sign-in.
+          You can browse and preview every listing while signed out. Add to My Drills requires sign-in.
         </p>
       ) : null}
 
@@ -242,7 +242,16 @@ export function MarketplaceOverview() {
 
             return (
               <article key={entry.id} className="card" style={cardStyle}>
-                {leadDrill ? <DrillThumbnailImage drill={leadDrill} assets={entry.snapshotPackage.assets} height={104} /> : null}
+                {leadDrill ? (
+                  <DrillVisualPreview
+                    drill={leadDrill}
+                    assets={entry.snapshotPackage.assets}
+                    variant="compact"
+                    height={104}
+                    showMotionPreview
+                    motionMode="badge"
+                  />
+                ) : null}
                 <div style={cardBodyStyle}>
                   <h3 style={{ margin: 0, fontSize: "1rem", lineHeight: 1.3 }}>{entry.title}</h3>
                   <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>By {entry.creatorDisplayName}</p>
@@ -268,7 +277,7 @@ export function MarketplaceOverview() {
 
                   <div style={actionRowStyle}>
                     <button type="button" className="pill" style={primaryActionStyle} disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
-                      {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
+                      {pendingAddId === entry.id ? "Adding…" : "Add to My Drills"}
                     </button>
                     <Link className="pill" style={secondaryActionStyle} href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
                       Preview details

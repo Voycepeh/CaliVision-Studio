@@ -3,8 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
@@ -75,7 +74,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       return;
     }
     if (!session) {
-      setError("Sign in to add this drill to your library.");
+      setError("Sign in to add this drill to My Drills.");
       return;
     }
 
@@ -87,7 +86,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       const existingFork = await findExistingExchangeFork(session, entry.id);
       let staleLineageDetected = false;
       if (!existingFork.ok) {
-        setWarning("Could not verify prior Drill Exchange imports. Continuing with add to library.");
+        setWarning("Could not verify prior Drill Exchange imports. Continuing with add to My Drills.");
       }
       if (existingFork.ok && existingFork.value) {
         const existingEditable = await loadEditableVersionForDrill(existingFork.value.forkedPrivateDrillId, repositoryContext);
@@ -97,7 +96,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
             sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
             sourceId: existingEditable.sourceId
           });
-          setFeedback(`"${entry.title}" is already in your library.`);
+          setFeedback(`"${entry.title}" is already in My Drills.`);
           setAddedResult({ drillId: existingEditable.drillId, draftVersionId: existingEditable.versionId });
           return;
         }
@@ -127,10 +126,10 @@ export function MarketplaceDrillDetail({ slug }: Props) {
         sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
         sourceId: forked.draftVersionId
       });
-      setFeedback(`Added "${entry.title}" to My Library.`);
+      setFeedback(`Added "${entry.title}" to My Drills.`);
       setAddedResult({ drillId: forked.drillId, draftVersionId: forked.draftVersionId });
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Add to My Library failed.");
+      setError(nextError instanceof Error ? nextError.message : "Add to My Drills failed.");
     } finally {
       setPendingAdd(false);
     }
@@ -171,35 +170,83 @@ export function MarketplaceDrillDetail({ slug }: Props) {
   }
 
   const drill = entry.snapshotPackage.drills[0];
+  const publicationId = entry.id;
+  const exchangeDrillKey = drill ? `exchange:${publicationId}:${drill.drillId}` : null;
+  const movementLabel = drill?.drillType === "hold" ? "Hold" : "Rep";
+  const difficultyLabel = drill?.difficulty ? `${drill.difficulty[0]?.toUpperCase() ?? ""}${drill.difficulty.slice(1)}` : "—";
+  const viewLabel = drill?.primaryView ? `${drill.primaryView[0]?.toUpperCase() ?? ""}${drill.primaryView.slice(1)}` : "—";
+  const benchmarkPhaseCount = drill?.benchmark?.phaseSequence?.length ?? 0;
+  const hasBenchmarkTiming = Boolean(
+    drill?.benchmark?.timing?.expectedRepDurationMs
+    || drill?.benchmark?.timing?.targetHoldDurationMs
+    || (drill?.benchmark?.timing?.phaseDurationsMs && Object.keys(drill.benchmark.timing.phaseDurationsMs).length > 0)
+  );
+
+  function launchWorkflow(destination: "/upload" | "/live"): void {
+    if (!drill || !exchangeDrillKey) {
+      return;
+    }
+    setActiveDrillContext({
+      drillId: drill.drillId,
+      sourceKind: "exchange",
+      sourceId: publicationId
+    });
+    router.push(`${destination}?drillKey=${encodeURIComponent(exchangeDrillKey)}`);
+  }
 
   return (
-    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.6rem" }}>
+    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.75rem" }}>
       <Link href="/marketplace" className="pill" style={{ width: "fit-content" }}>← Back to Drill Exchange</Link>
-      <h2 style={{ margin: 0 }}>{entry.title}</h2>
-      <p className="muted" style={{ margin: 0 }}>
-        Creator: {entry.creatorDisplayName} • Movement: {entry.movementType} • Difficulty: {entry.difficultyLevel}
-      </p>
-      <p className="muted" style={{ margin: 0 }}>Category: {entry.category} • Camera view: {entry.cameraView}</p>
-      <p className="muted" style={{ margin: 0 }}>Equipment: {entry.equipment || "None"}</p>
-      <p className="muted" style={{ margin: 0 }}>Tags: {entry.tags.join(", ") || "None"}</p>
-      <p style={{ margin: 0 }}>{entry.fullDescription || entry.shortDescription}</p>
-      {drill ? <DrillThumbnailImage drill={drill} assets={entry.snapshotPackage.assets} height={180} /> : null}
+      <article style={{ display: "grid", gap: "0.7rem" }}>
+        <h2 style={{ margin: 0 }}>{entry.title}</h2>
+        {drill ? <DrillVisualPreview drill={drill} assets={entry.snapshotPackage.assets} variant="feature" showMotionPreview motionMode="inset" /> : null}
+        <p className="muted" style={{ margin: 0 }}>{entry.shortDescription}</p>
+        <p style={{ margin: 0 }}>{entry.fullDescription || entry.shortDescription}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }} aria-label="Drill summary">
+          <span className="pill">By {entry.creatorDisplayName}</span>
+          <span className="pill">Movement: {movementLabel}</span>
+          <span className="pill">Difficulty: {difficultyLabel}</span>
+          <span className="pill">View: {viewLabel}</span>
+          <span className="pill">Category: {entry.category}</span>
+          {entry.equipment ? <span className="pill">Equipment: {entry.equipment}</span> : null}
+        </div>
+        {entry.tags.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }} aria-label="Drill tags">
+            {entry.tags.map((tag) => (
+              <span key={tag} className="pill">{tag}</span>
+            ))}
+          </div>
+        ) : null}
+      </article>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
+        <button type="button" className="pill" onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
+          {pendingAdd ? "Adding…" : "Add to My Drills"}
+        </button>
+        <button type="button" className="pill" onClick={() => launchWorkflow("/upload")} disabled={!drill}>
+          Upload video with this drill
+        </button>
+        <button type="button" className="pill" onClick={() => launchWorkflow("/live")} disabled={!drill}>
+          Start live coaching
+        </button>
+      </div>
 
       <details>
-        <summary style={{ cursor: "pointer" }}>Phase summary</summary>
-        <ol style={{ margin: "0.45rem 0 0", paddingLeft: "1.1rem" }}>
-          {(drill?.phases ?? []).map((phase) => (
-            <li key={phase.phaseId} className="muted">
-              {phase.name} ({phase.durationMs} ms)
-            </li>
-          ))}
-        </ol>
+        <summary style={{ cursor: "pointer" }}>Advanced details</summary>
+        <div style={{ display: "grid", gap: "0.45rem", marginTop: "0.45rem" }}>
+          <p className="muted" style={{ margin: 0 }}>Benchmark phases: {benchmarkPhaseCount}</p>
+          <p className="muted" style={{ margin: 0 }}>Benchmark timing: {hasBenchmarkTiming ? "Available" : "Not provided"}</p>
+          <p className="muted" style={{ margin: 0 }}>Package version: {entry.snapshotPackage.manifest.packageVersion}</p>
+          <ol style={{ margin: 0, paddingLeft: "1.1rem" }}>
+            {(drill?.phases ?? []).map((phase) => (
+              <li key={phase.phaseId} className="muted">
+                {phase.name} ({phase.durationMs} ms)
+              </li>
+            ))}
+          </ol>
+        </div>
       </details>
-      {drill ? <DrillSelectionPreviewPanel drill={drill} compact quiet /> : null}
 
-      <button type="button" className="pill" onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
-        {pendingAdd ? "Adding…" : "Add to My Library"}
-      </button>
       {isModerator ? (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
           <button type="button" className="pill" disabled={pendingModerationAction !== null} onClick={() => void onModeratorAction("hide")}>Hide publication</button>
@@ -214,7 +261,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
             className="pill"
             onClick={() => router.push(`/library?exchangeAdded=1&title=${encodeURIComponent(entry.title)}&drillId=${encodeURIComponent(addedResult.drillId)}`)}
           >
-            Go to My Library
+            Go to My Drills
           </button>
           <button
             type="button"

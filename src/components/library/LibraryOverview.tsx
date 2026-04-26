@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
@@ -488,7 +488,15 @@ export function LibraryOverview() {
                   <div style={rowTitleWrapStyle}>
                     <div style={thumbnailShellStyle}>
                       {previewDrill ? (
-                        <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} variant="compact" width={152} height={86} />
+                        <DrillVisualPreview
+                          drill={previewDrill}
+                          assets={workflowSourceVersion.packageJson.assets}
+                          variant="compact"
+                          width={152}
+                          height={86}
+                          showMotionPreview
+                          motionMode="badge"
+                        />
                       ) : (
                         <div style={thumbnailFallbackStyle}>
                           <span className="muted">No thumbnail</span>

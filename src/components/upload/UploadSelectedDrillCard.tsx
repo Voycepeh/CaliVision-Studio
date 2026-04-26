@@ -1,6 +1,6 @@
 "use client";
 
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { resolveDrillThumbnail } from "@/lib/drills/thumbnail";
@@ -58,7 +58,15 @@ export function UploadSelectedDrillCard({ drill, sourceKind, benchmarkState, ass
     <section className="upload-selected-drill-card" aria-live="polite">
       <p className="upload-selected-drill-eyebrow">Selected drill for analysis</p>
       <div className="upload-selected-drill-layout">
-        <DrillThumbnailImage drill={drill} assets={assets} variant="compact" width={172} height={98} />
+        <DrillVisualPreview
+          drill={drill}
+          assets={assets}
+          variant="feature"
+          width={172}
+          height={98}
+          showMotionPreview
+          motionMode="inset"
+        />
         <div className="upload-selected-drill-content">
           <strong className="upload-selected-drill-title">{drill.title}</strong>
           <div className="upload-selected-drill-chips muted">

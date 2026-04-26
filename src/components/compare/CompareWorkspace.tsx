@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { buildCompareWorkspaceModel, deriveComparisonStatusView } from "@/lib/compare/compare-model";
 import { readCompareHandoffPayload } from "@/lib/compare/compare-handoff";
@@ -235,6 +236,9 @@ export function CompareWorkspace({ intent }: { intent?: CompareIntent }) {
           </div>
           <button type="button" className="pill" onClick={() => router.push(handoff?.fromPath ?? "/upload")}>Back to Analysis</button>
         </div>
+        {handoff?.drill ? (
+          <DrillVisualPreview drill={handoff.drill} assets={handoff.drillAssets ?? []} variant="compact" width={240} showMotionPreview motionMode="badge" />
+        ) : null}
       </header>
 
       {model.emptyState ? (

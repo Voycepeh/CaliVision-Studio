@@ -1423,10 +1423,12 @@ export function UploadVideoWorkspace() {
                         if (!drill || !activeSession) {
                           return;
                         }
+                        const drillAssets = drillOptions.find((option) => option.key === activeJob.drillSelection.drillBinding.sourceLabel)?.assets;
                         writeCompareHandoffPayload({
                           source: "upload",
                           fromPath: "/upload",
                           drill,
+                          drillAssets,
                           analysisSession: activeSession,
                           benchmarkFeedback,
                           coachingFeedback,
