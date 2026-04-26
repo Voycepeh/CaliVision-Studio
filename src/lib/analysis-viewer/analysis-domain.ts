@@ -261,6 +261,7 @@ export function buildAnalysisPanelModel(domainModel: AnalysisDomainModel): Analy
   const { drillContext, sessionSnapshot } = domainModel;
   return {
     drillLabel: drillContext.drillLabel,
+    movementType: drillContext.movementType,
     movementTypeLabel: describeMovementType(drillContext.movementType),
     primaryMetricLabel: drillContext.movementType === "hold" ? "Hold duration" : "Rep count",
     primaryMetricValue:

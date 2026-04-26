@@ -1,13 +1,10 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import type { AnalysisViewerModel, AnalysisViewerEvent, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
+import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
 import { buildAnalysisReviewModel, formatAnalysisReviewTime, type AnalysisReviewSource } from "@/lib/analysis-viewer/review-model";
-import {
-  buildHoldIntervals as buildHoldIntervalsFromEvents,
-  formatHoldExitReason
-} from "@/lib/analysis-viewer/hold-intervals";
+import { formatHoldExitReason } from "@/lib/analysis-viewer/hold-intervals";
 
 type Props = {
   model: AnalysisViewerModel;
@@ -110,9 +107,17 @@ function AnalysisCoachSection({ model }: { model: AnalysisViewerModel }) {
 function AnalysisMetricGrid({ model, review }: { model: AnalysisViewerModel; review: ReturnType<typeof buildAnalysisReviewModel> }) {
   const summaryLine = model.panel.feedbackLines[0] ?? "Coach notes not available yet.";
   const detailLine = model.panel.feedbackLines[1] ?? model.panel.benchmarkFeedback?.summaryDescription ?? "Run another analysis for more guidance.";
+  const benchmarkMetric = model.panel.summaryMetrics.find((metric) => metric.id === "benchmark_status");
+  const benchmarkValue = benchmarkMetric?.value ?? model.panel.benchmarkFeedback?.summaryLabel;
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
+      {benchmarkValue ? (
+        <article className="analysis-card">
+          <p className="analysis-card__label">Overall match</p>
+          <p className="analysis-card__body">{benchmarkValue}</p>
+        </article>
+      ) : null}
       <article className="analysis-card analysis-card--primary">
         <p className="analysis-card__label">{model.panel.primaryMetricLabel}</p>
         <p className="analysis-card__value">{model.panel.primaryMetricValue}</p>
@@ -222,17 +227,6 @@ function AnalysisVideoPane({
   );
 }
 
-type AnalysisInterval = {
-  id: string;
-  kind: "rep" | "hold";
-  index: number;
-  startMs: number;
-  endMs: number;
-  phaseLabel?: string;
-  exitReason?: string;
-  checkpoints: Array<{ id: string; label: string; timestampMs: number }>;
-};
-
 function AnalysisStructuredList({
   model,
   review,
@@ -242,7 +236,31 @@ function AnalysisStructuredList({
   review: ReturnType<typeof buildAnalysisReviewModel>;
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
-  const intervals = React.useMemo(() => buildStructuredIntervals(model), [model]);
+  const intervals = React.useMemo(() => {
+    if (review.movementType === "HOLD") {
+      return review.holdEvents.map((hold) => ({
+        id: hold.id,
+        kind: "hold" as const,
+        index: hold.index,
+        startMs: hold.startMs,
+        endMs: hold.endMs,
+        phaseLabel: hold.phaseLabel,
+        targetStatus: hold.targetStatus,
+        seekTimestampMs: hold.seekTimestampMs
+      }));
+    }
+    return review.repEvents.map((rep) => ({
+      id: rep.id,
+      kind: "rep" as const,
+      index: rep.index,
+      startMs: rep.startMs,
+      endMs: rep.endMs,
+      status: rep.status,
+      phaseSequence: rep.phaseSequence,
+      failureReason: rep.failureReason,
+      seekTimestampMs: rep.seekTimestampMs
+    }));
+  }, [review]);
   const [showDetails, setShowDetails] = React.useState(false);
 
   if (review.movementType === "unknown") {
@@ -255,7 +273,7 @@ function AnalysisStructuredList({
     return <p className="muted" style={{ margin: 0 }}>No stable hold was confirmed. Try staying in the target position longer.</p>;
   }
 
-  const isHoldAnalysis = intervals[0]?.kind === "hold";
+  const isHoldAnalysis = review.movementType === "HOLD";
   const sectionLabel = isHoldAnalysis ? "Hold analysis" : "Rep analysis";
   const itemLabel = isHoldAnalysis ? "holds" : "reps";
   const toggleLabel = showDetails
@@ -265,7 +283,7 @@ function AnalysisStructuredList({
     ?? model.panel.timelineDurationMs
     ?? Math.max(0, (intervals[intervals.length - 1]?.endMs ?? 0) - (intervals[0]?.startMs ?? 0));
   const currentPhase = model.panel.currentPhaseLabel?.trim();
-  const lastPhase = intervals[intervals.length - 1]?.checkpoints[intervals[intervals.length - 1]?.checkpoints.length - 1]?.label;
+  const lastPhase = review.phaseEvents[review.phaseEvents.length - 1]?.label;
   const phaseSummary = currentPhase && currentPhase !== "—" && currentPhase !== "Unknown" ? currentPhase : lastPhase;
 
   return (
@@ -291,27 +309,29 @@ function AnalysisStructuredList({
                   <span>Start {formatAnalysisReviewTime(interval.startMs)}</span>
                   <span>End {formatAnalysisReviewTime(interval.endMs)}</span>
                   {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
-                  {interval.kind === "hold" && interval.exitReason ? <span>Ended: {formatHoldExitReason(interval.exitReason)}</span> : null}
+                  {interval.kind === "hold" && interval.targetStatus ? <span>{formatHoldExitReason(interval.targetStatus.replace("Ended: ", ""))}</span> : null}
+                  {interval.kind === "rep" ? <span>Status {interval.status}</span> : null}
+                  {interval.kind === "rep" && interval.failureReason ? <span>{interval.failureReason}</span> : null}
                 </div>
-                {interval.kind === "rep" && interval.checkpoints.length > 0 ? (
+                {interval.kind === "rep" && interval.phaseSequence.length > 0 ? (
                   <ol className="analysis-interval-checkpoints">
-                    {interval.checkpoints.map((checkpoint, checkpointIndex) => (
-                      <li key={checkpoint.id} className="analysis-interval-checkpoint">
+                    {interval.phaseSequence.map((phase, checkpointIndex) => (
+                      <li key={`${interval.id}_${phase}_${checkpointIndex}`} className="analysis-interval-checkpoint">
                         <span className="analysis-interval-checkpoint__index">Phase {checkpointIndex + 1}</span>
                         <button
                           type="button"
                           className="analysis-interval-checkpoint__jump"
                           onClick={() => {
-                            const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id);
+                            const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.label === phase && segment.startMs >= interval.startMs && segment.startMs <= interval.endMs);
                             if (matchingSegment?.interactive) {
                               onPhaseTimelineSelect(matchingSegment);
                             }
                           }}
-                          disabled={!model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id)?.interactive}
-                          title={checkpoint.label}
+                          disabled={!interval.seekTimestampMs}
+                          title={phase}
                         >
-                          <span>{checkpoint.label}</span>
-                          <span>{formatAnalysisReviewTime(checkpoint.timestampMs)}</span>
+                          <span>{phase}</span>
+                          <span>{formatAnalysisReviewTime(interval.seekTimestampMs ?? interval.startMs)}</span>
                         </button>
                       </li>
                     ))}
@@ -324,44 +344,6 @@ function AnalysisStructuredList({
       ) : null}
     </section>
   );
-}
-
-function buildStructuredIntervals(model: AnalysisViewerModel): AnalysisInterval[] {
-  const hasHoldEvents = model.timelineEvents.some((event) => event.kind === "hold");
-  const movementLabel = model.panel.movementTypeLabel.toLowerCase();
-  if (hasHoldEvents || movementLabel.includes("hold")) {
-    return buildHoldIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
-  }
-  return buildRepIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
-}
-
-function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  const completedReps = events
-    .filter((event) => event.kind === "rep")
-    .map((event) => Math.max(0, Math.round(event.timestampMs)))
-    .sort((a, b) => a - b);
-
-  if (completedReps.length === 0) return [];
-
-  const fallbackStart = segments[0]?.startMs ?? 0;
-  return completedReps.map((endMs, index) => {
-    const startMs = index === 0 ? fallbackStart : completedReps[index - 1] ?? fallbackStart;
-    const checkpoints = segments
-      .filter((segment) => segment.startMs >= startMs && segment.startMs <= endMs)
-      .map((segment) => ({ id: segment.id, label: segment.label, timestampMs: segment.startMs }));
-    return {
-      id: `rep_${index + 1}_${startMs}_${endMs}`,
-      kind: "rep",
-      index: index + 1,
-      startMs,
-      endMs,
-      checkpoints
-    };
-  });
-}
-
-function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  return buildHoldIntervalsFromEvents(events, segments);
 }
 
 function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {

@@ -47,6 +47,7 @@ export type AnalysisViewerPhaseTimelineSegment = {
 
 export type AnalysisViewerPanelModel = {
   drillLabel: string;
+  movementType?: "rep" | "hold" | "freestyle";
   movementTypeLabel: string;
   primaryMetricLabel: string;
   primaryMetricValue: string;
