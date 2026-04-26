@@ -90,6 +90,20 @@ export function applyCoachingProfileSuggestions(input: {
   return merged;
 }
 
+export function deriveAutoCoachingProfile(input: {
+  profile: DrillCoachingProfile | undefined;
+  drillType: "hold" | "rep";
+}): DrillCoachingProfile {
+  if (input.profile) {
+    return { ...input.profile };
+  }
+
+  return {
+    rulesetId: input.drillType === "hold" ? "generic_hold_v1" : "generic_rep_v1",
+    cuePreference: "visual_only"
+  };
+}
+
 export function filterVisualGuidesByProfile(
   profile: DrillCoachingProfile | undefined,
   guides: CoachingVisualGuide[]
