@@ -504,7 +504,6 @@ export function LibraryOverview() {
                         Updated {new Date(drill.updatedAtIso).toLocaleString()}
                       </p>
                       <div style={statusChipRowStyle}>
-                        <span style={statusChipStyle("neutral")}>Draft</span>
                         <span style={statusChipStyle(drill.activeReadyVersion ? "ready" : "neutral")}>
                           Ready {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "none"}
                         </span>
@@ -545,14 +544,6 @@ export function LibraryOverview() {
                       <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
                         Edit in Studio
                       </button>
-                      <button
-                        type="button"
-                        style={chipStyle(false)}
-                        aria-expanded={previewDrillId === drill.drillId}
-                        onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
-                      >
-                        {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
-                      </button>
                     </div>
                   </section>
                   {previewDrillId === drill.drillId && previewDrill ? (
@@ -571,6 +562,14 @@ export function LibraryOverview() {
                   <section style={manageGroupStyle}>
                     <p style={actionGroupLabelStyle}>Manage drill</p>
                     <div style={compactActionRowStyle}>
+                      <button
+                        type="button"
+                        style={chipStyle(false)}
+                        aria-expanded={previewDrillId === drill.drillId}
+                        onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
+                      >
+                        {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
+                      </button>
                       <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
                         Mark Ready
                       </button>
