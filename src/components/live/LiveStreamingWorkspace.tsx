@@ -2259,6 +2259,12 @@ export function LiveStreamingWorkspace() {
   );
 
   useEffect(() => {
+    if (status === "live-session-running") {
+      setAttemptSaveState("idle");
+    }
+  }, [status]);
+
+  useEffect(() => {
     const traceId = postAnalysisSnapshot?.traceId;
     const hasResultData = Boolean(liveAnalysisSession && liveAnalysisSession.events.length > 0);
     const canSave = Boolean(traceId && liveAnalysisSession && liveAnalysisSession.status === "completed" && hasResultData);

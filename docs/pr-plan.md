@@ -113,7 +113,7 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 
 ## Assumptions / non-goals for attempt history foundation (April 26, 2026)
 
-- Current state (April 26, 2026): Upload Video and Live now persist one lightweight saved-attempt summary per completed run into local browser history (`/history`).
+- Current state (April 26, 2026): Upload Video and Live Streaming now persist one lightweight saved-attempt summary per completed run into local browser history (`/history`) for the local-first MVP foundation.
 - Current state (April 26, 2026): attempt history stores compact summary metrics only (drill/source/time/status/reps/hold/finding), not raw media blobs or full frame traces.
 - Assumption: this first history surface is private-by-default and local-first while hosted history tables remain future work.
 - Non-goal: social/public sharing, leaderboard behavior, or charts-heavy analytics dashboards in this phase.

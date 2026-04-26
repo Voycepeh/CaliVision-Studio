@@ -6,7 +6,7 @@ export default function HistoryPage() {
     <RoutePageIntro
       navActive="history"
       title="History"
-      description="Review your recent Upload Video and Live Coaching attempts to track progress over time."
+      description="Review your recent Upload Video and Live Streaming attempts to track progress over time."
     >
       <HistoryWorkspace />
     </RoutePageIntro>

@@ -5,6 +5,7 @@ export interface AttemptHistoryRepository {
   listRecentAttempts(limit?: number): Promise<SavedAttemptSummary[]>;
   listAttemptsByDrill(drillId: string, limit?: number): Promise<SavedAttemptSummary[]>;
   deleteAttempt(attemptId: string): Promise<boolean>;
+  clearAttempts(): Promise<void>;
 }
 
 type RepositoryOptions = {
@@ -70,6 +71,10 @@ export class LocalStorageAttemptHistoryRepository implements AttemptHistoryRepos
     }
     writeAttempts(this.storage, this.storageKey, next);
     return true;
+  }
+
+  async clearAttempts(): Promise<void> {
+    writeAttempts(this.storage, this.storageKey, []);
   }
 }
 

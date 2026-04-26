@@ -123,7 +123,7 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.
 
 
-## Current History flow
+## Current local-first History flow (MVP)
 
 1. Open **History** (`/history`) from primary navigation.
 2. Studio shows recent private attempt summaries saved from completed **Upload Video** and **Live Streaming** analysis runs.

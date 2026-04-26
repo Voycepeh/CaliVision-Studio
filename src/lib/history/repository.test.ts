@@ -59,3 +59,15 @@ test("LocalStorageAttemptHistoryRepository filters by drill and supports delete"
   const afterDelete = await repository.listRecentAttempts();
   assert.deepEqual(afterDelete.map((attempt) => attempt.id), ["a1"]);
 });
+
+
+test("LocalStorageAttemptHistoryRepository clears all attempts", async () => {
+  const repository = new LocalStorageAttemptHistoryRepository({ storage: new MemoryStorage(), cap: 10 });
+  await repository.saveAttempt(makeAttempt("a1", "2026-04-26T10:00:00.000Z", "drill_1"));
+  await repository.saveAttempt(makeAttempt("a2", "2026-04-26T11:00:00.000Z", "drill_2"));
+
+  await repository.clearAttempts();
+
+  const recent = await repository.listRecentAttempts();
+  assert.equal(recent.length, 0);
+});

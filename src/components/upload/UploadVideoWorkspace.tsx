@@ -1109,6 +1109,18 @@ export function UploadVideoWorkspace() {
   );
 
   useEffect(() => {
+    setAttemptSaveState("idle");
+  }, [activeJob?.id]);
+
+  const activeJobStatus = activeJob?.status;
+
+  useEffect(() => {
+    if (activeJobStatus && activeJobStatus !== "completed") {
+      setAttemptSaveState("idle");
+    }
+  }, [activeJobStatus]);
+
+  useEffect(() => {
     const canSave = Boolean(activeJob && activeSession && activeSession.status === "completed" && activeJob.status === "completed");
     if (!canSave || !activeJob) {
       return;

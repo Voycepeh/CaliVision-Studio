@@ -38,19 +38,29 @@ export function HistoryWorkspace() {
     };
   }, []);
 
-  const personalBests = useMemo(() => computeDrillPersonalBests(attempts), [attempts]);
-
-  if (attempts.length === 0) {
-    return <p className="muted">No saved attempts yet. Run Upload Video or Live Coaching to start building history.</p>;
+  async function onClearHistory() {
+    await getBrowserAttemptHistoryRepository().clearAttempts();
+    setAttempts([]);
   }
+
+  const personalBests = useMemo(() => computeDrillPersonalBests(attempts), [attempts]);
 
   return (
     <section className="card" style={{ margin: 0, display: "grid", gap: "1rem" }}>
-      <div>
-        <h3 style={{ margin: 0 }}>Recent Attempts</h3>
-        <p className="muted" style={{ margin: "0.35rem 0 0" }}>Private to this browser/device. Heavy media is not stored in history.</p>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
+        <div>
+          <h3 style={{ margin: 0 }}>Recent Attempts</h3>
+          <p className="muted" style={{ margin: "0.35rem 0 0" }}>
+            Local-first MVP: history is private to this browser/device. Raw videos, annotated videos, and heavy pose traces are not stored.
+          </p>
+        </div>
+        {attempts.length > 0 ? <button type="button" className="pill" onClick={() => void onClearHistory()}>Clear local history</button> : null}
       </div>
 
+      {attempts.length === 0 ? <p className="muted">No saved attempts yet. Run Upload Video or Live Streaming to start building history.</p> : null}
+
+      {attempts.length > 0 ? (
+      <>
       <div style={{ display: "grid", gap: "0.75rem" }}>
         {attempts.map((attempt) => (
           <article key={attempt.id} className="card" style={{ margin: 0, border: "1px solid #334155" }}>
@@ -59,7 +69,7 @@ export function HistoryWorkspace() {
               <span className="muted">{formatAttemptDate(attempt.createdAt)}</span>
             </div>
             <p className="muted" style={{ margin: "0.25rem 0 0" }}>
-              {attempt.source === "upload" ? "Upload Video" : "Live Coaching"} · {formatPrimaryMetric(attempt)} · status: {attempt.status}
+              {attempt.source === "upload" ? "Upload Video" : "Live Streaming"} · {formatPrimaryMetric(attempt)} · status: {attempt.status}
             </p>
             {attempt.commonFailureReason || attempt.mainFinding ? (
               <p className="muted" style={{ margin: "0.25rem 0 0" }}>
@@ -83,6 +93,8 @@ export function HistoryWorkspace() {
           ))}
         </div>
       </div>
+      </>
+      ) : null}
     </section>
   );
 }
