@@ -2732,6 +2732,7 @@ export function LiveStreamingWorkspace() {
                       source: "live",
                       fromPath: "/live",
                       drill: selection.drill,
+                      drillAssets: selectedDrill?.assets,
                       analysisSession: liveAnalysisSession,
                       benchmarkFeedback,
                       coachingFeedback,

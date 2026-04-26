@@ -141,10 +141,10 @@ export function MarketplaceOverview() {
       }
 
       setActiveDrillContext({ drillId: forked.drillId, sourceKind: persistenceMode === "cloud" ? "hosted" : "local", sourceId: forked.draftVersionId });
-      setFeedback(`Added "${entry.title}" to My Library.`);
+      setFeedback(`Added "${entry.title}" to My Drills.`);
       router.push(`/library?exchangeAdded=1&title=${encodeURIComponent(entry.title)}&drillId=${encodeURIComponent(forked.drillId)}`);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to add drill to My Library.");
+      setError(nextError instanceof Error ? nextError.message : "Failed to add drill to My Drills.");
     } finally {
       setPendingAddId(null);
     }
@@ -169,11 +169,11 @@ export function MarketplaceOverview() {
     <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.9rem" }}>
       <h2 style={{ margin: 0 }}>Drill Exchange</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Browse published drills from creators, preview details, then add what you want into My Library.
+        Browse published drills from creators, preview details, then add what you want into My Drills.
       </p>
       {!session ? (
         <p className="muted" style={{ margin: 0 }}>
-          You can browse and preview every listing while signed out. Add to My Library requires sign-in.
+          You can browse and preview every listing while signed out. Add to My Drills requires sign-in.
         </p>
       ) : null}
 
@@ -277,7 +277,7 @@ export function MarketplaceOverview() {
 
                   <div style={actionRowStyle}>
                     <button type="button" className="pill" style={primaryActionStyle} disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
-                      {pendingAddId === entry.id ? "Adding…" : "Add to My Library"}
+                      {pendingAddId === entry.id ? "Adding…" : "Add to My Drills"}
                     </button>
                     <Link className="pill" style={secondaryActionStyle} href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
                       Preview details
