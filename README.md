@@ -146,4 +146,5 @@ Open <http://localhost:3000>.
 - MediaPipe-based pose workflows for browser analysis.
 - Local-first persistence with hosted Supabase foundations where configured.
 - Single-user-first implementation roadmap: `docs/product/single-user-first-roadmap.md`.
+- Storage and media ownership architecture: `docs/product/storage-media-model.md`.
 - Keep README focused on product flow and ownership; put low-level contracts and compatibility details in `docs/`.
