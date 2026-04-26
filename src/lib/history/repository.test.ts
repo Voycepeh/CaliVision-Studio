@@ -46,7 +46,7 @@ test("LocalStorageAttemptHistoryRepository enforces retention cap", async () => 
   assert.deepEqual(recent.map((attempt) => attempt.id), ["a3", "a2"]);
 });
 
-test("LocalStorageAttemptHistoryRepository filters by drill and supports delete", async () => {
+test("LocalStorageAttemptHistoryRepository filters by drill, supports getAttempt, and supports delete", async () => {
   const repository = new LocalStorageAttemptHistoryRepository({ storage: new MemoryStorage(), cap: 10 });
   await repository.saveAttempt(makeAttempt("a1", "2026-04-26T10:00:00.000Z", "drill_1"));
   await repository.saveAttempt(makeAttempt("a2", "2026-04-26T11:00:00.000Z", "drill_2"));
@@ -54,6 +54,10 @@ test("LocalStorageAttemptHistoryRepository filters by drill and supports delete"
   const filtered = await repository.listAttemptsByDrill("drill_2");
   assert.equal(filtered.length, 1);
   assert.equal(filtered[0]?.id, "a2");
+
+  const fetched = await repository.getAttempt("a2");
+  assert.equal(fetched?.id, "a2");
+  assert.equal(await repository.getAttempt("missing"), null);
 
   assert.equal(await repository.deleteAttempt("a2"), true);
   const afterDelete = await repository.listRecentAttempts();

@@ -5,6 +5,7 @@ export interface AttemptHistoryRepository {
   saveAttempt(attempt: SavedAttemptSummary): Promise<void>;
   listRecentAttempts(limit?: number): Promise<SavedAttemptSummary[]>;
   listAttemptsByDrill(drillId: string, limit?: number): Promise<SavedAttemptSummary[]>;
+  getAttempt(attemptId: string): Promise<SavedAttemptSummary | null>;
   deleteAttempt(attemptId: string): Promise<boolean>;
   clearAttempts(): Promise<void>;
 }
@@ -72,6 +73,11 @@ export class LocalStorageAttemptHistoryRepository implements AttemptHistoryRepos
   async listAttemptsByDrill(drillId: string, limit?: number): Promise<SavedAttemptSummary[]> {
     const attempts = sortByRecent(readAttempts(this.storage, this.storageKey)).filter((attempt) => attempt.drillId === drillId);
     return typeof limit === "number" ? attempts.slice(0, limit) : attempts;
+  }
+
+  async getAttempt(attemptId: string): Promise<SavedAttemptSummary | null> {
+    const attempts = readAttempts(this.storage, this.storageKey);
+    return attempts.find((attempt) => attempt.id === attemptId) ?? null;
   }
 
   async deleteAttempt(attemptId: string): Promise<boolean> {

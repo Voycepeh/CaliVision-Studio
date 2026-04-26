@@ -111,6 +111,78 @@ test("SupabaseAttemptHistoryRepository saveAttempt uses client_attempt_id upsert
 });
 
 
+test("getAttempt with non-UUID id filters on client_attempt_id and returns mapped summary", async () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "publishable-key";
+
+  const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    fetchCalls.push({ url: String(url), init });
+    return new Response(JSON.stringify([{
+      id: "hosted-id-1",
+      owner_user_id: "owner-1",
+      client_attempt_id: "attempt_local_123",
+      created_at: "2026-04-26T11:00:00.000Z",
+      source: "upload",
+      drill_id: "drill_pushup",
+      drill_version: "v1",
+      drill_title: "Push-up",
+      movement_type: "REP",
+      duration_seconds: 12,
+      reps_counted: 8,
+      reps_incomplete: 0,
+      longest_hold_seconds: null,
+      total_hold_seconds: null,
+      common_failure_reason: null,
+      main_finding: "Great tempo",
+      status: "completed",
+      analysis_model_version: "analysis-review-v1",
+      inserted_at: "2026-04-26T11:00:00.000Z",
+      updated_at: "2026-04-26T11:00:00.000Z"
+    }]), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const repository = new SupabaseAttemptHistoryRepository(makeSession());
+    const result = await repository.getAttempt("attempt_local_123");
+
+    assert.equal(fetchCalls.length, 1);
+    assert.match(fetchCalls[0]?.url ?? "", /attempt_summaries\?select=\*&client_attempt_id=eq\.attempt_local_123&order=created_at\.desc&limit=1/);
+    assert.equal(result?.id, "attempt_local_123");
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+});
+
+test("getAttempt with UUID id filters on client_attempt_id or hosted id", async () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "publishable-key";
+
+  const fetchCalls: Array<{ url: string; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+    fetchCalls.push({ url: String(url), init });
+    return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const repository = new SupabaseAttemptHistoryRepository(makeSession());
+    const result = await repository.getAttempt("550e8400-e29b-41d4-a716-446655440000");
+
+    assert.equal(fetchCalls.length, 1);
+    assert.match(fetchCalls[0]?.url ?? "", /attempt_summaries\?select=\*&or=\(client_attempt_id\.eq\.550e8400-e29b-41d4-a716-446655440000,id\.eq\.550e8400-e29b-41d4-a716-446655440000\)&order=created_at\.desc&limit=1/);
+    assert.equal(result, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  }
+});
+
+
 test("deleteAttempt with non-UUID attempt id only targets client_attempt_id", async () => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "publishable-key";
