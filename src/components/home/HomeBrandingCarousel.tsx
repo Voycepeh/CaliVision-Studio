@@ -16,6 +16,12 @@ export function HomeBrandingCarousel({ items, autoAdvanceMs }: HomeBrandingCarou
 
   const total = items.length;
   const activeItem = items[activeIndex] ?? items[0];
+  const activeContext = useMemo(() => {
+    if (!activeItem) return null;
+    if (activeItem.title?.trim()) return activeItem.title.trim();
+    if (activeItem.alt && activeItem.alt !== "CaliVision branding image") return activeItem.alt;
+    return null;
+  }, [activeItem]);
   const activeAspectRatio = useMemo(() => {
     if (activeItem?.width && activeItem?.height) {
       return `${activeItem.width} / ${activeItem.height}`;
@@ -42,7 +48,13 @@ export function HomeBrandingCarousel({ items, autoAdvanceMs }: HomeBrandingCarou
   }, [autoAdvanceMs, isPaused, prefersReducedMotion, total]);
 
   if (total === 0) {
-    return null;
+    return (
+      <section className="home-branding home-branding-empty" aria-label="Homepage branding carousel">
+        <div className="home-branding-empty-card">
+          <p>Product story images will appear here when branding media is added.</p>
+        </div>
+      </section>
+    );
   }
 
   function goTo(index: number): void {
@@ -67,9 +79,11 @@ export function HomeBrandingCarousel({ items, autoAdvanceMs }: HomeBrandingCarou
         onFocusCapture={() => setIsPaused(true)}
         onBlurCapture={() => setIsPaused(false)}
       >
-        <button type="button" className="home-branding-nav home-branding-nav-prev" onClick={() => goTo(activeIndex - 1)} aria-label="Previous slide">
-          ‹
-        </button>
+        {total > 1 ? (
+          <button type="button" className="home-branding-nav home-branding-nav-prev" onClick={() => goTo(activeIndex - 1)} aria-label="Previous slide">
+            ‹
+          </button>
+        ) : null}
 
         <div
           className="home-branding-viewport"
@@ -99,16 +113,28 @@ export function HomeBrandingCarousel({ items, autoAdvanceMs }: HomeBrandingCarou
                   loading={index === 0 ? "eager" : "lazy"}
                   fetchPriority={index === 0 ? "high" : "auto"}
                 />
-                {item.title ? <figcaption>{item.title}</figcaption> : null}
               </figure>
             ))}
           </div>
         </div>
 
-        <button type="button" className="home-branding-nav home-branding-nav-next" onClick={() => goTo(activeIndex + 1)} aria-label="Next slide">
-          ›
-        </button>
+        {total > 1 ? (
+          <button type="button" className="home-branding-nav home-branding-nav-next" onClick={() => goTo(activeIndex + 1)} aria-label="Next slide">
+            ›
+          </button>
+        ) : null}
       </div>
+
+      {activeContext || total > 1 ? (
+        <div className="home-branding-meta" aria-live="polite">
+          <p>{activeContext ?? " "}</p>
+          {total > 1 ? (
+            <span>
+              {activeIndex + 1} / {total}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {total > 1 ? (
         <div className="home-branding-dots" role="tablist" aria-label="Branding slides">
