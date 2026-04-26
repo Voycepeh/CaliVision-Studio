@@ -6,14 +6,14 @@ import { CaliVisionLogo } from "@/components/brand/CaliVisionLogo";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 type PrimaryNavProps = {
-  active?: "home" | "library" | "studio" | "upload" | "live" | "exchange" | "admin";
+  active?: "home" | "library" | "studio" | "upload" | "live" | "history" | "exchange" | "admin";
 };
 
 type NavItem = {
   href: string;
   label: string;
   mobileLabel?: string;
-  key: "home" | "library" | "studio" | "upload" | "live" | "exchange";
+  key: "home" | "library" | "studio" | "upload" | "live" | "history" | "exchange";
 };
 
 const items: readonly NavItem[] = [
@@ -22,6 +22,7 @@ const items: readonly NavItem[] = [
   { href: "/studio", label: "Studio", key: "studio" },
   { href: "/upload", label: "Upload Video", mobileLabel: "Upload", key: "upload" },
   { href: "/live", label: "Live Streaming", mobileLabel: "Live", key: "live" },
+  { href: "/history", label: "History", key: "history" },
   { href: "/marketplace", label: "Exchange", key: "exchange" }
 ] as const;
 

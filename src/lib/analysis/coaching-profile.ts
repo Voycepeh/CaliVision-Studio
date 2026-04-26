@@ -108,11 +108,10 @@ export function filterVisualGuidesByProfile(
   profile: DrillCoachingProfile | undefined,
   guides: CoachingVisualGuide[]
 ): CoachingVisualGuide[] {
-  const enabledGuides = profile?.enabledVisualGuides;
-  if (!enabledGuides?.length) {
-    return guides;
-  }
-
-  const enabled = new Set(enabledGuides);
-  return guides.filter((guide) => enabled.has(guide.type));
+  void profile;
+  // NOTE (April 26, 2026): Drill-authored visual guide toggles were intentionally removed from
+  // Drill Studio because they are runtime display capabilities, not stable drill-authoring truth.
+  // Keep legacy payload parsing tolerant, but ignore saved enabledVisualGuides until runtime
+  // workflows expose implemented guide controls in Analysis/Live/Compare.
+  return guides;
 }

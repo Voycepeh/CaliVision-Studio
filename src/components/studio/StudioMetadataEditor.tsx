@@ -8,21 +8,11 @@ import {
   type CoachingMovementFamily,
   type CoachingPrimaryGoal,
   type CoachingRulesetId,
-  type CoachingSupportType,
-  type CoachingVisualGuideType
+  type CoachingSupportType
 } from "@/lib/analysis/coaching-profile";
 import { useStudioState } from "@/components/studio/StudioState";
 import { deriveCoachingProfileFormState } from "@/components/studio/coaching-profile-form-state";
 import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
-
-const VISUAL_GUIDE_OPTIONS: CoachingVisualGuideType[] = [
-  "stack_line",
-  "ghost_pose",
-  "highlight_region",
-  "correction_arrow",
-  "support_indicator",
-  "metric_badge"
-];
 
 export function StudioMetadataEditor() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -166,7 +156,7 @@ export function StudioMetadataEditor() {
         <div style={{ display: "grid", gap: "0.2rem" }}>
           <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Advanced coaching settings</h4>
           <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-            CaliVision can auto-select coaching cues from this drill’s movement type, camera view, and phases.
+            Coaching setup helps CaliVision choose the right analysis language and feedback priority for this drill.
           </p>
           <p style={{ margin: 0, fontSize: "0.76rem", color: "var(--muted)" }}>
             {hasProfile ? "Override saved for this drill" : "Auto-selected from drill details"}
@@ -260,34 +250,14 @@ export function StudioMetadataEditor() {
                 </select>
               </label>
             </div>
-
-            <fieldset style={fieldsetStyle}>
-              <legend style={{ padding: "0 0.2rem" }}>Visual guides</legend>
-              <div style={guideListStyle}>
-                {VISUAL_GUIDE_OPTIONS.map((guideType) => {
-                  const selectedGuides = profileFormState.enabledVisualGuides;
-                  const checked = selectedGuides.includes(guideType);
-                  return (
-                    <label key={guideType} style={checkboxLabelStyle}>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(event) => {
-                          const next = new Set(selectedGuides);
-                          if (event.target.checked) {
-                            next.add(guideType);
-                          } else {
-                            next.delete(guideType);
-                          }
-                          setOverrideProfile({ enabledVisualGuides: [...next] });
-                        }}
-                      />
-                      <span>{formatVisualGuideLabel(guideType)}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <details>
+              <summary style={detailsSummaryStyle}>Future-facing metadata (not yet runtime-configurable)</summary>
+              <p className="muted" style={{ margin: "0.45rem 0 0 0", fontSize: "0.78rem" }}>
+                Visual guide toggles (stack line, ghost pose, highlight region, correction arrow, support indicator, and metric badge)
+                are runtime display options and are intentionally hidden in Drill Studio until those controls are implemented in
+                Analysis, Live, and Compare.
+              </p>
+            </details>
           </div>
         </details>
 
@@ -308,15 +278,6 @@ export function StudioMetadataEditor() {
 
 function toOptionalValue<T extends string>(value: string): T | undefined {
   return value ? (value as T) : undefined;
-}
-
-function formatVisualGuideLabel(guideType: CoachingVisualGuideType): string {
-  if (guideType === "stack_line") return "Stack line";
-  if (guideType === "ghost_pose") return "Ghost pose";
-  if (guideType === "highlight_region") return "Highlight region";
-  if (guideType === "correction_arrow") return "Correction arrow";
-  if (guideType === "support_indicator") return "Support indicator";
-  return "Metric badge";
 }
 
 function formatRulesetLabel(rulesetId: CoachingRulesetId): string {
@@ -386,16 +347,6 @@ const detailsBodyStyle: CSSProperties = {
   display: "grid",
   gap: "0.5rem"
 };
-
-const checkboxLabelStyle: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "0.45rem",
-  fontSize: "0.8rem",
-  color: "var(--muted)"
-};
-
-const guideListStyle = guideGridStyle;
 
 const secondaryButtonStyle: CSSProperties = {
   border: "1px solid var(--border)",

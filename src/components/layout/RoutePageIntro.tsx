@@ -5,7 +5,7 @@ type RoutePageIntroProps = {
   title: string;
   description: string;
   children: ReactNode;
-  navActive?: "home" | "library" | "studio" | "upload" | "live" | "exchange" | "admin";
+  navActive?: "home" | "library" | "studio" | "upload" | "live" | "history" | "exchange" | "admin";
 };
 
 export function RoutePageIntro({ title, description, children, navActive }: RoutePageIntroProps) {

@@ -109,7 +109,7 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 ## Benchmark-driven coaching panel (April 24, 2026)
 
 - Upload and Live analysis now resolve benchmark findings into one shared coaching model instead of isolated UI copy.
-- Coaching issues carry visual guide metadata (`stack_line`, `highlight_region`, `correction_arrow`, `support_indicator`, `metric_badge`) so cue text and overlays stay connected.
+- Coaching issues can carry runtime visual guide metadata (`stack_line`, `highlight_region`, `correction_arrow`, `support_indicator`, `metric_badge`) so cue text and overlays stay connected; Drill Studio does not expose those as authored toggles.
 - Live mode keeps coaching compact around one primary cue + primary guide, while replay/upload mode can render richer positives, limiter context, and ordered fix steps.
 - Benchmark comparison and coaching now feed the same analysis panel so the user sees one consistent “what is good / what is limiting / what to do next” flow.
 
@@ -121,3 +121,12 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Metric rows are shown only when computed from real benchmark/attempt data (for example sequence status, timing status, duration deltas, phase timing rows, completed reps/holds, confidence).
 - Top takeaway and focus areas are sourced from benchmark/coaching outputs (not hard-coded mockup text).
 - Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.
+
+
+## Current local-first History flow (MVP)
+
+1. Open **History** (`/history`) from primary navigation.
+2. Studio shows recent private attempt summaries saved from completed **Upload Video** and **Live Streaming** analysis runs.
+3. Each entry shows drill, source, timestamp, key metric (reps or hold), status, and top finding/failure reason when available.
+4. Studio computes simple per-drill personal best indicators (best reps, longest hold, latest attempt) from saved summaries.
+5. History stays local-first and lightweight: no raw videos, annotated video files, or heavy frame traces are persisted in this surface by default.

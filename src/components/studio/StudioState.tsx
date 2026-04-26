@@ -1022,9 +1022,10 @@ export function StudioStateProvider({
 
     const readiness = validateVersionReadiness(selectedPackage.workingPackage);
     if (!readiness.isReady) {
+      const primaryMessage = readiness.issues[0]?.message ?? "Complete the readiness checklist before marking this draft ready.";
       setImportFeedback({
         status: "error",
-        message: `Ready requirements not met (${readiness.issues.length} issue${readiness.issues.length === 1 ? "" : "s"}).`,
+        message: `Can’t mark ready yet. ${primaryMessage}`,
         issues: []
       });
       return;
