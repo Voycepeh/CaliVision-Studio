@@ -19,19 +19,19 @@ const cards: HomeCard[] = [
   {
     icon: "studio",
     title: "Create or use a drill",
-    description: "Start from your own drill or pick one from your library and Drill Exchange.",
+    description: "Start from your own drill, built-ins, or Drill Exchange.",
     href: "/library"
   },
   {
     icon: "upload",
     title: "Upload Video",
-    description: "Upload a clip, run drill-aware analysis, and review overlay, phases, reps, and holds.",
+    description: "Upload a clip and review overlay, phases, reps, and holds.",
     href: "/upload"
   },
   {
     icon: "live",
     title: "Start live coaching",
-    description: "Start a browser camera session for live overlay feedback and post-session replay review.",
+    description: "Use your camera for real-time overlay feedback and post-session review.",
     href: "/live"
   },
 ];
