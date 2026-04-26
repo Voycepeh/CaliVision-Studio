@@ -1,139 +1,126 @@
 # CaliVision Studio
-CaliVision Studio is the browser-first workspace where drills are authored, analyzed, refined, persisted, and shared.
+
+CaliVision Studio is the **main browser-first workspace** for calisthenics motion analysis.
 
 Live app: <https://cali-vision-studio.vercel.app>
 
 ## Why I built CaliVision
+
 I built CaliVision because I wanted help visualizing my handstand stack.
 
 I was already recording training videos and manually replaying them, but I wanted faster and more structured feedback so I could adjust in the next set instead of guessing.
 
 CaliVision also became a practical experiment in AI-assisted building. I come from a data architecture / BI background rather than traditional app development, and I wanted to push an idea into a real product while learning where AI accelerates delivery, where human judgment still matters, and where the limits of AI-assisted development actually are.
 
-## Why Studio exists
-Studio exists because the core workflows are broader than a phone-only runtime:
+## Product anchor
 
-- Upload Video analysis in browser.
-- Livestream analysis in browser.
-- Drill authoring and iterative phase editing.
-- Animation preview and movement refinement.
-- Drill file/package management (import/export compatibility).
-- Drill Exchange publish/discovery/import workflows.
+Studio (this repo) is the product home for cross-platform browser workflows: create or choose drills, run upload analysis, run live coaching, review drill-aware feedback, and (roadmap) retain progress over time.
 
-In short: Studio is the source-of-truth workspace for creating and improving drills, then applying them during analysis.
+The Android app is a **legacy POC** and is no longer maintained as an active product surface. The cross-platform web app is now the single maintained home of authoring, analysis, and coaching workflows. Legacy repo: <https://github.com/Voycepeh/CaliVision>.
 
-### Product ecosystem and workflow
-```mermaid
-flowchart TD
-    A[Open CaliVision Studio] --> B{What do you want to do?}
+## Current product surfaces
 
-    B --> C[Create or manage drills]
-    B --> D[Analyze an uploaded video]
-    B --> E[Use live streaming]
-    B --> F[Browse public drills]
+- **Home** (`/`): product entry and storytelling.
+- **Library** (`/library`): default workspace start for selecting/organizing drills.
+- **Drill Studio** (`/studio`): author and refine drill drafts.
+- **Upload Video** (`/upload`): upload-first analysis workflow.
+- **Live Coaching** (`/upload?mode=live`): camera/live feedback workflow.
+- **Analysis Review**: drill-aware review for overlays, reps/holds, and session interpretation.
+- **History** (planned): progress and attempt history over time.
+- **Drill Exchange** (`/marketplace`): discovery/import/publish surface.
+- **Admin Media** (`/admin/media`): managed branding/media assets (including homepage storytelling assets).
 
-    %% Drill authoring flow
-    C --> C1[Open My Drills or Drafts]
-    C1 --> C2[Create new drill or edit existing draft]
-    C2 --> C3[Define drill metadata<br/>name, type, camera view]
-    C3 --> C4[Add phases]
-    C4 --> C5[Author phase poses<br/>upload image, detect pose, adjust joints]
-    C5 --> C6[Preview animation]
-    C6 --> C7{Ready to release?}
-    C7 -->|No| C2
-    C7 -->|Yes| C8[Mark Ready and save released version]
+## Homepage story and 7 image carousel
 
-    %% Upload analysis flow
-    D --> D1[Choose a video file]
-    D1 --> D2[Select drill or Freestyle]
-    D2 --> D3[Process video in browser]
-    D3 --> D4[View overlay, phase detection,<br/>rep count or hold duration]
-    D4 --> D5[Review timeline and results]
-    D5 --> D6[Download annotated output or compare later]
+The homepage carousel is a **product storytelling surface**, not just decoration. It explains the end-to-end user journey in one glance.
 
-    %% Live streaming flow
-    E --> E1[Allow camera access]
-    E1 --> E2[Select drill or Freestyle]
-    E2 --> E3[Start live session]
-    E3 --> E4[See real-time skeletal overlay]
-    E4 --> E5[Track phase, reps, or hold duration]
-    E5 --> E6[Stop session]
-    E6 --> E7[Review recorded result and export if needed]
+Carousel images are **admin-managed branding/media assets** so the story can evolve without changing code.
 
-    %% Public drill flow
-    F --> F1[Search public drill library]
-    F1 --> F2[Preview drill details and animation]
-    F2 --> F3{Use this drill?}
-    F3 -->|Yes| F4[Use directly in Upload or Live Streaming]
-    F3 -->|No| F1
+Intended 7 story beats:
 
-    %% Cross-links
-    C8 --> D2
-    C8 --> E2
-    F4 --> D2
-    F4 --> E2
-```
-## Main capabilities
-### Analyze movement (upload + livestream)
-- Run skeletal overlay on uploaded videos using MediaPipe.
-- Run live stream skeletal overlay in browser.
-- Apply a selected drill during analysis so outputs are drill-aware (for example rep counting, hold duration, and phase classification).
-- Runtime loop is derived from the authored phase order and auto-closes back to phase 1 (`1 -> 2 -> ... -> 1`).
-- Rep drills count only when the full authored loop returns to phase 1; hold drills track the selected hold phase while confidently matched.
-- Studio warns when authored phases are visually too similar and may be ambiguous at runtime.
+1. Create drills.
+2. Use built-ins or Drill Exchange.
+3. Upload video.
+4. Live coaching.
+5. Drill-aware overlay feedback.
+6. Rep or hold review.
+7. Progress over time.
 
-### Author and refine drills
-- Create drills/movements in phases.
-- Seed and refine phase references from pose detection on uploaded images.
-- Preview movement as skeleton animation and iterate quickly.
+## Storage and media model
 
-### Persist and share drills
-- Save drafts locally in the browser (IndexedDB-first behavior).
-- Sign in with Google and use hosted persistence via Supabase where configured.
-- Keep portable drill files/packages for import/export compatibility.
-- Publish to Drill Exchange and import shared drills.
+- **Local-only mode (signed out):** drafts and workflow state stay in-browser (IndexedDB/local-first baseline).
+- **Hosted mode (signed in):** Google sign-in + Supabase-backed hosted draft/account flows where configured.
+- **Media foundations:** Supabase Storage + `media_assets` first for homepage/admin branding assets.
+- **Site settings:** `app_settings` for runtime-configurable site settings (for example carousel duration).
+- **Extension path:** same model can later cover drill reference media, benchmark media, session recordings, generated media, and overlay artifacts.
+- **Security posture:** secrets (including elevated Supabase keys) must remain server-side only.
 
-## Typical workflow
-1. Start in **Library** (`/library`) and choose an existing drill or create/import one.
-2. Open **Drill Studio** (`/studio`) to refine phases and pose references.
-3. Preview animation, iterate, and validate movement intent.
-4. Save as a local draft and/or persist to your signed-in hosted account.
-5. Optionally publish to **Drill Exchange** (`/marketplace`) or export a portable drill file.
-6. Open **Upload Video** (`/upload`) or livestream mode and select that drill.
-7. Review drill-specific outputs such as rep counts, hold timing, and phase classification.
+## User journey
 
-## Persistence and sharing model
-- **Local-first is core:** browser-local persistence remains the baseline, including when hosted services are unavailable.
-- **Hosted persistence is supported directionally now:** Google sign-in + Supabase are used for first-party hosted draft/account workflows where configured.
-- **Portability remains explicit:** drill file/package flows still support import/export and cross-user movement of content.
-- **Exchange workflows are part of the product surface:** publish/discover/import flows are included, with maturity varying by route and feature area.
-
-## Relationship to Android
-Studio (this repository) is the main cross-platform authoring and analysis workspace.
-
-The Android app is a downstream runtime/mobile companion for native live-coaching and hardware-specific scenarios, not the primary authoring home: <https://github.com/Voycepeh/CaliVision>.
-
-## AI-assisted SDLC (human-in-the-loop)
-This project is intentionally built with AI assistance, not autonomous shipping:
-
-- **ChatGPT** helps with planning, tradeoff analysis, and design pressure-testing.
-- **Codex** helps execute scoped repository changes and draft implementation updates.
-- **Human owner** sets direction, validates behavior, integrates changes, runs tests, and approves what ships.
-
-AI increases speed and leverage; accountability and product judgment remain human responsibilities.
-
-### AI-assisted SDLC
 ```mermaid
 flowchart LR
-    Idea[Problem / Idea] --> Plan[Plan with ChatGPT]
-    Plan --> Exec[Execute with Codex]
-    Exec --> Integrate[Integrate + Run]
-    Integrate --> Review[Manual Review + Testing]
-    Review --> Refine[Refine]
-    Refine --> Plan
+    A[Home] --> B[Library]
+    B --> C[Drill Studio]
+    B --> D[Upload Video]
+    B --> E[Live Coaching]
+    C --> F[Analysis Review]
+    D --> F
+    E --> F
+    F --> G[History planned]
+
+    X[Drill Exchange] --> B
+    Y[Admin Media] --> A
 ```
 
+## Product ecosystem and workflow
+
+```mermaid
+flowchart TD
+    A[Home] --> B[Library]
+    Y[Admin Media] --> A
+
+    B --> C[Drill Studio]
+    B --> D[Upload Video]
+    B --> E[Live Coaching]
+    X[Drill Exchange] --> B
+
+    C --> C1[Create or refine drill draft]
+    C1 --> C2[Define phases and intent]
+    C2 --> C3[Preview and save draft]
+    C3 --> D
+    C3 --> E
+
+    D --> D1[Upload and process session video]
+    E --> E1[Run live camera session]
+
+    D1 --> F[Analysis Review]
+    E1 --> F
+    F --> F1[Overlay + phase + rep/hold feedback]
+    F1 --> G[History planned]
+```
+
+## Near term PR roadmap
+
+1. **PR 1:** README and product plan alignment.
+2. **PR 2:** Product docs cleanup and page ownership map.
+3. **PR 3:** Storage and media architecture doc.
+4. **PR 4:** Homepage product story cleanup.
+5. **PR 5:** Analysis review panel redesign.
+6. **PR 6:** Session history and saved attempts.
+7. **PR 7:** Fast drill access.
+8. **PR 8:** Live coaching usability polish.
+9. **PR 9:** Personal drill authoring polish.
+
+## AI-assisted SDLC (concise)
+
+This project uses AI assistance with human ownership:
+
+- ChatGPT: planning and tradeoff analysis.
+- Codex: scoped implementation support.
+- Human owner: direction, validation, testing, and ship decisions.
+
 ## Quick start
+
 ```bash
 npm install
 npm run dev
