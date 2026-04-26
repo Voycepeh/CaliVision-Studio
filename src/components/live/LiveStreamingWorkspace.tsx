@@ -21,7 +21,7 @@ import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progre
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
 import { buildAnalysisReviewModel } from "@/lib/analysis-viewer/review-model";
 import { buildSavedAttemptSummary } from "@/lib/history/attempt-summary";
-import { getBrowserAttemptHistoryRepository } from "@/lib/history/repository";
+import { resolveBrowserAttemptHistoryRepository } from "@/lib/history/repository";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { buildReplayAnalysisState } from "@/lib/analysis/replay-analysis-state";
@@ -2276,13 +2276,13 @@ export function LiveStreamingWorkspace() {
       createdAt: liveAnalysisSession?.completedAtIso ?? new Date().toISOString()
     });
 
-    void getBrowserAttemptHistoryRepository().saveAttempt(attempt)
+    void resolveBrowserAttemptHistoryRepository(session).then((repository) => repository.saveAttempt(attempt))
       .then(() => setAttemptSaveState("saved"))
       .catch(() => {
         setAttemptSaveState("error");
         savedAttemptTraceIdsRef.current.delete(traceId);
       });
-  }, [liveAnalysisSession, liveReviewModel, postAnalysisSnapshot?.traceId, selection.drill?.drillId]);
+  }, [liveAnalysisSession, liveReviewModel, postAnalysisSnapshot?.traceId, selection.drill?.drillId, session]);
 
   return (
     <section className={`panel-content live-streaming-layout ${isSessionStageActive ? "live-streaming-layout--session-active" : ""}`}>

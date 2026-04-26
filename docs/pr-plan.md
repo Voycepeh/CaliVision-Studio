@@ -113,8 +113,8 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 
 ## Assumptions / non-goals for attempt history foundation (April 26, 2026)
 
-- Current state (April 26, 2026): Upload Video and Live Streaming now persist one lightweight saved-attempt summary per completed run into local browser history (`/history`) for the local-first MVP foundation.
-- Current state (April 26, 2026): attempt history stores compact summary metrics only (drill/source/time/status/reps/hold/finding), not raw media blobs or full frame traces.
-- Assumption: this first history surface is private-by-default and local-first while hosted history tables remain future work.
+- Current state (April 26, 2026): Upload Video and Live Streaming persist one lightweight saved-attempt summary per completed run, resolving storage by auth state (signed out = browser-local; signed in = hosted account rows).
+- Current state (April 26, 2026): attempt history stores compact summary metrics only (drill/source/time/status/reps/hold/finding), not raw media blobs, annotated videos, or full frame-level traces.
+- Current state (April 26, 2026): local history is not auto-migrated; signed-in users can optionally import local summaries to account storage using duplicate-safe client attempt ids.
 - Non-goal: social/public sharing, leaderboard behavior, or charts-heavy analytics dashboards in this phase.
 - Non-goal: moving Android runtime/live coaching ownership into Studio; runtime remains in Android: <https://github.com/Voycepeh/CaliVision>.
