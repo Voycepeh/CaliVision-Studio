@@ -1,18 +1,17 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import type { AnalysisViewerModel, AnalysisViewerEvent, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
+import type { AnalysisViewerModel, AnalysisViewerPhaseTimelineSegment, ViewerSurface } from "@/lib/analysis-viewer/types";
 import { resolveStableAspectRatio } from "@/lib/analysis-viewer/aspect-ratio";
-import {
-  buildHoldIntervals as buildHoldIntervalsFromEvents,
-  formatHoldExitReason
-} from "@/lib/analysis-viewer/hold-intervals";
+import { buildAnalysisReviewModel, formatAnalysisReviewTime, type AnalysisReviewSource } from "@/lib/analysis-viewer/review-model";
+import { formatHoldExitReason } from "@/lib/analysis-viewer/hold-intervals";
 
 type Props = {
   model: AnalysisViewerModel;
   videoRef: RefObject<HTMLVideoElement | null>;
   onSurfaceChange: (surface: ViewerSurface) => void;
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
+  reviewSource: AnalysisReviewSource;
   overlayCanvas?: React.ReactNode;
 };
 
@@ -24,7 +23,8 @@ function toneColor(tone?: "neutral" | "success" | "warning" | "danger" | "info")
   return undefined;
 }
 
-export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, overlayCanvas }: Props) {
+export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseTimelineSelect, reviewSource, overlayCanvas }: Props) {
+  const review = React.useMemo(() => buildAnalysisReviewModel(model, reviewSource), [model, reviewSource]);
   return (
     <section className="analysis-viewer-shell">
       <div className="analysis-viewer-layout">
@@ -41,9 +41,9 @@ export function AnalysisViewerShell({ model, videoRef, onSurfaceChange, onPhaseT
             <h4>{model.panel.drillLabel}</h4>
           </header>
 
-          <AnalysisMetricGrid model={model} />
+          <AnalysisMetricGrid model={model} review={review} />
 
-          <AnalysisStructuredList model={model} onPhaseTimelineSelect={onPhaseTimelineSelect} />
+          <AnalysisStructuredList model={model} review={review} onPhaseTimelineSelect={onPhaseTimelineSelect} />
           <AnalysisCoachSection model={model} />
 
           <AnalysisDownloads model={model} />
@@ -104,15 +104,20 @@ function AnalysisCoachSection({ model }: { model: AnalysisViewerModel }) {
   );
 }
 
-function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
-  const benchmark = model.panel.summaryMetrics.find((metric) => metric.id === "benchmark_status");
+function AnalysisMetricGrid({ model, review }: { model: AnalysisViewerModel; review: ReturnType<typeof buildAnalysisReviewModel> }) {
   const summaryLine = model.panel.feedbackLines[0] ?? "Coach notes not available yet.";
   const detailLine = model.panel.feedbackLines[1] ?? model.panel.benchmarkFeedback?.summaryDescription ?? "Run another analysis for more guidance.";
-  const overallMatchValue = benchmark?.value ?? model.panel.benchmarkFeedback?.summaryLabel;
-  const hasOverallMatch = Boolean(overallMatchValue);
+  const benchmarkMetric = model.panel.summaryMetrics.find((metric) => metric.id === "benchmark_status");
+  const benchmarkValue = benchmarkMetric?.value ?? model.panel.benchmarkFeedback?.summaryLabel;
 
   return (
     <div className="analysis-panel__cards analysis-panel__cards--minimal">
+      {benchmarkValue ? (
+        <article className="analysis-card">
+          <p className="analysis-card__label">Overall match</p>
+          <p className="analysis-card__body">{benchmarkValue}</p>
+        </article>
+      ) : null}
       <article className="analysis-card analysis-card--primary">
         <p className="analysis-card__label">{model.panel.primaryMetricLabel}</p>
         <p className="analysis-card__value">{model.panel.primaryMetricValue}</p>
@@ -120,24 +125,24 @@ function AnalysisMetricGrid({ model }: { model: AnalysisViewerModel }) {
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">Current phase</p>
-        <p className="analysis-card__body">{model.panel.currentPhaseLabel}</p>
+        <p className="analysis-card__label">Review</p>
+        <p className="analysis-card__body">{review.summaryLabel}</p>
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">{hasOverallMatch ? "Overall match" : "Confidence"}</p>
-        <p className="analysis-card__body">{hasOverallMatch ? overallMatchValue : model.panel.confidenceLabel}</p>
-        {hasOverallMatch ? <p className="analysis-card__meta">Confidence: {model.panel.confidenceLabel}</p> : null}
+        <p className="analysis-card__label">Duration</p>
+        <p className="analysis-card__body">{formatAnalysisReviewTime(review.totalAnalyzedDurationMs)}</p>
+        <p className="analysis-card__meta">{review.statusLabel}</p>
       </article>
 
       <article className="analysis-card">
-        <p className="analysis-card__label">Drill mode</p>
-        <p className="analysis-card__body">{model.panel.movementTypeLabel}</p>
+        <p className="analysis-card__label">Drill</p>
+        <p className="analysis-card__body">{review.drillLabel}</p>
       </article>
 
       <article className="analysis-card analysis-card--summary">
         <p className="analysis-card__label">Analysis summary</p>
-        <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{summaryLine}</p>
+        <p className="analysis-card__body" style={{ color: toneColor(model.panel.benchmarkFeedback?.severity) }}>{review.mainCoachingFinding ?? summaryLine}</p>
         <p className="analysis-card__meta">{detailLine}</p>
       </article>
 
@@ -222,32 +227,53 @@ function AnalysisVideoPane({
   );
 }
 
-type AnalysisInterval = {
-  id: string;
-  kind: "rep" | "hold";
-  index: number;
-  startMs: number;
-  endMs: number;
-  phaseLabel?: string;
-  exitReason?: string;
-  checkpoints: Array<{ id: string; label: string; timestampMs: number }>;
-};
-
 function AnalysisStructuredList({
   model,
+  review,
   onPhaseTimelineSelect
 }: {
   model: AnalysisViewerModel;
+  review: ReturnType<typeof buildAnalysisReviewModel>;
   onPhaseTimelineSelect: (segment: AnalysisViewerPhaseTimelineSegment) => void;
 }) {
-  const intervals = React.useMemo(() => buildStructuredIntervals(model), [model]);
+  const intervals = React.useMemo(() => {
+    if (review.movementType === "HOLD") {
+      return review.holdEvents.map((hold) => ({
+        id: hold.id,
+        kind: "hold" as const,
+        index: hold.index,
+        startMs: hold.startMs,
+        endMs: hold.endMs,
+        phaseLabel: hold.phaseLabel,
+        targetStatus: hold.targetStatus,
+        seekTimestampMs: hold.seekTimestampMs
+      }));
+    }
+    return review.repEvents.map((rep) => ({
+      id: rep.id,
+      kind: "rep" as const,
+      index: rep.index,
+      startMs: rep.startMs,
+      endMs: rep.endMs,
+      status: rep.status,
+      phaseSequence: rep.phaseSequence,
+      failureReason: rep.failureReason,
+      seekTimestampMs: rep.seekTimestampMs
+    }));
+  }, [review]);
   const [showDetails, setShowDetails] = React.useState(false);
 
-  if (!intervals.length) {
-    return <p className="muted" style={{ margin: 0 }}>No structured intervals available for this analysis yet.</p>;
+  if (review.movementType === "unknown") {
+    return <p className="muted" style={{ margin: 0 }}>Freestyle analysis is available, but drill-specific rep/hold review needs a selected drill.</p>;
+  }
+  if (!intervals.length && review.movementType === "REP") {
+    return <p className="muted" style={{ margin: 0 }}>No complete reps were confirmed. Review the phase sequence or try a clearer camera angle.</p>;
+  }
+  if (!intervals.length && review.movementType === "HOLD") {
+    return <p className="muted" style={{ margin: 0 }}>No stable hold was confirmed. Try staying in the target position longer.</p>;
   }
 
-  const isHoldAnalysis = intervals[0]?.kind === "hold";
+  const isHoldAnalysis = review.movementType === "HOLD";
   const sectionLabel = isHoldAnalysis ? "Hold analysis" : "Rep analysis";
   const itemLabel = isHoldAnalysis ? "holds" : "reps";
   const toggleLabel = showDetails
@@ -257,16 +283,16 @@ function AnalysisStructuredList({
     ?? model.panel.timelineDurationMs
     ?? Math.max(0, (intervals[intervals.length - 1]?.endMs ?? 0) - (intervals[0]?.startMs ?? 0));
   const currentPhase = model.panel.currentPhaseLabel?.trim();
-  const lastPhase = intervals[intervals.length - 1]?.checkpoints[intervals[intervals.length - 1]?.checkpoints.length - 1]?.label;
+  const lastPhase = review.phaseEvents[review.phaseEvents.length - 1]?.label;
   const phaseSummary = currentPhase && currentPhase !== "—" && currentPhase !== "Unknown" ? currentPhase : lastPhase;
 
   return (
     <section className="analysis-intervals">
-      <strong>{sectionLabel}</strong>
+      <strong>{sectionLabel} · {review.source === "upload" ? "Upload Video" : "Live Coaching"}</strong>
       <div className="analysis-intervals__summary muted">
         <span>{intervals.length} {itemLabel} detected</span>
         {phaseSummary ? <span>{`Current/last phase: ${phaseSummary}`}</span> : null}
-        {totalDurationMs > 0 ? <span>{`Analyzed duration: ${formatClockDuration(totalDurationMs)}`}</span> : null}
+        {totalDurationMs > 0 ? <span>{`Analyzed duration: ${formatAnalysisReviewTime(totalDurationMs)}`}</span> : null}
       </div>
       <button type="button" className="analysis-intervals__toggle" onClick={() => setShowDetails((value) => !value)}>{toggleLabel}</button>
       {showDetails ? (
@@ -277,33 +303,35 @@ function AnalysisStructuredList({
               <article key={interval.id} className="analysis-interval-row">
                 <div className="analysis-interval-row__header">
                   <strong>{interval.kind === "hold" ? `Hold ${interval.index}` : `Rep ${interval.index}`}</strong>
-                  <span className="analysis-interval-row__duration">{formatClockDuration(durationMs)}</span>
+                  <span className="analysis-interval-row__duration">{formatAnalysisReviewTime(durationMs)}</span>
                 </div>
                 <div className="analysis-interval-row__meta muted">
-                  <span>Start {formatClockDuration(interval.startMs)}</span>
-                  <span>End {formatClockDuration(interval.endMs)}</span>
+                  <span>Start {formatAnalysisReviewTime(interval.startMs)}</span>
+                  <span>End {formatAnalysisReviewTime(interval.endMs)}</span>
                   {interval.kind === "hold" && interval.phaseLabel ? <span>Phase {interval.phaseLabel}</span> : null}
-                  {interval.kind === "hold" && interval.exitReason ? <span>Ended: {formatHoldExitReason(interval.exitReason)}</span> : null}
+                  {interval.kind === "hold" && interval.targetStatus ? <span>{formatHoldExitReason(interval.targetStatus.replace("Ended: ", ""))}</span> : null}
+                  {interval.kind === "rep" ? <span>Status {interval.status}</span> : null}
+                  {interval.kind === "rep" && interval.failureReason ? <span>{interval.failureReason}</span> : null}
                 </div>
-                {interval.kind === "rep" && interval.checkpoints.length > 0 ? (
+                {interval.kind === "rep" && interval.phaseSequence.length > 0 ? (
                   <ol className="analysis-interval-checkpoints">
-                    {interval.checkpoints.map((checkpoint, checkpointIndex) => (
-                      <li key={checkpoint.id} className="analysis-interval-checkpoint">
+                    {interval.phaseSequence.map((phase, checkpointIndex) => (
+                      <li key={`${interval.id}_${phase}_${checkpointIndex}`} className="analysis-interval-checkpoint">
                         <span className="analysis-interval-checkpoint__index">Phase {checkpointIndex + 1}</span>
                         <button
                           type="button"
                           className="analysis-interval-checkpoint__jump"
                           onClick={() => {
-                            const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id);
+                            const matchingSegment = model.panel.phaseTimelineSegments.find((segment) => segment.label === phase && segment.startMs >= interval.startMs && segment.startMs <= interval.endMs);
                             if (matchingSegment?.interactive) {
                               onPhaseTimelineSelect(matchingSegment);
                             }
                           }}
-                          disabled={!model.panel.phaseTimelineSegments.find((segment) => segment.id === checkpoint.id)?.interactive}
-                          title={checkpoint.label}
+                          disabled={!interval.seekTimestampMs}
+                          title={phase}
                         >
-                          <span>{checkpoint.label}</span>
-                          <span>{formatClockDuration(checkpoint.timestampMs)}</span>
+                          <span>{phase}</span>
+                          <span>{formatAnalysisReviewTime(interval.seekTimestampMs ?? interval.startMs)}</span>
                         </button>
                       </li>
                     ))}
@@ -316,48 +344,6 @@ function AnalysisStructuredList({
       ) : null}
     </section>
   );
-}
-
-function buildStructuredIntervals(model: AnalysisViewerModel): AnalysisInterval[] {
-  const hasHoldEvents = model.timelineEvents.some((event) => event.kind === "hold");
-  const movementLabel = model.panel.movementTypeLabel.toLowerCase();
-  if (hasHoldEvents || movementLabel.includes("hold")) {
-    return buildHoldIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
-  }
-  return buildRepIntervals(model.timelineEvents, model.panel.phaseTimelineSegments);
-}
-
-function buildRepIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  const completedReps = events
-    .filter((event) => event.kind === "rep")
-    .map((event) => Math.max(0, Math.round(event.timestampMs)))
-    .sort((a, b) => a - b);
-
-  if (completedReps.length === 0) return [];
-
-  const fallbackStart = segments[0]?.startMs ?? 0;
-  return completedReps.map((endMs, index) => {
-    const startMs = index === 0 ? fallbackStart : completedReps[index - 1] ?? fallbackStart;
-    const checkpoints = segments
-      .filter((segment) => segment.startMs >= startMs && segment.startMs <= endMs)
-      .map((segment) => ({ id: segment.id, label: segment.label, timestampMs: segment.startMs }));
-    return {
-      id: `rep_${index + 1}_${startMs}_${endMs}`,
-      kind: "rep",
-      index: index + 1,
-      startMs,
-      endMs,
-      checkpoints
-    };
-  });
-}
-
-function buildHoldIntervals(events: AnalysisViewerEvent[], segments: AnalysisViewerPhaseTimelineSegment[]): AnalysisInterval[] {
-  return buildHoldIntervalsFromEvents(events, segments);
-}
-
-function formatClockDuration(durationMs: number): string {
-  return new Date(Math.max(0, durationMs)).toISOString().slice(11, 19);
 }
 
 function AnalysisAdvancedDetails({ model }: { model: AnalysisViewerModel }) {

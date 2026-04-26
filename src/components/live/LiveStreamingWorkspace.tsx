@@ -2714,6 +2714,7 @@ export function LiveStreamingWorkspace() {
             <AnalysisViewerShell
               model={liveViewerModel}
               videoRef={replayVideoRef}
+              reviewSource="live"
               onSurfaceChange={(surface) => {
                 setCompletedPreviewSurface(surface);
                 if (replayState === "export-in-progress" && surface === "raw") {

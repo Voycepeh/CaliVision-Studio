@@ -1393,6 +1393,7 @@ export function UploadVideoWorkspace() {
                 <AnalysisViewerShell
                   model={{ ...uploadViewerModel, progress: uploadPreviewState === "processing_annotated" ? activeJob.progress : undefined }}
                   videoRef={previewVideoRef}
+                  reviewSource="upload"
                   overlayCanvas={(uploadPreviewState === "showing_raw_completed" || uploadPreviewState === "showing_raw_during_processing" || uploadPreviewState === "annotated_failed_showing_raw") ? <canvas ref={previewCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : undefined}
                   onSurfaceChange={(surface) => {
                     setCompletedPreviewSurface(surface);

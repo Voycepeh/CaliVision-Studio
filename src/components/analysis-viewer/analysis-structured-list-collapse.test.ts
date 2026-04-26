@@ -25,15 +25,17 @@ test("structured summary remains visible while details are collapsed", () => {
   assert.match(shellSource, /Analyzed duration:/, "expected analyzed duration summary line");
 });
 
-test("structured hold intervals can be inferred from hold events even when movement label is stale", () => {
-  assert.match(shellSource, /const hasHoldEvents = model\.timelineEvents\.some\(\(event\) => event\.kind === "hold"\);/);
+test("review panel keeps overall benchmark match visible when available", () => {
+  assert.match(shellSource, /Overall match/, "expected benchmark/overall match card label");
+  assert.match(shellSource, /benchmark_status/, "expected benchmark metric slot lookup");
 });
 
 test("hold interval details include phase label and exit reason metadata", () => {
   assert.match(shellSource, /Phase \{interval\.phaseLabel\}/);
-  assert.match(shellSource, /Ended: \{formatHoldExitReason\(interval\.exitReason\)\}/);
+  assert.match(shellSource, /formatHoldExitReason\(interval\.targetStatus\.replace\("Ended: ", ""\)\)/);
 });
 
-test("hold cards keep generated checkpoint rows focused on rep-only checkpoint list rendering", () => {
-  assert.match(shellSource, /interval\.kind === "rep" && interval\.checkpoints\.length > 0/);
+test("structured list renders from shared review model intervals", () => {
+  assert.match(shellSource, /review\.holdEvents\.map/, "expected hold list derived from review model");
+  assert.match(shellSource, /review\.repEvents\.map/, "expected rep list derived from review model");
 });
