@@ -55,8 +55,8 @@ export function StudioActionBar() {
             Complete required fields before Mark Ready:
           </p>
           <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-            {readinessChecklist.issues.map((issue) => (
-              <li key={issue.code} className="muted" style={{ fontSize: "0.8rem" }}>{issue.message}</li>
+            {readinessChecklist.issues.map((issue, index) => (
+              <li key={`${issue.code}-${index}`} className="muted" style={{ fontSize: "0.8rem" }}>{issue.message}</li>
             ))}
           </ul>
         </div>

@@ -122,7 +122,7 @@ export function StudioPublishPanel() {
               <ul style={{ margin: 0, paddingLeft: "1rem" }}>
                 {publishWorkflow.readiness.issues.map((issue, index) => (
                   <li key={`${issue.code}-${index}`} className="muted">
-                    [{issue.severity}] {issue.path}: {issue.message}
+                    [{issue.severity}] {issue.message}
                   </li>
                 ))}
               </ul>
