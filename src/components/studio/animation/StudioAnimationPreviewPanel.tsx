@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { useStudioState } from "@/components/studio/StudioState";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
-import { getSortedPhases } from "@/lib/editor/package-editor";
+import { getOrderedRuntimePhases } from "@/lib/analysis";
+import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 
@@ -20,8 +21,17 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
   const frameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
 
-  const phases = useMemo(() => (selectedPackage ? getSortedPhases(selectedPackage.workingPackage) : []), [selectedPackage]);
-  const timeline = useMemo(() => buildAnimationTimeline(phases), [phases]);
+  const selectedDrill = useMemo(() => (selectedPackage ? getPrimaryDrill(selectedPackage.workingPackage) : null), [selectedPackage]);
+  const previewMode = selectedDrill?.drillType === "hold" ? "static" : "animated";
+  const phases = useMemo(() => {
+    if (!selectedDrill) {
+      return [];
+    }
+    const runtimePhases = getOrderedRuntimePhases(selectedDrill);
+    const effectivePhases = selectedDrill.drillType === "hold" ? runtimePhases.slice(0, 1) : runtimePhases;
+    return effectivePhases.map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
+  }, [selectedDrill]);
+  const timeline = useMemo(() => buildAnimationTimeline(phases, { mode: previewMode }), [phases, previewMode]);
 
   useEffect(() => {
     if (timeline.totalDurationMs <= 0) {
@@ -105,7 +115,7 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
           <PoseCanvas
             pose={poseModel}
             title="Canonical sequence preview"
-            subtitle={sampledFrame.phaseId ? `Phase ${sampledFrame.phaseIndex + 1}: ${sampledFrame.phaseTitle}` : "No active phase"}
+            subtitle={sampledFrame.phaseId ? sampledFrame.phaseTitle : "No active phase"}
             showPoseLayer
             editable={false}
           />
@@ -152,7 +162,11 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
               <p className="muted" style={{ margin: 0 }}>
                 Timeline progress: {timeline.totalDurationMs > 0 ? `${Math.round((sampledFrame.elapsedMs / timeline.totalDurationMs) * 100)}%` : "0%"}
               </p>
-              <p className="muted" style={{ margin: 0 }}>Timing mode: each phase duration is a transition segment to the next phase pose.</p>
+              <p className="muted" style={{ margin: 0 }}>
+                Timing mode: {previewMode === "static"
+                  ? "hold preview stays on the primary runtime phase pose."
+                  : "each phase duration is a transition segment to the next phase pose."}
+              </p>
             </div>
           ) : (
             <p className="muted" style={{ marginTop: "0.5rem", marginBottom: 0 }}>

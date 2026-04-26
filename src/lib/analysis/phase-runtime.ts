@@ -30,6 +30,14 @@ export type PhaseSimilarityWarning = {
   adjacentInLoop: boolean;
 };
 
+export type RuntimeDisplayPhase = {
+  phaseId: string;
+  sequenceIndex: number;
+  sequenceNumber: number;
+  runtimeLabel: string;
+  phase: PortableDrill["phases"][number];
+};
+
 export type PhaseRuntimeModel = {
   phases: RuntimePhase[];
   phaseById: Record<string, RuntimePhase>;
@@ -69,8 +77,17 @@ function toUniqueOrderedIds(ids: string[]): string[] {
   return unique;
 }
 
+function toSortedPhases(drill: PortableDrill): PortableDrill["phases"] {
+  return [...drill.phases].sort((a, b) => a.order - b.order);
+}
+
+function resolveFallbackPhaseName(phase: PortableDrill["phases"][number], sequenceNumber: number): string {
+  const trimmed = (phase.name || phase.title || "").trim();
+  return trimmed || `Phase ${sequenceNumber}`;
+}
+
 export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableDrillAnalysis): PhaseRuntimeModel {
-  const sortedPhases = [...drill.phases].sort((a, b) => a.order - b.order);
+  const sortedPhases = toSortedPhases(drill);
   const authoredPhaseIds = sortedPhases.map((phase) => phase.phaseId);
   const orderedPhaseIds = toUniqueOrderedIds(authoredPhaseIds);
   const authoredSet = new Set(orderedPhaseIds);
@@ -157,6 +174,53 @@ export function buildPhaseRuntimeModel(drill: PortableDrill, analysis: PortableD
     legacyOrderMismatch,
     legacyOrderMismatchDetails
   };
+}
+
+export function getOrderedRuntimePhases(drill: PortableDrill): RuntimeDisplayPhase[] {
+  const sortedPhases = toSortedPhases(drill);
+  const phaseById = sortedPhases.reduce<Record<string, PortableDrill["phases"][number]>>((acc, phase) => {
+    acc[phase.phaseId] = phase;
+    return acc;
+  }, {});
+
+  if (drill.analysis) {
+    const runtimeModel = buildPhaseRuntimeModel(drill, drill.analysis);
+    return runtimeModel.orderedPhaseIds
+      .map((phaseId, sequenceIndex) => {
+        const phase = phaseById[phaseId];
+        const runtimeLabel = runtimeModel.phaseLabelById[phaseId] ?? `${sequenceIndex + 1}. Phase ${sequenceIndex + 1}`;
+        if (!phase) {
+          return null;
+        }
+        return {
+          phaseId,
+          sequenceIndex,
+          sequenceNumber: sequenceIndex + 1,
+          runtimeLabel,
+          phase
+        };
+      })
+      .filter((entry): entry is RuntimeDisplayPhase => Boolean(entry));
+  }
+
+  return sortedPhases.map((phase, sequenceIndex) => {
+    const sequenceNumber = sequenceIndex + 1;
+    const runtimeName = resolveFallbackPhaseName(phase, sequenceNumber);
+    return {
+      phaseId: phase.phaseId,
+      sequenceIndex,
+      sequenceNumber,
+      runtimeLabel: `${sequenceNumber}. ${runtimeName}`,
+      phase
+    };
+  });
+}
+
+export function buildRuntimePhaseLabelMap(drill: PortableDrill): Record<string, string> {
+  return getOrderedRuntimePhases(drill).reduce<Record<string, string>>((acc, phase) => {
+    acc[phase.phaseId] = phase.runtimeLabel;
+    return acc;
+  }, {});
 }
 
 export function resolveAuthoredPhaseLabel(phaseId: string | null | undefined, phaseLabelById: Record<string, string>): string | null {

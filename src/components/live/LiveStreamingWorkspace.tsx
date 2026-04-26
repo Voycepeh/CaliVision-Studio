@@ -10,7 +10,7 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
-import { buildBenchmarkCoachingFeedback, buildPhaseRuntimeModel, formatCameraViewLabel, formatPhaseSequenceSummary, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
+import { buildBenchmarkCoachingFeedback, buildRuntimePhaseLabelMap, formatCameraViewLabel, formatPhaseSequenceSummary, resolveDrillCameraViewWithDiagnostics } from "@/lib/analysis";
 import { createPoseLandmarkerForJob, mapLandmarksToPoseFrame } from "@/lib/workflow/pose-landmarker";
 import { drawAnalysisOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
 import { createCenterOfGravityTracker } from "@/lib/workflow/center-of-gravity";
@@ -165,14 +165,7 @@ function buildPhaseLabelMap(drill?: NonNullable<LiveDrillSelection["drill"]>): R
   if (!drill) {
     return {};
   }
-  if (drill.analysis) {
-    return buildPhaseRuntimeModel(drill, drill.analysis).phaseLabelById;
-  }
-  return drill.phases.reduce<Record<string, string>>((acc, phase, index) => {
-    const label = (phase.name || phase.title || "").trim() || phase.phaseId;
-    acc[phase.phaseId] = `${index + 1}. ${label}`;
-    return acc;
-  }, {});
+  return buildRuntimePhaseLabelMap(drill);
 }
 
 function formatLiveSeconds(milliseconds: number): string {

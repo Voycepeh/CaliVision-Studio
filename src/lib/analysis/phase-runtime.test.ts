@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPhaseRuntimeModel, buildPhaseSimilarityWarnings } from "./phase-runtime.ts";
+import { buildPhaseRuntimeModel, buildPhaseSimilarityWarnings, buildRuntimePhaseLabelMap, getOrderedRuntimePhases } from "./phase-runtime.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 
 function buildDrill(orderedPhaseSequence: string[]): PortableDrill {
@@ -126,4 +126,28 @@ test("hold drill type forces hold runtime mode even if legacy analysis metadata 
   assert.equal(model.measurementMode, "hold");
   assert.equal(model.measurementType, "hold");
   assert.equal(model.holdPhaseId, "bottom");
+});
+
+test("runtime display phases follow authored order and labels when analysis is present", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.phases = [
+    { ...drill.phases[1]!, order: 1, phaseId: "bottom", name: "Bottom" },
+    { ...drill.phases[0]!, order: 2, phaseId: "top", name: "Top" }
+  ];
+
+  const ordered = getOrderedRuntimePhases(drill);
+  assert.deepEqual(ordered.map((phase) => phase.phaseId), ["bottom", "top"]);
+  assert.deepEqual(ordered.map((phase) => phase.runtimeLabel), ["1. Bottom", "2. Top"]);
+});
+
+test("runtime display phases fallback to Phase N names when authored names are blank", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.analysis = undefined;
+  drill.phases = drill.phases.map((phase) => ({ ...phase, name: "   ", title: "" }));
+
+  const labels = buildRuntimePhaseLabelMap(drill);
+  assert.deepEqual(labels, {
+    top: "1. Phase 1",
+    bottom: "2. Phase 2"
+  });
 });

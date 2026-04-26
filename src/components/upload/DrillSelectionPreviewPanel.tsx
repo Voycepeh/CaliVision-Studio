@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
+import { getOrderedRuntimePhases } from "@/lib/analysis";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
-import type { PortableDrill, PortablePhase, PortableViewType } from "@/lib/schema/contracts";
+import type { PortableDrill, PortableViewType } from "@/lib/schema/contracts";
 
 type DrillSelectionPreviewPanelProps = {
   drill: PortableDrill;
@@ -16,10 +17,6 @@ type DrillSelectionPreviewPanelProps = {
   compact?: boolean;
   quiet?: boolean;
 };
-
-function sortPhases(phases: PortablePhase[]): PortablePhase[] {
-  return [...phases].sort((a, b) => a.order - b.order);
-}
 
 function formatDrillTypeLabel(drillType: PortableDrill["drillType"]): string {
   return drillType === "rep" ? "Rep" : "Hold";
@@ -31,20 +28,10 @@ function formatViewLabel(view: PortableViewType): string {
   return "Side";
 }
 
-function resolvePreviewPhases(drill: PortableDrill): PortablePhase[] {
-  const phases = sortPhases(drill.phases);
-  if (drill.drillType !== "hold") {
-    return phases;
-  }
-
-  if (phases.length === 0) {
-    return phases;
-  }
-
-  const authoredHoldPhaseId = drill.analysis?.targetHoldPhaseId;
-  const authoredHoldPhase = authoredHoldPhaseId ? phases.find((phase) => phase.phaseId === authoredHoldPhaseId) : undefined;
-  const primaryPhase = authoredHoldPhase ?? phases[0];
-  return primaryPhase ? [primaryPhase] : [];
+function resolvePreviewPhases(drill: PortableDrill) {
+  const ordered = getOrderedRuntimePhases(drill);
+  const effective = drill.drillType === "hold" ? ordered.slice(0, 1) : ordered;
+  return effective.map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
 }
 
 export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {
@@ -124,8 +111,8 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, 
     if (drill.drillType === "rep") {
       return sampledFrame.phaseId ? `Phase ${sampledFrame.phaseIndex + 1} of ${previewPhases.length}` : "No phase data";
     }
-    return "Hold posture";
-  }, [drill.drillType, previewPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex]);
+    return sampledFrame.phaseTitle ? `Hold posture · ${sampledFrame.phaseTitle}` : "Hold posture";
+  }, [drill.drillType, previewPhases.length, sampledFrame.phaseId, sampledFrame.phaseIndex, sampledFrame.phaseTitle]);
   const benchmarkSummary = useMemo(() => summarizeBenchmark(drill.benchmark), [drill.benchmark]);
   const benchmarkLabel = benchmarkSummary.present
     ? "Benchmark available"
