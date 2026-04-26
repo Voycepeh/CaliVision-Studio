@@ -1,5 +1,5 @@
 import type { BenchmarkCoachingFeedback } from "@/lib/analysis/benchmark-feedback";
-import { isFullOrderedPhaseMatch } from "../analysis/benchmark-feedback.ts";
+import { isFullOrderedPhaseMatch } from "@/lib/analysis/benchmark-feedback";
 import type { CoachingFeedbackOutput } from "@/lib/analysis/coaching-feedback";
 import type { AnalysisSessionRecord } from "@/lib/analysis/session-repository";
 import type { PortableDrill } from "@/lib/schema/contracts";
