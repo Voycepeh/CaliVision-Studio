@@ -39,13 +39,16 @@ const attempts: SavedAttemptSummary[] = [
   }
 ];
 
-test("computeDrillPersonalBests returns best reps, best hold, and latest per drill", () => {
+test("computeDrillPersonalBests returns movement-type-aware bests and latest attempt per drill", () => {
   const personalBests = computeDrillPersonalBests(attempts);
 
   const pushup = personalBests.find((item) => item.drillId === "drill_pushup");
   const plank = personalBests.find((item) => item.drillId === "drill_plank");
 
+  assert.equal(pushup?.movementType, "REP");
   assert.equal(pushup?.bestRepsCounted, 10);
   assert.equal(pushup?.mostRecentAttemptAt, "2026-04-25T10:00:00.000Z");
+
+  assert.equal(plank?.movementType, "HOLD");
   assert.equal(plank?.longestHoldSeconds, 42);
 });

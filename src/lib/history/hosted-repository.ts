@@ -69,8 +69,17 @@ function logHostedHistoryFailure(operation: string, detail: string): void {
   }
 }
 
-function isUuid(value: string): boolean {
+export function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+
+
+function buildAttemptIdFilter(attemptId: string): string {
+  const encodedAttemptId = encodeURIComponent(attemptId);
+  return isUuid(attemptId)
+    ? `or=(client_attempt_id.eq.${encodedAttemptId},id.eq.${encodedAttemptId})`
+    : `client_attempt_id=eq.${encodedAttemptId}`;
 }
 
 export function mapAttemptSummaryToInsertRow(attempt: SavedAttemptSummary, ownerUserId: string): AttemptSummaryInsertRow {
@@ -187,16 +196,30 @@ export class SupabaseAttemptHistoryRepository implements AttemptHistoryRepositor
     return rows.map(mapAttemptSummaryRowToSavedAttempt);
   }
 
+  async getAttempt(attemptId: string): Promise<SavedAttemptSummary | null> {
+    const env = this.env;
+    if (!env) throw new Error("Supabase is not configured.");
+
+    const response = await fetch(
+      `${env.url}/rest/v1/attempt_summaries?select=*&${buildAttemptIdFilter(attemptId)}&order=created_at.desc&limit=1`,
+      { headers: headers(this.session) }
+    );
+
+    if (!response.ok) {
+      const backendError = await readBackendError(response);
+      logHostedHistoryFailure("getAttempt", backendError);
+      throw new Error(`Failed to read hosted attempt summary: ${backendError}`);
+    }
+
+    const rows = (await response.json()) as AttemptSummaryRow[];
+    return rows[0] ? mapAttemptSummaryRowToSavedAttempt(rows[0]) : null;
+  }
+
   async deleteAttempt(attemptId: string): Promise<boolean> {
     const env = this.env;
     if (!env) throw new Error("Supabase is not configured.");
 
-    const encodedAttemptId = encodeURIComponent(attemptId);
-    const deleteFilter = isUuid(attemptId)
-      ? `or=(client_attempt_id.eq.${encodedAttemptId},id.eq.${encodedAttemptId})`
-      : `client_attempt_id=eq.${encodedAttemptId}`;
-
-    const response = await fetch(`${env.url}/rest/v1/attempt_summaries?${deleteFilter}`, {
+    const response = await fetch(`${env.url}/rest/v1/attempt_summaries?${buildAttemptIdFilter(attemptId)}`, {
       method: "DELETE",
       headers: {
         ...headers(this.session),

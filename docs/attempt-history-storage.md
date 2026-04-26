@@ -8,6 +8,73 @@ Studio stores lightweight attempt summaries for completed **Upload Video** and *
 - **Signed in:** summaries are saved to the signed-in account through Supabase-hosted `attempt_summaries` rows.
 - **No silent migration:** local history is not auto-uploaded when a user signs in.
 
+## History list
+
+The `/history` route is the training log entry point.
+
+- Every attempt row is clickable and opens `/history/[attemptId]`.
+- History rows stay compact and include a subtle **View details** affordance.
+- Personal bests are shown by drill with movement-type-aware summaries:
+  - REP drills show **Best reps** only.
+  - HOLD drills show **Longest hold** only.
+  - Unknown movement type shows **Latest attempt only**.
+
+## Attempt detail
+
+The `/history/[attemptId]` detail view shows lightweight summary metadata only:
+
+- drill title,
+- source (Upload Video or Live Streaming),
+- date/time,
+- status,
+- movement type,
+- key metric,
+- REP metrics (reps counted + incomplete) when relevant,
+- HOLD metrics (longest hold + total hold) when relevant,
+- analyzed duration,
+- main finding,
+- common failure reason,
+- analysis model version.
+
+## Compare handoff
+
+Attempt detail includes compare handoff CTAs to `/compare` with intent query params:
+
+- `attemptId`,
+- optional `drillId`,
+- optional `compareTo=latest|personalBest`.
+
+Compare reads and acknowledges this intent, then guides users to choose a second attempt or benchmark.
+
+## Delete single attempt
+
+Attempt detail includes a single-attempt delete action:
+
+- **Signed out:** deletes from local browser history.
+- **Signed in:** deletes from hosted account history.
+- After delete, Studio returns to `/history`.
+
+For hosted rows, lookup/delete handling remains safe for both non-UUID client attempt ids and hosted UUID row ids.
+
+## Clear history
+
+The History list retains clear-all behavior:
+
+- signed out: **Clear local history**,
+- signed in: **Clear account history**.
+
+## Import local history to account (optional)
+
+When signed in and local browser history exists, History shows optional import:
+
+- **Import local history to account**.
+
+Import behavior:
+
+- uploads local summaries to hosted storage,
+- uses local attempt id as `client_attempt_id` to prevent duplicates,
+- does not silently delete local history after import.
+
 ## What is stored
 
 Each attempt summary stores compact review metadata only:
@@ -29,18 +96,6 @@ Attempt history must stay lightweight. Studio does **not** persist these in atte
 - raw uploaded/session videos,
 - annotated replay videos,
 - frame-level pose traces or heavy per-frame analysis artifacts.
-
-## Import local history to account
-
-When a user is signed in and local browser history exists, History shows an optional action:
-
-- **Import local history to account**
-
-Import behavior:
-
-- uploads local summaries to hosted storage,
-- uses local attempt id as `client_attempt_id` to prevent duplicates,
-- does not silently delete local history after import.
 
 ## Privacy posture
 

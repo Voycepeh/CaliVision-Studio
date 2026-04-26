@@ -24,6 +24,7 @@ export type SavedAttemptSummary = {
 export type DrillPersonalBests = {
   drillId?: string;
   drillTitle: string;
+  movementType: SavedAttemptMovementType;
   bestRepsCounted: number;
   longestHoldSeconds: number;
   mostRecentAttemptAt?: string;

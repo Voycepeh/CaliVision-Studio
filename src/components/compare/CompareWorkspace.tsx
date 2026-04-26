@@ -6,6 +6,7 @@ import { drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib
 import { buildCompareWorkspaceModel, deriveComparisonStatusView } from "@/lib/compare/compare-model";
 import { readCompareHandoffPayload } from "@/lib/compare/compare-handoff";
 import { resolveCompareVisualAvailability, resolveUsableCompareVisualState } from "@/lib/compare/visual-sources";
+import type { CompareIntent } from "@/lib/compare/intent";
 import type { PoseFrame } from "@/lib/upload/types";
 import type { DrillBenchmarkPhase, PortablePose } from "@/lib/schema/contracts";
 
@@ -58,8 +59,9 @@ function buildBenchmarkReplayFrames(input: {
   });
 }
 
-export function CompareWorkspace() {
+export function CompareWorkspace({ intent }: { intent?: CompareIntent }) {
   const router = useRouter();
+  const compareIntent = intent ?? {};
   const [handoff, setHandoff] = useState(() => readCompareHandoffPayload());
   const [currentMs, setCurrentMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -239,6 +241,18 @@ export function CompareWorkspace() {
         <article className="card" style={{ margin: 0 }}>
           <h3 style={{ marginTop: 0 }}>{model.emptyState.title}</h3>
           <p className="muted" style={{ marginBottom: 0 }}>{model.emptyState.description}</p>
+        </article>
+      ) : null}
+
+      {compareIntent.attemptId ? (
+        <article className="card" style={{ margin: 0 }}>
+          <h3 style={{ marginTop: 0 }}>Compare selection</h3>
+          <p className="muted" style={{ margin: 0 }}>
+            Selected attempt: <code>{compareIntent.attemptId}</code>
+            {compareIntent.drillId ? <> · drill: <code>{compareIntent.drillId}</code></> : null}
+            {compareIntent.compareTo ? <> · target: <strong>{compareIntent.compareTo === "personalBest" ? "personal best" : "latest attempt"}</strong></> : null}
+          </p>
+          <p className="muted" style={{ margin: "0.4rem 0 0" }}>Select a second attempt or benchmark to compare with this attempt.</p>
         </article>
       ) : null}
 

@@ -1,4 +1,12 @@
-import type { DrillPersonalBests, SavedAttemptSummary } from "./types.ts";
+import type { DrillPersonalBests, SavedAttemptSummary, SavedAttemptMovementType } from "./types.ts";
+
+function resolveMovementType(attempts: SavedAttemptSummary[]): SavedAttemptMovementType {
+  const hasRep = attempts.some((attempt) => attempt.movementType === "REP");
+  const hasHold = attempts.some((attempt) => attempt.movementType === "HOLD");
+  if (hasRep && !hasHold) return "REP";
+  if (hasHold && !hasRep) return "HOLD";
+  return "unknown";
+}
 
 export function computeDrillPersonalBests(attempts: SavedAttemptSummary[]): DrillPersonalBests[] {
   const grouped = new Map<string, SavedAttemptSummary[]>();
@@ -15,6 +23,7 @@ export function computeDrillPersonalBests(attempts: SavedAttemptSummary[]): Dril
       return {
         drillId: latest?.drillId,
         drillTitle: latest?.drillTitle ?? "Unknown drill",
+        movementType: resolveMovementType(drillAttempts),
         bestRepsCounted: Math.max(0, ...drillAttempts.map((attempt) => attempt.repsCounted ?? 0)),
         longestHoldSeconds: Math.max(0, ...drillAttempts.map((attempt) => attempt.longestHoldSeconds ?? 0)),
         mostRecentAttemptAt: latest?.createdAt
