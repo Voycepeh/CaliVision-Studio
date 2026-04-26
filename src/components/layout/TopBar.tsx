@@ -13,7 +13,6 @@ const navItems = [
   { href: "/library", label: "Drills" },
   { href: "/studio", label: "Drill Studio" },
   { href: "/upload", label: "Upload Video" },
-  { href: "/marketplace", label: "Drill Exchange" },
   { href: "/#android-app", label: "Download app" }
 ];
 

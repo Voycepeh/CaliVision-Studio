@@ -3,8 +3,8 @@
 ## Home and navigation flow
 
 1. User lands on **Home** (`/`) as the brand-first product entry.
-2. User picks one of the primary paths: **Explore Drills**, **Upload Video**, or **Live Streaming**.
-3. From **Drills** (`/library`), public **Drill Exchange** discovery appears first and users can launch **Upload Video** or **Live Coaching** directly from public drill cards (no My Drills detour required).
+2. User picks one of the primary paths: **Drills**, **Upload Video**, or **Live Streaming**.
+3. From **Drills** (`/library`), public **Drill Exchange** discovery appears first and users can launch **Upload Video** or **Live Coaching** directly from public drill cards (no My Drills detour required). Direct `/marketplace` routes remain shareable deep links for listing and detail pages.
 4. **My Drills** is a secondary section on `/library` for authored drafts, imported drill files, private drills, and advanced editing workflows.
 5. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal drill cards keep owner-facing actions only (for example **Remove from Public**).
 6. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.

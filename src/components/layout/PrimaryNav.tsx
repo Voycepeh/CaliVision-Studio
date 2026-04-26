@@ -22,8 +22,7 @@ const items: readonly NavItem[] = [
   { href: "/studio", label: "Studio", key: "studio" },
   { href: "/upload", label: "Upload Video", mobileLabel: "Upload", key: "upload" },
   { href: "/live", label: "Live Streaming", mobileLabel: "Live", key: "live" },
-  { href: "/history", label: "History", key: "history" },
-  { href: "/marketplace", label: "Drill Exchange", mobileLabel: "Exchange", key: "exchange" }
+  { href: "/history", label: "History", key: "history" }
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {
