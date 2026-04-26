@@ -103,45 +103,6 @@ flowchart LR
     Y[Admin Media] --> A
 ```
 
-## Product ecosystem and workflow
-
-```mermaid
-flowchart TD
-    A[Home] --> B[Library]
-    Y[Admin Media] --> A
-
-    B --> C[Drill Studio]
-    B --> D[Upload Video]
-    B --> E[Live Coaching]
-    X[Drill Exchange] --> B
-
-    C --> C1[Create or refine drill draft]
-    C1 --> C2[Define phases and intent]
-    C2 --> C3[Preview and save draft]
-    C3 --> D
-    C3 --> E
-
-    D --> D1[Upload and process session video]
-    E --> E1[Run live camera session]
-
-    D1 --> F[Analysis Review]
-    E1 --> F
-    F --> F1[Overlay + phase + rep/hold feedback]
-    F1 --> G[History planned]
-```
-
-## Near term PR roadmap
-
-1. **PR 1:** README and product plan alignment.
-2. **PR 2:** Product docs cleanup and page ownership map.
-3. **PR 3:** Storage and media architecture doc.
-4. **PR 4:** Homepage product story cleanup.
-5. **PR 5:** Analysis review panel redesign.
-6. **PR 6:** Session history and saved attempts.
-7. **PR 7:** Fast drill access.
-8. **PR 8:** Live coaching usability polish.
-9. **PR 9:** Personal drill authoring polish.
-
 ## AI-assisted SDLC (concise)
 
 This project uses AI assistance with human ownership:
