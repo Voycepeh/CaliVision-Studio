@@ -32,31 +32,50 @@ Studio (this repo) is the active product home for cross-platform browser workflo
 
 The Android app is now legacy/optional runtime context rather than the main maintained product surface. Studio is the primary maintained product. Android repo reference: <https://github.com/Voycepeh/CaliVision>.
 
-## Current product surfaces
+## Product flow
 
-- **Home** — `/`: product entry and storytelling.
-- **Library** — `/library`: default workspace start for selecting/organizing drills.
-- **Drill Studio** — `/studio`: author and refine drill drafts.
-- **Upload Video** — `/upload`: upload-first analysis workflow.
-- **Live Coaching** — `/upload?mode=live`: camera/live feedback workflow.
-- **Analysis Review** — (post-session): drill-aware review for overlays, reps/holds, and session interpretation.
-- **History** — planned: progress and attempt history over time.
-- **Drill Exchange** — `/marketplace`: discovery/import/publish surface.
-- **Admin Media** — `/admin/media`: managed storytelling and branding assets.
+CaliVision Studio is organized around one training loop:
 
-### Home storytelling assets (within Home surface)
+**Choose or create a drill → run an upload or live session → review the result → improve the next attempt.**
 
-For consistency with the other surfaces, homepage storytelling is documented as part of **Home** rather than as a standalone product surface.
+### 1. Start from Home
 
-The homepage carousel uses 7 **Admin Media-managed** storytelling images to summarize the user journey:
+The homepage introduces the product and routes users into the main workflows.
+
+Its 7-image carousel is managed through **Admin Media** and tells the product story:
 
 1. Create drills.
 2. Use built-ins or Drill Exchange.
 3. Upload video.
-4. Live coaching.
-5. Drill-aware overlay feedback.
-6. Rep or hold review.
-7. Progress over time.
+4. Run live coaching.
+5. Review skeletal overlay feedback.
+6. Understand reps, holds, and phase results.
+7. Track progress over time.
+
+### 2. Choose or manage drills
+
+The **Library** is the default drill workspace. Users can choose built-in drills, manage personal drills, or bring in drills from the **Drill Exchange**.
+
+### 3. Author drills
+
+**Drill Studio** is where users create and refine drills, including movement type, camera view, phase names, and reference poses.
+
+### 4. Analyze movement
+
+Users can analyze movement in two ways:
+
+- **Upload Video** for recorded training footage.
+- **Live Coaching** for real-time browser camera feedback.
+
+Both workflows should lead into the same **Analysis Review** experience.
+
+### 5. Review and improve
+
+**Analysis Review** turns the session into understandable training feedback: overlay review, rep or hold results, phase sequence, failed-rep reasons, and coaching cues.
+
+### 6. Retain progress
+
+**History** is the planned surface for saved attempts, personal bests, and progress over time.
 
 ## Storage and media model (summary)
 
