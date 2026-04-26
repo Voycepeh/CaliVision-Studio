@@ -216,6 +216,26 @@ export function getOrderedRuntimePhases(drill: PortableDrill): RuntimeDisplayPha
   });
 }
 
+export function getRuntimePreviewPhases(drill: PortableDrill): RuntimeDisplayPhase[] {
+  const ordered = getOrderedRuntimePhases(drill);
+  if (drill.drillType !== "hold") {
+    return ordered;
+  }
+  if (ordered.length === 0) {
+    return ordered;
+  }
+
+  const targetedPhaseId = drill.analysis?.targetHoldPhaseId;
+  if (targetedPhaseId) {
+    const targeted = ordered.find((phase) => phase.phaseId === targetedPhaseId);
+    if (targeted) {
+      return [targeted];
+    }
+  }
+
+  return [ordered[0]!];
+}
+
 export function buildRuntimePhaseLabelMap(drill: PortableDrill): Record<string, string> {
   return getOrderedRuntimePhases(drill).reduce<Record<string, string>>((acc, phase) => {
     acc[phase.phaseId] = phase.runtimeLabel;

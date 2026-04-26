@@ -81,5 +81,6 @@ export {
   buildPhaseSimilarityWarnings,
   filterPhaseIdsToRuntime,
   getOrderedRuntimePhases,
+  getRuntimePreviewPhases,
   resolveAuthoredPhaseLabel
 } from "./phase-runtime.ts";

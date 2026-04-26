@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { useStudioState } from "@/components/studio/StudioState";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
-import { getOrderedRuntimePhases } from "@/lib/analysis";
+import { getRuntimePreviewPhases } from "@/lib/analysis";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
@@ -27,9 +27,7 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
     if (!selectedDrill) {
       return [];
     }
-    const runtimePhases = getOrderedRuntimePhases(selectedDrill);
-    const effectivePhases = selectedDrill.drillType === "hold" ? runtimePhases.slice(0, 1) : runtimePhases;
-    return effectivePhases.map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
+    return getRuntimePreviewPhases(selectedDrill).map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
   }, [selectedDrill]);
   const timeline = useMemo(() => buildAnimationTimeline(phases, { mode: previewMode }), [phases, previewMode]);
 

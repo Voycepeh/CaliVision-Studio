@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
-import { getOrderedRuntimePhases } from "@/lib/analysis";
+import { getRuntimePreviewPhases } from "@/lib/analysis";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
@@ -29,9 +29,7 @@ function formatViewLabel(view: PortableViewType): string {
 }
 
 function resolvePreviewPhases(drill: PortableDrill) {
-  const ordered = getOrderedRuntimePhases(drill);
-  const effective = drill.drillType === "hold" ? ordered.slice(0, 1) : ordered;
-  return effective.map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
+  return getRuntimePreviewPhases(drill).map(({ phase, runtimeLabel }) => ({ ...phase, name: runtimeLabel }));
 }
 
 export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, showSourceBadge = false, compact = false, quiet = false }: DrillSelectionPreviewPanelProps) {

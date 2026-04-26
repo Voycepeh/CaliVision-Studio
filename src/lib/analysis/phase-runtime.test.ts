@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPhaseRuntimeModel, buildPhaseSimilarityWarnings, buildRuntimePhaseLabelMap, getOrderedRuntimePhases } from "./phase-runtime.ts";
+import {
+  buildPhaseRuntimeModel,
+  buildPhaseSimilarityWarnings,
+  buildRuntimePhaseLabelMap,
+  getOrderedRuntimePhases,
+  getRuntimePreviewPhases
+} from "./phase-runtime.ts";
 import type { PortableDrill } from "../schema/contracts.ts";
 
 function buildDrill(orderedPhaseSequence: string[]): PortableDrill {
@@ -150,4 +156,19 @@ test("runtime display phases fallback to Phase N names when authored names are b
     top: "1. Phase 1",
     bottom: "2. Phase 2"
   });
+});
+
+test("hold preview phases use targeted hold phase when targetHoldPhaseId references a later authored phase", () => {
+  const drill = buildDrill(["top", "bottom"]);
+  drill.drillType = "hold";
+  drill.analysis = {
+    ...drill.analysis!,
+    measurementType: "hold",
+    targetHoldPhaseId: "bottom"
+  };
+
+  const preview = getRuntimePreviewPhases(drill);
+  assert.equal(preview.length, 1);
+  assert.equal(preview[0]?.phaseId, "bottom");
+  assert.equal(preview[0]?.runtimeLabel, "2. Bottom");
 });
