@@ -1397,6 +1397,53 @@ main {
   overflow: visible;
 }
 
+.upload-selected-drill-card {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid rgba(128, 157, 192, 0.36);
+  border-radius: 0.75rem;
+  background: rgba(114, 168, 255, 0.08);
+  padding: 0.65rem;
+}
+
+.upload-selected-drill-eyebrow {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.upload-selected-drill-layout {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.upload-selected-drill-content {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.upload-selected-drill-title {
+  line-height: 1.25;
+}
+
+.upload-selected-drill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.upload-selected-drill-note {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
 .upload-workflow-dropzone {
   border-style: dashed;
   border-width: 1px;
@@ -2419,6 +2466,10 @@ main {
 @media (max-width: 980px) {
   .drill-setup-layout {
     grid-template-columns: 1fr;
+  }
+
+  .upload-selected-drill-layout {
+    flex-direction: column;
   }
 
   .live-streaming-control-row {

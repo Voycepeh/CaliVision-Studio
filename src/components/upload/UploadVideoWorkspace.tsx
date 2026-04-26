@@ -44,6 +44,7 @@ import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
 import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
+import { UploadSelectedDrillCard } from "@/components/upload/UploadSelectedDrillCard";
 import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflow-setup/DrillOriginSelector";
 import { readActiveDrillContext, setActiveDrillContext } from "@/lib/workflow/drill-context";
 import { useAvailableDrills } from "@/lib/workflow/use-available-drills";
@@ -1180,6 +1181,12 @@ export function UploadVideoWorkspace() {
             />
             <div className="card upload-workflow-action-card" style={{ margin: 0 }}>
             <div style={{ display: "grid", gap: "0.65rem" }}>
+              <UploadSelectedDrillCard
+                drill={selectedDrill?.drill ?? null}
+                sourceKind={selectedDrill?.sourceKind}
+                benchmarkState={selectedDrill?.benchmarkState}
+              />
+
               <div className="drill-selector-stack">
                 <DrillOriginSelectField
                   selectedSource={selectedSource}
