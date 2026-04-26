@@ -93,10 +93,10 @@ test("handstand coaching can run with authored profile even when title does not 
     frame: reliableFrame
   });
 
-  assert.equal((output.visualGuides ?? []).every((guide) => ["stack_line", "highlight_region"].includes(guide.type)), true);
+  assert.equal((output.visualGuides ?? []).some((guide) => guide.type === "stack_line"), true);
 });
 
-test("enabledVisualGuides filters output visual guides", () => {
+test("legacy enabledVisualGuides no longer filters runtime guide output", () => {
   const output = resolveDrillSpecificCoaching({
     drill: {
       ...baseHandstand,
@@ -108,6 +108,6 @@ test("enabledVisualGuides filters output visual guides", () => {
     frame: reliableFrame
   });
 
-  assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "correction_arrow"), false);
+  assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "correction_arrow"), true);
   assert.equal(output.primaryIssue?.visualGuides.some((guide) => guide.type === "stack_line"), true);
 });

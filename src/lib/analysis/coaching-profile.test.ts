@@ -72,10 +72,10 @@ test("handstand movement selection suggests defaults only for empty fields", () 
 
 test("deriveAutoCoachingProfile keeps authored coachingProfile untouched", () => {
   const authored = {
-    movementFamily: "custom",
-    rulesetId: "custom",
-    supportType: "floor",
-    primaryGoal: "control",
+    movementFamily: "custom" as const,
+    rulesetId: "custom" as const,
+    supportType: "floor" as const,
+    primaryGoal: "control" as const,
     cuePreference: "visual_only" as const,
     enabledVisualGuides: ["ghost_pose" as const]
   };

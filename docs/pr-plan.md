@@ -106,7 +106,7 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Non-goal: multi-user collaboration workflows in this phase.
 - Non-goal: moving Android runtime/live coaching ownership into Studio; Android runtime remains in <https://github.com/Voycepeh/CaliVision>.
 - Reference roadmap document: `docs/product/single-user-first-roadmap.md`.
-- Current state (April 24, 2026): Drill Studio now authors optional `coachingProfile` drill metadata (movement family, ruleset, support type, primary goal, visual guides, cue preference) and persists it in portable drill definitions.
+- Current state (April 26, 2026): Drill Studio authors optional `coachingProfile` drill metadata focused on drill semantics (movement family, ruleset, support type, primary goal, cue preference) and keeps runtime visual guide toggles out of Studio authoring until implemented in Analysis/Live/Compare.
 - Current state (April 24, 2026): coaching rule resolution now prioritizes authored `coachingProfile` metadata first, while title fallback remains in place only for legacy drills that do not yet have authored coaching metadata.
 - Future work: advanced custom cue authoring and per-body-part rule authoring remain explicitly deferred.
 

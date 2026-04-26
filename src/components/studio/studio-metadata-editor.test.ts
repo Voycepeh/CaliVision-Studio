@@ -13,8 +13,15 @@ test("Studio metadata editor tucks coaching controls behind advanced details", (
 
 test("Studio metadata editor includes simplified coaching copy", () => {
   assert.equal(
-    source.includes("CaliVision can auto-select coaching cues from this drill’s movement type, camera view, and phases."),
+    source.includes("Coaching setup helps CaliVision choose the right analysis language and feedback priority for this drill."),
     true
   );
   assert.equal(source.includes("Coaching Profile tells CaliVision which coaching rules and visual guides to use for this drill."), false);
+  assert.equal(source.includes("Visual guides"), false);
+  assert.equal(source.includes("Stack line"), false);
+  assert.equal(source.includes("Ghost pose"), false);
+  assert.equal(source.includes("Highlight region"), false);
+  assert.equal(source.includes("Correction arrow"), false);
+  assert.equal(source.includes("Support indicator"), false);
+  assert.equal(source.includes("Metric badge"), false);
 });
