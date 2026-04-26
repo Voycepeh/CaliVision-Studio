@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
 import {
   findExistingExchangeFork,
   getExchangeModerationAccess,
@@ -206,6 +207,9 @@ export function MarketplaceOverview() {
         ) : (
           entries.map((entry) => (
             <article key={entry.id} className="card" style={{ margin: 0 }}>
+              {entry.snapshotPackage.drills[0] ? (
+                <DrillThumbnailImage drill={entry.snapshotPackage.drills[0]} assets={entry.snapshotPackage.assets} height={150} />
+              ) : null}
               <strong>{entry.title}</strong>
               <p className="muted" style={{ margin: "0.3rem 0" }}>
                 {entry.creatorDisplayName} • {entry.movementType} • {entry.difficultyLevel} • {entry.category}
