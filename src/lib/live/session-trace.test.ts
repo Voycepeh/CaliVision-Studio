@@ -367,6 +367,57 @@ test("upload and live pipelines align for flappy-bird rep detection", () => {
   assert.equal(finalized.summary.repCount, upload.session.summary.repCount);
 });
 
+test("rep-mode historical frameSamples are updated to smoothed classifications after confirmation", () => {
+  const { drill: flappyDrill, sampledFrames } = createFlappyBirdFixture();
+  const confirmationDrill = {
+    ...flappyDrill,
+    analysis: {
+      ...flappyDrill.analysis,
+      minimumConfirmationFrames: 2
+    }
+  };
+  const trace = createLiveTraceAccumulator({
+    traceId: "trace_flappy_smoothed_history",
+    startedAtIso: "2026-04-08T00:00:00.000Z",
+    drillSelection: {
+      mode: "drill",
+      drill: confirmationDrill as never,
+      drillBindingLabel: confirmationDrill.title,
+      drillBindingSource: "local"
+    },
+    cadenceFps: 15
+  });
+
+  for (const frame of sampledFrames.slice(0, 4)) {
+    trace.pushFrame(frame);
+  }
+
+  const finalized = trace.finalize(
+    {
+      durationMs: 300,
+      width: 720,
+      height: 1280,
+      mimeType: "video/webm",
+      sizeBytes: 2000,
+      timing: { mediaStartMs: 0, mediaStopMs: 300, captureStartPerfNowMs: 10, captureStopPerfNowMs: 310 }
+    },
+    "2026-04-08T00:00:01.000Z"
+  );
+
+  const captureAt0 = finalized.captures.find((capture) => capture.timestampMs === 0);
+  const captureAt100 = finalized.captures.find((capture) => capture.timestampMs === 100);
+  const captureAt200 = finalized.captures.find((capture) => capture.timestampMs === 200);
+  const captureAt300 = finalized.captures.find((capture) => capture.timestampMs === 300);
+  assert.equal(captureAt0?.frameSample.classifiedPhaseId, undefined);
+  assert.equal(captureAt100?.frameSample.classifiedPhaseId, "stand");
+  assert.equal(captureAt200?.frameSample.classifiedPhaseId, "stand");
+  assert.equal(captureAt300?.frameSample.classifiedPhaseId, "flap");
+
+  const flapEnter = finalized.events.find((event) => event.type === "phase_enter" && event.phaseId === "flap");
+  assert.ok(flapEnter);
+  assert.equal(captureAt300?.timestampMs, flapEnter?.timestampMs);
+});
+
 test("benchmark metadata absence does not affect live/upload rep detection alignment", () => {
   const { drill, sampledFrames } = createFlappyBirdFixture();
   const upload = runDrillAnalysisPipeline({ drill, sampledFrames });

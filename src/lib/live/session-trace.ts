@@ -248,6 +248,8 @@ export function createLiveTraceAccumulator(input: {
       return;
     }
 
+    // TODO: This currently recomputes the full rep timeline per frame for correctness parity with upload.
+    // Replace with an incremental smoother or bounded rolling analysis buffer for long live sessions.
     const smoothed = smoothPhaseTimeline(state.scoredFrames, analysis, {
       runtimeModel: state.runtimeModel,
       entryConfirmationFrames: analysis.minimumConfirmationFrames
@@ -255,6 +257,17 @@ export function createLiveTraceAccumulator(input: {
     const extracted = extractAnalysisEvents(drill, smoothed.frames, smoothed.transitions, state.runtimeModel, {
       maxTimestampMs: timestampMs
     });
+
+    const smoothedByTimestamp = new Map<number, string | null>();
+    for (const frame of smoothed.frames) {
+      smoothedByTimestamp.set(frame.timestampMs, frame.smoothedPhaseId ?? null);
+    }
+    for (const capture of state.captures) {
+      const smoothedPhaseId = smoothedByTimestamp.get(capture.timestampMs);
+      if (typeof smoothedPhaseId !== "undefined") {
+        capture.frameSample.classifiedPhaseId = smoothedPhaseId ?? undefined;
+      }
+    }
 
     state.events = extracted.events;
     state.repCount = extracted.summary.repCount ?? 0;
@@ -274,7 +287,6 @@ export function createLiveTraceAccumulator(input: {
         : "awaiting_confirmation_or_stable";
     const latestCapture = state.captures.at(-1);
     if (latestCapture?.frameSample.scoringDebug) {
-      latestCapture.frameSample.classifiedPhaseId = currentFrame?.smoothedPhaseId ?? undefined;
       latestCapture.frameSample.scoringDebug.liveDecision = {
         currentPhaseId: previousSmoothedPhaseId,
         rawDetectedPhaseId: currentFrame?.rawBestPhaseId ?? null,
