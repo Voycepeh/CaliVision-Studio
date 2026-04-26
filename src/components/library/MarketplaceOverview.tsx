@@ -15,7 +15,7 @@ import {
   type ExchangePublication
 } from "@/lib/exchange";
 import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
-import { setActiveDrillContext } from "@/lib/workflow/drill-context";
+import { buildWorkflowDrillKey, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const ALL_FILTER = "all";
 
@@ -165,17 +165,38 @@ export function MarketplaceOverview() {
     setFeedback(`Removed "${entry.title}" from Drill Exchange.`);
   }
 
+  function onLaunchWorkflow(entry: ExchangePublication, destination: "upload" | "live"): void {
+    const drill = entry.snapshotPackage.drills[0];
+    if (!drill) {
+      return;
+    }
+    const context = {
+      drillId: drill.drillId,
+      sourceKind: "exchange" as const,
+      sourceId: entry.id
+    };
+    setActiveDrillContext(context);
+    router.push(`/${destination}?drillKey=${encodeURIComponent(buildWorkflowDrillKey(context))}`);
+  }
+
   return (
-    <section className="card" style={{ marginTop: "1rem", display: "grid", gap: "0.9rem" }}>
-      <h2 style={{ margin: 0 }}>Drill Exchange</h2>
+    <section className="card" style={{ marginTop: "0.5rem", display: "grid", gap: "0.9rem" }}>
+      <h2 style={{ margin: 0 }}>Explore Drills</h2>
       <p className="muted" style={{ margin: 0 }}>
-        Browse published drills from creators, preview details, then add what you want into My Drills.
+        Start from public Drill Exchange drills to train quickly. Launch Upload Video or Live Coaching directly from each drill card.
+      </p>
+      <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
+        Use My Drills for authored drafts, imported drill files, private drills, and advanced editing workflows.
       </p>
       {!session ? (
         <p className="muted" style={{ margin: 0 }}>
-          You can browse and preview every listing while signed out. Add to My Drills requires sign-in.
+          You can browse and launch public drills while signed out. Add to My Drills requires sign-in.
         </p>
       ) : null}
+      <div style={helperActionRowStyle}>
+        <Link className="pill" href="/studio" style={advancedActionStyle}>Create Drill (advanced)</Link>
+        <Link className="pill" href="/library#my-drills" style={secondaryActionStyle}>Open My Drills</Link>
+      </div>
 
       <div style={filtersRowStyle}>
         <label style={{ ...labelStyle, flex: "1 1 280px", minWidth: "min(100%, 280px)" }}>
@@ -220,7 +241,7 @@ export function MarketplaceOverview() {
       {entries.length === 0 ? (
         <div className="card" style={{ margin: 0, background: "var(--panel-soft)" }}>
           <p className="muted" style={{ margin: 0 }}>
-            No published drills match your current search and filters. Try clearing one filter or using broader terms.
+            No public drills match your current search and filters. Explore Drill Exchange with broader filters to start training quickly.
           </p>
         </div>
       ) : (
@@ -276,10 +297,16 @@ export function MarketplaceOverview() {
                   ) : null}
 
                   <div style={actionRowStyle}>
-                    <button type="button" className="pill" style={primaryActionStyle} disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
+                    <button type="button" className="pill" style={primaryActionStyle} onClick={() => onLaunchWorkflow(entry, "upload")}>
+                      Upload Video
+                    </button>
+                    <button type="button" className="pill" style={primaryActionStyle} onClick={() => onLaunchWorkflow(entry, "live")}>
+                      Start Live Coaching
+                    </button>
+                    <button type="button" className="pill" style={secondaryActionStyle} disabled={pendingAddId === entry.id} onClick={() => void onAddToLibrary(entry)}>
                       {pendingAddId === entry.id ? "Adding…" : "Add to My Drills"}
                     </button>
-                    <Link className="pill" style={secondaryActionStyle} href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
+                    <Link className="pill" style={tertiaryActionStyle} href={`/marketplace/${encodeURIComponent(entry.slug)}`}>
                       Preview details
                     </Link>
                     {isModerator ? (
@@ -372,13 +399,31 @@ const actionRowStyle: CSSProperties = {
   marginTop: "0.2rem"
 };
 
+const helperActionRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.42rem"
+};
+
 const primaryActionStyle: CSSProperties = {
   background: "var(--accent-soft)",
-  borderColor: "rgba(114, 168, 255, 0.6)"
+  borderColor: "rgba(114, 168, 255, 0.6)",
+  fontWeight: 600
 };
 
 const secondaryActionStyle: CSSProperties = {
   background: "var(--panel)"
+};
+
+const tertiaryActionStyle: CSSProperties = {
+  background: "var(--panel-soft)",
+  color: "var(--muted)"
+};
+
+const advancedActionStyle: CSSProperties = {
+  background: "var(--panel)",
+  color: "var(--muted)",
+  borderStyle: "dashed"
 };
 
 const moderatorActionStyle: CSSProperties = {

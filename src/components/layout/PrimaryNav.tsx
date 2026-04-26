@@ -18,12 +18,12 @@ type NavItem = {
 
 const items: readonly NavItem[] = [
   { href: "/", label: "Home", key: "home" },
-  { href: "/library", label: "Library", key: "library" },
+  { href: "/library", label: "Drills", key: "library" },
   { href: "/studio", label: "Studio", key: "studio" },
   { href: "/upload", label: "Upload Video", mobileLabel: "Upload", key: "upload" },
   { href: "/live", label: "Live Streaming", mobileLabel: "Live", key: "live" },
   { href: "/history", label: "History", key: "history" },
-  { href: "/marketplace", label: "Exchange", key: "exchange" }
+  { href: "/marketplace", label: "Drill Exchange", mobileLabel: "Exchange", key: "exchange" }
 ] as const;
 
 export function PrimaryNav({ active }: PrimaryNavProps) {

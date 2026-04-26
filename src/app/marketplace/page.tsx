@@ -6,7 +6,7 @@ export default function MarketplacePage() {
     <RoutePageIntro
       navActive="exchange"
       title="Drill Exchange"
-      description="Browse published drills from Drill Exchange, preview details, and add drills into My Library when you choose."
+      description="Browse published drills from Drill Exchange. You can launch Upload Video or Live Coaching directly, then optionally add drills to My Drills."
     >
       <MarketplaceOverview />
     </RoutePageIntro>

@@ -220,14 +220,14 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       </article>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-        <button type="button" className="pill" onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
-          {pendingAdd ? "Adding…" : "Add to My Drills"}
-        </button>
-        <button type="button" className="pill" onClick={() => launchWorkflow("/upload")} disabled={!drill}>
+        <button type="button" className="pill" style={{ background: "var(--accent-soft)", borderColor: "rgba(114, 168, 255, 0.6)", fontWeight: 600 }} onClick={() => launchWorkflow("/upload")} disabled={!drill}>
           Upload video with this drill
         </button>
-        <button type="button" className="pill" onClick={() => launchWorkflow("/live")} disabled={!drill}>
+        <button type="button" className="pill" style={{ background: "var(--accent-soft)", borderColor: "rgba(114, 168, 255, 0.6)", fontWeight: 600 }} onClick={() => launchWorkflow("/live")} disabled={!drill}>
           Start live coaching
+        </button>
+        <button type="button" className="pill" style={{ background: "var(--panel-soft)", color: "var(--muted)" }} onClick={() => void onAddToLibrary()} disabled={pendingAdd}>
+          {pendingAdd ? "Adding…" : "Add to My Drills"}
         </button>
       </div>
 

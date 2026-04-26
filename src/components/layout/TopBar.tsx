@@ -10,10 +10,10 @@ import { getPrimaryDrill } from "@/lib/editor/package-editor";
 
 const navItems = [
   { href: "/", label: "Home" },
-  { href: "/library", label: "Library" },
+  { href: "/library", label: "Drills" },
   { href: "/studio", label: "Drill Studio" },
   { href: "/upload", label: "Upload Video" },
-  { href: "/marketplace", label: "Exchange" },
+  { href: "/marketplace", label: "Drill Exchange" },
   { href: "/#android-app", label: "Download app" }
 ];
 

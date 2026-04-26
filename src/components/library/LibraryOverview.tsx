@@ -416,9 +416,9 @@ export function LibraryOverview() {
   }
 
   return (
-    <section style={libraryLayoutStyle}>
+    <section id="my-drills" style={libraryLayoutStyle}>
       <section className="card" style={headerCardStyle}>
-        <h2 style={{ margin: 0 }}>My drills</h2>
+        <h2 style={{ margin: 0 }}>My Drills (secondary workspace)</h2>
         {exchangeFeedback ? (
           <p className="muted" style={{ margin: 0, color: "#b5e3c3" }}>
             {exchangeFeedback.status === "already"
@@ -427,20 +427,20 @@ export function LibraryOverview() {
           </p>
         ) : null}
         <p className="muted" style={{ margin: 0 }}>
-          One library for all drills. Each drill keeps stable identity with version history, Draft/Ready status, and publish state.
+          Use My Drills for created drills, draft drills, imported drill files, private drills, and advanced authoring workflows.
         </p>
         <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
           Storage mode: {signedInMode ? "Cloud workspace (hosted drills only)" : "Browser workspace (local drills only)"}
         </p>
         <div style={compactActionRowStyle}>
           <button type="button" style={primaryButtonStyle} disabled={Boolean(pendingActionByItemId["global:create"])} onClick={() => void runItemAction("global:create", "Creating drill…", onCreateDraft)}>
-            New drill
+            Create Drill (advanced)
           </button>
           <input ref={fileInputRef} type="file" accept="application/json,.json,.cvpkg.json" style={{ display: "none" }} onChange={(event) => void onImportFileChange(event)} />
           <button type="button" style={chipStyle(false)} onClick={() => fileInputRef.current?.click()}>
             Import drill file
           </button>
-          <Link href="/marketplace" style={tertiaryLinkStyle}>Browse Drill Exchange</Link>
+          <Link href="/marketplace" style={tertiaryLinkStyle}>Explore more on Drill Exchange</Link>
         </div>
       </section>
 
@@ -462,7 +462,7 @@ export function LibraryOverview() {
 
         {filteredDrills.length === 0 ? (
           <article style={emptyStateStyle}>
-            <p className="muted" style={{ margin: 0 }}>No drills yet. Start with <strong>New drill</strong>.</p>
+            <p className="muted" style={{ margin: 0 }}>No drills yet. Explore public drills above to start training quickly, then use <strong>Create Drill (advanced)</strong> for custom authoring.</p>
             <p className="muted" style={{ margin: "0.28rem 0 0", fontSize: "0.8rem" }}>
               Capture reminder: keep full body visible, match camera angle to the drill, and step back if wrists or ankles leave frame.
             </p>
@@ -546,8 +546,8 @@ export function LibraryOverview() {
                       <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
                         Upload Video
                       </button>
-                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Streaming…", () => onOpenWorkflow(drill, "live"))}>
-                        Live Streaming
+                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coaching…", () => onOpenWorkflow(drill, "live"))}>
+                        Live Coaching
                       </button>
                       <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
                         Edit in Studio
@@ -652,23 +652,23 @@ export function LibraryOverview() {
                   ) : null}
 
                   <details>
-                    <summary style={{ cursor: "pointer" }}>Version history</summary>
-                    <div style={{ display: "grid", gap: "0.28rem", marginTop: "0.35rem" }}>
-                      {versions
-                        .filter((version) => version.status === "ready")
-                        .map((version) => (
-                        <div key={version.versionId} style={{ border: "1px solid var(--border)", borderRadius: "0.45rem", padding: "0.3rem 0.4rem" }}>
-                          <p className="muted" style={{ margin: 0 }}>
-                            v{version.versionNumber} • Ready{version.isPublished ? " • Published" : ""} • {new Date(version.updatedAtIso).toLocaleString()}
-                          </p>
-                        </div>
-                      ))}
+                    <summary style={{ cursor: "pointer" }}>Advanced details</summary>
+                    <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.35rem" }}>
+                      <strong style={{ fontSize: "0.82rem" }}>Version history</strong>
+                      <div style={{ display: "grid", gap: "0.28rem" }}>
+                        {versions
+                          .filter((version) => version.status === "ready")
+                          .map((version) => (
+                          <div key={version.versionId} style={{ border: "1px solid var(--border)", borderRadius: "0.45rem", padding: "0.3rem 0.4rem" }}>
+                            <p className="muted" style={{ margin: 0 }}>
+                              v{version.versionNumber} • Ready{version.isPublished ? " • Published" : ""} • {new Date(version.updatedAtIso).toLocaleString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <strong style={{ fontSize: "0.82rem" }}>Knowledge</strong>
+                      <KnowledgeSections knowledge={knowledgeByDrillId[drill.drillId]} titleByDrillId={titleByDrillId} />
                     </div>
-                  </details>
-
-                  <details>
-                    <summary style={{ cursor: "pointer" }}>Knowledge</summary>
-                    <KnowledgeSections knowledge={knowledgeByDrillId[drill.drillId]} titleByDrillId={titleByDrillId} />
                   </details>
 
                   <InlineItemFeedback itemId={`drill:${drill.drillId}`} pending={pendingActionByItemId} success={actionMessageByItemId} error={actionErrorByItemId} />
