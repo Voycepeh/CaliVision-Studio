@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resolveDrillThumbnail } from "./thumbnail.ts";
+import { computeThumbnailCropRect, estimateDataUriByteSize, resolveDrillThumbnail } from "./thumbnail.ts";
 import type { PortableAssetRef, PortableDrill } from "../schema/contracts.ts";
 
 function createDrill(): PortableDrill {
@@ -47,4 +47,23 @@ test("resolveDrillThumbnail returns fallback data uri for legacy drills", () => 
   const resolved = resolveDrillThumbnail(drill, []);
   assert.equal(resolved.source, "fallback");
   assert.match(resolved.src, /^data:image\/svg\+xml/);
+});
+
+test("computeThumbnailCropRect center-crops wide source images to 16:9", () => {
+  const crop = computeThumbnailCropRect(3000, 1000);
+  assert.equal(crop.sy, 0);
+  assert.equal(crop.sh, 1000);
+  assert.equal(crop.sw, 1778);
+});
+
+test("computeThumbnailCropRect center-crops tall source images to 16:9", () => {
+  const crop = computeThumbnailCropRect(1000, 3000);
+  assert.equal(crop.sx, 0);
+  assert.equal(crop.sw, 1000);
+  assert.equal(crop.sh, 563);
+});
+
+test("estimateDataUriByteSize estimates decoded byte length", () => {
+  const bytes = estimateDataUriByteSize("data:image/jpeg;base64,QUJDRA==");
+  assert.equal(bytes, 4);
 });

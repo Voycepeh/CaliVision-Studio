@@ -1,10 +1,21 @@
 import type { PortableAssetRef, PortableDrill } from "@/lib/schema/contracts";
 
 export type DrillThumbnailSource = "uploaded" | "generated" | "fallback";
+export const DRILL_THUMBNAIL_TARGET_WIDTH = 1200;
+export const DRILL_THUMBNAIL_TARGET_HEIGHT = 675;
+export const DRILL_THUMBNAIL_MAX_INPUT_BYTES = 20 * 1024 * 1024;
+export const DRILL_THUMBNAIL_MAX_STORED_BYTES = 450 * 1024;
 
 export type ResolvedDrillThumbnail = {
   src: string;
   source: DrillThumbnailSource;
+};
+
+export type ThumbnailCropRect = {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
 };
 
 function isRenderableUri(uri: string | undefined): uri is string {
@@ -18,6 +29,32 @@ function toAssetMap(assets: PortableAssetRef[]): Record<string, PortableAssetRef
 
 function escapeXml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+}
+
+export function computeThumbnailCropRect(sourceWidth: number, sourceHeight: number): ThumbnailCropRect {
+  if (!Number.isFinite(sourceWidth) || !Number.isFinite(sourceHeight) || sourceWidth <= 0 || sourceHeight <= 0) {
+    return { sx: 0, sy: 0, sw: DRILL_THUMBNAIL_TARGET_WIDTH, sh: DRILL_THUMBNAIL_TARGET_HEIGHT };
+  }
+
+  const targetRatio = DRILL_THUMBNAIL_TARGET_WIDTH / DRILL_THUMBNAIL_TARGET_HEIGHT;
+  const sourceRatio = sourceWidth / sourceHeight;
+
+  if (sourceRatio > targetRatio) {
+    const sw = Math.round(sourceHeight * targetRatio);
+    const sx = Math.max(0, Math.round((sourceWidth - sw) / 2));
+    return { sx, sy: 0, sw, sh: Math.round(sourceHeight) };
+  }
+
+  const sh = Math.round(sourceWidth / targetRatio);
+  const sy = Math.max(0, Math.round((sourceHeight - sh) / 2));
+  return { sx: 0, sy, sw: Math.round(sourceWidth), sh };
+}
+
+export function estimateDataUriByteSize(dataUri: string): number {
+  const [, payload = ""] = dataUri.split(",", 2);
+  if (!payload) return 0;
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
 }
 
 export function buildGeneratedThumbnailDataUri(drill: Pick<PortableDrill, "title" | "drillType" | "difficulty" | "primaryView" | "phases">): string {
