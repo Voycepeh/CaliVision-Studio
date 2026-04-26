@@ -82,33 +82,28 @@ test("deriveAutoCoachingProfile keeps authored coachingProfile untouched", () =>
 
   const next = deriveAutoCoachingProfile({
     profile: authored,
-    drillType: "hold",
-    primaryView: "side",
-    hasAuthoredPhases: true
+    drillType: "hold"
   });
 
   assert.deepEqual(next, authored);
 });
 
-test("deriveAutoCoachingProfile infers safe defaults from drill metadata when profile is missing", () => {
+test("deriveAutoCoachingProfile keeps side-view hold defaults generic when profile is missing", () => {
   const next = deriveAutoCoachingProfile({
     profile: undefined,
-    drillType: "hold",
-    primaryView: "side",
-    hasAuthoredPhases: true
+    drillType: "hold"
   });
 
-  assert.equal(next.rulesetId, "handstand_wall_hold_v1");
-  assert.equal(next.movementFamily, "handstand");
-  assert.equal(next.supportType, "wall_assisted");
+  assert.equal(next.rulesetId, "generic_hold_v1");
+  assert.equal(next.movementFamily, undefined);
+  assert.equal(next.supportType, undefined);
+  assert.equal(next.cuePreference, "visual_only");
 });
 
 test("deriveAutoCoachingProfile falls back to generic ruleset when metadata is limited", () => {
   const next = deriveAutoCoachingProfile({
     profile: undefined,
-    drillType: "rep",
-    primaryView: "front",
-    hasAuthoredPhases: false
+    drillType: "rep"
   });
 
   assert.equal(next.rulesetId, "generic_rep_v1");

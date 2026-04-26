@@ -56,9 +56,7 @@ export function StudioMetadataEditor() {
   const profile = drill.coachingProfile;
   const effectiveProfile = deriveAutoCoachingProfile({
     profile,
-    drillType: drill.drillType,
-    primaryView: drill.primaryView,
-    hasAuthoredPhases: drill.phases.some((phase) => Object.keys(phase.poseSequence[0]?.joints ?? {}).length > 0)
+    drillType: drill.drillType
   });
   const profileFormState = deriveCoachingProfileFormState(effectiveProfile);
   const hasProfile = isCoachingProfileConfigured(profile);
