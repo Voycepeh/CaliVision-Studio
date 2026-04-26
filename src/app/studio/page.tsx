@@ -13,7 +13,7 @@ export default async function StudioPage({
   return (
     <RoutePageIntro
       title="Drill Studio"
-      description="Edit the current drill draft. Open Studio from Library or Create New Drill to load editing context."
+      description="Edit the current drill draft. Open Studio from My Drills or Create Drill (advanced) to load editing context."
     >
       <StudioExperience
         initialPackageId={params.packageId}

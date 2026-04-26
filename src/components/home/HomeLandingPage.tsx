@@ -19,7 +19,7 @@ const cards: HomeCard[] = [
   {
     icon: "studio",
     title: "Create or use a drill",
-    description: "Start from your own drill, built-ins, or Drill Exchange.",
+    description: "Explore public drills first, then switch to My Drills for custom drafts.",
     href: "/library"
   },
   {

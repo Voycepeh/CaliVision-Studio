@@ -3,11 +3,12 @@
 ## Home and navigation flow
 
 1. User lands on **Home** (`/`) as the brand-first product entry.
-2. User picks one of the primary paths: **Open Library**, **Upload Video**, or **Live Streaming**.
-3. From **Library** (`/library`), each drill row is a direct action hub: **Analyze Video**, **Live Coach**, **Edit in Studio**, plus inline **Preview** (no route detour required just to inspect a drill).
-4. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal Library drill cards keep owner-facing actions only (for example **Remove from Public**).
-5. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
-6. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
+2. User picks one of the primary paths: **Drills**, **Upload Video**, or **Live Streaming**.
+3. From **Drills** (`/library`), public **Drill Exchange** discovery appears first and users can launch **Upload Video** or **Live Coaching** directly from public drill cards (no My Drills detour required). Direct `/marketplace` routes remain shareable deep links for listing and detail pages.
+4. **My Drills** is a secondary section on `/library` for authored drafts, imported drill files, private drills, and advanced editing workflows.
+5. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal drill cards keep owner-facing actions only (for example **Remove from Public**).
+6. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
+7. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
 
 ## Current Drill Studio flow
 
@@ -66,7 +67,7 @@ Cadence note (April 8, 2026): this browser cadence follows the Android repo’s 
 ## Current availability notes
 
 - Upload Video processing is browser-local and tab-bound.
-- Drill Exchange is browse/preview first; published drills stay separate from My Library until the user explicitly adds one.
+- Drill Exchange is now the default drill discovery path on `/library`; published drills still stay separate from My Drills until the user explicitly adds one.
 - Hosted auth/storage/community services are deferred.
 
 Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
