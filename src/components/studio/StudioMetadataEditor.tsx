@@ -324,18 +324,6 @@ const thumbnailContentRowStyle: CSSProperties = {
   alignItems: "flex-start"
 };
 
-const fieldsetStyle: CSSProperties = {
-  margin: 0,
-  border: "1px solid var(--border)",
-  borderRadius: "0.5rem",
-  padding: "0.45rem"
-};
-
-const guideGridStyle: CSSProperties = {
-  display: "grid",
-  gap: "0.3rem"
-};
-
 const detailsSummaryStyle: CSSProperties = {
   cursor: "pointer",
   fontSize: "0.82rem",
