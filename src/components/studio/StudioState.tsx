@@ -184,6 +184,7 @@ type StudioStateValue = {
   clearSelectedPhaseImage: () => void;
   runPoseDetectionForSelectedPhase: () => Promise<void>;
   applyDetectionToSelectedPhase: () => void;
+  clearSelectedPhasePoseReference: () => void;
   setSelectedPhaseOverlayState: (partial: Partial<PhaseOverlayState>) => void;
   resetSelectedPhaseOverlayState: () => void;
   openPublishPanel: () => void;
@@ -206,7 +207,7 @@ const StudioStateContext = createContext<StudioStateValue | undefined>(undefined
 const DEFAULT_DETECTION_WORKFLOW_STATE: DetectionWorkflowState = {
   status: "idle",
   result: null,
-  message: "Upload a phase image to begin detection."
+  message: "Upload a source image, run detection, then apply as pose reference."
 };
 
 const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
@@ -1870,9 +1871,9 @@ export function StudioStateProvider({
       setPhaseDetectionState((current) => ({
         ...current,
         [scopeKey]: {
-          status: "detecting",
+          status: "uploaded",
           result: null,
-          message: "Image ready. Detecting and applying pose..."
+          message: "Source image ready. Run Detect pose when you are ready."
         }
       }));
 
@@ -1913,7 +1914,6 @@ export function StudioStateProvider({
         })
       );
 
-      await runPoseDetectionForScope(scopeKey, phaseId, sourceImage);
     } catch {
       URL.revokeObjectURL(objectUrl);
       setPhaseDetectionState((current) => ({
@@ -2063,13 +2063,13 @@ export function StudioStateProvider({
     );
   }
 
-  async function runPoseDetectionForScope(scopeKey: string, phaseId: string, sourceImage: PhaseSourceImage): Promise<void> {
+  async function runPoseDetectionForScope(scopeKey: string, sourceImage: PhaseSourceImage): Promise<void> {
     setPhaseDetectionState((current) => ({
       ...current,
       [scopeKey]: {
         status: "detecting",
         result: null,
-        message: "Detecting and applying pose..."
+        message: "Detecting pose from source image..."
       }
     }));
 
@@ -2089,22 +2089,12 @@ export function StudioStateProvider({
         return;
       }
 
-      withPhaseUpdate(phaseId, (phase, view) => {
-        const poseId = phase.poseSequence[0]?.poseId ?? `${phaseId}_pose_001`;
-        const nextPose = mapDetectionResultToPortablePose(result, {
-          poseId,
-          timestampMs: phase.poseSequence[0]?.timestampMs ?? phase.startOffsetMs ?? 0,
-          view
-        });
-        phase.poseSequence = [nextPose];
-      });
-
       setPhaseDetectionState((current) => ({
         ...current,
         [scopeKey]: {
-          status: "applied",
+          status: "detected",
           result,
-          message: `Pose detected and applied (${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} joints).`
+          message: `Detected pose ready (${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} joints). Apply as pose reference when ready.`
         }
       }));
     } catch (error) {
@@ -2123,7 +2113,7 @@ export function StudioStateProvider({
     if (!selectedScopeKey || !selectedPhaseSourceImage || !selectedPhaseId) {
       return;
     }
-    await runPoseDetectionForScope(selectedScopeKey, selectedPhaseId, selectedPhaseSourceImage);
+    await runPoseDetectionForScope(selectedScopeKey, selectedPhaseSourceImage);
   }
 
   function applyDetectionToSelectedPhase(): void {
@@ -2153,9 +2143,37 @@ export function StudioStateProvider({
       [selectedScopeKey]: {
         status: "applied",
         result: detectionResult,
-        message: "Detected canonical pose applied to phase. Use manual joint editor for refinements."
+        message: "Detected pose applied as pose reference. Use the pose editor for refinements."
       }
     }));
+  }
+
+  function clearSelectedPhasePoseReference(): void {
+    if (!selectedPhaseId || !selectedScopeKey) {
+      return;
+    }
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      phase.poseSequence = [];
+    });
+
+    setPhaseDetectionState((current) => {
+      const existing = current[selectedScopeKey];
+      if (!existing || existing.status === "idle") {
+        return current;
+      }
+
+      return {
+        ...current,
+        [selectedScopeKey]: {
+          ...existing,
+          status: existing.result ? "detected" : "uploaded",
+          message: existing.result
+            ? "Pose reference cleared. Detected pose is still available to apply."
+            : "Pose reference cleared. Upload or detect to create a new pose reference."
+        }
+      };
+    });
   }
 
   function exportSelectedPackage(): void {
@@ -2349,6 +2367,7 @@ export function StudioStateProvider({
     clearSelectedPhaseImage,
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase,
+    clearSelectedPhasePoseReference,
     setSelectedPhaseOverlayState,
     resetSelectedPhaseOverlayState,
     openPublishPanel,

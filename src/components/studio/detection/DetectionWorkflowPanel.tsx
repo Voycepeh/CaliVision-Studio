@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
+import { getSortedPhases } from "@/lib/editor/package-editor";
 
 export function DetectionWorkflowPanel({
   phaseId,
@@ -14,9 +15,13 @@ export function DetectionWorkflowPanel({
   const {
     selectedPhaseSourceImage,
     selectedPhaseDetection,
+    selectedPackage,
+    selectedPhaseId,
     setSelectedPhaseImage,
     clearSelectedPhaseImage,
-    runPoseDetectionForSelectedPhase
+    runPoseDetectionForSelectedPhase,
+    applyDetectionToSelectedPhase,
+    clearSelectedPhasePoseReference
   } = useStudioState();
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -27,11 +32,17 @@ export function DetectionWorkflowPanel({
     }
   }, [autoOpenSource, phaseId]);
 
+  const selectedPhase = selectedPackage
+    ? getSortedPhases(selectedPackage.workingPackage).find((phase) => phase.phaseId === selectedPhaseId) ?? null
+    : null;
+  const hasPoseReference = Boolean(selectedPhase?.poseSequence[0]);
+  const hasDetectedPose = selectedPhaseDetection.status === "detected" || selectedPhaseDetection.status === "applied";
+
   return (
     <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
       <div className="studio-action-row">
         <label style={labelStyle}>
-          <span>Upload image</span>
+          <span>Source image</span>
           <input
             ref={uploadInputRef}
             type="file"
@@ -50,19 +61,30 @@ export function DetectionWorkflowPanel({
         </label>
 
         <button type="button" onClick={() => clearSelectedPhaseImage()} className="studio-button" disabled={!selectedPhaseSourceImage}>
-          Remove image
+          Clear source image
         </button>
 
-        {selectedPhaseDetection.status === "failed" ? (
-          <button type="button" onClick={() => runPoseDetectionForSelectedPhase()} className="studio-button studio-button-primary" disabled={!selectedPhaseSourceImage}>
-            Retry detection
-          </button>
-        ) : null}
+        <button type="button" onClick={() => void runPoseDetectionForSelectedPhase()} className="studio-button" disabled={!selectedPhaseSourceImage}>
+          {selectedPhaseDetection.status === "failed" ? "Retry detection" : "Detect pose"}
+        </button>
+
+        <button type="button" onClick={() => applyDetectionToSelectedPhase()} className="studio-button studio-button-primary" disabled={!hasDetectedPose}>
+          Apply as pose reference
+        </button>
+
+        <button type="button" onClick={() => clearSelectedPhasePoseReference()} className="studio-button studio-button-danger" disabled={!hasPoseReference}>
+          Clear pose reference
+        </button>
       </div>
 
       <p className="muted" style={{ margin: 0 }}>
         {selectedPhaseDetection.message}
       </p>
+      {hasPoseReference ? (
+        <p className="muted" style={{ margin: 0 }}>
+          Pose reference saved.
+        </p>
+      ) : null}
     </section>
   );
 }

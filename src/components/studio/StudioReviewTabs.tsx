@@ -103,9 +103,9 @@ export function StudioReviewTabs() {
               <div className="card" style={{ display: "grid", gap: "0.35rem" }}>
                 <h4 style={{ margin: 0, fontSize: "0.9rem" }}>Selected phase checks</h4>
                 <ul style={{ margin: 0, paddingLeft: "1rem" }}>
-                  {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">Source image exists but no canonical pose is applied yet.</li> : null}
+                  {selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">Source image exists but no pose reference is applied yet.</li> : null}
                   {!selectedPhaseSourceImage && selectedPhase.poseSequence[0] ? (
-                    <li className="muted">Canonical pose exists without a local source image reference for visual alignment.</li>
+                    <li className="muted">Pose reference exists without a source image.</li>
                   ) : null}
                   {selectedPhaseDetection.status === "failed" ? <li className="muted">Image detection failed for this phase. Review image quality or remap manually.</li> : null}
                   {!selectedPhaseSourceImage && !selectedPhase.poseSequence[0] ? <li className="muted">No source image and no pose data available yet for this phase.</li> : null}

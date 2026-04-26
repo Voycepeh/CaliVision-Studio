@@ -24,7 +24,7 @@ export function StudioPhaseDetailsPanel() {
           <li>Phase ID: {selectedPhase.phaseId}</li>
           <li>Order: {selectedPhase.order}</li>
           <li>Duration: {formatDurationShort(selectedPhase.durationMs)}</li>
-          <li>Pose frames: {selectedPhase.poseSequence.length}</li>
+          <li>Pose reference frames: {selectedPhase.poseSequence.length}</li>
           <li>Assets: {selectedPhase.assetRefs.length}</li>
           <li>
             Packaged source image: {selectedPhase.assetRefs.some((asset) => asset.role === "phase-source-image") ? "yes" : "no"}
