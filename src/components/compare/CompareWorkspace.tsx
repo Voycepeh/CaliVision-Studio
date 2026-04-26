@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { drawCoachingOverlay, drawPoseOverlay, getNearestPoseFrame } from "@/lib/workflow/pose-overlay";
-import { buildCompareWorkspaceModel } from "@/lib/compare/compare-model";
+import { buildCompareWorkspaceModel, deriveComparisonStatusView } from "@/lib/compare/compare-model";
 import { readCompareHandoffPayload } from "@/lib/compare/compare-handoff";
 import { resolveCompareVisualAvailability, resolveUsableCompareVisualState } from "@/lib/compare/visual-sources";
 import type { PoseFrame } from "@/lib/upload/types";
-import type { PortablePose } from "@/lib/schema/contracts";
+import type { DrillBenchmarkPhase, PortablePose } from "@/lib/schema/contracts";
 
 function toPoseFrame(pose: PortablePose): PoseFrame {
   return {
@@ -28,6 +28,36 @@ function resolvePoseDuration(frames: PoseFrame[]): number {
   return frames[frames.length - 1]?.timestampMs ?? 0;
 }
 
+function buildBenchmarkReplayFrames(input: {
+  directPoses?: PortablePose[];
+  phaseSequence?: DrillBenchmarkPhase[];
+  phaseDurationsMs?: Record<string, number>;
+  fallbackHoldDurationMs?: number;
+}): PoseFrame[] {
+  if ((input.directPoses?.length ?? 0) > 1) {
+    return (input.directPoses ?? []).map(toPoseFrame).sort((a, b) => a.timestampMs - b.timestampMs);
+  }
+
+  const phases = (input.phaseSequence ?? [])
+    .filter((phase) => phase.pose)
+    .sort((a, b) => a.order - b.order);
+  if (phases.length === 0) {
+    return (input.directPoses ?? []).map(toPoseFrame).sort((a, b) => a.timestampMs - b.timestampMs);
+  }
+
+  let cursorMs = 0;
+  return phases.flatMap((phase, index) => {
+    if (!phase.pose) return [];
+    const resolvedDuration = phase.targetDurationMs
+      ?? input.phaseDurationsMs?.[phase.key]
+      ?? (index === phases.length - 1 ? input.fallbackHoldDurationMs : undefined)
+      ?? 800;
+    const frame: PoseFrame = { timestampMs: cursorMs, joints: phase.pose.joints };
+    cursorMs += Math.max(resolvedDuration, 300);
+    return [frame];
+  });
+}
+
 export function CompareWorkspace() {
   const router = useRouter();
   const [handoff, setHandoff] = useState(() => readCompareHandoffPayload());
@@ -36,6 +66,8 @@ export function CompareWorkspace() {
   const [speed, setSpeed] = useState(1);
   const [attemptVideoFailed, setAttemptVideoFailed] = useState(false);
   const [benchmarkVideoFailed, setBenchmarkVideoFailed] = useState(false);
+  const [attemptAspectRatio, setAttemptAspectRatio] = useState<number>(16 / 9);
+  const [benchmarkAspectRatio, setBenchmarkAspectRatio] = useState<number>(16 / 9);
 
   const attemptVideoRef = useRef<HTMLVideoElement | null>(null);
   const benchmarkVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -49,6 +81,8 @@ export function CompareWorkspace() {
   useEffect(() => {
     setAttemptVideoFailed(false);
     setBenchmarkVideoFailed(false);
+    setAttemptAspectRatio(16 / 9);
+    setBenchmarkAspectRatio(16 / 9);
   }, [handoff?.attemptVideoUrl, handoff?.benchmarkVideoUrl]);
 
   const model = useMemo(() => buildCompareWorkspaceModel({
@@ -58,12 +92,17 @@ export function CompareWorkspace() {
     coachingFeedback: handoff?.coachingFeedback
   }), [handoff]);
 
-  const benchmarkFrames = useMemo(() => {
-    if (handoff?.benchmarkPoses?.length) {
-      return handoff.benchmarkPoses.map(toPoseFrame).sort((a, b) => a.timestampMs - b.timestampMs);
-    }
-    return [] as PoseFrame[];
-  }, [handoff?.benchmarkPoses]);
+  const statusView = useMemo(() => deriveComparisonStatusView({
+    analysisSession: handoff?.analysisSession,
+    benchmarkFeedback: handoff?.benchmarkFeedback
+  }), [handoff?.analysisSession, handoff?.benchmarkFeedback]);
+
+  const benchmarkFrames = useMemo(() => buildBenchmarkReplayFrames({
+    directPoses: handoff?.benchmarkPoses,
+    phaseSequence: handoff?.drill?.benchmark?.phaseSequence,
+    phaseDurationsMs: handoff?.drill?.benchmark?.timing?.phaseDurationsMs,
+    fallbackHoldDurationMs: handoff?.drill?.benchmark?.timing?.targetHoldDurationMs
+  }), [handoff?.benchmarkPoses, handoff?.drill?.benchmark?.phaseSequence, handoff?.drill?.benchmark?.timing?.phaseDurationsMs, handoff?.drill?.benchmark?.timing?.targetHoldDurationMs]);
 
   const attemptFrames = useMemo(() => handoff?.attemptPoseFrames ?? [], [handoff?.attemptPoseFrames]);
   const visualAvailability = useMemo(
@@ -180,6 +219,10 @@ export function CompareWorkspace() {
   const shouldShowControls = shouldShowDetailedPanels && !showNoAttemptVisual;
   const shouldShowMetrics = shouldShowDetailedPanels && (model.metricRows.length > 0 || model.emptyState?.kind === "insufficient_data");
 
+  const benchmarkPanelSubtitle = model.benchmarkLabel === "Benchmark hold target"
+    ? "Benchmark hold target"
+    : "Benchmark replay";
+
   return (
     <section style={{ display: "grid", gap: "0.8rem" }}>
       <header className="card" style={{ margin: 0, display: "grid", gap: "0.4rem" }}>
@@ -216,20 +259,26 @@ export function CompareWorkspace() {
           <article className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>{model.benchmarkLabel}</h3>
             {showBenchmarkVideo ? (
-              <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617" }}>
+              <div style={{ position: "relative", aspectRatio: `${benchmarkAspectRatio}`, background: "#020617", borderRadius: 12 }}>
                 <video
                   ref={benchmarkVideoRef}
                   src={handoff?.benchmarkVideoUrl}
                   controls={false}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget;
+                    if (video.videoWidth > 0 && video.videoHeight > 0) {
+                      setBenchmarkAspectRatio(video.videoWidth / video.videoHeight);
+                    }
+                  }}
                   onError={() => setBenchmarkVideoFailed(true)}
                 />
                 {benchmarkFrames.length > 0 ? <canvas ref={benchmarkCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : null}
               </div>
             ) : benchmarkFrames.length > 0 ? (
               <div>
-                <p className="muted" style={{ marginTop: 0 }}>Benchmark pose sequence</p>
-                <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617", borderRadius: 12 }}>
+                <p className="muted" style={{ marginTop: 0 }}>{benchmarkPanelSubtitle}</p>
+                <div style={{ position: "relative", aspectRatio: `${benchmarkAspectRatio}`, background: "#020617", borderRadius: 12 }}>
                   <canvas ref={benchmarkCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
                 </div>
               </div>
@@ -241,18 +290,24 @@ export function CompareWorkspace() {
           <article className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>{model.attemptLabel}</h3>
             {showAttemptVideo ? (
-              <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617" }}>
+              <div style={{ position: "relative", aspectRatio: `${attemptAspectRatio}`, background: "#020617", borderRadius: 12, marginInline: attemptAspectRatio < 1 ? "auto" : undefined, maxWidth: attemptAspectRatio < 1 ? 320 : undefined }}>
                 <video
                   ref={attemptVideoRef}
                   src={handoff?.attemptVideoUrl}
                   controls={false}
                   style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                  onLoadedMetadata={(event) => {
+                    const video = event.currentTarget;
+                    if (video.videoWidth > 0 && video.videoHeight > 0) {
+                      setAttemptAspectRatio(video.videoWidth / video.videoHeight);
+                    }
+                  }}
                   onError={() => setAttemptVideoFailed(true)}
                 />
                 {attemptFrames.length > 0 ? <canvas ref={attemptCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} /> : null}
               </div>
             ) : attemptFrames.length > 0 ? (
-              <div style={{ position: "relative", aspectRatio: "16/9", background: "#020617", borderRadius: 12 }}>
+              <div style={{ position: "relative", aspectRatio: `${attemptAspectRatio}`, background: "#020617", borderRadius: 12, marginInline: attemptAspectRatio < 1 ? "auto" : undefined, maxWidth: attemptAspectRatio < 1 ? 320 : undefined }}>
                 <canvas ref={attemptCanvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
               </div>
             ) : (
@@ -263,8 +318,8 @@ export function CompareWorkspace() {
           <aside className="card" style={{ margin: 0 }}>
             <h3 style={{ marginTop: 0 }}>Comparison insight</h3>
             <p><strong>Status:</strong> {model.comparisonStatus}</p>
-            <p className="muted" style={{ marginTop: "0.2rem" }}>{model.topTakeaway}</p>
-            {model.overallMatchScore === undefined ? <p className="muted" style={{ margin: 0 }}>Match score coming soon</p> : null}
+            <p className="muted" style={{ marginTop: "0.2rem" }}>{statusView.detail || model.topTakeaway}</p>
+            {model.overallMatchScore === undefined ? <p className="muted" style={{ margin: 0 }}>Detailed score not available yet</p> : null}
             <div style={{ marginTop: "0.5rem" }}>
               <strong>Focus areas</strong>
               <ul style={{ margin: "0.35rem 0 0 1rem" }}>
