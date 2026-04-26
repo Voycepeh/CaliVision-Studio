@@ -242,7 +242,7 @@ export function MarketplaceOverview() {
 
             return (
               <article key={entry.id} className="card" style={cardStyle}>
-                {leadDrill ? <DrillThumbnailImage drill={leadDrill} assets={entry.snapshotPackage.assets} height={160} /> : null}
+                {leadDrill ? <DrillThumbnailImage drill={leadDrill} assets={entry.snapshotPackage.assets} height={140} /> : null}
                 <div style={cardBodyStyle}>
                   <h3 style={{ margin: 0, fontSize: "1rem", lineHeight: 1.3 }}>{entry.title}</h3>
                   <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>By {entry.creatorDisplayName}</p>

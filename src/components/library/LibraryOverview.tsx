@@ -486,24 +486,28 @@ export function LibraryOverview() {
                   onClick={() => setSelectedDrillId(drill.drillId)}
                 >
                   <div style={rowTitleWrapStyle}>
-                    {previewDrill ? <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} height={150} /> : null}
-                    <strong>{drill.title}</strong>
-                    <p className="muted" style={{ margin: 0 }}>
-                      Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
-                      {drill.activeReadyVersion?.isPublished ? " • Published" : ""}
-                    </p>
-                    {exchangePublication ? (
-                      <p className="muted" style={{ margin: 0 }}>
-                        Drill Exchange status: {formatVisibilityStatus(exchangePublication.visibilityStatus)}
-                        {" "}• Published version ID: {exchangePublication.sourceVersionId}
-                        {exchangePublication.visibilityStatus === "published" ? (
-                          <>
-                            {" "}• <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
-                          </>
-                        ) : null}
-                      </p>
+                    {previewDrill ? (
+                      <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} variant="compact" width={152} height={86} />
                     ) : null}
-                    {drill.openDraftVersion ? <p className="muted" style={{ margin: 0 }}>Open draft for v{drill.openDraftVersion.versionNumber}</p> : null}
+                    <div style={rowTitleMetaStyle}>
+                      <strong>{drill.title}</strong>
+                      <p className="muted" style={{ margin: 0 }}>
+                        Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
+                        {drill.activeReadyVersion?.isPublished ? " • Published" : ""}
+                      </p>
+                      {exchangePublication ? (
+                        <p className="muted" style={{ margin: 0 }}>
+                          Drill Exchange status: {formatVisibilityStatus(exchangePublication.visibilityStatus)}
+                          {" "}• Published version ID: {exchangePublication.sourceVersionId}
+                          {exchangePublication.visibilityStatus === "published" ? (
+                            <>
+                              {" "}• <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
+                            </>
+                          ) : null}
+                        </p>
+                      ) : null}
+                      {drill.openDraftVersion ? <p className="muted" style={{ margin: 0 }}>Open draft for v{drill.openDraftVersion.versionNumber}</p> : null}
+                    </div>
                   </div>
                   <p className="muted" style={{ margin: 0 }}>Updated {new Date(drill.updatedAtIso).toLocaleString()}</p>
                   <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
@@ -707,7 +711,8 @@ function InlineItemFeedback({ itemId, pending, success, error }: { itemId: strin
 
 const listStackStyle: CSSProperties = { display: "grid", gap: "0.35rem" };
 const listCardStyle: CSSProperties = { margin: 0, padding: "0.55rem", display: "grid", gap: "0.32rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
-const rowTitleWrapStyle: CSSProperties = { display: "grid", gap: "0.15rem" };
+const rowTitleWrapStyle: CSSProperties = { display: "flex", gap: "0.55rem", flexWrap: "wrap", alignItems: "flex-start" };
+const rowTitleMetaStyle: CSSProperties = { display: "grid", gap: "0.15rem", flex: "1 1 260px", minWidth: "min(100%, 240px)" };
 const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.55rem", background: "rgba(19, 28, 42, 0.45)" };
 const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" };
 const previewPanelStyle: CSSProperties = { marginTop: "0.15rem", width: "min(100%, 460px)" };
