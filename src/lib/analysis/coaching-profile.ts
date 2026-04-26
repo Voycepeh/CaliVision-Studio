@@ -90,6 +90,33 @@ export function applyCoachingProfileSuggestions(input: {
   return merged;
 }
 
+export function deriveAutoCoachingProfile(input: {
+  profile: DrillCoachingProfile | undefined;
+  drillType: "hold" | "rep";
+  primaryView?: "front" | "side" | "rear";
+  hasAuthoredPhases?: boolean;
+}): DrillCoachingProfile {
+  if (input.profile) {
+    return { ...input.profile };
+  }
+
+  const fallback: DrillCoachingProfile = {
+    rulesetId: input.drillType === "hold" ? "generic_hold_v1" : "generic_rep_v1",
+    cuePreference: "visual_only"
+  };
+
+  if (input.drillType === "hold" && input.primaryView === "side" && input.hasAuthoredPhases) {
+    fallback.movementFamily = "handstand";
+    fallback.supportType = "wall_assisted";
+    fallback.primaryGoal = "balance";
+    fallback.enabledVisualGuides = [...HANDSTAND_DEFAULT_VISUAL_GUIDES];
+    fallback.cuePreference = "audio_optional";
+    fallback.rulesetId = "handstand_wall_hold_v1";
+  }
+
+  return fallback;
+}
+
 export function filterVisualGuidesByProfile(
   profile: DrillCoachingProfile | undefined,
   guides: CoachingVisualGuide[]

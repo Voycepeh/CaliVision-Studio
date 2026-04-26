@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import {
+  deriveAutoCoachingProfile,
   isCoachingProfileConfigured,
   type CoachingMovementFamily,
   type CoachingPrimaryGoal,
@@ -53,8 +54,17 @@ export function StudioMetadataEditor() {
   const movementValue = draftSetup?.movementTypeConfigured ? drill.drillType : "";
   const cameraValue = draftSetup?.cameraViewConfigured ? drill.primaryView : "";
   const profile = drill.coachingProfile;
-  const profileFormState = deriveCoachingProfileFormState(profile);
+  const effectiveProfile = deriveAutoCoachingProfile({
+    profile,
+    drillType: drill.drillType,
+    primaryView: drill.primaryView,
+    hasAuthoredPhases: drill.phases.some((phase) => Object.keys(phase.poseSequence[0]?.joints ?? {}).length > 0)
+  });
+  const profileFormState = deriveCoachingProfileFormState(effectiveProfile);
   const hasProfile = isCoachingProfileConfigured(profile);
+  const setOverrideProfile = (partial: Partial<NonNullable<typeof profile>>) => {
+    setDrillCoachingProfile({ ...effectiveProfile, ...partial });
+  };
 
   return (
     <section style={{ display: "grid", gap: "0.55rem" }}>
@@ -120,22 +130,29 @@ export function StudioMetadataEditor() {
 
       <section style={coachingSectionStyle}>
         <div style={{ display: "grid", gap: "0.2rem" }}>
-          <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Coaching Profile</h4>
+          <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Advanced coaching settings</h4>
           <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
-            Coaching Profile tells CaliVision which coaching rules and visual guides to use for this drill. This prevents rule selection from relying on drill title.
+            CaliVision can auto-select coaching cues from this drill’s movement type, camera view, and phases.
           </p>
           <p style={{ margin: 0, fontSize: "0.76rem", color: "var(--muted)" }}>
-            {hasProfile ? "Coaching profile configured" : "Coaching profile not configured — fallback rules may be used"}
-            {profile?.rulesetId ? ` · Ruleset: ${formatRulesetLabel(profile.rulesetId)}` : ""}
+            {hasProfile ? "Override saved for this drill" : "Auto-selected from drill details"}
+            {effectiveProfile.rulesetId ? ` · Ruleset: ${formatRulesetLabel(effectiveProfile.rulesetId)}` : ""}
           </p>
         </div>
 
-        <div className="field-grid">
-          <label style={labelStyle}>
+        <details>
+          <summary style={detailsSummaryStyle}>Auto-selected from drill details</summary>
+          <div style={detailsBodyStyle}>
+            <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+              Override coaching settings
+            </p>
+
+            <div className="field-grid">
+              <label style={labelStyle}>
               <span>Movement family</span>
               <select
               value={profileFormState.movementFamily}
-              onChange={(event) => setDrillCoachingProfile({ movementFamily: toOptionalValue<CoachingMovementFamily>(event.target.value) })}
+              onChange={(event) => setOverrideProfile({ movementFamily: toOptionalValue<CoachingMovementFamily>(event.target.value) })}
               style={inputStyle}
             >
               <option value="">Not configured</option>
@@ -147,96 +164,98 @@ export function StudioMetadataEditor() {
               <option value="pike_push_up">Pike push-up</option>
               <option value="custom">Custom</option>
             </select>
-          </label>
+              </label>
 
-          <label style={labelStyle}>
-            <span>Coaching ruleset</span>
-            <select
-              value={profileFormState.rulesetId}
-              onChange={(event) => setDrillCoachingProfile({ rulesetId: event.target.value as CoachingRulesetId })}
-              style={inputStyle}
-            >
-              <option value="none">None</option>
-              <option value="handstand_wall_hold_v1">Handstand wall hold</option>
-              <option value="generic_hold_v1">Generic hold</option>
-              <option value="generic_rep_v1">Generic rep</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
+              <label style={labelStyle}>
+                <span>Primary coaching goal</span>
+                <select
+                  value={profileFormState.primaryGoal}
+                  onChange={(event) => setOverrideProfile({ primaryGoal: toOptionalValue<CoachingPrimaryGoal>(event.target.value) })}
+                  style={inputStyle}
+                >
+                  <option value="">Not configured</option>
+                  <option value="balance">Balance</option>
+                  <option value="strength">Strength</option>
+                  <option value="mobility">Mobility</option>
+                  <option value="control">Control</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
 
-          <label style={labelStyle}>
-            <span>Support type</span>
-            <select
-              value={profileFormState.supportType}
-              onChange={(event) => setDrillCoachingProfile({ supportType: toOptionalValue<CoachingSupportType>(event.target.value) })}
-              style={inputStyle}
-            >
-              <option value="">Not configured</option>
-              <option value="free">Free</option>
-              <option value="wall_assisted">Wall assisted</option>
-              <option value="floor">Floor</option>
-              <option value="bars">Bars</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
+              <label style={labelStyle}>
+                <span>Coaching ruleset</span>
+                <select
+                  value={profileFormState.rulesetId}
+                  onChange={(event) => setOverrideProfile({ rulesetId: event.target.value as CoachingRulesetId })}
+                  style={inputStyle}
+                >
+                  <option value="none">None</option>
+                  <option value="handstand_wall_hold_v1">Handstand wall hold</option>
+                  <option value="generic_hold_v1">Generic hold</option>
+                  <option value="generic_rep_v1">Generic rep</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
 
-          <label style={labelStyle}>
-            <span>Primary coaching goal</span>
-            <select
-              value={profileFormState.primaryGoal}
-              onChange={(event) => setDrillCoachingProfile({ primaryGoal: toOptionalValue<CoachingPrimaryGoal>(event.target.value) })}
-              style={inputStyle}
-            >
-              <option value="">Not configured</option>
-              <option value="balance">Balance</option>
-              <option value="strength">Strength</option>
-              <option value="mobility">Mobility</option>
-              <option value="control">Control</option>
-              <option value="custom">Custom</option>
-            </select>
-          </label>
+              <label style={labelStyle}>
+                <span>Support type</span>
+                <select
+                  value={profileFormState.supportType}
+                  onChange={(event) => setOverrideProfile({ supportType: toOptionalValue<CoachingSupportType>(event.target.value) })}
+                  style={inputStyle}
+                >
+                  <option value="">Not configured</option>
+                  <option value="free">Free</option>
+                  <option value="wall_assisted">Wall assisted</option>
+                  <option value="floor">Floor</option>
+                  <option value="bars">Bars</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
 
-          <label style={labelStyle}>
-            <span>Cue preference</span>
-            <select
-              value={profileFormState.cuePreference}
-              onChange={(event) => setDrillCoachingProfile({ cuePreference: event.target.value as NonNullable<typeof profile>["cuePreference"] })}
-              style={inputStyle}
-            >
-              <option value="visual_only">Visual only</option>
-              <option value="audio_optional">Audio optional</option>
-              <option value="visual_and_audio">Visual + audio</option>
-            </select>
-          </label>
-        </div>
+              <label style={labelStyle}>
+                <span>Cue preference</span>
+                <select
+                  value={profileFormState.cuePreference}
+                  onChange={(event) => setOverrideProfile({ cuePreference: event.target.value as NonNullable<typeof profile>["cuePreference"] })}
+                  style={inputStyle}
+                >
+                  <option value="visual_only">Visual only</option>
+                  <option value="audio_optional">Audio optional</option>
+                  <option value="visual_and_audio">Visual + audio</option>
+                </select>
+              </label>
+            </div>
 
-        <fieldset style={fieldsetStyle}>
-          <legend style={{ padding: "0 0.2rem" }}>Visual guides</legend>
-          <div style={guideGridStyle}>
-            {VISUAL_GUIDE_OPTIONS.map((guideType) => {
-              const selectedGuides = profileFormState.enabledVisualGuides;
-              const checked = selectedGuides.includes(guideType);
-              return (
-                <label key={guideType} style={checkboxLabelStyle}>
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => {
-                      const next = new Set(selectedGuides);
-                      if (event.target.checked) {
-                        next.add(guideType);
-                      } else {
-                        next.delete(guideType);
-                      }
-                      setDrillCoachingProfile({ enabledVisualGuides: [...next] });
-                    }}
-                  />
-                  <span>{formatVisualGuideLabel(guideType)}</span>
-                </label>
-              );
-            })}
+            <fieldset style={fieldsetStyle}>
+              <legend style={{ padding: "0 0.2rem" }}>Visual guides</legend>
+              <div style={guideListStyle}>
+                {VISUAL_GUIDE_OPTIONS.map((guideType) => {
+                  const selectedGuides = profileFormState.enabledVisualGuides;
+                  const checked = selectedGuides.includes(guideType);
+                  return (
+                    <label key={guideType} style={checkboxLabelStyle}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const next = new Set(selectedGuides);
+                          if (event.target.checked) {
+                            next.add(guideType);
+                          } else {
+                            next.delete(guideType);
+                          }
+                          setOverrideProfile({ enabledVisualGuides: [...next] });
+                        }}
+                      />
+                      <span>{formatVisualGuideLabel(guideType)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
           </div>
-        </fieldset>
+        </details>
 
         <button
           type="button"
@@ -307,17 +326,30 @@ const fieldsetStyle: CSSProperties = {
 
 const guideGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "0.35rem"
+  gap: "0.3rem"
+};
+
+const detailsSummaryStyle: CSSProperties = {
+  cursor: "pointer",
+  fontSize: "0.82rem",
+  color: "var(--muted)"
+};
+
+const detailsBodyStyle: CSSProperties = {
+  marginTop: "0.45rem",
+  display: "grid",
+  gap: "0.5rem"
 };
 
 const checkboxLabelStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: "0.35rem",
+  gap: "0.45rem",
   fontSize: "0.8rem",
   color: "var(--muted)"
 };
+
+const guideListStyle = guideGridStyle;
 
 const secondaryButtonStyle: CSSProperties = {
   border: "1px solid var(--border)",

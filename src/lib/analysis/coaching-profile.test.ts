@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyCoachingProfileSuggestions } from "./coaching-profile.ts";
+import { applyCoachingProfileSuggestions, deriveAutoCoachingProfile } from "./coaching-profile.ts";
 import { toValidatedPackage } from "../package/validation/validate-package.ts";
 
 function buildPackage(withProfile: boolean): unknown {
@@ -68,4 +68,49 @@ test("handstand movement selection suggests defaults only for empty fields", () 
   assert.equal(next.rulesetId, "custom");
   assert.equal(next.supportType, "wall_assisted");
   assert.equal(next.cuePreference, "audio_optional");
+});
+
+test("deriveAutoCoachingProfile keeps authored coachingProfile untouched", () => {
+  const authored = {
+    movementFamily: "custom",
+    rulesetId: "custom",
+    supportType: "floor",
+    primaryGoal: "control",
+    cuePreference: "visual_only" as const,
+    enabledVisualGuides: ["ghost_pose" as const]
+  };
+
+  const next = deriveAutoCoachingProfile({
+    profile: authored,
+    drillType: "hold",
+    primaryView: "side",
+    hasAuthoredPhases: true
+  });
+
+  assert.deepEqual(next, authored);
+});
+
+test("deriveAutoCoachingProfile infers safe defaults from drill metadata when profile is missing", () => {
+  const next = deriveAutoCoachingProfile({
+    profile: undefined,
+    drillType: "hold",
+    primaryView: "side",
+    hasAuthoredPhases: true
+  });
+
+  assert.equal(next.rulesetId, "handstand_wall_hold_v1");
+  assert.equal(next.movementFamily, "handstand");
+  assert.equal(next.supportType, "wall_assisted");
+});
+
+test("deriveAutoCoachingProfile falls back to generic ruleset when metadata is limited", () => {
+  const next = deriveAutoCoachingProfile({
+    profile: undefined,
+    drillType: "rep",
+    primaryView: "front",
+    hasAuthoredPhases: false
+  });
+
+  assert.equal(next.rulesetId, "generic_rep_v1");
+  assert.equal(next.movementFamily, undefined);
 });
