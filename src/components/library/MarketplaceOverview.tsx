@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import {
   findExistingExchangeFork,
   getExchangeModerationAccess,
@@ -242,7 +242,16 @@ export function MarketplaceOverview() {
 
             return (
               <article key={entry.id} className="card" style={cardStyle}>
-                {leadDrill ? <DrillThumbnailImage drill={leadDrill} assets={entry.snapshotPackage.assets} height={104} /> : null}
+                {leadDrill ? (
+                  <DrillVisualPreview
+                    drill={leadDrill}
+                    assets={entry.snapshotPackage.assets}
+                    variant="compact"
+                    height={104}
+                    showMotionPreview
+                    motionMode="badge"
+                  />
+                ) : null}
                 <div style={cardBodyStyle}>
                   <h3 style={{ margin: 0, fontSize: "1rem", lineHeight: 1.3 }}>{entry.title}</h3>
                   <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>By {entry.creatorDisplayName}</p>

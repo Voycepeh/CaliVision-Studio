@@ -12,7 +12,7 @@ import {
 } from "@/lib/analysis/coaching-profile";
 import { useStudioState } from "@/components/studio/StudioState";
 import { deriveCoachingProfileFormState } from "@/components/studio/coaching-profile-form-state";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 
 export function StudioMetadataEditor() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -96,7 +96,15 @@ export function StudioMetadataEditor() {
         <div style={thumbnailSectionStyle}>
           <h4 style={{ margin: 0, fontSize: "0.92rem" }}>Thumbnail preview</h4>
           <div style={thumbnailContentRowStyle}>
-            <DrillThumbnailImage drill={drill} assets={selectedPackage.workingPackage.assets} variant="compact" width={152} height={86} />
+            <DrillVisualPreview
+              drill={drill}
+              assets={selectedPackage.workingPackage.assets}
+              variant="compact"
+              width={152}
+              height={86}
+              showMotionPreview
+              motionMode="badge"
+            />
             <p className="muted" style={{ margin: 0, fontSize: "0.78rem", lineHeight: 1.35 }}>
               Keep this preview image clear at small sizes so your drill card looks polished in Library and Drill Exchange.
             </p>

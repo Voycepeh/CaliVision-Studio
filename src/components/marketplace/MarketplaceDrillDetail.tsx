@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
-import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   findExistingExchangeFork,
@@ -183,7 +183,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       <p className="muted" style={{ margin: 0 }}>Equipment: {entry.equipment || "None"}</p>
       <p className="muted" style={{ margin: 0 }}>Tags: {entry.tags.join(", ") || "None"}</p>
       <p style={{ margin: 0 }}>{entry.fullDescription || entry.shortDescription}</p>
-      {drill ? <DrillThumbnailImage drill={drill} assets={entry.snapshotPackage.assets} height={180} /> : null}
+      {drill ? <DrillVisualPreview drill={drill} assets={entry.snapshotPackage.assets} variant="feature" height={180} showMotionPreview motionMode="inset" /> : null}
 
       <details>
         <summary style={{ cursor: "pointer" }}>Phase summary</summary>
