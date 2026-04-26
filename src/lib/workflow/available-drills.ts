@@ -1,6 +1,6 @@
 import { buildDrillOptionLabel } from "../drills/labels.ts";
 import { isUsableBenchmark } from "../drills/benchmark.ts";
-import type { DrillPackage, PortableDrill } from "../schema/contracts.ts";
+import type { DrillPackage, PortableAssetRef, PortableDrill } from "../schema/contracts.ts";
 export {
   buildDrillOptionGroups,
   ensureVisibleDrillSelection,
@@ -30,6 +30,7 @@ type ExchangePublication = {
   snapshotPackage: {
     manifest: { packageVersion: string };
     drills: PortableDrill[];
+    assets?: PortableAssetRef[];
   };
 };
 
@@ -58,7 +59,8 @@ export function mapExchangePublicationsToDrillOptions(publications: ExchangePubl
       sourceId: publication.id,
       packageVersion: publication.snapshotPackage.manifest.packageVersion,
       benchmarkState: isUsableBenchmark(drill.benchmark) ? "available" : "unavailable",
-      drill
+      drill,
+      assets: publication.snapshotPackage.assets
     });
   }
   return options;
@@ -90,7 +92,8 @@ export async function loadAvailableDrillOptions(input: {
       sourceId,
       packageVersion: selectedVersion.packageJson.manifest.packageVersion,
       benchmarkState: isUsableBenchmark(selectedDrill.benchmark) ? "available" : "unavailable",
-      drill: selectedDrill
+      drill: selectedDrill,
+      assets: selectedVersion.packageJson.assets
     });
   }
 

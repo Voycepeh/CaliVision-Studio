@@ -1185,6 +1185,7 @@ export function UploadVideoWorkspace() {
                 drill={selectedDrill?.drill ?? null}
                 sourceKind={selectedDrill?.sourceKind}
                 benchmarkState={selectedDrill?.benchmarkState}
+                assets={selectedDrill?.assets}
               />
 
               <div className="drill-selector-stack">

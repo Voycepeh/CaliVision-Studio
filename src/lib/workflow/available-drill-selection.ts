@@ -5,7 +5,7 @@ import {
   type DrillSourceKind
 } from "../drill-source.ts";
 import { resolveSelectedDrillKey } from "../upload/drill-selection.ts";
-import type { PortableDrill } from "../schema/contracts.ts";
+import type { PortableAssetRef, PortableDrill } from "../schema/contracts.ts";
 
 export type AvailableDrillOption = {
   key: string;
@@ -15,6 +15,7 @@ export type AvailableDrillOption = {
   packageVersion?: string;
   benchmarkState?: "available" | "unavailable" | "legacy-missing";
   drill: PortableDrill;
+  assets?: PortableAssetRef[];
 };
 
 export type AvailableDrillDisplayOption = AvailableDrillOption & { displayLabel: string };

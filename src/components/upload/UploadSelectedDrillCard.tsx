@@ -4,12 +4,13 @@ import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { resolveDrillThumbnail } from "@/lib/drills/thumbnail";
-import type { PortableDrill } from "@/lib/schema/contracts";
+import type { PortableAssetRef, PortableDrill } from "@/lib/schema/contracts";
 
 type UploadSelectedDrillCardProps = {
   drill: PortableDrill | null;
   sourceKind?: StoredDrillSourceKind;
   benchmarkState?: "available" | "unavailable" | "legacy-missing";
+  assets?: PortableAssetRef[];
 };
 
 function formatDrillTypeLabel(drillType: PortableDrill["drillType"]): string {
@@ -29,7 +30,7 @@ function formatWorkspaceLabel(sourceKind?: StoredDrillSourceKind): string | null
   return "Browser workspace";
 }
 
-export function UploadSelectedDrillCard({ drill, sourceKind, benchmarkState }: UploadSelectedDrillCardProps) {
+export function UploadSelectedDrillCard({ drill, sourceKind, benchmarkState, assets = [] }: UploadSelectedDrillCardProps) {
   if (!drill) {
     return (
       <section className="upload-selected-drill-card" aria-live="polite">
@@ -51,13 +52,13 @@ export function UploadSelectedDrillCard({ drill, sourceKind, benchmarkState }: U
       ? "Benchmark available"
       : "Benchmark unavailable";
   const workspaceLabel = formatWorkspaceLabel(sourceKind);
-  const thumbnail = resolveDrillThumbnail(drill, []);
+  const thumbnail = resolveDrillThumbnail(drill, assets);
 
   return (
     <section className="upload-selected-drill-card" aria-live="polite">
       <p className="upload-selected-drill-eyebrow">Selected drill for analysis</p>
       <div className="upload-selected-drill-layout">
-        <DrillThumbnailImage drill={drill} variant="compact" width={172} height={98} />
+        <DrillThumbnailImage drill={drill} assets={assets} variant="compact" width={172} height={98} />
         <div className="upload-selected-drill-content">
           <strong className="upload-selected-drill-title">{drill.title}</strong>
           <div className="upload-selected-drill-chips muted">
