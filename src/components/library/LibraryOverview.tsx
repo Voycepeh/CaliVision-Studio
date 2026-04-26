@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ChangeEvent } from "react";
 import { DrillSelectionPreviewPanel } from "@/components/upload/DrillSelectionPreviewPanel";
+import { DrillThumbnailImage } from "@/components/library/DrillThumbnailImage";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import {
@@ -485,6 +486,7 @@ export function LibraryOverview() {
                   onClick={() => setSelectedDrillId(drill.drillId)}
                 >
                   <div style={rowTitleWrapStyle}>
+                    {previewDrill ? <DrillThumbnailImage drill={previewDrill} assets={workflowSourceVersion.packageJson.assets} height={150} /> : null}
                     <strong>{drill.title}</strong>
                     <p className="muted" style={{ margin: 0 }}>
                       Current released: {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "None yet"}
