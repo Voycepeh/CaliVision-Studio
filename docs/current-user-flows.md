@@ -121,3 +121,12 @@ Studio now supports a first real hosted slice with Supabase Auth + Postgres host
 - Metric rows are shown only when computed from real benchmark/attempt data (for example sequence status, timing status, duration deltas, phase timing rows, completed reps/holds, confidence).
 - Top takeaway and focus areas are sourced from benchmark/coaching outputs (not hard-coded mockup text).
 - Angle-specific form scores and synthetic percentages remain future work unless backed by implemented computed metrics.
+
+
+## Current History flow
+
+1. Open **History** (`/history`) from primary navigation.
+2. Studio shows recent private attempt summaries saved from completed **Upload Video** and **Live Streaming** analysis runs.
+3. Each entry shows drill, source, timestamp, key metric (reps or hold), status, and top finding/failure reason when available.
+4. Studio computes simple per-drill personal best indicators (best reps, longest hold, latest attempt) from saved summaries.
+5. History stays local-first and lightweight: no raw videos, annotated video files, or heavy frame traces are persisted in this surface by default.

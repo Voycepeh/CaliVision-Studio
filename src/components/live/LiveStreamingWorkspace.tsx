@@ -19,6 +19,9 @@ import { canLikelyPlayMimeType, extensionFromMimeType, resolveSafeDelivery, sele
 import { resolveUploadDownloadLabel } from "@/lib/media/download-labels";
 import { formatAnnotatedRenderProgressLabel } from "@/lib/analysis-viewer/progress-status";
 import { mapLiveAnalysisToViewerModel } from "@/lib/analysis-viewer/adapters";
+import { buildAnalysisReviewModel } from "@/lib/analysis-viewer/review-model";
+import { buildSavedAttemptSummary } from "@/lib/history/attempt-summary";
+import { getBrowserAttemptHistoryRepository } from "@/lib/history/repository";
 import { buildAnalysisDomainModel, buildAnalysisPanelModel } from "@/lib/analysis-viewer/analysis-domain";
 import { seekVideoToTimestamp } from "@/lib/analysis-viewer/behavior";
 import { buildReplayAnalysisState } from "@/lib/analysis/replay-analysis-state";
@@ -273,6 +276,7 @@ export function LiveStreamingWorkspace() {
   const [isMobilePortraitViewport, setIsMobilePortraitViewport] = useState(false);
   const [isMobileCoachingCueVisible, setIsMobileCoachingCueVisible] = useState(false);
   const [isMobileControlsTrayExpanded, setIsMobileControlsTrayExpanded] = useState(false);
+  const [attemptSaveState, setAttemptSaveState] = useState<"idle" | "saved" | "error">("idle");
   const [, setHasLiveCueEventOccurred] = useState(false);
   const mobileControlsTrayId = useId();
   const [liveHudState, setLiveHudState] = useState<LiveCockpitHudState>({
@@ -335,6 +339,7 @@ export function LiveStreamingWorkspace() {
   const activeVideoTrackRef = useRef<MediaStreamTrack | null>(null);
   const mainRearDeviceIdRef = useRef<string | null>(null);
   const audioCueControllerRef = useRef<ReturnType<typeof createLiveAudioCueController> | null>(null);
+  const savedAttemptTraceIdsRef = useRef<Set<string>>(new Set());
   const lastAnnouncedRepRef = useRef(0);
   const holdActiveRef = useRef(false);
   const holdTargetReachedRef = useRef(false);
@@ -2248,6 +2253,38 @@ export function LiveStreamingWorkspace() {
 
   const showReferencePanel = isReferencePanelVisible;
 
+  const liveReviewModel = useMemo(
+    () => buildAnalysisReviewModel(liveViewerModel, "live"),
+    [liveViewerModel]
+  );
+
+  useEffect(() => {
+    const traceId = postAnalysisSnapshot?.traceId;
+    const hasResultData = Boolean(liveAnalysisSession && liveAnalysisSession.events.length > 0);
+    const canSave = Boolean(traceId && liveAnalysisSession && liveAnalysisSession.status === "completed" && hasResultData);
+    if (!canSave || !traceId) {
+      return;
+    }
+    if (savedAttemptTraceIdsRef.current.has(traceId)) {
+      return;
+    }
+    savedAttemptTraceIdsRef.current.add(traceId);
+
+    const attempt = buildSavedAttemptSummary({
+      review: liveReviewModel,
+      source: "live",
+      drillId: selection.drill?.drillId,
+      createdAt: liveAnalysisSession?.completedAtIso ?? new Date().toISOString()
+    });
+
+    void getBrowserAttemptHistoryRepository().saveAttempt(attempt)
+      .then(() => setAttemptSaveState("saved"))
+      .catch(() => {
+        setAttemptSaveState("error");
+        savedAttemptTraceIdsRef.current.delete(traceId);
+      });
+  }, [liveAnalysisSession, liveReviewModel, postAnalysisSnapshot?.traceId, selection.drill?.drillId]);
+
   return (
     <section className={`panel-content live-streaming-layout ${isSessionStageActive ? "live-streaming-layout--session-active" : ""}`}>
       <div className={`card live-streaming-intro-card ${isLivePhase || isPostAnalysisPhase ? "live-streaming-passive-chrome-hidden" : ""}`}>
@@ -2728,6 +2765,8 @@ export function LiveStreamingWorkspace() {
                 }
               }}
             />
+            {attemptSaveState === "saved" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt saved to history.</p> : null}
+            {attemptSaveState === "error" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt could not be saved to history.</p> : null}
             {annotatedReplayFailureDetails ? (
               <details style={{ marginTop: "0.3rem" }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>Annotated export technical details</summary>
