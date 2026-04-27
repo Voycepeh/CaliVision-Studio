@@ -152,9 +152,10 @@ export function DetectionWorkflowPanel({
           <p className="muted" style={{ margin: 0 }}>
             Use the square detection crop to isolate the athlete; tighter framing with less background clutter can improve pose detection.
           </p>
-          <div style={{ display: "grid", gap: "0.4rem", gridTemplateColumns: "minmax(220px, 340px) auto", alignItems: "start" }}>
+          <div className="studio-detection-crop-layout">
             <div
               ref={workspaceRef}
+              className="studio-detection-crop-workspace"
               style={workspaceStyle}
               onWheel={(event) => {
                 event.preventDefault();
@@ -273,7 +274,7 @@ export function DetectionWorkflowPanel({
                 </>
               ) : null}
             </div>
-            <div style={{ display: "grid", gap: "0.35rem" }}>
+            <div className="studio-detection-crop-controls" style={{ display: "grid", gap: "0.35rem" }}>
               <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
                 Drag to position the square crop. Use mouse wheel or pinch to zoom.
               </p>
