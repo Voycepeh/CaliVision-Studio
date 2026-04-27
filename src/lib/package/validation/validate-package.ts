@@ -8,6 +8,7 @@ import type {
   PortableDrill,
   PortableDrillAnalysis,
   PortablePhase,
+  PortablePhaseDetectionCrop,
 } from "@/lib/schema/contracts";
 import { isCoachingProfileConfigured, type DrillCoachingProfile } from "../../analysis/coaching-profile.ts";
 
@@ -73,6 +74,11 @@ const DEFAULT_ANALYSIS_BY_MEASUREMENT: Record<"rep" | "hold" | "hybrid", Portabl
     minimumHoldDurationMs: 1000
   }
 };
+
+function clampNormalized(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(1, value));
+}
 
 type Severity = "error" | "warning";
 
@@ -261,8 +267,21 @@ export function normalizePortablePhase(phase: PortablePhase, drillView?: Portabl
               }
             : undefined
         }
-      : undefined
+      : undefined,
+    detectionCrop: normalizePhaseDetectionCrop(phase.detectionCrop)
   } as PortablePhase;
+}
+
+function normalizePhaseDetectionCrop(input: PortablePhaseDetectionCrop | undefined): PortablePhaseDetectionCrop | undefined {
+  if (!input) {
+    return undefined;
+  }
+
+  return {
+    centerX: clampNormalized(input.centerX),
+    centerY: clampNormalized(input.centerY),
+    zoom: Number.isFinite(input.zoom) ? Math.max(1, Math.min(4, input.zoom)) : 1
+  };
 }
 
 export function normalizePortableDrillAnalysis(
@@ -797,6 +816,9 @@ function validatePhase(
   if (input.analysis !== undefined) {
     validatePhaseAnalysis(input.analysis, `${path}.analysis`, issues);
   }
+  if (input.detectionCrop !== undefined) {
+    validatePhaseDetectionCrop(input.detectionCrop, `${path}.detectionCrop`, issues);
+  }
 
   if (!Array.isArray(input.poseSequence)) {
     issues.push(makeIssue("error", `${path}.poseSequence`, "poseSequence must be an array.", "type"));
@@ -810,6 +832,23 @@ function validatePhase(
     input.assetRefs.forEach((asset, assetIndex) =>
       validateAssetRef(asset, `${path}.assetRefs[${assetIndex}]`, issues, true)
     );
+  }
+}
+
+function validatePhaseDetectionCrop(input: unknown, path: string, issues: PackageValidationIssue[]): void {
+  if (!isRecord(input)) {
+    issues.push(makeIssue("error", path, "detectionCrop must be an object when present.", "type"));
+    return;
+  }
+
+  if (typeof input.centerX !== "number" || input.centerX < 0 || input.centerX > 1) {
+    issues.push(makeIssue("error", `${path}.centerX`, "centerX must be within [0, 1].", "type"));
+  }
+  if (typeof input.centerY !== "number" || input.centerY < 0 || input.centerY > 1) {
+    issues.push(makeIssue("error", `${path}.centerY`, "centerY must be within [0, 1].", "type"));
+  }
+  if (typeof input.zoom !== "number" || !Number.isFinite(input.zoom) || input.zoom < 1) {
+    issues.push(makeIssue("error", `${path}.zoom`, "zoom must be a finite number >= 1.", "type"));
   }
 }
 

@@ -112,7 +112,7 @@ Studio now treats authored drill phase order + per-phase rules as the primary re
 ## Field ownership (final cleanup baseline)
 
 - **Drill-level persisted fields**: `drillId`, `title`, optional legacy `slug` (import-compatible), `drillType`, `description`, `difficulty`, `primaryView`, tags, optional `coachingProfile`, optional `benchmark`, analysis, and publication/version metadata where applicable.
-- **Phase-level persisted fields**: `phaseId`, `name`, `order`, timing (`durationMs`/`startOffsetMs`), authored pose sequence, optional analysis metadata, and explicit asset references when they are truly part of saved phase data.
+- **Phase-level persisted fields**: `phaseId`, `name`, `order`, timing (`durationMs`/`startOffsetMs`), authored pose sequence, optional `detectionCrop` metadata (`centerX`, `centerY`, `zoom`) for Studio phase-source detection framing, optional analysis metadata, and explicit asset references when they are truly part of saved phase data.
 - **Editor-only non-persisted fields**: transient authoring UI state (`selectedJoint`, `focusRegion`, `canvasSize`, `focusCanvas`, temporary view controls) must not be exported or treated as canonical schema fields.
 
 Studio normalization removes known transient editor fields and migrates legacy aliases (`title`, `phaseName`, `label`) into canonical `name` during load/import.

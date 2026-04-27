@@ -86,6 +86,12 @@ export type PortablePhaseComparisonRule = {
   criteriaHooks?: string[];
 };
 
+export type PortablePhaseDetectionCrop = {
+  centerX: number;
+  centerY: number;
+  zoom: number;
+};
+
 export type PortableAllowedPhaseSkip = {
   fromPhaseId: string;
   toPhaseId: string;
@@ -171,6 +177,7 @@ export type PortablePhase = {
   startOffsetMs?: number;
   poseSequence: PortablePose[];
   assetRefs: PortableAssetRef[];
+  detectionCrop?: PortablePhaseDetectionCrop;
   analysis?: PortablePhaseAnalysis;
 };
 

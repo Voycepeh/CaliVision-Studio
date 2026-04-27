@@ -147,6 +147,11 @@
               }
             }
           ],
+          "detectionCrop": {
+            "centerX": 0.5,
+            "centerY": 0.5,
+            "zoom": 1.4
+          },
           "assetRefs": [],
           "name": "Top plank"
         },
