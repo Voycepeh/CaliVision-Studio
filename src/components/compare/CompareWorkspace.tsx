@@ -231,11 +231,14 @@ export function CompareWorkspace({ intent }: { intent?: CompareIntent }) {
       <header className="card" style={{ margin: 0, display: "grid", gap: "0.4rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
           <div>
-            <p className="muted" style={{ margin: 0 }}>Compare</p>
+            <p className="muted" style={{ margin: 0 }}>Target Check</p>
             <h2 style={{ margin: "0.2rem 0 0" }}>{model.drillLabel}</h2>
           </div>
-          <button type="button" className="pill" onClick={() => router.push(handoff?.fromPath ?? "/upload")}>Back to Analysis</button>
+          <button type="button" className="pill" onClick={() => router.push(handoff?.fromPath ?? "/upload")}>Open analysis home</button>
         </div>
+        <p className="muted" style={{ margin: 0 }}>
+          Target Check answers “did this attempt match the drill target?” Segment Compare for rep/hold-to-rep/hold analysis is planned separately.
+        </p>
         {handoff?.drill ? (
           <DrillVisualPreview drill={handoff.drill} assets={handoff.drillAssets ?? []} variant="compact" width={240} showMotionPreview motionMode="badge" />
         ) : null}
@@ -250,13 +253,13 @@ export function CompareWorkspace({ intent }: { intent?: CompareIntent }) {
 
       {compareIntent.attemptId ? (
         <article className="card" style={{ margin: 0 }}>
-          <h3 style={{ marginTop: 0 }}>Compare selection</h3>
+          <h3 style={{ marginTop: 0 }}>Target Check selection</h3>
           <p className="muted" style={{ margin: 0 }}>
             Selected attempt: <code>{compareIntent.attemptId}</code>
             {compareIntent.drillId ? <> · drill: <code>{compareIntent.drillId}</code></> : null}
             {compareIntent.compareTo ? <> · target: <strong>{compareIntent.compareTo === "personalBest" ? "personal best" : "latest attempt"}</strong></> : null}
           </p>
-          <p className="muted" style={{ margin: "0.4rem 0 0" }}>Select a second attempt or benchmark to compare with this attempt.</p>
+          <p className="muted" style={{ margin: "0.4rem 0 0" }}>Select a second attempt or benchmark for a deeper compare pass when needed.</p>
         </article>
       ) : null}
 

@@ -2719,8 +2719,28 @@ export function LiveStreamingWorkspace() {
 
         {isPostAnalysisPhase && liveTrace ? (
           <>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "0.5rem" }}>
-              {canOpenCompare ? (
+            <AnalysisViewerShell
+              model={liveViewerModel}
+              videoRef={replayVideoRef}
+              reviewSource="live"
+              onSurfaceChange={(surface) => {
+                setCompletedPreviewSurface(surface);
+                if (replayState === "export-in-progress" && surface === "raw") {
+                  setShowRawDuringProcessing(true);
+                }
+              }}
+              onPhaseTimelineSelect={(segment) => {
+                if (segment.interactive) {
+                  setReplayTimestampMs(segment.seekTimestampMs);
+                  seekVideoToTimestamp(replayVideoRef.current, segment.seekTimestampMs);
+                }
+              }}
+            />
+            {attemptSaveState === "saved" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt saved to history.</p> : null}
+            {attemptSaveState === "error" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt could not be saved to history.</p> : null}
+            {canOpenCompare ? (
+              <div style={{ display: "grid", gap: "0.35rem", justifyItems: "end", marginTop: "0.4rem" }}>
+                <p className="muted" style={{ margin: 0 }}>Need deeper review? Open Target Check for benchmark-side diagnostics.</p>
                 <button
                   type="button"
                   className="pill"
@@ -2744,29 +2764,10 @@ export function LiveStreamingWorkspace() {
                     router.push("/compare");
                   }}
                 >
-                  Compare with benchmark
+                  Open Target Check page
                 </button>
-              ) : null}
-            </div>
-            <AnalysisViewerShell
-              model={liveViewerModel}
-              videoRef={replayVideoRef}
-              reviewSource="live"
-              onSurfaceChange={(surface) => {
-                setCompletedPreviewSurface(surface);
-                if (replayState === "export-in-progress" && surface === "raw") {
-                  setShowRawDuringProcessing(true);
-                }
-              }}
-              onPhaseTimelineSelect={(segment) => {
-                if (segment.interactive) {
-                  setReplayTimestampMs(segment.seekTimestampMs);
-                  seekVideoToTimestamp(replayVideoRef.current, segment.seekTimestampMs);
-                }
-              }}
-            />
-            {attemptSaveState === "saved" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt saved to history.</p> : null}
-            {attemptSaveState === "error" ? <p className="muted" style={{ marginTop: "0.35rem" }}>Attempt could not be saved to history.</p> : null}
+              </div>
+            ) : null}
             {annotatedReplayFailureDetails ? (
               <details style={{ marginTop: "0.3rem" }}>
                 <summary className="muted" style={{ cursor: "pointer" }}>Annotated export technical details</summary>

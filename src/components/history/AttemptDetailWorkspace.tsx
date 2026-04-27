@@ -96,11 +96,11 @@ export function AttemptDetailWorkspace({ attemptId }: { attemptId: string }) {
       </article>
 
       <article className="card" style={{ margin: 0, display: "grid", gap: "0.5rem" }}>
-        <h4 style={{ margin: 0 }}>Compare handoff</h4>
+        <h4 style={{ margin: 0 }}>Target Check & compare tools</h4>
         {compareLinks ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <Link className="pill" href={compareLinks.base}>Compare this attempt</Link>
-            {compareLinks.latest ? <Link className="pill" href={compareLinks.latest}>Compare against latest</Link> : null}
+            <Link className="pill" href={compareLinks.base}>Open Target Check</Link>
+            {compareLinks.latest ? <Link className="pill" href={compareLinks.latest}>Compare against latest attempt</Link> : null}
             {compareLinks.personalBest ? <Link className="pill" href={compareLinks.personalBest}>Compare against personal best</Link> : null}
           </div>
         ) : null}
