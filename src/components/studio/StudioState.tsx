@@ -50,6 +50,13 @@ import {
 } from "@/lib/persistence/local-draft-store";
 import { loadEditableVersionForDrill, loadVersionById, markVersionReady, validateVersionReadiness } from "@/lib/library";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
+import {
+  computeDetectionCropRectPx,
+  createDefaultDetectionCrop,
+  mapDetectionResultFromCropToSource,
+  normalizeDetectionCrop,
+  type DetectionCropRectPx
+} from "@/lib/detection";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import { normalizeBenchmarkPhases, normalizeDrillBenchmark, syncBenchmarkFromDrillPhases } from "@/lib/drills/benchmark";
 import {
@@ -71,6 +78,7 @@ import type {
   PortableDrill,
   PortablePhaseComparisonRule,
   PortablePhase,
+  PortablePhaseDetectionCrop,
   PortableViewType,
   SchemaVersion
 } from "@/lib/schema/contracts";
@@ -147,6 +155,7 @@ type StudioStateValue = {
   selectedPhaseDetection: DetectionWorkflowState;
   selectedPhaseOverlayState: PhaseOverlayState;
   selectedPhaseEditorView: PortableViewType;
+  selectedPhaseDetectionCrop: PortablePhaseDetectionCrop;
   selectPackage: (packageKey: string) => void;
   selectPhase: (phaseId: string | null) => void;
   selectJoint: (jointName: CanonicalJointName | null) => void;
@@ -191,6 +200,8 @@ type StudioStateValue = {
   runPoseDetectionForSelectedPhase: () => Promise<void>;
   applyDetectionToSelectedPhase: () => void;
   clearSelectedPhasePoseReference: () => void;
+  setSelectedPhaseDetectionCrop: (partial: Partial<PortablePhaseDetectionCrop>) => void;
+  resetSelectedPhaseDetectionCrop: () => void;
   setSelectedPhaseOverlayState: (partial: Partial<PhaseOverlayState>) => void;
   resetSelectedPhaseOverlayState: () => void;
   openPublishPanel: () => void;
@@ -458,6 +469,40 @@ function loadImageFromObjectUrl(objectUrl: string): Promise<HTMLImageElement> {
   });
 }
 
+function createCroppedDetectionImage(sourceImage: HTMLImageElement, cropRect: DetectionCropRectPx): Promise<HTMLImageElement> {
+  const canvas = document.createElement("canvas");
+  const side = Math.max(1, Math.round(cropRect.size));
+  canvas.width = side;
+  canvas.height = side;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return Promise.reject(new Error("Pose detection crop is unavailable in this browser."));
+  }
+
+  context.drawImage(sourceImage, cropRect.sx, cropRect.sy, cropRect.size, cropRect.size, 0, 0, side, side);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Could not prepare cropped detection image."));
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(image);
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Failed to load cropped detection image."));
+      };
+      image.src = objectUrl;
+    }, "image/jpeg", 0.92);
+  });
+}
+
 async function toPhaseSourceImageFromBlob(
   assetId: string,
   portableUri: string,
@@ -554,8 +599,13 @@ export function StudioStateProvider({
   }, [packageAssetBlobs]);
 
   const selectedScopeKey = getPhaseScopeKey(selectedPackageKey, selectedPhaseId);
+  const selectedPhase = useMemo(
+    () => (selectedPackage && selectedPhaseId ? getSortedPhases(selectedPackage.workingPackage).find((phase) => phase.phaseId === selectedPhaseId) ?? null : null),
+    [selectedPackage, selectedPhaseId]
+  );
   const selectedPhaseSourceImage = selectedScopeKey ? phaseSourceImages[selectedScopeKey] ?? null : null;
   const selectedPhaseDetection = selectedScopeKey ? phaseDetectionState[selectedScopeKey] ?? DEFAULT_DETECTION_WORKFLOW_STATE : DEFAULT_DETECTION_WORKFLOW_STATE;
+  const selectedPhaseDetectionCrop = normalizeDetectionCrop(selectedPhase?.detectionCrop ?? createDefaultDetectionCrop());
   const selectedPhaseOverlayState = selectedScopeKey ? phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE : DEFAULT_PHASE_OVERLAY_STATE;
   const selectedPhaseEditorView = selectedPackage
     ? getPrimaryDrill(selectedPackage.workingPackage)?.primaryView ?? DEFAULT_EDITOR_VIEW
@@ -1894,11 +1944,12 @@ export function StudioStateProvider({
         [scopeKey]: {
           status: "uploaded",
           result: null,
-          message: "Source image ready. Run Detect pose when you are ready."
+          message: "Source image ready. Adjust the square crop if needed, then run Detect pose."
         }
       }));
 
       withPhaseUpdate(phaseId, (phase) => {
+        phase.detectionCrop = createDefaultDetectionCrop();
         const nextAsset = toPhaseAssetRef(phaseId, sourceImage);
         const existingIndex = phase.assetRefs.findIndex((asset) => asset.assetId === nextAsset.assetId);
 
@@ -1986,6 +2037,7 @@ export function StudioStateProvider({
 
     withPhaseUpdate(selectedPhaseId, (phase) => {
       removeTemporaryPhaseAssetRef(phase);
+      delete phase.detectionCrop;
     });
 
     if (existing) {
@@ -2019,6 +2071,29 @@ export function StudioStateProvider({
 
     withPhaseUpdate(selectedPhaseId, (phase) => {
       (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = focus;
+    });
+  }
+
+  function setSelectedPhaseDetectionCrop(partial: Partial<PortablePhaseDetectionCrop>): void {
+    if (!selectedPhaseId) {
+      return;
+    }
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      phase.detectionCrop = normalizeDetectionCrop({
+        ...(phase.detectionCrop ?? createDefaultDetectionCrop()),
+        ...partial
+      });
+    });
+  }
+
+  function resetSelectedPhaseDetectionCrop(): void {
+    if (!selectedPhaseId) {
+      return;
+    }
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      phase.detectionCrop = createDefaultDetectionCrop();
     });
   }
 
@@ -2095,7 +2170,11 @@ export function StudioStateProvider({
     );
   }
 
-  async function runPoseDetectionForScope(scopeKey: string, sourceImage: PhaseSourceImage): Promise<void> {
+  async function runPoseDetectionForScope(
+    scopeKey: string,
+    sourceImage: PhaseSourceImage,
+    crop: PortablePhaseDetectionCrop
+  ): Promise<void> {
     setPhaseDetectionState((current) => ({
       ...current,
       [scopeKey]: {
@@ -2107,34 +2186,38 @@ export function StudioStateProvider({
 
     try {
       const image = await loadImageFromObjectUrl(sourceImage.objectUrl);
+      const cropRect = computeDetectionCropRectPx(sourceImage.width, sourceImage.height, crop);
+      const croppedImage = await createCroppedDetectionImage(image, cropRect);
       logPoseDetectionDebug("input-image", {
         scopeKey,
         sourceAssetId: sourceImage.assetId,
         sourceWidth: sourceImage.width,
         sourceHeight: sourceImage.height,
         imageNaturalWidth: image.naturalWidth,
-        imageNaturalHeight: image.naturalHeight
+        imageNaturalHeight: image.naturalHeight,
+        cropRect
       });
-      const result = await detectPoseFromImage(image);
+      const result = await detectPoseFromImage(croppedImage);
+      const remappedResult = mapDetectionResultFromCropToSource(result, sourceImage.width, sourceImage.height, cropRect);
       logPoseDetectionDebug("detector-result", {
         scopeKey,
-        status: result.status,
-        detectorImageWidth: result.metadata.imageWidth,
-        detectorImageHeight: result.metadata.imageHeight,
-        issues: result.issues.map((issue) => issue.code),
+        status: remappedResult.status,
+        detectorImageWidth: remappedResult.metadata.imageWidth,
+        detectorImageHeight: remappedResult.metadata.imageHeight,
+        issues: remappedResult.issues.map((issue) => issue.code),
         rawJointSample: Object.fromEntries(
-          Object.entries(result.joints)
+          Object.entries(remappedResult.joints)
             .slice(0, 6)
             .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
         )
       });
 
-      if (result.status === "failed") {
+      if (remappedResult.status === "failed") {
         setPhaseDetectionState((current) => ({
           ...current,
           [scopeKey]: {
             status: "failed",
-            result,
+            result: remappedResult,
             message: "Pose detection failed. Try another image or retry detection."
           }
         }));
@@ -2145,8 +2228,8 @@ export function StudioStateProvider({
         ...current,
         [scopeKey]: {
           status: "detected",
-          result,
-          message: `Detected pose ready (${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} joints). Apply as pose reference when ready.`
+          result: remappedResult,
+          message: `Detected pose ready (${remappedResult.coverage.detectedJoints}/${remappedResult.coverage.totalCanonicalJoints} joints). Apply as pose reference when ready.`
         }
       }));
     } catch (error) {
@@ -2165,7 +2248,7 @@ export function StudioStateProvider({
     if (!selectedScopeKey || !selectedPhaseSourceImage || !selectedPhaseId) {
       return;
     }
-    await runPoseDetectionForScope(selectedScopeKey, selectedPhaseSourceImage);
+    await runPoseDetectionForScope(selectedScopeKey, selectedPhaseSourceImage, selectedPhaseDetectionCrop);
   }
 
   function applyDetectionToSelectedPhase(): void {
@@ -2384,6 +2467,7 @@ export function StudioStateProvider({
     selectedPackage,
     selectedPhaseSourceImage,
     selectedPhaseDetection,
+    selectedPhaseDetectionCrop,
     selectedPhaseOverlayState,
     selectedPhaseEditorView,
     selectPackage,
@@ -2430,6 +2514,8 @@ export function StudioStateProvider({
     runPoseDetectionForSelectedPhase,
     applyDetectionToSelectedPhase,
     clearSelectedPhasePoseReference,
+    setSelectedPhaseDetectionCrop,
+    resetSelectedPhaseDetectionCrop,
     setSelectedPhaseOverlayState,
     resetSelectedPhaseOverlayState,
     openPublishPanel,

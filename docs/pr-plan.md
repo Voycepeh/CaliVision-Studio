@@ -61,6 +61,13 @@ Android runtime/live coaching responsibilities remain in Android: <https://githu
 - Assumption: PTZ capability exposure alone is not sufficient to guarantee 0.5x availability; camera-device discovery is required after permission.
 - Non-goal: software zoom or crop-based fake zoom fallback for 0.5x in Live Streaming.
 
+## Assumptions / non-goals for Studio phase detection crop workflow
+
+- Assumption: square detection crop controls apply only to Drill Studio phase authoring-time pose detection from uploaded phase source images.
+- Assumption: `PortablePhase.detectionCrop` is additive metadata (`centerX`, `centerY`, `zoom`) and can be ignored by runtime clients that do not consume authoring hints, including Android runtime flows (<https://github.com/Voycepeh/CaliVision>).
+- Non-goal: changing Upload Video or Live Streaming detection behavior in this PR.
+- Non-goal: reusing landscape preview focus/normalization for detection input mapping.
+
 ## Assumptions / non-goals for Drill Exchange MVP
 
 - Assumption: Exchange is a public/shared drill library view, not a package file dump.

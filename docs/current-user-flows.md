@@ -22,11 +22,12 @@
 5. Drill Studio treats authored phase sequence + phase rules as the user-facing reference standard; users do not need to manage a separate benchmark object in normal authoring.
 6. Use editor-only controls during pose work (selected joint, focus region, editor view, focus canvas) without changing exported drill data.
 7. Upload a phase image.
-8. Run detection and apply/refine pose.
-9. Preview and validation review.
-10. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
-11. Open advanced diagnostics only when needed (collapsible, hidden by default).
-12. Legacy benchmark/reference metadata remains compatibility plumbing internally for existing data and deterministic comparison outputs.
+8. In the phase detection panel, adjust the square detection crop (zoom/pan/reset) so the athlete is centered with less background clutter.
+9. Run detection from the selected square crop, then apply/refine pose in the editor.
+10. Preview and validation review.
+11. Use **4. Drill version actions** at the bottom of the workflow to save drafts and mark a draft ready for release.
+12. Open advanced diagnostics only when needed (collapsible, hidden by default).
+13. Legacy benchmark/reference metadata remains compatibility plumbing internally for existing data and deterministic comparison outputs.
 
 ## Current Upload Video flow
 

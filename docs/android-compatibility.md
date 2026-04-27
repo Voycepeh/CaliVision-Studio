@@ -33,6 +33,9 @@ Android runtime client reference: <https://github.com/Voycepeh/CaliVision>.
 5. **Legacy phase-id normalization remains backward-compatible**
    - Studio may normalize legacy generated IDs (`phase_top`, `phase_bottom`, `phase_new`) to stable opaque `phaseId` values during load.
    - Analysis wiring remains phase-id based, while semantic intent stays in explicit metadata such as `phase.analysis.semanticRole`.
+6. **Phase detection crop metadata is additive**
+   - `PortablePhase.detectionCrop` (`centerX`, `centerY`, `zoom`) may be present in Studio-authored packages to preserve authoring-time square detection framing.
+   - Runtime clients that do not consume this field remain compatible and may safely ignore it, including Android runtime flows (<https://github.com/Voycepeh/CaliVision>).
 
 ## Current baseline
 
