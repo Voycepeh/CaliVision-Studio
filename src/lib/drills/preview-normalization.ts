@@ -11,6 +11,11 @@ type PreviewFocusMetadata = {
   zoom?: number;
 } | null;
 
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(Math.max(value, 0), 1);
+}
+
 function toSafeNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -19,13 +24,13 @@ function normalizeCoordinate(value: number, reference: number): number {
   // Legacy drills sometimes store raw pixel coordinates; normalize those into 0..1 until migration cleanup.
 
   if (value <= 1 && value >= 0) return value;
-  if (!Number.isFinite(reference) || reference <= 0) return Math.min(Math.max(value, 0), 1);
-  return Math.min(Math.max(value / reference, 0), 1);
+  if (!Number.isFinite(reference) || reference <= 0) return clamp01(value);
+  return clamp01(value / reference);
 }
 
 function resolveFocus(input: PreviewFocusMetadata): { centerX: number; centerY: number; zoom: number } {
-  const centerX = Math.min(Math.max(toSafeNumber(input?.centerX) ?? 0.5, 0), 1);
-  const centerY = Math.min(Math.max(toSafeNumber(input?.centerY) ?? 0.5, 0), 1);
+  const centerX = clamp01(toSafeNumber(input?.centerX) ?? 0.5);
+  const centerY = clamp01(toSafeNumber(input?.centerY) ?? 0.5);
   const zoom = Math.min(Math.max(toSafeNumber(input?.zoom) ?? 1, 1), 4);
   return { centerX, centerY, zoom };
 }
@@ -41,6 +46,21 @@ function applyFocusTransform(x: number, y: number, focus: { centerX: number; cen
 }
 
 export function normalizePoseToLandscapePreview(pose: PortablePose, focus: PreviewFocusMetadata = null): PortablePose {
+  const noFocusTransform = !focus || ((focus.centerX == null || focus.centerX === 0.5) && (focus.centerY == null || focus.centerY === 0.5) && (focus.zoom == null || focus.zoom === 1));
+  const alreadyCanonical = pose.canvas.widthRef === CANONICAL_PREVIEW_WIDTH
+    && pose.canvas.heightRef === CANONICAL_PREVIEW_HEIGHT
+    && Object.values(pose.joints).every((point) => !point || (point.x >= 0 && point.x <= 1 && point.y >= 0 && point.y <= 1));
+  if (alreadyCanonical && noFocusTransform) {
+    return {
+      ...pose,
+      canvas: {
+        ...pose.canvas,
+        widthRef: CANONICAL_PREVIEW_WIDTH,
+        heightRef: CANONICAL_PREVIEW_HEIGHT
+      }
+    };
+  }
+
   const sourceWidth = pose.canvas.widthRef > 0 ? pose.canvas.widthRef : CANONICAL_PREVIEW_WIDTH;
   const sourceHeight = pose.canvas.heightRef > 0 ? pose.canvas.heightRef : CANONICAL_PREVIEW_HEIGHT;
   const sourceAspect = sourceWidth / sourceHeight;
@@ -56,12 +76,12 @@ export function normalizePoseToLandscapePreview(pose: PortablePose, focus: Previ
       const baseX = normalizeCoordinate(point.x, sourceWidth);
       const baseY = normalizeCoordinate(point.y, sourceHeight);
       const focused = applyFocusTransform(baseX, baseY, resolvedFocus);
-      const fittedX = fit.offsetX + focused.x * fit.scaleX;
-      const fittedY = fit.offsetY + focused.y * fit.scaleY;
+      const fittedX = clamp01(fit.offsetX + focused.x * fit.scaleX);
+      const fittedY = clamp01(fit.offsetY + focused.y * fit.scaleY);
       return [[jointName, {
         ...point,
-        x: PREVIEW_SAFE_PADDING + fittedX * (1 - PREVIEW_SAFE_PADDING * 2),
-        y: PREVIEW_SAFE_PADDING + fittedY * (1 - PREVIEW_SAFE_PADDING * 2)
+        x: clamp01(PREVIEW_SAFE_PADDING + fittedX * (1 - PREVIEW_SAFE_PADDING * 2)),
+        y: clamp01(PREVIEW_SAFE_PADDING + fittedY * (1 - PREVIEW_SAFE_PADDING * 2))
       }]];
     })
   );

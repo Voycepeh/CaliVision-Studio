@@ -114,6 +114,8 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
               variant="studio"
               showMotionPreview
               motionMode="badge"
+              animate={false}
+              poseOverride={sampledFrame.pose}
               phaseLabel={sampledFrame.phaseId ? sampledFrame.phaseTitle : "No active phase"}
             />
           ) : null}

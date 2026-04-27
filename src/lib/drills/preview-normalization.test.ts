@@ -49,3 +49,23 @@ test("missing preview metadata falls back safely without throwing", () => {
   const next = normalizePoseToLandscapePreview(pose, null);
   assert.equal(next.canvas.widthRef, CANONICAL_PREVIEW_WIDTH);
 });
+
+test("canonical normalized pose stays stable across repeated normalization", () => {
+  const canonical = createPose(CANONICAL_PREVIEW_WIDTH, CANONICAL_PREVIEW_HEIGHT, 0.41, 0.68);
+  const once = normalizePoseToLandscapePreview(canonical, null);
+  const twice = normalizePoseToLandscapePreview(once, null);
+  assert.equal(twice.joints.nose?.x, once.joints.nose?.x);
+  assert.equal(twice.joints.nose?.y, once.joints.nose?.y);
+});
+
+test("focused crop clamps coordinates that would otherwise land outside view", () => {
+  const next = normalizePoseToLandscapePreview(createPose(1080, 1920, 0.95, 0.95), {
+    centerX: 0.2,
+    centerY: 0.2,
+    zoom: 2.4
+  });
+  assert.ok((next.joints.nose?.x ?? -1) >= 0);
+  assert.ok((next.joints.nose?.x ?? 2) <= 1);
+  assert.ok((next.joints.nose?.y ?? -1) >= 0);
+  assert.ok((next.joints.nose?.y ?? 2) <= 1);
+});

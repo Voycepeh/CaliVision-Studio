@@ -276,6 +276,47 @@ export function StudioCenterInspector() {
               <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
                 Saved preview focus uses a 16:9 landscape frame so Exchange, Upload Video, and Live Streaming stay visually consistent.
               </p>
+              {selectedPhaseSourceImage ? (
+                <div style={{ display: "grid", gap: "0.3rem", maxWidth: 360 }}>
+                  <strong style={{ fontSize: "0.82rem" }}>Landscape focus preview (16:9)</strong>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: "100%",
+                      aspectRatio: "16 / 9",
+                      borderRadius: "0.55rem",
+                      overflow: "hidden",
+                      border: "1px solid rgba(148, 163, 184, 0.32)",
+                      background: "rgba(15, 23, 42, 0.9)"
+                    }}
+                  >
+                    <img
+                      src={selectedPhaseSourceImage.objectUrl}
+                      alt="Landscape focus preview"
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        objectFit: selectedPhaseOverlayState.fitMode,
+                        objectPosition: `${50 + selectedPhaseOverlayState.offsetX * 38}% ${50 + selectedPhaseOverlayState.offsetY * 38}%`,
+                        opacity: selectedPhaseOverlayState.showImage ? Math.max(0.2, selectedPhaseOverlayState.imageOpacity) : 0.26
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        border: "1px dashed rgba(191, 219, 254, 0.5)",
+                        pointerEvents: "none"
+                      }}
+                    />
+                  </div>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
+                    This is the frame that will be used for saved landscape motion previews.
+                  </p>
+                </div>
+              ) : null}
 
               {selectedJointName ? (
                 <div className="studio-joint-nudge-panel">

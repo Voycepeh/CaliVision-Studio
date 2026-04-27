@@ -15,6 +15,9 @@ type Props = {
   variant?: DrillPreviewVariant;
   showMotionPreview?: boolean;
   motionMode?: MotionMode;
+  showMotionBadge?: boolean;
+  animate?: boolean;
+  poseOverride?: PortablePose | null;
   width?: number | string;
   ariaLabel?: string;
   phaseLabel?: string | null;
@@ -40,6 +43,9 @@ export function DrillVisualPreview({
   variant = "exchangeHero",
   showMotionPreview = false,
   motionMode = "badge",
+  showMotionBadge,
+  animate = true,
+  poseOverride = null,
   width = "100%",
   ariaLabel,
   phaseLabel
@@ -50,11 +56,13 @@ export function DrillVisualPreview({
   const fallback = useMemo(() => resolveDrillThumbnail(drill, []), [drill]);
   const src = imgError ? fallback.src : resolved.src;
   const motionFrames = useMemo(() => resolveMotionFrames(drill), [drill]);
-  const canShowMotion = showMotionPreview && motionFrames.length > 0 && motionMode !== "none";
+  const canShowMotion = showMotionPreview && motionMode !== "none" && (Boolean(poseOverride) || motionFrames.length > 0);
+  const shouldAnimateInternally = canShowMotion && animate && !poseOverride && drill.drillType !== "hold";
+  const shouldShowMotionBadge = showMotionBadge ?? canShowMotion;
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
-    if (!canShowMotion || drill.drillType === "hold") {
+    if (!shouldAnimateInternally) {
       setElapsedMs(0);
       return;
     }
@@ -69,9 +77,12 @@ export function DrillVisualPreview({
     };
     frameId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frameId);
-  }, [canShowMotion, drill.drillType]);
+  }, [shouldAnimateInternally]);
 
   const currentPose = useMemo(() => {
+    if (poseOverride) {
+      return poseOverride;
+    }
     if (!motionFrames.length) return null;
     if (drill.drillType === "hold") return motionFrames[0]?.pose ?? null;
     const totalDuration = motionFrames.reduce((sum, frame) => sum + frame.durationMs, 0);
@@ -83,7 +94,7 @@ export function DrillVisualPreview({
       if (cursor <= acc) return frame.pose;
     }
     return motionFrames[motionFrames.length - 1]?.pose ?? null;
-  }, [drill.drillType, elapsedMs, motionFrames]);
+  }, [drill.drillType, elapsedMs, motionFrames, poseOverride]);
 
   const sizingStyle = resolveSizingStyle(resolvedVariant);
 
@@ -114,7 +125,9 @@ export function DrillVisualPreview({
         ) : null}
 
         <div style={{ position: "absolute", left: "0.45rem", top: "0.45rem", display: "flex", gap: "0.3rem", alignItems: "center" }}>
-          <span className="pill" style={{ fontSize: "0.68rem", background: "rgba(15, 23, 42, 0.78)", border: "1px solid rgba(114, 168, 255, 0.5)" }}>Motion</span>
+          {shouldShowMotionBadge ? (
+            <span className="pill" style={{ fontSize: "0.68rem", background: "rgba(15, 23, 42, 0.78)", border: "1px solid rgba(114, 168, 255, 0.5)" }}>Motion</span>
+          ) : null}
           {phaseLabel ? <span className="pill" style={{ fontSize: "0.68rem", background: "rgba(15, 23, 42, 0.72)" }}>{phaseLabel}</span> : null}
         </div>
 

@@ -152,6 +152,8 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, 
           variant={compact ? "selectedDrill" : "exchangeHero"}
           showMotionPreview
           motionMode="badge"
+          animate={false}
+          poseOverride={sampledFrame.pose}
           phaseLabel={drill.drillType === "hold" ? phaseStateLabel : sampledFrame.phaseTitle}
         />
       </div>
