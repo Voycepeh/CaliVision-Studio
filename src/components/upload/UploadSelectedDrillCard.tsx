@@ -61,11 +61,10 @@ export function UploadSelectedDrillCard({ drill, sourceKind, benchmarkState, ass
         <DrillVisualPreview
           drill={drill}
           assets={assets}
-          variant="feature"
-          width={172}
-          height={98}
+          variant="selectedDrill"
+          width={220}
           showMotionPreview
-          motionMode="inset"
+          motionMode="badge"
         />
         <div className="upload-selected-drill-content">
           <strong className="upload-selected-drill-title">{drill.title}</strong>

@@ -237,7 +237,7 @@ export function CompareWorkspace({ intent }: { intent?: CompareIntent }) {
           <button type="button" className="pill" onClick={() => router.push(handoff?.fromPath ?? "/upload")}>Back to Analysis</button>
         </div>
         {handoff?.drill ? (
-          <DrillVisualPreview drill={handoff.drill} assets={handoff.drillAssets ?? []} variant="compact" width={240} showMotionPreview motionMode="badge" />
+          <DrillVisualPreview drill={handoff.drill} assets={handoff.drillAssets ?? []} variant="selectedDrill" width={240} showMotionPreview motionMode="badge" />
         ) : null}
       </header>
 

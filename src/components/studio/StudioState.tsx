@@ -113,6 +113,12 @@ export type PhaseOverlayState = {
   offsetY: number;
 };
 
+export type PhasePreviewFocus = {
+  centerX: number;
+  centerY: number;
+  zoom: number;
+};
+
 export type PublishWorkflowState = {
   panelOpen: boolean;
   status: "idle" | "validating" | "ready" | "publishing" | "published" | "blocked";
@@ -218,6 +224,21 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   offsetX: 0,
   offsetY: 0
 };
+
+const STUDIO_POSE_DETECTION_DEBUG_STORAGE_KEY = "studio.poseDetectionDebug";
+
+function isPoseDetectionDebugEnabled(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(STUDIO_POSE_DETECTION_DEBUG_STORAGE_KEY) === "1";
+}
+
+function logPoseDetectionDebug(stage: string, payload: Record<string, unknown>): void {
+  if (!isPoseDetectionDebugEnabled()) return;
+  // Debug-only authoring diagnostics for static image detection regressions.
+  console.info("[studio-pose-detection]", stage, payload);
+}
 
 const DEFAULT_EDITOR_VIEW: PortableViewType = "front";
 
@@ -1977,7 +1998,7 @@ export function StudioStateProvider({
   }
 
   function setSelectedPhaseOverlayState(partial: Partial<PhaseOverlayState>): void {
-    if (!selectedScopeKey) {
+    if (!selectedScopeKey || !selectedPhaseId) {
       return;
     }
 
@@ -1988,6 +2009,17 @@ export function StudioStateProvider({
         ...partial
       }
     }));
+
+    const overlay = { ...(phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE), ...partial };
+    const focus: PhasePreviewFocus = {
+      centerX: Math.min(Math.max(0.5 + overlay.offsetX * 0.25, 0), 1),
+      centerY: Math.min(Math.max(0.5 + overlay.offsetY * 0.25, 0), 1),
+      zoom: overlay.fitMode === "cover" ? 1.28 : 1
+    };
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = focus;
+    });
   }
 
   function resetSelectedPhaseOverlayState(): void {
@@ -2075,7 +2107,27 @@ export function StudioStateProvider({
 
     try {
       const image = await loadImageFromObjectUrl(sourceImage.objectUrl);
+      logPoseDetectionDebug("input-image", {
+        scopeKey,
+        sourceAssetId: sourceImage.assetId,
+        sourceWidth: sourceImage.width,
+        sourceHeight: sourceImage.height,
+        imageNaturalWidth: image.naturalWidth,
+        imageNaturalHeight: image.naturalHeight
+      });
       const result = await detectPoseFromImage(image);
+      logPoseDetectionDebug("detector-result", {
+        scopeKey,
+        status: result.status,
+        detectorImageWidth: result.metadata.imageWidth,
+        detectorImageHeight: result.metadata.imageHeight,
+        issues: result.issues.map((issue) => issue.code),
+        rawJointSample: Object.fromEntries(
+          Object.entries(result.joints)
+            .slice(0, 6)
+            .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
+        )
+      });
 
       if (result.status === "failed") {
         setPhaseDetectionState((current) => ({
@@ -2134,6 +2186,16 @@ export function StudioStateProvider({
         poseId,
         timestampMs: phase.poseSequence[0]?.timestampMs ?? phase.startOffsetMs ?? 0,
         view
+      });
+      logPoseDetectionDebug("mapped-portable-pose", {
+        phaseId: selectedPhaseId,
+        focusRegion: (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion ?? null,
+        poseCanvas: nextPose.canvas,
+        mappedJointSample: Object.fromEntries(
+          Object.entries(nextPose.joints)
+            .slice(0, 6)
+            .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
+        )
       });
       phase.poseSequence = [nextPose];
     });

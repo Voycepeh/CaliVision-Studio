@@ -99,9 +99,8 @@ export function StudioMetadataEditor() {
             <DrillVisualPreview
               drill={drill}
               assets={selectedPackage.workingPackage.assets}
-              variant="compact"
-              width={152}
-              height={86}
+              variant="studio"
+              width={220}
               showMotionPreview
               motionMode="badge"
             />

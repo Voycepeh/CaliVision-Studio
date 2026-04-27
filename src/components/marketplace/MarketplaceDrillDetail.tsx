@@ -199,7 +199,7 @@ export function MarketplaceDrillDetail({ slug }: Props) {
       <Link href="/marketplace" className="pill" style={{ width: "fit-content" }}>← Back to Drill Exchange</Link>
       <article style={{ display: "grid", gap: "0.7rem" }}>
         <h2 style={{ margin: 0 }}>{entry.title}</h2>
-        {drill ? <DrillVisualPreview drill={drill} assets={entry.snapshotPackage.assets} variant="feature" showMotionPreview motionMode="inset" /> : null}
+        {drill ? <DrillVisualPreview drill={drill} assets={entry.snapshotPackage.assets} variant="exchangeHero" showMotionPreview motionMode="badge" /> : null}
         <p className="muted" style={{ margin: 0 }}>{entry.shortDescription}</p>
         <p style={{ margin: 0 }}>{entry.fullDescription || entry.shortDescription}</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }} aria-label="Drill summary">

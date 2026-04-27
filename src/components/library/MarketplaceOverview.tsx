@@ -267,8 +267,7 @@ export function MarketplaceOverview() {
                   <DrillVisualPreview
                     drill={leadDrill}
                     assets={entry.snapshotPackage.assets}
-                    variant="compact"
-                    height={104}
+                    variant="exchangeCard"
                     showMotionPreview
                     motionMode="badge"
                   />

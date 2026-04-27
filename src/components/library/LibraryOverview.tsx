@@ -491,9 +491,8 @@ export function LibraryOverview() {
                         <DrillVisualPreview
                           drill={previewDrill}
                           assets={workflowSourceVersion.packageJson.assets}
-                          variant="compact"
-                          width={152}
-                          height={86}
+                          variant="myDrillsCard"
+                          width={200}
                           showMotionPreview
                           motionMode="badge"
                         />
