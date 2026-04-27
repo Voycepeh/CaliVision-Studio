@@ -66,8 +66,12 @@ function toFiniteNumber(value: unknown): number | undefined {
 }
 
 function phaseTimingsForWindow(phaseEnterEvents: AnalysisEvent[], startMs: number, endMs: number): RuntimeRepPhaseTiming[] | undefined {
+  if (endMs <= startMs) {
+    return undefined;
+  }
+
   const inWindow = phaseEnterEvents
-    .filter((event) => event.phaseId && event.timestampMs >= startMs && event.timestampMs <= endMs)
+    .filter((event) => event.phaseId && event.timestampMs >= startMs && event.timestampMs < endMs)
     .sort((a, b) => a.timestampMs - b.timestampMs);
 
   if (inWindow.length === 0) return undefined;

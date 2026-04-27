@@ -74,3 +74,32 @@ test("mapLiveAnalysisToRuntimeSegments maps hold windows and defensive partials"
   assert.equal(segments[1]?.holdStableWindow, undefined);
   assert.equal(segments[1]?.source, "live");
 });
+
+
+test("mapUploadAnalysisToRuntimeSegments excludes terminal phase_enter at rep end boundary", () => {
+  const segments = mapUploadAnalysisToRuntimeSegments({
+    session: {
+      sessionId: "sess_upload_terminal_boundary",
+      drillId: "drill_pushup",
+      summary: {},
+      events: [
+        { eventId: "e1", timestampMs: 100, type: "phase_enter", phaseId: "start" },
+        { eventId: "e2", timestampMs: 600, type: "phase_enter", phaseId: "bottom" },
+        { eventId: "e3", timestampMs: 1200, type: "phase_enter", phaseId: "start" },
+        {
+          eventId: "e4",
+          timestampMs: 1200,
+          type: "rep_complete",
+          repIndex: 1,
+          details: { loopStartTimestampMs: 100, loopEndTimestampMs: 1200, repDurationMs: 1100 }
+        }
+      ]
+    }
+  });
+
+  assert.equal(segments.length, 1);
+  assert.equal(segments[0]?.segmentType, "rep");
+  assert.equal(segments[0]?.status, "completed");
+  assert.equal(segments[0]?.phaseTimings?.length, 2);
+  assert.equal(segments[0]?.phaseTimings?.some((phase) => phase.durationSec === 0), false);
+});
