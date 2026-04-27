@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { resolveDrillThumbnail } from "@/lib/drills/thumbnail";
 import { normalizePoseToLandscapePreview } from "@/lib/drills/preview-normalization";
-import { getPreviewConnections, getPreviewJointRole, PREVIEW_OVERLAY_STYLE } from "@/lib/pose/preview-overlay";
+import { getPreviewConnections, getPreviewJointNames, getPreviewJointRole, PREVIEW_OVERLAY_STYLE } from "@/lib/pose/preview-overlay";
 import type { PortableAssetRef, PortableDrill, PortablePose } from "@/lib/schema/contracts";
 
 type MotionMode = "none" | "badge";
@@ -35,6 +35,12 @@ function resolveSizingStyle(variant: ReturnType<typeof resolveVariant>): { maxWi
   if (variant === "myDrillsCard") return { maxWidth: 220 };
   if (variant === "studio") return { maxWidth: 320 };
   return { maxWidth: "100%" };
+}
+
+function resolveOverlayScale(variant: ReturnType<typeof resolveVariant>): number {
+  if (variant === "exchangeHero" || variant === "studio") return 1.15;
+  if (variant === "selectedDrill") return 1.05;
+  return 1;
 }
 
 export function DrillVisualPreview({
@@ -97,6 +103,7 @@ export function DrillVisualPreview({
   }, [drill.drillType, elapsedMs, motionFrames, poseOverride]);
 
   const sizingStyle = resolveSizingStyle(resolvedVariant);
+  const overlayScale = resolveOverlayScale(resolvedVariant);
 
   return (
     <div
@@ -120,7 +127,7 @@ export function DrillVisualPreview({
 
         {canShowMotion && currentPose ? (
           <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-            <PoseOverlay pose={normalizePoseToLandscapePreview(currentPose)} view={drill.primaryView} />
+            <PoseOverlay pose={normalizePoseToLandscapePreview(currentPose)} view={drill.primaryView} scale={overlayScale} />
           </div>
         ) : null}
 
@@ -159,16 +166,22 @@ function resolveMotionFrames(drill: PortableDrill): Array<{ pose: PortablePose; 
     });
 }
 
-function PoseOverlay({ pose, view }: { pose: PortablePose; view: PortableDrill["primaryView"] }) {
+function PoseOverlay({ pose, view, scale }: { pose: PortablePose; view: PortableDrill["primaryView"]; scale: number }) {
   const connections = getPreviewConnections(view);
-  const entries = Object.entries(pose.joints).flatMap(([name, point]) => point ? [{ name, point }] : []) as Array<{ name: keyof PortablePose["joints"] & string; point: NonNullable<PortablePose["joints"][keyof PortablePose["joints"]]> }>;
+  const allowedJointNames = new Set(getPreviewJointNames(view));
+  const entries = Object.entries(pose.joints)
+    .flatMap(([name, point]) => point ? [{ name, point }] : [])
+    .filter((entry) => allowedJointNames.has(entry.name as keyof PortablePose["joints"] & string)) as Array<{ name: keyof PortablePose["joints"] & string; point: NonNullable<PortablePose["joints"][keyof PortablePose["joints"]]> }>;
   const byJoint = new Map(entries.map((entry) => [entry.name, entry.point]));
+  const connectedJointNames = new Set<string>();
   return (
     <svg viewBox={`0 0 ${pose.canvas.widthRef} ${pose.canvas.heightRef}`} style={{ width: "100%", height: "100%", display: "block" }} aria-hidden>
       {connections.map((segment) => {
         const from = byJoint.get(segment.from);
         const to = byJoint.get(segment.to);
         if (!from || !to) return null;
+        connectedJointNames.add(segment.from);
+        connectedJointNames.add(segment.to);
         return (
           <line
             key={`${segment.from}-${segment.to}`}
@@ -177,20 +190,20 @@ function PoseOverlay({ pose, view }: { pose: PortablePose; view: PortableDrill["
             x2={to.x * pose.canvas.widthRef}
             y2={to.y * pose.canvas.heightRef}
             stroke={PREVIEW_OVERLAY_STYLE.skeletonBase}
-            strokeWidth={Math.max(1.5, PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth * 0.32)}
+            strokeWidth={Math.max(1.75, PREVIEW_OVERLAY_STYLE.skeletonStrokeWidth * 0.3 * scale)}
             strokeLinecap="round"
             opacity={0.95}
           />
         );
       })}
-      {entries.map((joint) => {
+      {entries.filter((joint) => connectedJointNames.has(joint.name)).map((joint) => {
         const role = getPreviewJointRole(joint.name as never);
         return (
           <circle
             key={joint.name}
             cx={joint.point.x * pose.canvas.widthRef}
             cy={joint.point.y * pose.canvas.heightRef}
-            r={role === "nose" || role === "hip" ? 3 : 2.25}
+            r={Math.max(2.1, (role === "nose" || role === "hip" ? 2.8 : 2.2) * scale)}
             fill={role === "nose" ? PREVIEW_OVERLAY_STYLE.nose : role === "hip" ? PREVIEW_OVERLAY_STYLE.hip : PREVIEW_OVERLAY_STYLE.skeletonBase}
             opacity={0.95}
           />
