@@ -32,13 +32,15 @@ export function StudioExperience({
   initialDraftId,
   initialDrillId,
   initialVersionId,
-  initialHostedDraftId
+  initialHostedDraftId,
+  initialIntent
 }: {
   initialPackageId?: string;
   initialDraftId?: string;
   initialDrillId?: string;
   initialVersionId?: string;
   initialHostedDraftId?: string;
+  initialIntent?: "create";
 }) {
   return (
     <StudioStateProvider
@@ -50,6 +52,12 @@ export function StudioExperience({
       requireDrillContext={true}
     >
       <div className="studio-route-surface">
+        {initialIntent === "create" ? (
+          <section className="card" style={{ marginBottom: "0.6rem", padding: "0.6rem 0.8rem", display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "center" }}>
+            <strong>New drill draft</strong>
+            <span className="pill">Create flow</span>
+          </section>
+        ) : null}
         <StudioEmptyState />
       </div>
     </StudioStateProvider>

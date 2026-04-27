@@ -14,7 +14,7 @@ import {
   updateExchangeForkTarget,
   type ExchangePublication
 } from "@/lib/exchange";
-import { forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
+import { createDrill, forkPublishedDrillToLibrary, loadEditableVersionForDrill, type DrillRepositoryContext } from "@/lib/library";
 import { buildWorkflowDrillKey, setActiveDrillContext } from "@/lib/workflow/drill-context";
 
 const ALL_FILTER = "all";
@@ -46,6 +46,7 @@ export function MarketplaceOverview() {
   const [feedback, setFeedback] = useState<string>("");
   const [warning, setWarning] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [pendingCreateDrill, setPendingCreateDrill] = useState(false);
 
   const repositoryContext = useMemo<DrillRepositoryContext>(
     () => ({ mode: persistenceMode === "cloud" ? "cloud" : "local", session }),
@@ -179,6 +180,26 @@ export function MarketplaceOverview() {
     router.push(`/${destination}?drillKey=${encodeURIComponent(buildWorkflowDrillKey(context))}`);
   }
 
+  async function onCreateDrill(): Promise<void> {
+    setPendingCreateDrill(true);
+    setFeedback("");
+    setWarning("");
+    setError("");
+    try {
+      const created = await createDrill(repositoryContext);
+      setActiveDrillContext({
+        drillId: created.drillId,
+        sourceKind: persistenceMode === "cloud" ? "hosted" : "local",
+        sourceId: created.draftVersionId
+      });
+      router.push(`/studio?intent=create&drillId=${encodeURIComponent(created.drillId)}`);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Could not start a new drill draft.");
+    } finally {
+      setPendingCreateDrill(false);
+    }
+  }
+
   return (
     <section className="card" style={{ marginTop: "0.5rem", display: "grid", gap: "0.9rem" }}>
       <h2 style={{ margin: 0 }}>Explore Drills</h2>
@@ -194,7 +215,9 @@ export function MarketplaceOverview() {
         </p>
       ) : null}
       <div style={helperActionRowStyle}>
-        <Link className="pill" href="/studio" style={advancedActionStyle}>Create Drill (advanced)</Link>
+        <button type="button" className="pill" style={advancedActionStyle} onClick={() => void onCreateDrill()} disabled={pendingCreateDrill}>
+          {pendingCreateDrill ? "Creating draft…" : "Create Drill (advanced)"}
+        </button>
         <Link className="pill" href="/library#my-drills" style={secondaryActionStyle}>Open My Drills</Link>
       </div>
 

@@ -7,9 +7,10 @@ import { StudioExperience } from "@/components/studio/StudioExperience";
 export default async function StudioPage({
   searchParams
 }: {
-  searchParams: Promise<{ packageId?: string; draftId?: string; drillId?: string; versionId?: string; hostedDraftId?: string }>;
+  searchParams: Promise<{ packageId?: string; draftId?: string; drillId?: string; versionId?: string; hostedDraftId?: string; intent?: string }>;
 }) {
   const params = await searchParams;
+  const initialIntent = params.intent === "create" ? "create" : undefined;
   return (
     <RoutePageIntro
       title="Drill Studio"
@@ -21,6 +22,7 @@ export default async function StudioPage({
         initialDrillId={params.drillId}
         initialVersionId={params.versionId}
         initialHostedDraftId={params.hostedDraftId}
+        initialIntent={initialIntent}
       />
     </RoutePageIntro>
   );
