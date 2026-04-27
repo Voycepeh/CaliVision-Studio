@@ -42,7 +42,6 @@ import { getReplayStateMessage, getReplayStateTone, type ReplayTerminalState } f
 import type { PortableDrill } from "@/lib/schema/contracts";
 import { DrillSetupHeader } from "@/components/workflow-setup/DrillSetupHeader";
 import { DrillSetupShell } from "@/components/workflow-setup/DrillSetupShell";
-import { ReferenceAnimationPanel } from "@/components/workflow-setup/ReferenceAnimationPanel";
 import { CaptureSetupGuidance } from "@/components/workflow-setup/CaptureSetupGuidance";
 import { UploadSelectedDrillCard } from "@/components/upload/UploadSelectedDrillCard";
 import { DrillComboboxField, DrillOriginSelectField } from "@/components/workflow-setup/DrillOriginSelector";
@@ -106,6 +105,37 @@ function resolveUploadReplayState(job: UploadJob | null | undefined, previewStat
   if (job.status === "completed" && job.artefacts?.annotatedVideoBlob) return "annotated-ready";
   if (job.status === "completed") return "raw-fallback";
   return "idle";
+}
+
+function UploadWorkflowSidebarGuidance({
+  hasDrill,
+  benchmarkState
+}: {
+  hasDrill: boolean;
+  benchmarkState?: "available" | "unavailable" | "legacy-missing";
+}) {
+  const benchmarkLine = !hasDrill
+    ? "Freestyle mode runs overlay-first analysis without drill-specific benchmark checks."
+    : benchmarkState === "available"
+      ? "Benchmark checks will run after analysis so phase sequence and timing can be reviewed."
+      : benchmarkState === "legacy-missing"
+        ? "This drill is in legacy benchmark-missing mode; phase/rep checks may be limited."
+        : "This drill currently has no benchmark metadata; Upload Video will focus on pose overlay + base drill metrics.";
+
+  return (
+    <section className="card" style={{ margin: 0, display: "grid", gap: "0.45rem", background: "rgba(114,168,255,0.04)" }}>
+      <strong style={{ fontSize: "0.9rem" }}>Upload setup guidance</strong>
+      <p className="muted" style={{ margin: 0, fontSize: "0.82rem" }}>
+        Workflow order: choose drill, verify setup, choose video, then analyze.
+      </p>
+      <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+        {benchmarkLine}
+      </p>
+      <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+        Capture hint: keep the full athlete visible for cleaner pose tracking and more stable replay diagnostics.
+      </p>
+    </section>
+  );
 }
 
 
@@ -1267,11 +1297,9 @@ export function UploadVideoWorkspace() {
           </div>
         }
         rightPane={
-          <ReferenceAnimationPanel
-            drill={selectedDrill?.drill ?? null}
-            sourceKind={selectedDrill?.sourceKind}
+          <UploadWorkflowSidebarGuidance
+            hasDrill={Boolean(selectedDrill?.drill)}
             benchmarkState={selectedDrill?.benchmarkState}
-            freestyleDescription="Upload Video will run pose overlay and export outputs without drill-specific rep, hold, or phase scoring."
           />
         }
       />
