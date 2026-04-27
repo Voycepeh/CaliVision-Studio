@@ -61,7 +61,6 @@ import {
   DRILL_THUMBNAIL_TARGET_WIDTH,
   estimateDataUriByteSize
 } from "@/lib/drills/thumbnail";
-import { normalizePoseToLandscapePreview } from "@/lib/drills/preview-normalization";
 import { applyCoachingProfileSuggestions, type DrillCoachingProfile } from "@/lib/analysis/coaching-profile";
 import type {
   CanonicalJointName,
@@ -226,7 +225,20 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   offsetY: 0
 };
 
-const DEFAULT_PHASE_PREVIEW_FOCUS: PhasePreviewFocus = { centerX: 0.5, centerY: 0.5, zoom: 1 };
+const STUDIO_POSE_DETECTION_DEBUG_STORAGE_KEY = "studio.poseDetectionDebug";
+
+function isPoseDetectionDebugEnabled(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  return window.localStorage.getItem(STUDIO_POSE_DETECTION_DEBUG_STORAGE_KEY) === "1";
+}
+
+function logPoseDetectionDebug(stage: string, payload: Record<string, unknown>): void {
+  if (!isPoseDetectionDebugEnabled()) return;
+  // Debug-only authoring diagnostics for static image detection regressions.
+  console.info("[studio-pose-detection]", stage, payload);
+}
 
 const DEFAULT_EDITOR_VIEW: PortableViewType = "front";
 
@@ -2095,7 +2107,27 @@ export function StudioStateProvider({
 
     try {
       const image = await loadImageFromObjectUrl(sourceImage.objectUrl);
+      logPoseDetectionDebug("input-image", {
+        scopeKey,
+        sourceAssetId: sourceImage.assetId,
+        sourceWidth: sourceImage.width,
+        sourceHeight: sourceImage.height,
+        imageNaturalWidth: image.naturalWidth,
+        imageNaturalHeight: image.naturalHeight
+      });
       const result = await detectPoseFromImage(image);
+      logPoseDetectionDebug("detector-result", {
+        scopeKey,
+        status: result.status,
+        detectorImageWidth: result.metadata.imageWidth,
+        detectorImageHeight: result.metadata.imageHeight,
+        issues: result.issues.map((issue) => issue.code),
+        rawJointSample: Object.fromEntries(
+          Object.entries(result.joints)
+            .slice(0, 6)
+            .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
+        )
+      });
 
       if (result.status === "failed") {
         setPhaseDetectionState((current) => ({
@@ -2150,13 +2182,21 @@ export function StudioStateProvider({
 
     withPhaseUpdate(selectedPhaseId, (phase, view) => {
       const poseId = phase.poseSequence[0]?.poseId ?? `${selectedPhaseId}_pose_001`;
-      const detectedPose = mapDetectionResultToPortablePose(detectionResult, {
+      const nextPose = mapDetectionResultToPortablePose(detectionResult, {
         poseId,
         timestampMs: phase.poseSequence[0]?.timestampMs ?? phase.startOffsetMs ?? 0,
         view
       });
-      const phaseFocus = (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion ?? DEFAULT_PHASE_PREVIEW_FOCUS;
-      const nextPose = normalizePoseToLandscapePreview(detectedPose, phaseFocus);
+      logPoseDetectionDebug("mapped-portable-pose", {
+        phaseId: selectedPhaseId,
+        focusRegion: (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion ?? null,
+        poseCanvas: nextPose.canvas,
+        mappedJointSample: Object.fromEntries(
+          Object.entries(nextPose.joints)
+            .slice(0, 6)
+            .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
+        )
+      });
       phase.poseSequence = [nextPose];
     });
 
