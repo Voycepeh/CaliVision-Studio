@@ -61,6 +61,27 @@ export function computeDetectionCropRectPx(
   };
 }
 
+export function clampDetectionCropToImage(
+  sourceWidth: number,
+  sourceHeight: number,
+  crop: Partial<PortablePhaseDetectionCrop> | null | undefined
+): PortablePhaseDetectionCrop {
+  const normalized = normalizeDetectionCrop(crop);
+  const rect = computeDetectionCropRectPx(sourceWidth, sourceHeight, normalized);
+  const halfSize = rect.size / 2;
+
+  const minCenterX = halfSize / sourceWidth;
+  const maxCenterX = 1 - minCenterX;
+  const minCenterY = halfSize / sourceHeight;
+  const maxCenterY = 1 - minCenterY;
+
+  return {
+    centerX: Math.min(Math.max(normalized.centerX, minCenterX), maxCenterX),
+    centerY: Math.min(Math.max(normalized.centerY, minCenterY), maxCenterY),
+    zoom: normalized.zoom
+  };
+}
+
 export function mapDetectionResultFromCropToSource(
   detection: DetectionResult,
   sourceWidth: number,

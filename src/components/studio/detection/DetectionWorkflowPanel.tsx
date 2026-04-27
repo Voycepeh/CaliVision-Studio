@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
-import { computeDetectionCropRectPx } from "@/lib/detection";
+import { clampDetectionCropToImage, computeDetectionCropRectPx } from "@/lib/detection";
 import { getSortedPhases } from "@/lib/editor/package-editor";
 
 const PAN_STEP = 0.05;
@@ -32,7 +32,10 @@ export function DetectionWorkflowPanel({
   } = useStudioState();
 
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
-  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+  const [dragState, setDragState] = useState<{ pointerId: number; startX: number; startY: number; cropAtStartX: number; cropAtStartY: number } | null>(null);
+  const pinchPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
 
   useEffect(() => {
     if (autoOpenSource === "upload") {
@@ -52,29 +55,57 @@ export function DetectionWorkflowPanel({
     [selectedPhaseDetectionCrop, selectedPhaseSourceImage]
   );
 
-  useEffect(() => {
-    const canvas = previewCanvasRef.current;
-    if (!canvas || !selectedPhaseSourceImage || !cropRect) {
-      return;
+  const workspaceGeometry = useMemo(() => {
+    if (!selectedPhaseSourceImage || !cropRect) {
+      return null;
     }
 
-    const image = new Image();
-    image.onload = () => {
-      const context = canvas.getContext("2d");
-      if (!context) return;
-      canvas.width = 300;
-      canvas.height = 300;
-      context.clearRect(0, 0, 300, 300);
-      context.drawImage(image, cropRect.sx, cropRect.sy, cropRect.size, cropRect.size, 0, 0, 300, 300);
+    const sourceAspect = selectedPhaseSourceImage.width / selectedPhaseSourceImage.height;
+    const frameAspect = 1;
+    const imageWidthNorm = sourceAspect >= frameAspect ? 1 : sourceAspect / frameAspect;
+    const imageHeightNorm = sourceAspect >= frameAspect ? frameAspect / sourceAspect : 1;
+    const imageXNorm = (1 - imageWidthNorm) / 2;
+    const imageYNorm = (1 - imageHeightNorm) / 2;
+    const cropXNorm = imageXNorm + (cropRect.sx / selectedPhaseSourceImage.width) * imageWidthNorm;
+    const cropYNorm = imageYNorm + (cropRect.sy / selectedPhaseSourceImage.height) * imageHeightNorm;
+    const cropSizeNorm = (cropRect.size / selectedPhaseSourceImage.width) * imageWidthNorm;
+
+    return {
+      imageXNorm,
+      imageYNorm,
+      imageWidthNorm,
+      imageHeightNorm,
+      cropXNorm,
+      cropYNorm,
+      cropSizeNorm
     };
-    image.src = selectedPhaseSourceImage.objectUrl;
   }, [cropRect, selectedPhaseSourceImage]);
 
   function updatePan(dx: number, dy: number): void {
-    setSelectedPhaseDetectionCrop({
-      centerX: selectedPhaseDetectionCrop.centerX + dx,
-      centerY: selectedPhaseDetectionCrop.centerY + dy
-    });
+    if (!selectedPhaseSourceImage) {
+      return;
+    }
+
+    setSelectedPhaseDetectionCrop(
+      clampDetectionCropToImage(selectedPhaseSourceImage.width, selectedPhaseSourceImage.height, {
+        centerX: selectedPhaseDetectionCrop.centerX + dx,
+        centerY: selectedPhaseDetectionCrop.centerY + dy,
+        zoom: selectedPhaseDetectionCrop.zoom
+      })
+    );
+  }
+
+  function updateZoom(zoom: number): void {
+    if (!selectedPhaseSourceImage) {
+      return;
+    }
+
+    setSelectedPhaseDetectionCrop(
+      clampDetectionCropToImage(selectedPhaseSourceImage.width, selectedPhaseSourceImage.height, {
+        ...selectedPhaseDetectionCrop,
+        zoom
+      })
+    );
   }
 
   return (
@@ -121,14 +152,134 @@ export function DetectionWorkflowPanel({
           <p className="muted" style={{ margin: 0 }}>
             Use the square detection crop to isolate the athlete; tighter framing with less background clutter can improve pose detection.
           </p>
-          <div style={{ display: "grid", gap: "0.4rem", gridTemplateColumns: "300px auto", alignItems: "start" }}>
-            <div style={workspaceStyle}>
-              <canvas ref={previewCanvasRef} style={{ width: "300px", height: "300px", display: "block" }} />
+          <div style={{ display: "grid", gap: "0.4rem", gridTemplateColumns: "minmax(220px, 340px) auto", alignItems: "start" }}>
+            <div
+              ref={workspaceRef}
+              style={workspaceStyle}
+              onWheel={(event) => {
+                event.preventDefault();
+                const direction = event.deltaY < 0 ? 1 : -1;
+                updateZoom(selectedPhaseDetectionCrop.zoom + direction * 0.1);
+              }}
+              onPointerDown={(event) => {
+                if (!selectedPhaseSourceImage || !workspaceRef.current || !workspaceGeometry) {
+                  return;
+                }
+
+                event.currentTarget.setPointerCapture(event.pointerId);
+                pinchPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+                if (pinchPointersRef.current.size === 1) {
+                  setDragState({
+                    pointerId: event.pointerId,
+                    startX: event.clientX,
+                    startY: event.clientY,
+                    cropAtStartX: selectedPhaseDetectionCrop.centerX,
+                    cropAtStartY: selectedPhaseDetectionCrop.centerY
+                  });
+                } else if (pinchPointersRef.current.size === 2) {
+                  const [first, second] = [...pinchPointersRef.current.values()];
+                  const distance = Math.hypot(first.x - second.x, first.y - second.y);
+                  pinchStateRef.current = { distance, zoom: selectedPhaseDetectionCrop.zoom };
+                  setDragState(null);
+                }
+              }}
+              onPointerMove={(event) => {
+                if (!selectedPhaseSourceImage || !workspaceRef.current || !workspaceGeometry) {
+                  return;
+                }
+
+                if (pinchPointersRef.current.has(event.pointerId)) {
+                  pinchPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+                }
+
+                if (pinchPointersRef.current.size === 2) {
+                  const [first, second] = [...pinchPointersRef.current.values()];
+                  const currentDistance = Math.hypot(first.x - second.x, first.y - second.y);
+                  const pinchState = pinchStateRef.current;
+                  if (pinchState && pinchState.distance > 0) {
+                    const zoomScale = currentDistance / pinchState.distance;
+                    updateZoom(pinchState.zoom * zoomScale);
+                  }
+                  return;
+                }
+
+                if (!dragState || dragState.pointerId !== event.pointerId) {
+                  return;
+                }
+
+                const dxPx = event.clientX - dragState.startX;
+                const dyPx = event.clientY - dragState.startY;
+                const centerX = dragState.cropAtStartX + dxPx / workspaceRef.current.clientWidth / workspaceGeometry.imageWidthNorm;
+                const centerY = dragState.cropAtStartY + dyPx / workspaceRef.current.clientHeight / workspaceGeometry.imageHeightNorm;
+                setSelectedPhaseDetectionCrop(
+                  clampDetectionCropToImage(selectedPhaseSourceImage.width, selectedPhaseSourceImage.height, {
+                    ...selectedPhaseDetectionCrop,
+                    centerX,
+                    centerY
+                  })
+                );
+              }}
+              onPointerUp={(event) => {
+                pinchPointersRef.current.delete(event.pointerId);
+                if (dragState?.pointerId === event.pointerId) {
+                  setDragState(null);
+                }
+                if (pinchPointersRef.current.size < 2) {
+                  pinchStateRef.current = null;
+                }
+              }}
+              onPointerCancel={(event) => {
+                pinchPointersRef.current.delete(event.pointerId);
+                if (dragState?.pointerId === event.pointerId) {
+                  setDragState(null);
+                }
+                if (pinchPointersRef.current.size < 2) {
+                  pinchStateRef.current = null;
+                }
+              }}
+            >
+              <img
+                src={selectedPhaseSourceImage.objectUrl}
+                alt="Phase source"
+                draggable={false}
+                style={{
+                  position: "absolute",
+                  left: `${(workspaceGeometry?.imageXNorm ?? 0) * 100}%`,
+                  top: `${(workspaceGeometry?.imageYNorm ?? 0) * 100}%`,
+                  width: `${(workspaceGeometry?.imageWidthNorm ?? 1) * 100}%`,
+                  height: `${(workspaceGeometry?.imageHeightNorm ?? 1) * 100}%`,
+                  objectFit: "fill",
+                  opacity: 0.95,
+                  userSelect: "none",
+                  touchAction: "none"
+                }}
+              />
+              {workspaceGeometry ? (
+                <>
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: `${workspaceGeometry.cropXNorm * 100}%`,
+                      top: `${workspaceGeometry.cropYNorm * 100}%`,
+                      width: `${workspaceGeometry.cropSizeNorm * 100}%`,
+                      height: `${workspaceGeometry.cropSizeNorm * 100}%`,
+                      border: "2px solid rgba(114, 168, 255, 0.95)",
+                      borderRadius: "0.35rem",
+                      boxShadow: "0 0 0 9999px rgba(8,11,17,0.45), 0 0 0 1px rgba(8,11,17,0.65)"
+                    }}
+                  />
+                </>
+              ) : null}
             </div>
             <div style={{ display: "grid", gap: "0.35rem" }}>
+              <p className="muted" style={{ margin: 0, fontSize: "0.8rem" }}>
+                Drag to position the square crop. Use mouse wheel or pinch to zoom.
+              </p>
               <div className="studio-action-row">
-                <button type="button" className="studio-button" onClick={() => setSelectedPhaseDetectionCrop({ zoom: selectedPhaseDetectionCrop.zoom + ZOOM_STEP })}>Zoom in</button>
-                <button type="button" className="studio-button" onClick={() => setSelectedPhaseDetectionCrop({ zoom: selectedPhaseDetectionCrop.zoom - ZOOM_STEP })}>Zoom out</button>
+                <button type="button" className="studio-button" onClick={() => updateZoom(selectedPhaseDetectionCrop.zoom + ZOOM_STEP)}>Zoom in</button>
+                <button type="button" className="studio-button" onClick={() => updateZoom(selectedPhaseDetectionCrop.zoom - ZOOM_STEP)}>Zoom out</button>
                 <button type="button" className="studio-button" onClick={() => resetSelectedPhaseDetectionCrop()}>Reset crop</button>
               </div>
               <div className="studio-action-row">
@@ -175,10 +326,14 @@ const inputStyle: CSSProperties = {
 };
 
 const workspaceStyle: CSSProperties = {
-  width: "300px",
+  width: "100%",
+  maxWidth: "340px",
   aspectRatio: "1 / 1",
   border: "1px solid var(--border)",
   borderRadius: "0.5rem",
   overflow: "hidden",
-  background: "var(--panel-soft)"
+  background: "var(--panel-soft)",
+  position: "relative",
+  touchAction: "none",
+  cursor: "grab"
 };
