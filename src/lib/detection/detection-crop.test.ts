@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  clampDetectionCropToImage,
   computeDetectionCropRectPx,
   createDefaultDetectionCrop,
   mapDetectionResultFromCropToSource,
@@ -62,4 +63,21 @@ test("createDefaultDetectionCrop returns stable persisted defaults", () => {
     centerY: 0.5,
     zoom: 1
   });
+});
+
+test("clampDetectionCropToImage keeps center in-bounds for high zoom", () => {
+  const clamped = clampDetectionCropToImage(1920, 1080, {
+    centerX: 0.98,
+    centerY: 0.03,
+    zoom: 4
+  });
+
+  const rect = computeDetectionCropRectPx(1920, 1080, clamped);
+  const expectedCenterX = (rect.sx + rect.size / 2) / 1920;
+  const expectedCenterY = (rect.sy + rect.size / 2) / 1080;
+
+  assert.ok(Math.abs(clamped.centerX - expectedCenterX) < 0.000001);
+  assert.ok(Math.abs(clamped.centerY - expectedCenterY) < 0.000001);
+  assert.equal(rect.sx >= 0 && rect.sx + rect.size <= 1920, true);
+  assert.equal(rect.sy >= 0 && rect.sy + rect.size <= 1080, true);
 });

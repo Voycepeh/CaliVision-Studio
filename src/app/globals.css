@@ -177,6 +177,21 @@ main {
   width: 100%;
 }
 
+.studio-detection-crop-layout {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.studio-detection-crop-workspace {
+  justify-self: start;
+}
+
+.studio-detection-crop-controls {
+  min-width: 0;
+}
+
 .studio-phase-list-heading {
   display: flex;
   justify-content: space-between;
@@ -623,6 +638,15 @@ main {
 
   .studio-pane-right .card {
     background: linear-gradient(180deg, rgba(24, 36, 53, 0.78), rgba(15, 21, 32, 0.92));
+  }
+
+  .studio-detection-crop-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .studio-detection-crop-workspace {
+    justify-self: stretch;
+    max-width: 100% !important;
   }
 
   .pose-canvas-frame-balanced {
