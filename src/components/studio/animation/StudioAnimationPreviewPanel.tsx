@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { useStudioState } from "@/components/studio/StudioState";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
 import { getRuntimePreviewPhases } from "@/lib/analysis";
 import { getPrimaryDrill } from "@/lib/editor/package-editor";
 import { formatDurationShort } from "@/lib/format/duration";
-import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 
 const PLAYBACK_SPEED_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -88,7 +87,6 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
   }, [isPlaying, loopEnabled, speedMultiplier, timeline.totalDurationMs]);
 
   const sampledFrame = useMemo(() => sampleAnimationTimeline(timeline, elapsedMs), [timeline, elapsedMs]);
-  const poseModel = useMemo(() => mapPortablePoseToCanvasPoseModel(sampledFrame.pose), [sampledFrame.pose]);
   const totalDurationLabel = formatDurationShort(timeline.totalDurationMs);
 
   return (
@@ -110,13 +108,15 @@ export function StudioAnimationPreviewPanel({ compact = false }: { compact?: boo
 
       {isExpanded ? (
         <div className="studio-animation-preview-body">
-          <PoseCanvas
-            pose={poseModel}
-            title="Canonical sequence preview"
-            subtitle={sampledFrame.phaseId ? sampledFrame.phaseTitle : "No active phase"}
-            showPoseLayer
-            editable={false}
-          />
+          {selectedDrill ? (
+            <DrillVisualPreview
+              drill={selectedDrill}
+              variant="studio"
+              showMotionPreview
+              motionMode="badge"
+              phaseLabel={sampledFrame.phaseId ? sampledFrame.phaseTitle : "No active phase"}
+            />
+          ) : null}
 
           <div className="studio-animation-controls">
             <button type="button" onClick={() => setIsPlaying(true)} disabled={timeline.totalDurationMs <= 0 || isPlaying}>

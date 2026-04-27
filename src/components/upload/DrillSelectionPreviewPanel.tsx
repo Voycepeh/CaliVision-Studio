@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PoseCanvas } from "@/components/studio/canvas/PoseCanvas";
+import { DrillVisualPreview } from "@/components/library/DrillVisualPreview";
 import { buildAnimationTimeline, sampleAnimationTimeline } from "@/lib/animation/preview";
 import { getRuntimePreviewPhases } from "@/lib/analysis";
 import { formatStoredDrillSourceLabel, type StoredDrillSourceKind } from "@/lib/drill-source";
 import { summarizeBenchmark } from "@/lib/drills/benchmark";
-import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 import type { PortableDrill, PortableViewType } from "@/lib/schema/contracts";
 
 type DrillSelectionPreviewPanelProps = {
@@ -103,7 +102,6 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, 
   }, [drill.drillType, isPlaying, timeline.totalDurationMs]);
 
   const sampledFrame = useMemo(() => sampleAnimationTimeline(timeline, elapsedMs), [timeline, elapsedMs]);
-  const poseModel = useMemo(() => mapPortablePoseToCanvasPoseModel(sampledFrame.pose), [sampledFrame.pose]);
 
   const phaseStateLabel = useMemo(() => {
     if (drill.drillType === "rep") {
@@ -148,14 +146,13 @@ export function DrillSelectionPreviewPanel({ drill, sourceKind, benchmarkState, 
         ) : null}
       </div>
 
-      <div style={{ maxWidth: compact ? 260 : undefined }}>
-        <PoseCanvas
-          pose={poseModel}
-          title="Motion preview"
-          subtitle={drill.drillType === "hold" ? phaseStateLabel : `${phaseStateLabel} · ${sampledFrame.phaseTitle}`}
-          editable={false}
-          showPoseLayer
-          sizeMode={compact ? "default" : "balanced"}
+      <div style={{ maxWidth: compact ? 280 : undefined }}>
+        <DrillVisualPreview
+          drill={drill}
+          variant={compact ? "selectedDrill" : "exchangeHero"}
+          showMotionPreview
+          motionMode="badge"
+          phaseLabel={drill.drillType === "hold" ? phaseStateLabel : sampledFrame.phaseTitle}
         />
       </div>
 

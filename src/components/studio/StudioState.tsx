@@ -61,6 +61,7 @@ import {
   DRILL_THUMBNAIL_TARGET_WIDTH,
   estimateDataUriByteSize
 } from "@/lib/drills/thumbnail";
+import { normalizePoseToLandscapePreview } from "@/lib/drills/preview-normalization";
 import { applyCoachingProfileSuggestions, type DrillCoachingProfile } from "@/lib/analysis/coaching-profile";
 import type {
   CanonicalJointName,
@@ -111,6 +112,12 @@ export type PhaseOverlayState = {
   fitMode: OverlayFitMode;
   offsetX: number;
   offsetY: number;
+};
+
+export type PhasePreviewFocus = {
+  centerX: number;
+  centerY: number;
+  zoom: number;
 };
 
 export type PublishWorkflowState = {
@@ -218,6 +225,8 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   offsetX: 0,
   offsetY: 0
 };
+
+const DEFAULT_PHASE_PREVIEW_FOCUS: PhasePreviewFocus = { centerX: 0.5, centerY: 0.5, zoom: 1 };
 
 const DEFAULT_EDITOR_VIEW: PortableViewType = "front";
 
@@ -1977,7 +1986,7 @@ export function StudioStateProvider({
   }
 
   function setSelectedPhaseOverlayState(partial: Partial<PhaseOverlayState>): void {
-    if (!selectedScopeKey) {
+    if (!selectedScopeKey || !selectedPhaseId) {
       return;
     }
 
@@ -1988,6 +1997,17 @@ export function StudioStateProvider({
         ...partial
       }
     }));
+
+    const overlay = { ...(phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE), ...partial };
+    const focus: PhasePreviewFocus = {
+      centerX: Math.min(Math.max(0.5 + overlay.offsetX * 0.25, 0), 1),
+      centerY: Math.min(Math.max(0.5 + overlay.offsetY * 0.25, 0), 1),
+      zoom: overlay.fitMode === "cover" ? 1.28 : 1
+    };
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = focus;
+    });
   }
 
   function resetSelectedPhaseOverlayState(): void {
@@ -2130,11 +2150,13 @@ export function StudioStateProvider({
 
     withPhaseUpdate(selectedPhaseId, (phase, view) => {
       const poseId = phase.poseSequence[0]?.poseId ?? `${selectedPhaseId}_pose_001`;
-      const nextPose = mapDetectionResultToPortablePose(detectionResult, {
+      const detectedPose = mapDetectionResultToPortablePose(detectionResult, {
         poseId,
         timestampMs: phase.poseSequence[0]?.timestampMs ?? phase.startOffsetMs ?? 0,
         view
       });
+      const phaseFocus = (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion ?? DEFAULT_PHASE_PREVIEW_FOCUS;
+      const nextPose = normalizePoseToLandscapePreview(detectedPose, phaseFocus);
       phase.poseSequence = [nextPose];
     });
 

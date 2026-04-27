@@ -264,6 +264,19 @@ export function StudioCenterInspector() {
                 <button type="button" onClick={() => closeInlineEditor()} className="studio-button studio-button-primary">Done</button>
               </div>
 
+              <div className="studio-action-row studio-phase-actions">
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ fitMode: selectedPhaseOverlayState.fitMode === "contain" ? "cover" : "contain" })} className="studio-button">
+                  Focus zoom: {selectedPhaseOverlayState.fitMode === "cover" ? "On" : "Off"}
+                </button>
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetX: Math.max(-0.6, selectedPhaseOverlayState.offsetX - 0.08) })} className="studio-button">← Focus</button>
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetX: Math.min(0.6, selectedPhaseOverlayState.offsetX + 0.08) })} className="studio-button">Focus →</button>
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetY: Math.max(-0.6, selectedPhaseOverlayState.offsetY - 0.08) })} className="studio-button">↑ Focus</button>
+                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetY: Math.min(0.6, selectedPhaseOverlayState.offsetY + 0.08) })} className="studio-button">↓ Focus</button>
+              </div>
+              <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
+                Saved preview focus uses a 16:9 landscape frame so Exchange, Upload Video, and Live Streaming stay visually consistent.
+              </p>
+
               {selectedJointName ? (
                 <div className="studio-joint-nudge-panel">
                   <p className="muted" style={{ margin: 0 }}>Nudge {selectedJointName}</p>
