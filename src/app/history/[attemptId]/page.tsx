@@ -7,7 +7,7 @@ export default async function HistoryAttemptDetailPage({ params }: { params: Pro
     <RoutePageIntro
       navActive="history"
       title="Attempt detail"
-      description="Review one attempt and hand off into Compare."
+      description="Review one attempt and optionally open Target Check or deeper compare tools."
     >
       <AttemptDetailWorkspace attemptId={attemptId} />
     </RoutePageIntro>

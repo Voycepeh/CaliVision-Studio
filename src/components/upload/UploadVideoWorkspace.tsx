@@ -1406,9 +1406,9 @@ export function UploadVideoWorkspace() {
               </div>
               {canOpenCompare ? (
                 <article className="card" style={{ margin: "0 0 0.75rem", border: "1px solid #334155", display: "grid", gap: "0.45rem" }}>
-                  <h4 style={{ margin: 0 }}>Benchmark comparison</h4>
+                  <h4 style={{ margin: 0 }}>Target Check</h4>
                   <p className="muted" style={{ margin: 0 }}>
-                    Compare this attempt against the benchmark pose, timing, and drill expectations.
+                    Check whether this attempt matched the drill target (benchmark pose, timing, and phase expectations).
                   </p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(160px,1fr))", gap: "0.45rem" }}>
                     <span className="muted"><strong>Status:</strong> {compareStatusView.label}</span>
@@ -1417,6 +1417,7 @@ export function UploadVideoWorkspace() {
                   </div>
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <button
+                      className="pill"
                       type="button"
                       onClick={() => {
                         const drill = activeJob.drillSelection.drill;
@@ -1440,7 +1441,7 @@ export function UploadVideoWorkspace() {
                         router.push("/compare");
                       }}
                     >
-                      Review benchmark comparison
+                      Open Target Check page
                     </button>
                   </div>
                 </article>
