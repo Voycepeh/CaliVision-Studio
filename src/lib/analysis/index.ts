@@ -27,6 +27,9 @@ export {
 } from "./benchmark-comparison.ts";
 export type { BenchmarkComparisonResult, BenchmarkComparisonStatus } from "./benchmark-comparison.ts";
 
+export { mapAnalysisSessionToRuntimeSegments, mapLiveAnalysisToRuntimeSegments, mapUploadAnalysisToRuntimeSegments } from "./runtime-segments.ts";
+export type { RuntimeSegment, RuntimeSegmentKeyMetrics, RuntimeSegmentSource, RuntimeSegmentStatus, RuntimeSegmentType, RuntimeRepPhaseTiming, RuntimeHoldStableWindow } from "./runtime-segments.ts";
+
 export { applyCoachingProfileSuggestions, filterVisualGuidesByProfile, isCoachingProfileConfigured, HANDSTAND_DEFAULT_VISUAL_GUIDES } from "./coaching-profile.ts";
 export type { DrillCoachingProfile, CoachingMovementFamily, CoachingRulesetId, CoachingSupportType, CoachingPrimaryGoal, CoachingVisualGuideType } from "./coaching-profile.ts";
 
