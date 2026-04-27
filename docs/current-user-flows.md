@@ -8,7 +8,8 @@
 4. **My Drills** is a secondary section on `/library` for authored drafts, imported drill files, private drills, and advanced editing workflows.
 5. Moderator/admin tooling is separated into the protected **Admin** route (`/admin`); normal drill cards keep owner-facing actions only (for example **Remove from Public**).
 6. Analyze Video and Live Coach launch their workflows with the selected drill preloaded via the shared drill context/drill key route handoff.
-7. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
+7. From **Explore Drills**, **Create Drill (advanced)** now creates a fresh drill draft first, then routes to `/studio?intent=create&drillId=...` so Studio opens in explicit new-drill creation state (instead of a generic Studio route jump).
+8. User moves into **Drill Studio** for editing, **Upload Video** for existing file analysis, or **Live Streaming** for active browser camera sessions.
 
 ## Current Drill Studio flow
 

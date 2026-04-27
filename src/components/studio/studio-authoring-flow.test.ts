@@ -18,3 +18,9 @@ test("phase sequence section explains drill-first reference and optional hold ru
   assert.equal(source.includes("Phase rules"), true);
   assert.equal(source.includes("Hold requirement"), true);
 });
+
+test("studio experience can show explicit new-drill creation state", () => {
+  const experienceSource = readFileSync(join(process.cwd(), "src/components/studio/StudioExperience.tsx"), "utf8");
+  assert.equal(experienceSource.includes("initialIntent === \"create\""), true);
+  assert.equal(experienceSource.includes("New drill draft"), true);
+});
