@@ -29,6 +29,11 @@ type PoseCanvasProps = {
     fitMode: "contain" | "cover";
     offsetX: number;
     offsetY: number;
+    sourceCrop?: {
+      sx: number;
+      sy: number;
+      size: number;
+    } | null;
   } | null;
   showPoseLayer?: boolean;
   imageErrorMessage?: string | null;
@@ -141,7 +146,8 @@ export function PoseCanvas({
       x: (canvas.widthRef - imageWidth) / 2 + imageLayer.offsetX * canvas.widthRef,
       y: (canvas.heightRef - imageHeight) / 2 + imageLayer.offsetY * canvas.heightRef,
       width: imageWidth,
-      height: imageHeight
+      height: imageHeight,
+      sourceCrop: imageLayer.sourceCrop ?? null
     };
   }, [imageLayer, canvas.heightRef, canvas.widthRef]);
 
@@ -181,16 +187,29 @@ export function PoseCanvas({
         >
           <Grid width={canvas.widthRef} height={canvas.heightRef} />
 
-          {imageLayer && imagePlacement ? (
-            <image
-              href={imageLayer.src}
-              x={imagePlacement.x}
-              y={imagePlacement.y}
-              width={imagePlacement.width}
-              height={imagePlacement.height}
-              opacity={imageLayer.opacity}
-            />
-          ) : null}
+          {imageLayer && imagePlacement
+            ? imagePlacement.sourceCrop
+              ? (
+                  <image
+                    href={imageLayer.src}
+                    x={-(imagePlacement.sourceCrop.sx * (canvas.widthRef / imagePlacement.sourceCrop.size))}
+                    y={-(imagePlacement.sourceCrop.sy * (canvas.heightRef / imagePlacement.sourceCrop.size))}
+                    width={imageLayer.naturalWidth * (canvas.widthRef / imagePlacement.sourceCrop.size)}
+                    height={imageLayer.naturalHeight * (canvas.heightRef / imagePlacement.sourceCrop.size)}
+                    opacity={imageLayer.opacity}
+                  />
+                )
+              : (
+                  <image
+                    href={imageLayer.src}
+                    x={imagePlacement.x}
+                    y={imagePlacement.y}
+                    width={imagePlacement.width}
+                    height={imagePlacement.height}
+                    opacity={imageLayer.opacity}
+                  />
+                )
+            : null}
 
           {showPoseLayer
             ? displayConnections.map((segment) => (

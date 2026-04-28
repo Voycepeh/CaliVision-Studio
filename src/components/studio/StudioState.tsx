@@ -51,12 +51,13 @@ import {
 import { loadEditableVersionForDrill, loadVersionById, markVersionReady, validateVersionReadiness } from "@/lib/library";
 import { detectPoseFromImage, mapDetectionResultToPortablePose, type DetectionResult } from "@/lib/detection";
 import {
+  clampDetectionCropToImage,
   computeDetectionCropRectPx,
   createDefaultDetectionCrop,
-  mapDetectionResultFromCropToSource,
   normalizeDetectionCrop,
   type DetectionCropRectPx
 } from "@/lib/detection";
+import { createDefaultPhasePreviewFocus, normalizePhasePreviewFocus, type PreviewFocusState } from "@/lib/editor/phase-preview-focus";
 import { buildPhaseIndexMap, chooseFallbackPhaseId, type PreviousPhaseIndexMap } from "@/components/studio/studio-selection";
 import { normalizeBenchmarkPhases, normalizeDrillBenchmark, syncBenchmarkFromDrillPhases } from "@/lib/drills/benchmark";
 import {
@@ -110,22 +111,16 @@ export type DetectionWorkflowState = {
   message: string;
 };
 
-export type OverlayFitMode = "contain" | "cover";
-
 export type PhaseOverlayState = {
   showImage: boolean;
   showPose: boolean;
   imageOpacity: number;
-  fitMode: OverlayFitMode;
-  offsetX: number;
-  offsetY: number;
+  focusZoom: number;
+  focusCenterX: number;
+  focusCenterY: number;
 };
 
-export type PhasePreviewFocus = {
-  centerX: number;
-  centerY: number;
-  zoom: number;
-};
+export type PhasePreviewFocus = PreviewFocusState;
 
 export type PublishWorkflowState = {
   panelOpen: boolean;
@@ -231,9 +226,9 @@ const DEFAULT_PHASE_OVERLAY_STATE: PhaseOverlayState = {
   showImage: true,
   showPose: true,
   imageOpacity: 0.66,
-  fitMode: "contain",
-  offsetX: 0,
-  offsetY: 0
+  focusZoom: 1,
+  focusCenterX: 0.5,
+  focusCenterY: 0.5
 };
 
 const STUDIO_POSE_DETECTION_DEBUG_STORAGE_KEY = "studio.poseDetectionDebug";
@@ -1934,9 +1929,15 @@ export function StudioStateProvider({
           [scopeKey]: sourceImage
         };
       });
+      const defaultFocus = createDefaultPhasePreviewFocus(sourceImage.width, sourceImage.height);
       setPhaseOverlayState((current) => ({
         ...current,
-        [scopeKey]: DEFAULT_PHASE_OVERLAY_STATE
+        [scopeKey]: {
+          ...DEFAULT_PHASE_OVERLAY_STATE,
+          focusCenterX: defaultFocus.centerX,
+          focusCenterY: defaultFocus.centerY,
+          focusZoom: defaultFocus.zoom
+        }
       }));
 
       setPhaseDetectionState((current) => ({
@@ -1950,6 +1951,7 @@ export function StudioStateProvider({
 
       withPhaseUpdate(phaseId, (phase) => {
         phase.detectionCrop = createDefaultDetectionCrop();
+        (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = defaultFocus;
         const nextAsset = toPhaseAssetRef(phaseId, sourceImage);
         const existingIndex = phase.assetRefs.findIndex((asset) => asset.assetId === nextAsset.assetId);
 
@@ -2038,6 +2040,7 @@ export function StudioStateProvider({
     withPhaseUpdate(selectedPhaseId, (phase) => {
       removeTemporaryPhaseAssetRef(phase);
       delete phase.detectionCrop;
+      delete (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion;
     });
 
     if (existing) {
@@ -2054,33 +2057,59 @@ export function StudioStateProvider({
       return;
     }
 
-    setPhaseOverlayState((current) => ({
-      ...current,
-      [selectedScopeKey]: {
-        ...(current[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE),
-        ...partial
-      }
-    }));
+    const sourceImage = phaseSourceImages[selectedScopeKey];
+    const normalizedFocus = sourceImage
+      ? normalizePhasePreviewFocus({
+          centerX: partial.focusCenterX,
+          centerY: partial.focusCenterY,
+          zoom: partial.focusZoom
+        }, sourceImage.width, sourceImage.height)
+      : null;
+    const nextPartial = normalizedFocus
+      ? {
+          ...partial,
+          focusCenterX: normalizedFocus.centerX,
+          focusCenterY: normalizedFocus.centerY,
+          focusZoom: normalizedFocus.zoom
+        }
+      : partial;
 
-    const overlay = { ...(phaseOverlayState[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE), ...partial };
-    const focus: PhasePreviewFocus = {
-      centerX: Math.min(Math.max(0.5 + overlay.offsetX * 0.25, 0), 1),
-      centerY: Math.min(Math.max(0.5 + overlay.offsetY * 0.25, 0), 1),
-      zoom: overlay.fitMode === "cover" ? 1.28 : 1
-    };
+    setPhaseOverlayState((current) => {
+      const merged = {
+        ...(current[selectedScopeKey] ?? DEFAULT_PHASE_OVERLAY_STATE),
+        ...nextPartial
+      };
+      return {
+        ...current,
+        [selectedScopeKey]: merged
+      };
+    });
 
     withPhaseUpdate(selectedPhaseId, (phase) => {
+      const existing = (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion;
+      const focus = sourceImage
+        ? normalizePhasePreviewFocus({
+            centerX: nextPartial.focusCenterX ?? existing?.centerX ?? 0.5,
+            centerY: nextPartial.focusCenterY ?? existing?.centerY ?? 0.5,
+            zoom: nextPartial.focusZoom ?? existing?.zoom ?? 1
+          }, sourceImage.width, sourceImage.height)
+        : normalizePhasePreviewFocus({
+            centerX: nextPartial.focusCenterX ?? existing?.centerX ?? 0.5,
+            centerY: nextPartial.focusCenterY ?? existing?.centerY ?? 0.5,
+            zoom: nextPartial.focusZoom ?? existing?.zoom ?? 1
+          }, 16, 9);
+
       (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = focus;
     });
   }
 
   function setSelectedPhaseDetectionCrop(partial: Partial<PortablePhaseDetectionCrop>): void {
-    if (!selectedPhaseId) {
+    if (!selectedPhaseId || !selectedPhaseSourceImage) {
       return;
     }
 
     withPhaseUpdate(selectedPhaseId, (phase) => {
-      phase.detectionCrop = normalizeDetectionCrop({
+      phase.detectionCrop = clampDetectionCropToImage(selectedPhaseSourceImage.width, selectedPhaseSourceImage.height, {
         ...(phase.detectionCrop ?? createDefaultDetectionCrop()),
         ...partial
       });
@@ -2098,14 +2127,27 @@ export function StudioStateProvider({
   }
 
   function resetSelectedPhaseOverlayState(): void {
-    if (!selectedScopeKey) {
+    if (!selectedScopeKey || !selectedPhaseId) {
       return;
     }
 
+    const sourceImage = phaseSourceImages[selectedScopeKey];
+    const focus = sourceImage
+      ? createDefaultPhasePreviewFocus(sourceImage.width, sourceImage.height)
+      : createDefaultPhasePreviewFocus(16, 9);
     setPhaseOverlayState((current) => ({
       ...current,
-      [selectedScopeKey]: DEFAULT_PHASE_OVERLAY_STATE
+      [selectedScopeKey]: {
+        ...DEFAULT_PHASE_OVERLAY_STATE,
+        focusCenterX: focus.centerX,
+        focusCenterY: focus.centerY,
+        focusZoom: focus.zoom
+      }
     }));
+
+    withPhaseUpdate(selectedPhaseId, (phase) => {
+      (phase as PortablePhase & { focusRegion?: PhasePreviewFocus }).focusRegion = focus;
+    });
   }
 
   function openPublishPanel(): void {
@@ -2198,26 +2240,25 @@ export function StudioStateProvider({
         cropRect
       });
       const result = await detectPoseFromImage(croppedImage);
-      const remappedResult = mapDetectionResultFromCropToSource(result, sourceImage.width, sourceImage.height, cropRect);
       logPoseDetectionDebug("detector-result", {
         scopeKey,
-        status: remappedResult.status,
-        detectorImageWidth: remappedResult.metadata.imageWidth,
-        detectorImageHeight: remappedResult.metadata.imageHeight,
-        issues: remappedResult.issues.map((issue) => issue.code),
+        status: result.status,
+        detectorImageWidth: result.metadata.imageWidth,
+        detectorImageHeight: result.metadata.imageHeight,
+        issues: result.issues.map((issue) => issue.code),
         rawJointSample: Object.fromEntries(
-          Object.entries(remappedResult.joints)
+          Object.entries(result.joints)
             .slice(0, 6)
             .map(([joint, point]) => [joint, point ? { x: point.x, y: point.y, confidence: point.confidence } : null])
         )
       });
 
-      if (remappedResult.status === "failed") {
+      if (result.status === "failed") {
         setPhaseDetectionState((current) => ({
           ...current,
           [scopeKey]: {
             status: "failed",
-            result: remappedResult,
+            result,
             message: "Pose detection failed. Try another image or retry detection."
           }
         }));
@@ -2228,8 +2269,8 @@ export function StudioStateProvider({
         ...current,
         [scopeKey]: {
           status: "detected",
-          result: remappedResult,
-          message: `Detected pose ready (${remappedResult.coverage.detectedJoints}/${remappedResult.coverage.totalCanonicalJoints} joints). Apply as pose reference when ready.`
+          result,
+          message: `Detected pose ready (${result.coverage.detectedJoints}/${result.coverage.totalCanonicalJoints} joints). Apply as pose reference when ready.`
         }
       }));
     } catch (error) {

@@ -8,6 +8,7 @@ import { StudioReviewTabs } from "@/components/studio/StudioReviewTabs";
 import { StudioActionBar } from "@/components/studio/StudioActionBar";
 import { DetectionWorkflowPanel } from "@/components/studio/detection/DetectionWorkflowPanel";
 import { useStudioState } from "@/components/studio/StudioState";
+import { computeDetectionCropRectPx } from "@/lib/detection";
 import { getPrimaryDrill, getSortedPhases } from "@/lib/editor/package-editor";
 import { mapPortablePoseToCanvasPoseModel } from "@/lib/package/mapping/canvas-view-models";
 
@@ -77,7 +78,10 @@ export function StudioCenterInspector() {
     selectedPhaseSourceImage,
     selectedPhaseOverlayState,
     setSelectedPhaseOverlayState,
-    resetSelectedPhaseOverlayState
+    resetSelectedPhaseOverlayState,
+    applyDetectionToSelectedPhase,
+    clearSelectedPhasePoseReference,
+    selectedPhaseDetectionCrop
   } = useStudioState();
 
   const [activeStepOverride, setActiveStepOverride] = useState<number | null>(null);
@@ -227,96 +231,99 @@ export function StudioCenterInspector() {
           {isExpanded ? (
             <section className="card" style={{ display: "grid", gap: "0.55rem" }}>
               <h3 style={{ margin: 0, fontSize: "0.95rem" }}>Phase editor</h3>
-              <PoseCanvas
-                pose={poseModel}
-                title="Phase pose editor"
-                subtitle={`Phase ${phase.order}: ${phase.name}`}
-                selected
-                editable
-                selectedJointName={selectedJointName}
-                onJointSelect={selectJoint}
-                onJointMove={(joint, x, y) => setJointCoordinates(phase.phaseId, joint, x, y)}
-                showPoseLayer={selectedPhaseOverlayState.showPose}
-                sizeMode="balanced"
-                imageLayer={
-                  selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
-                    ? {
-                        src: selectedPhaseSourceImage.objectUrl,
-                        naturalWidth: selectedPhaseSourceImage.width,
-                        naturalHeight: selectedPhaseSourceImage.height,
-                        opacity: selectedPhaseOverlayState.imageOpacity,
-                        fitMode: selectedPhaseOverlayState.fitMode,
-                        offsetX: selectedPhaseOverlayState.offsetX,
-                        offsetY: selectedPhaseOverlayState.offsetY
-                      }
-                    : null
-                }
-              />
+              <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "upload" ? "upload" : null} />
 
-              <div className="studio-action-row studio-phase-actions">
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
-                  {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
-                </button>
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
-                  {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
-                </button>
-                <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlays</button>
-                <button type="button" onClick={() => closeInlineEditor()} className="studio-button studio-button-primary">Done</button>
-              </div>
+              <section className="card" style={{ display: "grid", gap: "0.45rem", padding: "0.6rem" }}>
+                <strong style={{ fontSize: "0.85rem" }}>B. Pose reference editor</strong>
+                <PoseCanvas
+                  pose={poseModel}
+                  title="Square pose canvas"
+                  subtitle={`Phase ${phase.order}: ${phase.name}`}
+                  selected
+                  editable
+                  selectedJointName={selectedJointName}
+                  onJointSelect={selectJoint}
+                  onJointMove={(joint, x, y) => setJointCoordinates(phase.phaseId, joint, x, y)}
+                  showPoseLayer={selectedPhaseOverlayState.showPose}
+                  sizeMode="default"
+                  imageLayer={
+                    selectedPhaseSourceImage && selectedPhaseOverlayState.showImage
+                      ? {
+                          src: selectedPhaseSourceImage.objectUrl,
+                          naturalWidth: selectedPhaseSourceImage.width,
+                          naturalHeight: selectedPhaseSourceImage.height,
+                          opacity: selectedPhaseOverlayState.imageOpacity,
+                          fitMode: "contain",
+                          offsetX: 0,
+                          offsetY: 0,
+                          sourceCrop: (() => {
+                            const cropRect = computeDetectionCropRectPx(selectedPhaseSourceImage.width, selectedPhaseSourceImage.height, selectedPhaseDetectionCrop);
+                            return { sx: cropRect.sx, sy: cropRect.sy, size: cropRect.size };
+                          })()
+                        }
+                      : null
+                  }
+                />
+                <div className="studio-action-row studio-phase-actions">
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showImage: !selectedPhaseOverlayState.showImage })} className="studio-button">
+                    {selectedPhaseOverlayState.showImage ? "Hide image" : "Show image"}
+                  </button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ showPose: !selectedPhaseOverlayState.showPose })} className="studio-button">
+                    {selectedPhaseOverlayState.showPose ? "Hide pose" : "Show pose"}
+                  </button>
+                  <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset overlays</button>
+                  <button type="button" onClick={() => applyDetectionToSelectedPhase()} className="studio-button studio-button-primary" disabled={selectedPhaseDetection.status !== "detected" && selectedPhaseDetection.status !== "applied"}>Apply as pose reference</button>
+                  <button type="button" onClick={() => closeInlineEditor()} className="studio-button studio-button-primary">Done</button>
+                  <button type="button" onClick={() => clearSelectedPhasePoseReference()} className="studio-button studio-button-danger" disabled={!phasePose}>Clear pose reference</button>
+                </div>
+              </section>
 
-              <div className="studio-action-row studio-phase-actions">
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ fitMode: selectedPhaseOverlayState.fitMode === "contain" ? "cover" : "contain" })} className="studio-button">
-                  Focus zoom: {selectedPhaseOverlayState.fitMode === "cover" ? "On" : "Off"}
-                </button>
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetX: Math.max(-0.6, selectedPhaseOverlayState.offsetX - 0.08) })} className="studio-button">← Focus</button>
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetX: Math.min(0.6, selectedPhaseOverlayState.offsetX + 0.08) })} className="studio-button">Focus →</button>
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetY: Math.max(-0.6, selectedPhaseOverlayState.offsetY - 0.08) })} className="studio-button">↑ Focus</button>
-                <button type="button" onClick={() => setSelectedPhaseOverlayState({ offsetY: Math.min(0.6, selectedPhaseOverlayState.offsetY + 0.08) })} className="studio-button">↓ Focus</button>
-              </div>
-              <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
-                Saved preview focus uses a 16:9 landscape frame so Exchange, Upload Video, and Live Streaming stay visually consistent.
-              </p>
-              {selectedPhaseSourceImage ? (
-                <div style={{ display: "grid", gap: "0.3rem", maxWidth: 360 }}>
-                  <strong style={{ fontSize: "0.82rem" }}>Landscape focus preview (16:9)</strong>
-                  <div
-                    style={{
-                      position: "relative",
-                      width: "100%",
-                      aspectRatio: "16 / 9",
-                      borderRadius: "0.55rem",
-                      overflow: "hidden",
-                      border: "1px solid rgba(148, 163, 184, 0.32)",
-                      background: "rgba(15, 23, 42, 0.9)"
-                    }}
-                  >
-                    <img
-                      src={selectedPhaseSourceImage.objectUrl}
-                      alt="Landscape focus preview"
-                      style={{
-                        position: "absolute",
-                        inset: 0,
-                        width: "100%",
-                        height: "100%",
-                        objectFit: selectedPhaseOverlayState.fitMode,
-                        objectPosition: `${50 + selectedPhaseOverlayState.offsetX * 38}% ${50 + selectedPhaseOverlayState.offsetY * 38}%`,
-                        opacity: selectedPhaseOverlayState.showImage ? Math.max(0.2, selectedPhaseOverlayState.imageOpacity) : 0.26
-                      }}
-                    />
+              <section className="card" style={{ display: "grid", gap: "0.45rem", padding: "0.6rem" }}>
+                <strong style={{ fontSize: "0.85rem" }}>C. Saved landscape preview</strong>
+                <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
+                  This only changes the saved preview framing, not pose detection.
+                </p>
+                <div className="studio-action-row studio-phase-actions">
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusZoom: selectedPhaseOverlayState.focusZoom + 0.12 })} className="studio-button">Focus zoom in</button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusZoom: selectedPhaseOverlayState.focusZoom - 0.12 })} className="studio-button">Focus zoom out</button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusCenterX: selectedPhaseOverlayState.focusCenterX - 0.06 })} className="studio-button">Focus left</button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusCenterX: selectedPhaseOverlayState.focusCenterX + 0.06 })} className="studio-button">Focus right</button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusCenterY: selectedPhaseOverlayState.focusCenterY - 0.06 })} className="studio-button">Focus up</button>
+                  <button type="button" onClick={() => setSelectedPhaseOverlayState({ focusCenterY: selectedPhaseOverlayState.focusCenterY + 0.06 })} className="studio-button">Focus down</button>
+                  <button type="button" onClick={() => resetSelectedPhaseOverlayState()} className="studio-button">Reset focus</button>
+                </div>
+                {selectedPhaseSourceImage ? (
+                  <div style={{ display: "grid", gap: "0.3rem", maxWidth: 360 }}>
+                    <strong style={{ fontSize: "0.82rem" }}>Landscape focus preview (16:9)</strong>
                     <div
                       style={{
-                        position: "absolute",
-                        inset: 0,
-                        border: "1px dashed rgba(191, 219, 254, 0.5)",
-                        pointerEvents: "none"
+                        position: "relative",
+                        width: "100%",
+                        aspectRatio: "16 / 9",
+                        borderRadius: "0.55rem",
+                        overflow: "hidden",
+                        border: "1px solid rgba(148, 163, 184, 0.32)",
+                        background: "rgba(15, 23, 42, 0.9)"
                       }}
-                    />
+                    >
+                      <img
+                        src={selectedPhaseSourceImage.objectUrl}
+                        alt="Landscape focus preview"
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "contain",
+                          transformOrigin: `${selectedPhaseOverlayState.focusCenterX * 100}% ${selectedPhaseOverlayState.focusCenterY * 100}%`,
+                          transform: `scale(${selectedPhaseOverlayState.focusZoom})`,
+                          opacity: selectedPhaseOverlayState.showImage ? Math.max(0.2, selectedPhaseOverlayState.imageOpacity) : 0.26
+                        }}
+                      />
+                    </div>
                   </div>
-                  <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
-                    This is the frame that will be used for saved landscape motion previews.
-                  </p>
-                </div>
-              ) : null}
+                ) : null}
+              </section>
 
               {selectedJointName ? (
                 <div className="studio-joint-nudge-panel">
@@ -341,7 +348,6 @@ export function StudioCenterInspector() {
                 <p className="muted" style={{ margin: 0 }}>{selectedPhaseDetection.message}</p>
               ) : null}
 
-              <DetectionWorkflowPanel phaseId={phase.phaseId} autoOpenSource={expandIntent === "upload" ? "upload" : null} />
             </section>
           ) : null}
         </div>
