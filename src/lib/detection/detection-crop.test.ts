@@ -3,6 +3,8 @@ import test from "node:test";
 
 import {
   clampDetectionCropToImage,
+  clampZoom,
+  computeContainZoomForSquareFrame,
   computeDetectionCropRectPx,
   createDefaultDetectionCrop,
   mapDetectionResultFromCropToSource,
@@ -80,4 +82,13 @@ test("clampDetectionCropToImage keeps center in-bounds for high zoom", () => {
   assert.ok(Math.abs(clamped.centerY - expectedCenterY) < 0.000001);
   assert.equal(rect.sx >= 0 && rect.sx + rect.size <= 1920, true);
   assert.equal(rect.sy >= 0 && rect.sy + rect.size <= 1080, true);
+});
+
+test("detection crop zoom out supports contain-fit minimum for portrait source images", () => {
+  const containZoom = computeContainZoomForSquareFrame(1080, 1920);
+  assert.ok(Math.abs(containZoom - 0.5625) < 0.000001);
+  assert.equal(clampZoom(0.1, 1080, 1920), containZoom);
+
+  const rect = computeDetectionCropRectPx(1080, 1920, normalizeDetectionCrop({ zoom: containZoom }));
+  assert.ok(Math.abs(rect.size - 1920) < 0.000001);
 });

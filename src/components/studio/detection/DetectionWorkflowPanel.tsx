@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useStudioState } from "@/components/studio/StudioState";
 import { clampDetectionCropToImage, computeDetectionCropRectPx } from "@/lib/detection";
-import { getSortedPhases } from "@/lib/editor/package-editor";
 
 const PAN_STEP = 0.05;
 const ZOOM_STEP = 0.2;
@@ -20,13 +19,9 @@ export function DetectionWorkflowPanel({
     selectedPhaseSourceImage,
     selectedPhaseDetection,
     selectedPhaseDetectionCrop,
-    selectedPackage,
-    selectedPhaseId,
     setSelectedPhaseImage,
     clearSelectedPhaseImage,
     runPoseDetectionForSelectedPhase,
-    applyDetectionToSelectedPhase,
-    clearSelectedPhasePoseReference,
     setSelectedPhaseDetectionCrop,
     resetSelectedPhaseDetectionCrop
   } = useStudioState();
@@ -43,10 +38,6 @@ export function DetectionWorkflowPanel({
     }
   }, [autoOpenSource, phaseId]);
 
-  const selectedPhase = selectedPackage
-    ? getSortedPhases(selectedPackage.workingPackage).find((phase) => phase.phaseId === selectedPhaseId) ?? null
-    : null;
-  const hasPoseReference = Boolean(selectedPhase?.poseSequence[0]);
   const hasDetectedPose = selectedPhaseDetection.status === "detected" || selectedPhaseDetection.status === "applied";
   const cropRect = useMemo(
     () => selectedPhaseSourceImage
@@ -110,6 +101,7 @@ export function DetectionWorkflowPanel({
 
   return (
     <section className="card" style={{ display: "grid", gap: "0.6rem" }}>
+      <h4 style={{ margin: 0, fontSize: "0.9rem" }}>A. Source image and detection crop</h4>
       <div className="studio-action-row">
         <label style={labelStyle}>
           <span>Source image</span>
@@ -130,27 +122,19 @@ export function DetectionWorkflowPanel({
           />
         </label>
 
-        <button type="button" onClick={() => clearSelectedPhaseImage()} className="studio-button" disabled={!selectedPhaseSourceImage}>
+        <button type="button" onClick={() => clearSelectedPhaseImage()} className="studio-button studio-button-danger" disabled={!selectedPhaseSourceImage}>
           Clear source image
         </button>
 
-        <button type="button" onClick={() => void runPoseDetectionForSelectedPhase()} className="studio-button" disabled={!selectedPhaseSourceImage}>
+        <button type="button" onClick={() => void runPoseDetectionForSelectedPhase()} className="studio-button studio-button-primary" disabled={!selectedPhaseSourceImage}>
           {selectedPhaseDetection.status === "failed" ? "Retry detection" : "Detect pose"}
-        </button>
-
-        <button type="button" onClick={() => applyDetectionToSelectedPhase()} className="studio-button studio-button-primary" disabled={!hasDetectedPose}>
-          Apply as pose reference
-        </button>
-
-        <button type="button" onClick={() => clearSelectedPhasePoseReference()} className="studio-button studio-button-danger" disabled={!hasPoseReference}>
-          Clear pose reference
         </button>
       </div>
 
       {selectedPhaseSourceImage ? (
         <div style={{ display: "grid", gap: "0.5rem" }}>
           <p className="muted" style={{ margin: 0 }}>
-            Use the square detection crop to isolate the athlete; tighter framing with less background clutter can improve pose detection.
+            This crop is only used for pose detection.
           </p>
           <div className="studio-detection-crop-layout">
             <div
@@ -302,11 +286,7 @@ export function DetectionWorkflowPanel({
       <p className="muted" style={{ margin: 0 }}>
         {selectedPhaseDetection.message}
       </p>
-      {hasPoseReference ? (
-        <p className="muted" style={{ margin: 0 }}>
-          Pose reference saved.
-        </p>
-      ) : null}
+      {hasDetectedPose ? <p className="muted" style={{ margin: 0 }}>Detected pose is ready for the square pose editor.</p> : null}
     </section>
   );
 }
