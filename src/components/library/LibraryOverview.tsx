@@ -485,14 +485,14 @@ export function LibraryOverview() {
                   }}
                   onClick={() => setSelectedDrillId(drill.drillId)}
                 >
-                  <div style={rowTitleWrapStyle}>
+                  <div style={cardBodyStyle}>
                     <div style={thumbnailShellStyle}>
                       {previewDrill ? (
                         <DrillVisualPreview
                           drill={previewDrill}
                           assets={workflowSourceVersion.packageJson.assets}
                           variant="myDrillsCard"
-                          width={200}
+                          width={180}
                           showMotionPreview
                           motionMode="badge"
                         />
@@ -503,13 +503,12 @@ export function LibraryOverview() {
                       )}
                     </div>
                     <div style={rowTitleMetaStyle}>
-                      <strong style={{ fontSize: "1rem" }}>{drill.title}</strong>
-                      <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-                        Source: {signedInMode ? "Cloud workspace" : "Browser workspace"}
-                      </p>
-                      <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
-                        Updated {new Date(drill.updatedAtIso).toLocaleString()}
-                      </p>
+                      <div style={titleStackStyle}>
+                        <strong style={{ fontSize: "1rem" }}>{drill.title}</strong>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.78rem" }}>
+                          Source: {signedInMode ? "Cloud workspace" : "Browser workspace"} • Updated {new Date(drill.updatedAtIso).toLocaleString()} • Version v{workflowSourceVersion.versionNumber}
+                        </p>
+                      </div>
                       <div style={statusChipRowStyle}>
                         <span style={statusChipStyle(drill.activeReadyVersion ? "ready" : "neutral")}>
                           Ready {drill.activeReadyVersion ? `v${drill.activeReadyVersion.versionNumber}` : "none"}
@@ -526,33 +525,71 @@ export function LibraryOverview() {
                           </span>
                         ) : null}
                       </div>
-                      {exchangePublication ? (
-                        <p className="muted" style={{ margin: 0, fontSize: "0.76rem" }}>
-                          Exchange version ID: {exchangePublication.sourceVersionId}
-                          {exchangePublication.visibilityStatus === "published" ? (
-                            <>
-                              {" "}• <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
-                            </>
+
+                      <section style={actionGroupStyle}>
+                        <p style={actionGroupLabelStyle}>Primary actions</p>
+                        <div style={compactActionRowStyle}>
+                          <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
+                            Upload Video
+                          </button>
+                          <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coaching…", () => onOpenWorkflow(drill, "live"))}>
+                            Live Coaching
+                          </button>
+                          <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
+                            Edit in Studio
+                          </button>
+                        </div>
+                      </section>
+
+                      <section style={manageGroupStyle}>
+                        <p style={actionGroupLabelStyle}>Manage drill</p>
+                        <div style={compactActionRowStyle}>
+                          <button
+                            type="button"
+                            style={chipStyle(false)}
+                            aria-expanded={previewDrillId === drill.drillId}
+                            onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
+                          >
+                            {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
+                          </button>
+                          <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
+                            Mark Ready
+                          </button>
+                          <button
+                            type="button"
+                            style={chipStyle(false)}
+                            onClick={() => {
+                              setPublishDraftByDrillId((current) => current[drill.drillId] ? current : { ...current, [drill.drillId]: buildPublishDraftFromDrill(drill) });
+                              setPublishTargetDrillId((current) => (current === drill.drillId ? null : drill.drillId));
+                            }}
+                          >
+                            {publishTargetDrillId === drill.drillId ? "Hide Publish Details" : "Publish"}
+                          </button>
+                          <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
+                            Export drill file
+                          </button>
+                          <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`delete:${drill.drillId}`, "Deleting drill…", () => onDeleteDrill(drill))}>
+                            Delete
+                          </button>
+                          {exchangePublication?.visibilityStatus === "published" ? (
+                            <button
+                              type="button"
+                              style={chipStyle(false)}
+                              onClick={() => void runItemAction(`exchange-remove:${drill.drillId}`, "Removing from public…", () => onRemoveFromPublic(exchangePublication))}
+                            >
+                              Remove from Public
+                            </button>
                           ) : null}
-                        </p>
-                      ) : null}
+                        </div>
+                        {exchangePublication?.visibilityStatus === "published" ? (
+                          <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>
+                            <Link href={`/marketplace/${encodeURIComponent(exchangePublication.slug)}`} style={tertiaryLinkStyle}>View in Exchange</Link>
+                          </p>
+                        ) : null}
+                      </section>
                     </div>
                   </div>
 
-                  <section style={actionGroupStyle}>
-                    <p style={actionGroupLabelStyle}>Primary actions</p>
-                    <div style={compactActionRowStyle}>
-                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`upload:${drill.drillId}`, "Opening Upload Video…", () => onOpenWorkflow(drill, "upload"))}>
-                        Upload Video
-                      </button>
-                      <button type="button" style={primaryActionChipStyle} onClick={() => void runItemAction(`live:${drill.drillId}`, "Opening Live Coaching…", () => onOpenWorkflow(drill, "live"))}>
-                        Live Coaching
-                      </button>
-                      <button type="button" style={chipStyle(true)} onClick={() => void runItemAction(`drill:${drill.drillId}`, "Opening Studio…", () => onOpenForEdit(drill))}>
-                        Edit in Studio
-                      </button>
-                    </div>
-                  </section>
                   {previewDrillId === drill.drillId && previewDrill ? (
                     <section style={previewPanelStyle}>
                       <DrillSelectionPreviewPanel
@@ -565,48 +602,6 @@ export function LibraryOverview() {
                       />
                     </section>
                   ) : null}
-
-                  <section style={manageGroupStyle}>
-                    <p style={actionGroupLabelStyle}>Manage drill</p>
-                    <div style={compactActionRowStyle}>
-                      <button
-                        type="button"
-                        style={chipStyle(false)}
-                        aria-expanded={previewDrillId === drill.drillId}
-                        onClick={() => setPreviewDrillId((current) => (current === drill.drillId ? null : drill.drillId))}
-                      >
-                        {previewDrillId === drill.drillId ? "Hide Preview" : "Preview"}
-                      </button>
-                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`ready:${drill.drillId}`, "Marking ready…", () => onMarkReady(drill))}>
-                        Mark Ready
-                      </button>
-                      <button
-                        type="button"
-                        style={chipStyle(false)}
-                        onClick={() => {
-                          setPublishDraftByDrillId((current) => current[drill.drillId] ? current : { ...current, [drill.drillId]: buildPublishDraftFromDrill(drill) });
-                          setPublishTargetDrillId((current) => (current === drill.drillId ? null : drill.drillId));
-                        }}
-                      >
-                        {publishTargetDrillId === drill.drillId ? "Hide Publish Details" : "Publish"}
-                      </button>
-                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`export:${drill.drillId}`, "Exporting drill file…", () => onExportDrillFile(`drill:${drill.drillId}`, drill.activeReadyVersion ?? drill.currentVersion))}>
-                        Export drill file
-                      </button>
-                      <button type="button" style={chipStyle(false)} onClick={() => void runItemAction(`delete:${drill.drillId}`, "Deleting drill…", () => onDeleteDrill(drill))}>
-                        Delete
-                      </button>
-                      {exchangePublication?.visibilityStatus === "published" ? (
-                        <button
-                          type="button"
-                          style={chipStyle(false)}
-                          onClick={() => void runItemAction(`exchange-remove:${drill.drillId}`, "Removing from public…", () => onRemoveFromPublic(exchangePublication))}
-                        >
-                          Remove from Public
-                        </button>
-                      ) : null}
-                    </div>
-                  </section>
                   {publishTargetDrillId === drill.drillId ? (
                     <section className="card" style={{ margin: 0, display: "grid", gap: "0.35rem" }}>
                       <strong>Publish metadata</strong>
@@ -650,9 +645,15 @@ export function LibraryOverview() {
                     </section>
                   ) : null}
 
-                  <details>
-                    <summary style={{ cursor: "pointer" }}>Advanced details</summary>
+                  <details style={advancedDetailsStyle}>
+                    <summary style={advancedSummaryStyle}>Advanced details</summary>
                     <div style={{ display: "grid", gap: "0.35rem", marginTop: "0.35rem" }}>
+                      <strong style={{ fontSize: "0.82rem" }}>Technical IDs</strong>
+                      <div style={{ display: "grid", gap: "0.2rem" }}>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>Drill ID: {drill.drillId}</p>
+                        <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>Current version ID: {drill.currentVersion.versionId}</p>
+                        {exchangePublication ? <p className="muted" style={{ margin: 0, fontSize: "0.74rem" }}>Exchange version ID: {exchangePublication.sourceVersionId}</p> : null}
+                      </div>
                       <strong style={{ fontSize: "0.82rem" }}>Version history</strong>
                       <div style={{ display: "grid", gap: "0.28rem" }}>
                         {versions
@@ -741,23 +742,26 @@ function InlineItemFeedback({ itemId, pending, success, error }: { itemId: strin
 }
 
 const listStackStyle: CSSProperties = { display: "grid", gap: "0.35rem" };
-const listCardStyle: CSSProperties = { margin: 0, padding: "0.62rem", display: "grid", gap: "0.4rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
-const rowTitleWrapStyle: CSSProperties = { display: "flex", gap: "0.65rem", flexWrap: "wrap", alignItems: "flex-start" };
-const rowTitleMetaStyle: CSSProperties = { display: "grid", gap: "0.2rem", flex: "1 1 280px", minWidth: "min(100%, 260px)" };
-const thumbnailShellStyle: CSSProperties = { flex: "0 0 auto", width: "min(100%, 152px)" };
-const thumbnailFallbackStyle: CSSProperties = { width: "152px", height: "86px", borderRadius: "0.55rem", border: "1px dashed var(--border)", display: "grid", placeItems: "center", background: "var(--panel-soft)", fontSize: "0.72rem" };
-const statusChipRowStyle: CSSProperties = { display: "flex", gap: "0.28rem", flexWrap: "wrap", marginTop: "0.08rem" };
+const listCardStyle: CSSProperties = { margin: 0, padding: "0.75rem", display: "grid", gap: "0.55rem", background: "linear-gradient(180deg, rgba(19, 28, 42, 0.95), rgba(15, 21, 32, 0.95))" };
+const cardBodyStyle: CSSProperties = { display: "flex", gap: "0.85rem", flexWrap: "wrap", alignItems: "flex-start" };
+const rowTitleMetaStyle: CSSProperties = { display: "grid", gap: "0.5rem", flex: "1 1 360px", minWidth: "min(100%, 260px)" };
+const titleStackStyle: CSSProperties = { display: "grid", gap: "0.22rem" };
+const thumbnailShellStyle: CSSProperties = { flex: "0 0 auto", width: "100%", maxWidth: "180px", alignSelf: "flex-start" };
+const thumbnailFallbackStyle: CSSProperties = { width: "180px", maxWidth: "100%", aspectRatio: "16 / 9", borderRadius: "0.75rem", border: "1px dashed var(--border)", display: "grid", placeItems: "center", background: "rgba(2, 6, 23, 0.55)", fontSize: "0.72rem" };
+const statusChipRowStyle: CSSProperties = { display: "flex", gap: "0.32rem", flexWrap: "wrap" };
 const emptyStateStyle: CSSProperties = { margin: 0, border: "1px dashed var(--border)", borderRadius: "0.7rem", padding: "0.55rem", background: "rgba(19, 28, 42, 0.45)" };
 const compactActionRowStyle: CSSProperties = { display: "flex", gap: "0.35rem", flexWrap: "wrap", alignItems: "center" };
-const previewPanelStyle: CSSProperties = { marginTop: "0.15rem", width: "min(100%, 460px)" };
-const actionGroupStyle: CSSProperties = { display: "grid", gap: "0.28rem", marginTop: "0.08rem" };
-const manageGroupStyle: CSSProperties = { display: "grid", gap: "0.28rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "0.42rem" };
+const previewPanelStyle: CSSProperties = { marginTop: "0.1rem", width: "min(100%, 520px)" };
+const actionGroupStyle: CSSProperties = { display: "grid", gap: "0.32rem" };
+const manageGroupStyle: CSSProperties = { display: "grid", gap: "0.3rem", borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "0.46rem" };
 const actionGroupLabelStyle: CSSProperties = { margin: 0, fontSize: "0.72rem", letterSpacing: "0.03em", textTransform: "uppercase", color: "var(--muted)" };
 const filtersRowStyle: CSSProperties = { display: "flex", gap: "0.45rem", alignItems: "end", flexWrap: "wrap" };
 const labelStyle: CSSProperties = { display: "grid", gap: "0.18rem", color: "var(--muted)", fontSize: "0.8rem" };
 const inputStyle: CSSProperties = { border: "1px solid var(--border)", borderRadius: "0.52rem", padding: "0.38rem 0.5rem", background: "var(--panel-soft)", color: "var(--text)", width: "100%" };
 const primaryButtonStyle: CSSProperties = { ...chipStyle(true), color: "var(--text)", borderColor: "rgba(114, 168, 255, 0.65)", background: "var(--accent-soft)", fontWeight: 600 };
 const tertiaryLinkStyle: CSSProperties = { color: "var(--muted)", textDecoration: "none", fontSize: "0.78rem", paddingInline: "0.2rem" };
+const advancedDetailsStyle: CSSProperties = { borderTop: "1px solid rgba(255, 255, 255, 0.07)", paddingTop: "0.38rem" };
+const advancedSummaryStyle: CSSProperties = { cursor: "pointer", color: "var(--muted)", fontSize: "0.78rem", fontWeight: 500 };
 const noticeBaseStyle: CSSProperties = { margin: 0, fontSize: "0.76rem", borderRadius: "0.45rem", padding: "0.3rem 0.4rem", border: "1px solid" };
 const errorNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#f6cbcb", borderColor: "rgba(255, 120, 120, 0.55)", background: "rgba(120, 23, 23, 0.3)" };
 const successNoticeStyle: CSSProperties = { ...noticeBaseStyle, color: "#d2f5da", borderColor: "rgba(100, 198, 132, 0.55)", background: "rgba(28, 72, 36, 0.33)" };
